@@ -1,0 +1,2933 @@
+[
+    {
+        "if": "$get(meeting_subtype).value === 'accountability_meeting_1' || $get(meeting_subtype).value === 'socialization_aldeia' || $get(meeting_subtype).value === 'socialization_municipality' || $get(meeting_subtype).value === 'nomination_ejs_aldeia' || $get(meeting_type).value === 'training' || $get(meeting_subtype).value === 'socialization_suco' || $get(meeting_subtype).value === 'nomination_ejs_suku' || $get(meeting_subtype).value === 'determination_priorities_aldeia' || $get(meeting_subtype).value === 'accountability_meeting_2' || $get(meeting_subtype).value === 'determination_priorities_aldeia_female' || $get(meeting_subtype).value === 'socialization_adminpost'",
+        "id": "total_female",
+        "name": "total_female",
+        "key": "total_female",
+        "label": "Total partisipante feto",
+        "$formkit": "number"
+    },
+    {
+        "if": "$get(meeting_subtype).value === 'accountability_meeting_1' || $get(meeting_subtype).value === 'socialization_aldeia' || $get(meeting_subtype).value === 'socialization_municipality' || $get(meeting_subtype).value === 'nomination_ejs_aldeia' || $get(meeting_type).value === 'training' || $get(meeting_subtype).value === 'socialization_suco' || $get(meeting_subtype).value === 'nomination_ejs_suku' || $get(meeting_subtype).value === 'determination_priorities_aldeia' || $get(meeting_subtype).value === 'accountability_meeting_2' || $get(meeting_subtype).value === 'determination_priorities_aldeia_female' || $get(meeting_subtype).value === 'socialization_adminpost'",
+        "id": "total_male",
+        "name": "total_male",
+        "key": "total_male",
+        "label": "Total partisipante mane",
+        "$formkit": "number"
+    },
+    {
+        "id": "ejs_counts",
+        "name": "ejs_counts",
+        "key": "ejs_counts",
+        "label": "Partisipantes Ekipa Jestaun Suku (EJS)",
+        "$formkit": "number"
+    },
+    {
+        "if": "$get(meeting_subtype).value === 'accountability_meeting_1' || $get(meeting_subtype).value === 'socialization_aldeia' || $get(meeting_subtype).value === 'nomination_ejs_aldeia' || $get(meeting_type).value === 'training' || $get(meeting_subtype).value === 'socialization_suco' || $get(meeting_subtype).value === 'nomination_ejs_suku' || $get(meeting_subtype).value === 'determination_priorities_aldeia' || $get(meeting_subtype).value === 'accountability_meeting_2' || $get(meeting_subtype).value === 'determination_priorities_aldeia_female'",
+        "id": "ejs_female",
+        "name": "ejs_female",
+        "key": "ejs_female",
+        "label": "Ekipa Jestaun Suku (EJS) feto",
+        "$formkit": "number"
+    },
+    {
+        "if": "$get(meeting_subtype).value === 'accountability_meeting_1' || $get(meeting_subtype).value === 'socialization_aldeia' || $get(meeting_subtype).value === 'nomination_ejs_aldeia' || $get(meeting_type).value === 'training' || $get(meeting_subtype).value === 'socialization_suco' || $get(meeting_subtype).value === 'nomination_ejs_suku' || $get(meeting_subtype).value === 'determination_priorities_aldeia' || $get(meeting_subtype).value === 'accountability_meeting_2' || $get(meeting_subtype).value === 'determination_priorities_aldeia_female'",
+        "id": "ejs_male",
+        "name": "ejs_male",
+        "key": "ejs_male",
+        "label": "Ekipa Jestaun Suku (EJS) mane",
+        "$formkit": "number"
+    },
+    {
+        "id": "ehd_counts",
+        "name": "ehd_counts",
+        "key": "ehd_counts",
+        "label": "Partisipantes ho Defisiensia (EhD)",
+        "$formkit": "number"
+    },
+    {
+        "if": "$get(meeting_subtype).value === 'accountability_meeting_1' || $get(meeting_subtype).value === 'socialization_aldeia' || $get(meeting_subtype).value === 'socialization_municipality' || $get(meeting_subtype).value === 'nomination_ejs_aldeia' || $get(meeting_type).value === 'training' || $get(meeting_subtype).value === 'socialization_suco' || $get(meeting_subtype).value === 'nomination_ejs_suku' || $get(meeting_subtype).value === 'determination_priorities_aldeia' || $get(meeting_subtype).value === 'accountability_meeting_2' || $get(meeting_subtype).value === 'determination_priorities_aldeia_female' || $get(meeting_subtype).value === 'socialization_adminpost'",
+        "id": "ehd_female",
+        "name": "ehd_female",
+        "key": "ehd_female",
+        "label": "Ema ho Defisiensia (EhD) feto",
+        "$formkit": "number"
+    },
+    {
+        "if": "$get(meeting_subtype).value === 'accountability_meeting_1' || $get(meeting_subtype).value === 'socialization_aldeia' || $get(meeting_subtype).value === 'socialization_municipality' || $get(meeting_subtype).value === 'nomination_ejs_aldeia' || $get(meeting_type).value === 'training' || $get(meeting_subtype).value === 'socialization_suco' || $get(meeting_subtype).value === 'nomination_ejs_suku' || $get(meeting_subtype).value === 'determination_priorities_aldeia' || $get(meeting_subtype).value === 'accountability_meeting_2' || $get(meeting_subtype).value === 'determination_priorities_aldeia_female' || $get(meeting_subtype).value === 'socialization_adminpost'",
+        "id": "ehd_male",
+        "name": "ehd_male",
+        "key": "ehd_male",
+        "label": "Ema ho Defisiensia (EhD) mane",
+        "$formkit": "number"
+    },
+    {
+        "id": "community_counts",
+        "name": "community_counts",
+        "key": "community_counts",
+        "label": "Partisipantes Membrus Komunidade",
+        "$formkit": "number"
+    },
+    {
+        "if": "$get(meeting_subtype).value === 'accountability_meeting_1' || $get(meeting_subtype).value === 'socialization_aldeia' || $get(meeting_subtype).value === 'nomination_ejs_aldeia' || $get(meeting_type).value === 'training' || $get(meeting_subtype).value === 'socialization_suco' || $get(meeting_subtype).value === 'nomination_ejs_suku' || $get(meeting_subtype).value === 'determination_priorities_aldeia' || $get(meeting_subtype).value === 'accountability_meeting_2' || $get(meeting_subtype).value === 'determination_priorities_aldeia_female'",
+        "id": "community_female",
+        "name": "community_female",
+        "key": "community_female",
+        "label": "Membru komunidade feto",
+        "$formkit": "number"
+    },
+    {
+        "if": "$get(meeting_subtype).value === 'accountability_meeting_1' || $get(meeting_subtype).value === 'socialization_aldeia' || $get(meeting_subtype).value === 'nomination_ejs_aldeia' || $get(meeting_type).value === 'training' || $get(meeting_subtype).value === 'socialization_suco' || $get(meeting_subtype).value === 'nomination_ejs_suku' || $get(meeting_subtype).value === 'determination_priorities_aldeia' || $get(meeting_subtype).value === 'accountability_meeting_2' || $get(meeting_subtype).value === 'determination_priorities_aldeia_female'",
+        "id": "community_male",
+        "name": "community_male",
+        "key": "community_male",
+        "label": "Membru komunidade mane",
+        "$formkit": "number"
+    },
+    {
+        "id": "meeting_type",
+        "name": "meeting_type",
+        "options": {
+            "socialization": "Socialization",
+            "training": "Training"
+        },
+        "$formkit": "select"
+    },
+    {
+        "if": "$get(meeting_type).value === socialization",
+        "id": "meeting_subtype",
+        "name": "meeting_subtype",
+        "options": {
+            "socialization_municipality": "Socialization (municipality)",
+            "socialization_adminpost": "Socialization (administrative post)",
+            "socialization_suco": "Socialization (suco)",
+            "socialization_aldeia": "Socialization (aldeia)",
+            "nomination_ejs_suku": "EJS nomination (suco)",
+            "nomination_ejs_aldeia": "EJS nomination (aldeia)",
+            "signing_annual_subsidy_accord": "Signing of annual subsidy accord",
+            "determination_priorities_suco": "Determination of priorities (suco)",
+            "determination_priorities_aldeia": "Determination of priorities (aldeia)",
+            "determination_priorities_aldeia_female": "Determination of priorities (aldeia-female)",
+            "signing_project_implementation_accord": "Signing of project implementation accord",
+            "accountability_meeting_1": "Accountability meeting 1",
+            "accountability_meeting_2": "Accountability meeting 2"
+        },
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(meeting_type).value === training",
+        "id": "meeting_subtype",
+        "name": "meeting_subtype",
+        "options": {
+            "planning_introduction": "Module A - Introduction and Planning",
+            "female_capacitation_1": "Module B - Capacitation for Women 1",
+            "guidelines_facilitator_suku": "Module C - Suku Facilitator Guidelines",
+            "finance_management_1": "Module D - Finance Management 1",
+            "prepare_proposal": "Module E - Proposal Preparation",
+            "female_capacitation_2": "Module F - Capacitation for Women 2",
+            "construction_management": "Module G - Construction Management",
+            "finance_management_2": "Module H - Finance Management 2",
+            "monitoring_accountancy": "Module I - Monitoring and Accountancy",
+            "operation_maitenance": "Module J - Operation and Maintenance",
+            "finance_management_3": "Module K - Finance Management 3",
+            "monitoring_om": "Module L - Operation and Monitoring"
+        },
+        "$formkit": "radio"
+    },
+    {
+        "id": "district",
+        "label": "Select District",
+        "placeholder": "Select District",
+        "options": [
+            {
+                "value": 2,
+                "label": "AILEU"
+            },
+            {
+                "value": 1,
+                "label": "AINARO"
+            },
+            {
+                "value": 3,
+                "label": "BAUCAU"
+            },
+            {
+                "value": 4,
+                "label": "BOBONARO"
+            },
+            {
+                "value": 5,
+                "label": "COVALIMA"
+            },
+            {
+                "value": 7,
+                "label": "ERMERA"
+            },
+            {
+                "value": 8,
+                "label": "LIQUICA"
+            },
+            {
+                "value": 11,
+                "label": "MANATUTO"
+            },
+            {
+                "value": 10,
+                "label": "MANUFAHI"
+            },
+            {
+                "value": 12,
+                "label": "OECUSSE"
+            },
+            {
+                "value": 13,
+                "label": "VIQUEQUE"
+            },
+            {
+                "value": 6,
+                "label": "DILI"
+            },
+            {
+                "value": 9,
+                "label": "LAUTEM"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 2",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 201,
+                "label": "Aileu vila"
+            },
+            {
+                "value": 204,
+                "label": "Laulara"
+            },
+            {
+                "value": 202,
+                "label": "Liquidoe"
+            },
+            {
+                "value": 203,
+                "label": "Remexio"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 2 && $get(subdistrict).value === 201",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 20110,
+                "label": "Saboria"
+            },
+            {
+                "value": 20101,
+                "label": "Aisirimou"
+            },
+            {
+                "value": 20109,
+                "label": "Seloi Craic"
+            },
+            {
+                "value": 20103,
+                "label": "Fahiria"
+            },
+            {
+                "value": 20108,
+                "label": "Seloi Malere"
+            },
+            {
+                "value": 20111,
+                "label": "Suco Liurai"
+            },
+            {
+                "value": 20107,
+                "label": "Hoholau"
+            },
+            {
+                "value": 20102,
+                "label": "Bandudato"
+            },
+            {
+                "value": 20105,
+                "label": "Lahae"
+            },
+            {
+                "value": 20106,
+                "label": "Lausi"
+            },
+            {
+                "value": 20104,
+                "label": "Fatubosa"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 2 && $get(subdistrict).value === 204",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 20402,
+                "label": "Talitu"
+            },
+            {
+                "value": 20401,
+                "label": "Cotolau"
+            },
+            {
+                "value": 20405,
+                "label": "Fatisi"
+            },
+            {
+                "value": 20404,
+                "label": "Tohumeta"
+            },
+            {
+                "value": 20403,
+                "label": "Madabeno"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 2 && $get(subdistrict).value === 202",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 20206,
+                "label": "Fahisoi"
+            },
+            {
+                "value": 20204,
+                "label": "Faturilau"
+            },
+            {
+                "value": 20202,
+                "label": "Acubilitoho"
+            },
+            {
+                "value": 20207,
+                "label": "Manucasa"
+            },
+            {
+                "value": 20201,
+                "label": "Namoleso"
+            },
+            {
+                "value": 20205,
+                "label": "Bereleu"
+            },
+            {
+                "value": 20203,
+                "label": "Betulau"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 2 && $get(subdistrict).value === 203",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 20303,
+                "label": "Suco-Liurai"
+            },
+            {
+                "value": 20301,
+                "label": "Acumau"
+            },
+            {
+                "value": 20302,
+                "label": "Tulataqueo"
+            },
+            {
+                "value": 20304,
+                "label": "Faturasa"
+            },
+            {
+                "value": 20305,
+                "label": "Fadabloco"
+            },
+            {
+                "value": 20308,
+                "label": "Fahisoi"
+            },
+            {
+                "value": 20307,
+                "label": "Hautoho"
+            },
+            {
+                "value": 20306,
+                "label": "Maumeta"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 1",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 101,
+                "label": "Ainaro"
+            },
+            {
+                "value": 102,
+                "label": "Hatu-Builico"
+            },
+            {
+                "value": 104,
+                "label": "Hatu-Udo"
+            },
+            {
+                "value": 103,
+                "label": "Maubisse"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 1 && $get(subdistrict).value === 101",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 10104,
+                "label": "Manutasi"
+            },
+            {
+                "value": 10101,
+                "label": "Ainaro"
+            },
+            {
+                "value": 10106,
+                "label": "Mau-Ulo"
+            },
+            {
+                "value": 10103,
+                "label": "Soro"
+            },
+            {
+                "value": 10107,
+                "label": "Mau-Nuno"
+            },
+            {
+                "value": 10102,
+                "label": "Suro-Craic"
+            },
+            {
+                "value": 10105,
+                "label": "Cassa"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 1 && $get(subdistrict).value === 102",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 10202,
+                "label": "Nuno-Mogue"
+            },
+            {
+                "value": 10201,
+                "label": "Mulo"
+            },
+            {
+                "value": 10203,
+                "label": "Mau-Chiga"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 1 && $get(subdistrict).value === 104",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 10401,
+                "label": "Leolima"
+            },
+            {
+                "value": 10402,
+                "label": "Foho-ai-Lico"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 1 && $get(subdistrict).value === 103",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 10306,
+                "label": "Maulau"
+            },
+            {
+                "value": 10309,
+                "label": "Fatu-Besi"
+            },
+            {
+                "value": 10302,
+                "label": "Manelobas"
+            },
+            {
+                "value": 10301,
+                "label": "Maubisse"
+            },
+            {
+                "value": 10305,
+                "label": "Edi"
+            },
+            {
+                "value": 10308,
+                "label": "Suco Liurai"
+            },
+            {
+                "value": 10303,
+                "label": "Manetu"
+            },
+            {
+                "value": 10304,
+                "label": "Aitutu"
+            },
+            {
+                "value": 10307,
+                "label": "Horai-Quic"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 3",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 304,
+                "label": "Baguia"
+            },
+            {
+                "value": 301,
+                "label": "Baucau"
+            },
+            {
+                "value": 302,
+                "label": "Laga"
+            },
+            {
+                "value": 303,
+                "label": "Quelicai"
+            },
+            {
+                "value": 305,
+                "label": "Vemase"
+            },
+            {
+                "value": 306,
+                "label": "Venilale"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 3 && $get(subdistrict).value === 304",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 30409,
+                "label": "Lavateri"
+            },
+            {
+                "value": 30410,
+                "label": "Uacala"
+            },
+            {
+                "value": 30408,
+                "label": "Defa Uassi"
+            },
+            {
+                "value": 30407,
+                "label": "Samalari"
+            },
+            {
+                "value": 30404,
+                "label": "Haeconi"
+            },
+            {
+                "value": 30403,
+                "label": "Alaua Leten"
+            },
+            {
+                "value": 30406,
+                "label": "Lari Sula"
+            },
+            {
+                "value": 30402,
+                "label": "Alaua Craic"
+            },
+            {
+                "value": 30405,
+                "label": "Osso-Huna"
+            },
+            {
+                "value": 30401,
+                "label": "Afaloicai"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 3 && $get(subdistrict).value === 301",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 30109,
+                "label": "Trilolo"
+            },
+            {
+                "value": 30101,
+                "label": "Bahu"
+            },
+            {
+                "value": 30103,
+                "label": "Buruma"
+            },
+            {
+                "value": 30108,
+                "label": "Triloca"
+            },
+            {
+                "value": 30111,
+                "label": "Caibada"
+            },
+            {
+                "value": 30102,
+                "label": "Bucoli"
+            },
+            {
+                "value": 30110,
+                "label": "Seical"
+            },
+            {
+                "value": 30104,
+                "label": "Buibau"
+            },
+            {
+                "value": 30106,
+                "label": "Samalari"
+            },
+            {
+                "value": 30105,
+                "label": "Wailili"
+            },
+            {
+                "value": 30107,
+                "label": "Gariuai"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 3 && $get(subdistrict).value === 302",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 30204,
+                "label": "Samalari"
+            },
+            {
+                "value": 30206,
+                "label": "Nunira"
+            },
+            {
+                "value": 30203,
+                "label": "Soba"
+            },
+            {
+                "value": 30208,
+                "label": "Saelari"
+            },
+            {
+                "value": 30202,
+                "label": "Tequino Mata"
+            },
+            {
+                "value": 30207,
+                "label": "Libagua"
+            },
+            {
+                "value": 30205,
+                "label": "Sagadati"
+            },
+            {
+                "value": 30201,
+                "label": "Atelari"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 3 && $get(subdistrict).value === 303",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 30314,
+                "label": "Namanei"
+            },
+            {
+                "value": 30310,
+                "label": "Afaca"
+            },
+            {
+                "value": 30309,
+                "label": "Guruca"
+            },
+            {
+                "value": 30305,
+                "label": "Macalaco"
+            },
+            {
+                "value": 30315,
+                "label": "Abafala"
+            },
+            {
+                "value": 30304,
+                "label": "Waitame"
+            },
+            {
+                "value": 30301,
+                "label": "Baguia"
+            },
+            {
+                "value": 30303,
+                "label": "Letemuno"
+            },
+            {
+                "value": 30306,
+                "label": "Bualale"
+            },
+            {
+                "value": 30302,
+                "label": "Locoliu"
+            },
+            {
+                "value": 30307,
+                "label": "Lelalai"
+            },
+            {
+                "value": 30312,
+                "label": "Laisorolai de Baixo"
+            },
+            {
+                "value": 30308,
+                "label": "Abo"
+            },
+            {
+                "value": 30311,
+                "label": "Laisorolai de Cima"
+            },
+            {
+                "value": 30313,
+                "label": "Maluro"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 3 && $get(subdistrict).value === 305",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 30501,
+                "label": "Vemase"
+            },
+            {
+                "value": 30502,
+                "label": "Ostico"
+            },
+            {
+                "value": 30507,
+                "label": "Caicua"
+            },
+            {
+                "value": 30506,
+                "label": "Uatu-Lari"
+            },
+            {
+                "value": 30505,
+                "label": "Uaigae"
+            },
+            {
+                "value": 30504,
+                "label": "Loilubo"
+            },
+            {
+                "value": 30503,
+                "label": "Ossoala"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 3 && $get(subdistrict).value === 306",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 30605,
+                "label": "Uma Ana Ico"
+            },
+            {
+                "value": 30606,
+                "label": "Uma Ana Ulo"
+            },
+            {
+                "value": 30601,
+                "label": "Bado Ho'o"
+            },
+            {
+                "value": 30602,
+                "label": "Baha Mori"
+            },
+            {
+                "value": 30608,
+                "label": "Uataco"
+            },
+            {
+                "value": 30607,
+                "label": "Fatulia"
+            },
+            {
+                "value": 30603,
+                "label": "Uailaha"
+            },
+            {
+                "value": 30604,
+                "label": "Uaiolo"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 4",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 404,
+                "label": "Atabae"
+            },
+            {
+                "value": 403,
+                "label": "Balibo"
+            },
+            {
+                "value": 406,
+                "label": "Bobonaro"
+            },
+            {
+                "value": 402,
+                "label": "Cailaco"
+            },
+            {
+                "value": 405,
+                "label": "Lolotoe"
+            },
+            {
+                "value": 401,
+                "label": "Maliana"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 4 && $get(subdistrict).value === 404",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 40401,
+                "label": "Aidabaleten"
+            },
+            {
+                "value": 40403,
+                "label": "Rairobo"
+            },
+            {
+                "value": 40402,
+                "label": "Atabae"
+            },
+            {
+                "value": 40404,
+                "label": "Hataz"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 4 && $get(subdistrict).value === 403",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 40304,
+                "label": "Leolima"
+            },
+            {
+                "value": 40305,
+                "label": "Sanirin"
+            },
+            {
+                "value": 40306,
+                "label": "Batugade"
+            },
+            {
+                "value": 40301,
+                "label": "Balibo Vila"
+            },
+            {
+                "value": 40302,
+                "label": "Leohito"
+            },
+            {
+                "value": 40303,
+                "label": "Cowa"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 4 && $get(subdistrict).value === 406",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 40614,
+                "label": "Soilesu"
+            },
+            {
+                "value": 40618,
+                "label": "Ilat-Laun"
+            },
+            {
+                "value": 40605,
+                "label": "Colimau"
+            },
+            {
+                "value": 40612,
+                "label": "Male-Ubu"
+            },
+            {
+                "value": 40602,
+                "label": "Atu-Aben"
+            },
+            {
+                "value": 40607,
+                "label": "Lourba"
+            },
+            {
+                "value": 40606,
+                "label": "Cotabot"
+            },
+            {
+                "value": 40617,
+                "label": "Tebabui"
+            },
+            {
+                "value": 40610,
+                "label": "Malilait"
+            },
+            {
+                "value": 40613,
+                "label": "Oe-leu"
+            },
+            {
+                "value": 40604,
+                "label": "Carabau"
+            },
+            {
+                "value": 40603,
+                "label": "Bobonaro"
+            },
+            {
+                "value": 40601,
+                "label": "Ai-Assa"
+            },
+            {
+                "value": 40616,
+                "label": "Tapo"
+            },
+            {
+                "value": 40608,
+                "label": "Lour"
+            },
+            {
+                "value": 40615,
+                "label": "Sibuni"
+            },
+            {
+                "value": 40609,
+                "label": "Leber"
+            },
+            {
+                "value": 40611,
+                "label": "Molop"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 4 && $get(subdistrict).value === 402",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 40205,
+                "label": "Purugoa"
+            },
+            {
+                "value": 40206,
+                "label": "Dau Udu"
+            },
+            {
+                "value": 40203,
+                "label": "Meligo"
+            },
+            {
+                "value": 40207,
+                "label": "Guenu Lai"
+            },
+            {
+                "value": 40202,
+                "label": "Goulolo"
+            },
+            {
+                "value": 40208,
+                "label": "Manapa"
+            },
+            {
+                "value": 40204,
+                "label": "Atudara"
+            },
+            {
+                "value": 40201,
+                "label": "Raiheu"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 4 && $get(subdistrict).value === 405",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 40507,
+                "label": "Gildapil"
+            },
+            {
+                "value": 40506,
+                "label": "Lontas"
+            },
+            {
+                "value": 40503,
+                "label": "Guda"
+            },
+            {
+                "value": 40505,
+                "label": "Lebos"
+            },
+            {
+                "value": 40504,
+                "label": "Deudet"
+            },
+            {
+                "value": 40502,
+                "label": "Lupal"
+            },
+            {
+                "value": 40501,
+                "label": "Opa"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 4 && $get(subdistrict).value === 401",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 40103,
+                "label": "Ritabou"
+            },
+            {
+                "value": 40106,
+                "label": "Tapo/Memo"
+            },
+            {
+                "value": 40104,
+                "label": "Odomau"
+            },
+            {
+                "value": 40102,
+                "label": "Raifun"
+            },
+            {
+                "value": 40101,
+                "label": "Lahomea"
+            },
+            {
+                "value": 40105,
+                "label": "Holsa"
+            },
+            {
+                "value": 40107,
+                "label": "Saburai"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 5",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 501,
+                "label": "Fatululic"
+            },
+            {
+                "value": 502,
+                "label": "Fatumean"
+            },
+            {
+                "value": 503,
+                "label": "Fohorem"
+            },
+            {
+                "value": 504,
+                "label": "Maucatar"
+            },
+            {
+                "value": 505,
+                "label": "Suai"
+            },
+            {
+                "value": 506,
+                "label": "Tilomar"
+            },
+            {
+                "value": 507,
+                "label": "Zumalai"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 5 && $get(subdistrict).value === 501",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 50101,
+                "label": "Fatululic"
+            },
+            {
+                "value": 50102,
+                "label": "Taroman"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 5 && $get(subdistrict).value === 502",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 50201,
+                "label": "Fatumea"
+            },
+            {
+                "value": 50202,
+                "label": "Belulic Leten"
+            },
+            {
+                "value": 50203,
+                "label": "Nanu"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 5 && $get(subdistrict).value === 503",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 50303,
+                "label": "Dato Rua"
+            },
+            {
+                "value": 50304,
+                "label": "Dato Tolu"
+            },
+            {
+                "value": 50302,
+                "label": "Lactos"
+            },
+            {
+                "value": 50301,
+                "label": "Fohoren"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 5 && $get(subdistrict).value === 504",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 50401,
+                "label": "Holpilat"
+            },
+            {
+                "value": 50404,
+                "label": "Belecasac"
+            },
+            {
+                "value": 50402,
+                "label": "Ogues"
+            },
+            {
+                "value": 50403,
+                "label": "Matai"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 5 && $get(subdistrict).value === 505",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 50501,
+                "label": "Beco"
+            },
+            {
+                "value": 50505,
+                "label": "Labarai"
+            },
+            {
+                "value": 50504,
+                "label": "Camena\u00fea"
+            },
+            {
+                "value": 50502,
+                "label": "Debos"
+            },
+            {
+                "value": 50503,
+                "label": "Suai Loro"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 5 && $get(subdistrict).value === 506",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 50601,
+                "label": "Foholulic"
+            },
+            {
+                "value": 50602,
+                "label": "Lalawa"
+            },
+            {
+                "value": 50603,
+                "label": "Maudemo"
+            },
+            {
+                "value": 50604,
+                "label": "Casabauc"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 5 && $get(subdistrict).value === 507",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 50707,
+                "label": "Ucecai"
+            },
+            {
+                "value": 50702,
+                "label": "Zulo"
+            },
+            {
+                "value": 50705,
+                "label": "Mape"
+            },
+            {
+                "value": 50706,
+                "label": "Lepo"
+            },
+            {
+                "value": 50704,
+                "label": "Fatuleto"
+            },
+            {
+                "value": 50708,
+                "label": "Tashilin"
+            },
+            {
+                "value": 50701,
+                "label": "Raimea"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 7",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 704,
+                "label": "Atsabe"
+            },
+            {
+                "value": 702,
+                "label": "Ermera"
+            },
+            {
+                "value": 705,
+                "label": "Hatolia"
+            },
+            {
+                "value": 703,
+                "label": "Letefoho"
+            },
+            {
+                "value": 701,
+                "label": "Railaco"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 7 && $get(subdistrict).value === 704",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 70410,
+                "label": "Leimea Leten"
+            },
+            {
+                "value": 70412,
+                "label": "Beboi Leten"
+            },
+            {
+                "value": 70408,
+                "label": "Laubono"
+            },
+            {
+                "value": 70403,
+                "label": "Baboi Craic"
+            },
+            {
+                "value": 70409,
+                "label": "Atadame/Malabe"
+            },
+            {
+                "value": 70407,
+                "label": "Tiarlelo"
+            },
+            {
+                "value": 70411,
+                "label": "Laclo"
+            },
+            {
+                "value": 70401,
+                "label": "Paramin"
+            },
+            {
+                "value": 70406,
+                "label": "Batumanu"
+            },
+            {
+                "value": 70402,
+                "label": "Atara"
+            },
+            {
+                "value": 70405,
+                "label": "Lasaun"
+            },
+            {
+                "value": 70404,
+                "label": "Obulo"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 7 && $get(subdistrict).value === 702",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 70202,
+                "label": "Ponilala"
+            },
+            {
+                "value": 70207,
+                "label": "Riheu"
+            },
+            {
+                "value": 70208,
+                "label": "Lauala"
+            },
+            {
+                "value": 70201,
+                "label": "Poetete"
+            },
+            {
+                "value": 70203,
+                "label": "Talimoro"
+            },
+            {
+                "value": 70204,
+                "label": "Mirtutu"
+            },
+            {
+                "value": 70206,
+                "label": "Humboe"
+            },
+            {
+                "value": 70205,
+                "label": "Leguimea"
+            },
+            {
+                "value": 70210,
+                "label": "Estado"
+            },
+            {
+                "value": 70209,
+                "label": "Raimerhei"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 7 && $get(subdistrict).value === 705",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 70509,
+                "label": "Urahou"
+            },
+            {
+                "value": 70510,
+                "label": "Mau-Ubu"
+            },
+            {
+                "value": 70511,
+                "label": "Lissapat"
+            },
+            {
+                "value": 70503,
+                "label": "Asulau"
+            },
+            {
+                "value": 70513,
+                "label": "Fatubessi"
+            },
+            {
+                "value": 70512,
+                "label": "Fatubolu"
+            },
+            {
+                "value": 70507,
+                "label": "Manusae"
+            },
+            {
+                "value": 70504,
+                "label": "Ailelo"
+            },
+            {
+                "value": 70502,
+                "label": "Coliate-Leotelo"
+            },
+            {
+                "value": 70508,
+                "label": "Hatolia"
+            },
+            {
+                "value": 70506,
+                "label": "Samara"
+            },
+            {
+                "value": 70501,
+                "label": "Leimea Sorimbalu"
+            },
+            {
+                "value": 70505,
+                "label": "Leimeacraic"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 7 && $get(subdistrict).value === 703",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 70307,
+                "label": "Eraulo"
+            },
+            {
+                "value": 70306,
+                "label": "Goulolo"
+            },
+            {
+                "value": 70302,
+                "label": "Haupu"
+            },
+            {
+                "value": 70301,
+                "label": "Ducurai"
+            },
+            {
+                "value": 70308,
+                "label": "Hatugau"
+            },
+            {
+                "value": 70304,
+                "label": "Catrai-Craic"
+            },
+            {
+                "value": 70305,
+                "label": "Catrai Leten"
+            },
+            {
+                "value": 70303,
+                "label": "Lauana"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 7 && $get(subdistrict).value === 701",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 70109,
+                "label": "Tara\u00feo"
+            },
+            {
+                "value": 70107,
+                "label": "Samalete"
+            },
+            {
+                "value": 70101,
+                "label": "Lihu"
+            },
+            {
+                "value": 70105,
+                "label": "Railaco Craic"
+            },
+            {
+                "value": 70108,
+                "label": "Deleco"
+            },
+            {
+                "value": 70106,
+                "label": "Railaco Leten"
+            },
+            {
+                "value": 70103,
+                "label": "Tocoluli"
+            },
+            {
+                "value": 70104,
+                "label": "Fatuquero"
+            },
+            {
+                "value": 70102,
+                "label": "Matata"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 8",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 801,
+                "label": "Bazartete"
+            },
+            {
+                "value": 802,
+                "label": "Liqui\u00fe\u00df"
+            },
+            {
+                "value": 803,
+                "label": "Maubara"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 8 && $get(subdistrict).value === 801",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 80103,
+                "label": "Tibar"
+            },
+            {
+                "value": 80104,
+                "label": "Motaulun"
+            },
+            {
+                "value": 80109,
+                "label": "Ulmera"
+            },
+            {
+                "value": 80106,
+                "label": "Lauhata"
+            },
+            {
+                "value": 80108,
+                "label": "Maumeta"
+            },
+            {
+                "value": 80101,
+                "label": "Fatumasi"
+            },
+            {
+                "value": 80102,
+                "label": "Fahilebo"
+            },
+            {
+                "value": 80105,
+                "label": "Metagou"
+            },
+            {
+                "value": 80107,
+                "label": "Leorema"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 8 && $get(subdistrict).value === 802",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 80201,
+                "label": "Dato"
+            },
+            {
+                "value": 80202,
+                "label": "Loidahar"
+            },
+            {
+                "value": 80204,
+                "label": "Luculai"
+            },
+            {
+                "value": 80205,
+                "label": "Hatuquessi"
+            },
+            {
+                "value": 80203,
+                "label": "Darulete"
+            },
+            {
+                "value": 80207,
+                "label": "Leoteala"
+            },
+            {
+                "value": 80206,
+                "label": "A\u00feumano"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 8 && $get(subdistrict).value === 803",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 80303,
+                "label": "Vatuvou"
+            },
+            {
+                "value": 80306,
+                "label": "Vaviquinia"
+            },
+            {
+                "value": 80307,
+                "label": "Gugleur"
+            },
+            {
+                "value": 80305,
+                "label": "Maubaralissa"
+            },
+            {
+                "value": 80304,
+                "label": "Vatuboro"
+            },
+            {
+                "value": 80301,
+                "label": "Lissadila"
+            },
+            {
+                "value": 80302,
+                "label": "Gui\u00feo"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 11",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 1105,
+                "label": "Barique/Natarbora"
+            },
+            {
+                "value": 1103,
+                "label": "Laclo"
+            },
+            {
+                "value": 1106,
+                "label": "Laclubar"
+            },
+            {
+                "value": 1102,
+                "label": "Laleia"
+            },
+            {
+                "value": 1101,
+                "label": "Manatuto"
+            },
+            {
+                "value": 1104,
+                "label": "Soibada"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 11 && $get(subdistrict).value === 1105",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 110504,
+                "label": "Barique"
+            },
+            {
+                "value": 110505,
+                "label": "Manehat"
+            },
+            {
+                "value": 110503,
+                "label": "Abat Oan"
+            },
+            {
+                "value": 110501,
+                "label": "Aubeon"
+            },
+            {
+                "value": 110502,
+                "label": "Uma Boco"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 11 && $get(subdistrict).value === 1103",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 110302,
+                "label": "Umacaduac"
+            },
+            {
+                "value": 110301,
+                "label": "Lacumesac"
+            },
+            {
+                "value": 110304,
+                "label": "Hohorai"
+            },
+            {
+                "value": 110303,
+                "label": "Uma Naruc"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 11 && $get(subdistrict).value === 1106",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 110606,
+                "label": "Sanana'in"
+            },
+            {
+                "value": 110604,
+                "label": "Batara"
+            },
+            {
+                "value": 110602,
+                "label": "Funar"
+            },
+            {
+                "value": 110601,
+                "label": "Orlalan"
+            },
+            {
+                "value": 110605,
+                "label": "Fatumaquerec"
+            },
+            {
+                "value": 110603,
+                "label": "Manelima"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 11 && $get(subdistrict).value === 1102",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 110201,
+                "label": "Lifau"
+            },
+            {
+                "value": 110202,
+                "label": "Haturalan"
+            },
+            {
+                "value": 110203,
+                "label": "Cairui"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 11 && $get(subdistrict).value === 1101",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 110104,
+                "label": "Sau"
+            },
+            {
+                "value": 110103,
+                "label": "Ma'abat"
+            },
+            {
+                "value": 110105,
+                "label": "Iliheu"
+            },
+            {
+                "value": 110102,
+                "label": "Aiteas"
+            },
+            {
+                "value": 110106,
+                "label": "Ailili"
+            },
+            {
+                "value": 110101,
+                "label": "Cribas"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 11 && $get(subdistrict).value === 1104",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 110405,
+                "label": "Manufahi"
+            },
+            {
+                "value": 110402,
+                "label": "Leo Hat"
+            },
+            {
+                "value": 110404,
+                "label": "Manlala"
+            },
+            {
+                "value": 110403,
+                "label": "Fatumacerec"
+            },
+            {
+                "value": 110401,
+                "label": "Samoro"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 10",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 1002,
+                "label": "Alas"
+            },
+            {
+                "value": 1003,
+                "label": "Fatuberliu"
+            },
+            {
+                "value": 1001,
+                "label": "Same"
+            },
+            {
+                "value": 1004,
+                "label": "Turiscai"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 10 && $get(subdistrict).value === 1002",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 100202,
+                "label": "Dotic"
+            },
+            {
+                "value": 100201,
+                "label": "Aituha"
+            },
+            {
+                "value": 100203,
+                "label": "Taitudac"
+            },
+            {
+                "value": 100204,
+                "label": "Mahaquidan"
+            },
+            {
+                "value": 100205,
+                "label": "Uma Berloic"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 10 && $get(subdistrict).value === 1003",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 100305,
+                "label": "Caicasa"
+            },
+            {
+                "value": 100303,
+                "label": "Fahinehan"
+            },
+            {
+                "value": 100302,
+                "label": "Clacuc"
+            },
+            {
+                "value": 100301,
+                "label": "Bubususo"
+            },
+            {
+                "value": 100304,
+                "label": "Fatucahi"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 10 && $get(subdistrict).value === 1001",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 100102,
+                "label": "Holarua"
+            },
+            {
+                "value": 100108,
+                "label": "Tutuluro"
+            },
+            {
+                "value": 100101,
+                "label": "Letefoho"
+            },
+            {
+                "value": 100105,
+                "label": "Daisua"
+            },
+            {
+                "value": 100103,
+                "label": "Babulo"
+            },
+            {
+                "value": 100107,
+                "label": "Rotuto"
+            },
+            {
+                "value": 100106,
+                "label": "Grotu"
+            },
+            {
+                "value": 100104,
+                "label": "Betano"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 10 && $get(subdistrict).value === 1004",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 100411,
+                "label": "Fatucalo"
+            },
+            {
+                "value": 100404,
+                "label": "Lesuata"
+            },
+            {
+                "value": 100403,
+                "label": "Caimauc"
+            },
+            {
+                "value": 100405,
+                "label": "Liurai"
+            },
+            {
+                "value": 100407,
+                "label": "Matorec"
+            },
+            {
+                "value": 100406,
+                "label": "Manumera"
+            },
+            {
+                "value": 100402,
+                "label": "Beremana"
+            },
+            {
+                "value": 100401,
+                "label": "Aitemua"
+            },
+            {
+                "value": 100410,
+                "label": "Foholau"
+            },
+            {
+                "value": 100409,
+                "label": "Orana"
+            },
+            {
+                "value": 100408,
+                "label": "Mindelo"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 12",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 1202,
+                "label": "Nitibe"
+            },
+            {
+                "value": 1203,
+                "label": "Oesilo"
+            },
+            {
+                "value": 1201,
+                "label": "Pante Macasar"
+            },
+            {
+                "value": 1204,
+                "label": "Passabe"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 12 && $get(subdistrict).value === 1202",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 120203,
+                "label": "Suni-Ufe"
+            },
+            {
+                "value": 120201,
+                "label": "Usi-Taco"
+            },
+            {
+                "value": 120202,
+                "label": "Bene-Ufe"
+            },
+            {
+                "value": 120204,
+                "label": "Lela-Ufe"
+            },
+            {
+                "value": 120205,
+                "label": "Banafi"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 12 && $get(subdistrict).value === 1203",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 120301,
+                "label": "Bobometo"
+            },
+            {
+                "value": 120303,
+                "label": "Usi-Tacae"
+            },
+            {
+                "value": 120302,
+                "label": "Usi-Taqueno"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 12 && $get(subdistrict).value === 1201",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 120101,
+                "label": "Nipani"
+            },
+            {
+                "value": 120104,
+                "label": "Costa"
+            },
+            {
+                "value": 120102,
+                "label": "Lifau"
+            },
+            {
+                "value": 120106,
+                "label": "Lalisuc"
+            },
+            {
+                "value": 120105,
+                "label": "Taiboco"
+            },
+            {
+                "value": 120107,
+                "label": "Bobocase"
+            },
+            {
+                "value": 120103,
+                "label": "Cunha"
+            },
+            {
+                "value": 120108,
+                "label": "Naimeco"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 12 && $get(subdistrict).value === 1204",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 120402,
+                "label": "Malelat"
+            },
+            {
+                "value": 120401,
+                "label": "Abani"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 13",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 1305,
+                "label": "Lacluta"
+            },
+            {
+                "value": 1302,
+                "label": "Ossu"
+            },
+            {
+                "value": 1301,
+                "label": "Uatucarbau"
+            },
+            {
+                "value": 1304,
+                "label": "Viqueque"
+            },
+            {
+                "value": 1303,
+                "label": "Watulari"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 13 && $get(subdistrict).value === 1305",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 130501,
+                "label": "Laline"
+            },
+            {
+                "value": 130504,
+                "label": "Dilor"
+            },
+            {
+                "value": 130503,
+                "label": "Ahic"
+            },
+            {
+                "value": 130502,
+                "label": "Uma Tolu"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 13 && $get(subdistrict).value === 1302",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 130201,
+                "label": "Uaibobo"
+            },
+            {
+                "value": 130203,
+                "label": "Nahareca"
+            },
+            {
+                "value": 130202,
+                "label": "Builale"
+            },
+            {
+                "value": 130209,
+                "label": "Liaruca"
+            },
+            {
+                "value": 130204,
+                "label": "Ossu de Cima"
+            },
+            {
+                "value": 130208,
+                "label": "Uabubo"
+            },
+            {
+                "value": 130206,
+                "label": "Ossorua"
+            },
+            {
+                "value": 130205,
+                "label": "Uagia"
+            },
+            {
+                "value": 130207,
+                "label": "Loi-Huno"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 13 && $get(subdistrict).value === 1301",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 130104,
+                "label": "Afaloicai"
+            },
+            {
+                "value": 130106,
+                "label": "Loi Ulu"
+            },
+            {
+                "value": 130105,
+                "label": "Bahatata"
+            },
+            {
+                "value": 130102,
+                "label": "Irabin de Cima"
+            },
+            {
+                "value": 130101,
+                "label": "Irabin de Baixo"
+            },
+            {
+                "value": 130103,
+                "label": "Uani Uma"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 13 && $get(subdistrict).value === 1304",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 130404,
+                "label": "Bibileo"
+            },
+            {
+                "value": 130402,
+                "label": "Bahalarauain"
+            },
+            {
+                "value": 130407,
+                "label": "Caraubalo"
+            },
+            {
+                "value": 130406,
+                "label": "Uai-Mori"
+            },
+            {
+                "value": 130408,
+                "label": "Uma Uain Leten"
+            },
+            {
+                "value": 130401,
+                "label": "Uma Uain Craic"
+            },
+            {
+                "value": 130403,
+                "label": "Uma Quic"
+            },
+            {
+                "value": 130410,
+                "label": "Luca"
+            },
+            {
+                "value": 130405,
+                "label": "Watu Dere"
+            },
+            {
+                "value": 130409,
+                "label": "Maluru"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 13 && $get(subdistrict).value === 1303",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 130306,
+                "label": "Afaloicai"
+            },
+            {
+                "value": 130305,
+                "label": "Babulo"
+            },
+            {
+                "value": 130304,
+                "label": "Vessoru"
+            },
+            {
+                "value": 130303,
+                "label": "Matahoi"
+            },
+            {
+                "value": 130302,
+                "label": "Uaitame"
+            },
+            {
+                "value": 130301,
+                "label": "Macadique"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 6",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 604,
+                "label": "Atauro"
+            },
+            {
+                "value": 605,
+                "label": "Dom Aleixo"
+            },
+            {
+                "value": 602,
+                "label": "Nain Feto"
+            },
+            {
+                "value": 601,
+                "label": "Vera Cruz"
+            },
+            {
+                "value": 603,
+                "label": "Metinaro"
+            },
+            {
+                "value": 606,
+                "label": "Cristo Rei"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 6 && $get(subdistrict).value === 604",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 60405,
+                "label": "Biceli"
+            },
+            {
+                "value": 60403,
+                "label": "Beloi"
+            },
+            {
+                "value": 60404,
+                "label": "Macadade"
+            },
+            {
+                "value": 60402,
+                "label": "Maquili"
+            },
+            {
+                "value": 60401,
+                "label": "Atauro Vila/Maumeta"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 6 && $get(subdistrict).value === 605",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 60503,
+                "label": "Comoro"
+            },
+            {
+                "value": 60501,
+                "label": "Fatuhada"
+            },
+            {
+                "value": 60502,
+                "label": "Kampung Alor"
+            },
+            {
+                "value": 60504,
+                "label": "Bairro Pite"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 6 && $get(subdistrict).value === 602",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 60205,
+                "label": "Bidau Lecidere"
+            },
+            {
+                "value": 60202,
+                "label": "Acadiru Hun"
+            },
+            {
+                "value": 60206,
+                "label": "Gricenfor"
+            },
+            {
+                "value": 60201,
+                "label": "Santa Cruz"
+            },
+            {
+                "value": 60203,
+                "label": "Bemori"
+            },
+            {
+                "value": 60204,
+                "label": "Lahane Oriental"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 6 && $get(subdistrict).value === 601",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 60106,
+                "label": "Motael"
+            },
+            {
+                "value": 60105,
+                "label": "Colmera"
+            },
+            {
+                "value": 60102,
+                "label": "Vila Verde"
+            },
+            {
+                "value": 60104,
+                "label": "Caicoli"
+            },
+            {
+                "value": 60103,
+                "label": "Macarenhas"
+            },
+            {
+                "value": 60101,
+                "label": "Lahane Ocidental"
+            },
+            {
+                "value": 60107,
+                "label": "Dare"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 6 && $get(subdistrict).value === 603",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 60302,
+                "label": "Duyung (Sereia)"
+            },
+            {
+                "value": 60301,
+                "label": "Sabuli"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 6 && $get(subdistrict).value === 606",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 60604,
+                "label": "Hera"
+            },
+            {
+                "value": 60606,
+                "label": "Meti Aut"
+            },
+            {
+                "value": 60607,
+                "label": "Bidau Santana"
+            },
+            {
+                "value": 60603,
+                "label": "Camea"
+            },
+            {
+                "value": 60601,
+                "label": "Culu Hun"
+            },
+            {
+                "value": 60602,
+                "label": "Becora"
+            },
+            {
+                "value": 60605,
+                "label": "Balibar"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 9",
+        "id": "subdistrict",
+        "label": "Select Subdistrict",
+        "placeholder": "Select Subdistrict",
+        "options": [
+            {
+                "value": 902,
+                "label": "Lautem"
+            },
+            {
+                "value": 901,
+                "label": "Lospalos"
+            },
+            {
+                "value": 904,
+                "label": "Luro"
+            },
+            {
+                "value": 905,
+                "label": "Tutuala"
+            },
+            {
+                "value": 903,
+                "label": "Iliomar"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 9 && $get(subdistrict).value === 902",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 90209,
+                "label": "Parlamento"
+            },
+            {
+                "value": 90202,
+                "label": "Com"
+            },
+            {
+                "value": 90208,
+                "label": "Pairara"
+            },
+            {
+                "value": 90201,
+                "label": "Baduro"
+            },
+            {
+                "value": 90206,
+                "label": "Maina II"
+            },
+            {
+                "value": 90210,
+                "label": "Serelau"
+            },
+            {
+                "value": 90203,
+                "label": "Daudare"
+            },
+            {
+                "value": 90205,
+                "label": "Ililai"
+            },
+            {
+                "value": 90204,
+                "label": "Euquisi"
+            },
+            {
+                "value": 90207,
+                "label": "Maina II"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 9 && $get(subdistrict).value === 901",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 90101,
+                "label": "Bauro"
+            },
+            {
+                "value": 90109,
+                "label": "Ra\u00fea"
+            },
+            {
+                "value": 90102,
+                "label": "Fuiloro"
+            },
+            {
+                "value": 90103,
+                "label": "Home"
+            },
+            {
+                "value": 90108,
+                "label": "Muapitine"
+            },
+            {
+                "value": 90110,
+                "label": "Souro"
+            },
+            {
+                "value": 90105,
+                "label": "Leuro"
+            },
+            {
+                "value": 90104,
+                "label": "Cacavem"
+            },
+            {
+                "value": 90107,
+                "label": "Lore II"
+            },
+            {
+                "value": 90106,
+                "label": "Lore I"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 9 && $get(subdistrict).value === 904",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 90406,
+                "label": "Wairoce"
+            },
+            {
+                "value": 90401,
+                "label": "Afabubu"
+            },
+            {
+                "value": 90403,
+                "label": "Cotamutu"
+            },
+            {
+                "value": 90404,
+                "label": "Lacawa"
+            },
+            {
+                "value": 90405,
+                "label": "Luro"
+            },
+            {
+                "value": 90402,
+                "label": "Baricafa"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 9 && $get(subdistrict).value === 905",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 90501,
+                "label": "Mehara"
+            },
+            {
+                "value": 90502,
+                "label": "Tutuala"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(district).value === 9 && $get(subdistrict).value === 903",
+        "id": "suco",
+        "label": "Select Suco",
+        "placeholder": "Select Suco",
+        "options": [
+            {
+                "value": 90303,
+                "label": "Fuat"
+            },
+            {
+                "value": 90302,
+                "label": "Cainliu"
+            },
+            {
+                "value": 90304,
+                "label": "Iliomar I"
+            },
+            {
+                "value": 90306,
+                "label": "Tirilolo"
+            },
+            {
+                "value": 90301,
+                "label": "Ailebere"
+            },
+            {
+                "value": 90305,
+                "label": "Iliomar II"
+            }
+        ],
+        "$formkit": "radio"
+    },
+    {
+        "children": [
+            {
+                "name": "meeting_datetime",
+                "$formkit": "date"
+            }
+        ],
+        "name": "My time",
+        "$formkit": "group"
+    }
+]

@@ -1,0 +1,6 @@
+{
+    "$cmp": "PriceComponent",
+    "props": {
+      "__raw__price": "$2.99"
+    }
+  }

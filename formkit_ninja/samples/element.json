@@ -1,0 +1,10 @@
+[
+  {
+    "$el": "div",
+    "attrs": {
+      "style": { "color": "red" },
+      "data-foo": "bar"
+    },
+    "children": "Hello world"
+  }
+]

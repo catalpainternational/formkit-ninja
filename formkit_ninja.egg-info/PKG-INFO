@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: formkit-ninja
+Version: 0.1.0
+Summary: A Django-Ninja backend to specify FormKit schemas
+License: BSD 3-Clause License
+Classifier: Framework :: Django
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# Formkit-Ninja
+
+A Django-Ninja framework for FormKit schemas and form submissions
