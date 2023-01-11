@@ -8,11 +8,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.db import models as dj_models
 from django.http import HttpRequest
-from ordered_model.admin import (
-    OrderedInlineModelAdminMixin,
-    OrderedModelAdmin,
-    OrderedTabularInline,
-)
+from ordered_model.admin import OrderedInlineModelAdminMixin, OrderedModelAdmin, OrderedTabularInline
 
 from formkit_ninja import models
 from formkit_ninja.fields import TranslatedField
@@ -54,8 +50,7 @@ def translated_fields(form: forms.BaseForm | TransModelForm) -> tuple[str]:
         (
             field.name
             for field in fields_
-            if isinstance(field, TranslatedField)
-            and field.name not in getattr(form, "_skip_translations", {})
+            if isinstance(field, TranslatedField) and field.name not in getattr(form, "_skip_translations", {})
         )
     )
 
@@ -123,9 +118,7 @@ class JsonDecoratedFormBase(TransModelForm):
 
     # key is the name of a `models.JSONField` on the model
     # value is a list of fields to get/set in that JSON field
-    _json_fields: dict[str, tuple[str]] = {
-        "my_json_field": ("formkit", "description", "name", "key", "html_id")
-    }
+    _json_fields: dict[str, tuple[str]] = {"my_json_field": ("formkit", "description", "name", "key", "html_id")}
 
     def __init__(self, *args, **kwargs):
 
@@ -133,11 +126,7 @@ class JsonDecoratedFormBase(TransModelForm):
 
         for field, keys in self._json_fields.items():
             # Extract the dict of JSON values from the model instance if supplied
-            values = (
-                getattr(kwargs["instance"], field) or {}
-                if kwargs.get("instance")
-                else {}
-            )
+            values = getattr(kwargs["instance"], field) or {} if kwargs.get("instance") else {}
             for key in keys:
                 # The value, extracted from the JSON value in the database
                 field_value = values.get(key, None)
@@ -191,6 +180,7 @@ class FormKitSchemaComponentInline(OrderedTabularInline):
     readonly_fields = (
         "order",
         "move_up_down_links",
+        "node",
     )
     ordering = ("order",)
     extra = 1
@@ -208,9 +198,7 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
         )
     }
 
-    formkit = forms.ChoiceField(
-        required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True
-    )
+    formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
     if_condition = forms.CharField(
         widget=forms.TextInput,
         required=False,
@@ -222,13 +210,9 @@ class FormKitNodeForm(JsonDecoratedFormBase):
         model = models.FormKitSchemaNode
         fields = ("description",)
 
-    _json_fields = {
-        "node": ("formkit", "description", "name", "key", "html_id", "if_condition")
-    }
+    _json_fields = {"node": ("formkit", "description", "name", "key", "html_id", "if_condition")}
 
-    formkit = forms.ChoiceField(
-        required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES
-    )
+    formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES)
     name = forms.CharField(
         required=False,
     )
@@ -259,9 +243,7 @@ class FormKitElementForm(JsonDecoratedFormBase):
     _skip_translations = {"label", "placeholder"}
     _json_fields = {"node": ("el", "name", "if_condition", "classes")}
 
-    el = forms.ChoiceField(
-        required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES
-    )
+    el = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES)
     name = forms.CharField(
         required=False,
     )

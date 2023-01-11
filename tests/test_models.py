@@ -15,9 +15,7 @@ class FormKitSchemaNodeTestCase(TestCase):
     """
 
     def test_init_schema(self):
-        nodes = formkit_schema.FormKitSchema.parse_raw(
-            files(samples).joinpath("element.json").read_text()
-        )
+        nodes = formkit_schema.FormKitSchema.parse_raw(files(samples).joinpath("element.json").read_text())
         node = nodes.__root__[0]
         django_instance = FormKitSchemaNode(node=node)
 
@@ -40,9 +38,7 @@ class FormKitSchemaNodeTestCase(TestCase):
                 label=node_object.pop("label", None),
             )
 
-            model = models.FormKitSchemaNode(
-                node=formkit_schema.FormKitNode.parse_obj(node_object), **translated
-            )
+            model = models.FormKitSchemaNode(node=formkit_schema.FormKitNode.parse_obj(node_object), **translated)
             model.save()
             model.refresh_from_db()
             if options and isinstance(options, dict):
@@ -69,3 +65,35 @@ class FormKitSchemaNodeTestCase(TestCase):
 
         self.assertEqual(list_request.status_code, 200)
         one_schema.json()
+
+    def test_meeting_type_node(self):
+
+        """
+        Loads a single element schema, checking that return values
+        are the same as entered values
+        """
+        schema = json.loads(files(samples).joinpath("meeting_type_node.json").read_text())
+        loaded_schema = FormKitSchema.from_json(schema)
+        ...
+
+        # Expectations for our "node"
+        self.assertEqual(loaded_schema.nodes.count(), 1)
+        node: models.FormKitSchemaNode = loaded_schema.nodes.first()
+
+        # "node.node" should be a dict, with superpowers
+        self.assertTrue(isinstance(node.node, dict))
+
+        # Superpower 1: You can access the reconstructed pydantic model
+        self.assertTrue(isinstance(node.node.parsed, formkit_schema.FormKitNode))
+
+        # However "options" were stripped out to be translated
+        self.assertIsNone(node.node.parsed.__root__.options)
+
+        # We're expecting to find two options for the node
+        self.assertEqual(loaded_schema.nodes.first().option_set.count(), 2)
+
+        # And we can "rehydrate" the node:
+        node.get_node()
+
+        # Loading that JSON should give you a valid FormKitSchema fragment
+        node.get_node().json(by_alias=True, exclude_none=True)

@@ -1,5 +1,55 @@
 [
     {
+        "id": "meeting_type",
+        "name": "meeting_type",
+        "options": {
+            "socialization": "Socialization",
+            "training": "Training"
+        },
+        "$formkit": "select"
+    },
+    {
+        "if": "$get(meeting_type).value === socialization",
+        "id": "meeting_subtype",
+        "name": "meeting_subtype",
+        "options": {
+            "socialization_municipality": "Socialization (municipality)",
+            "socialization_adminpost": "Socialization (administrative post)",
+            "socialization_suco": "Socialization (suco)",
+            "socialization_aldeia": "Socialization (aldeia)",
+            "nomination_ejs_suku": "EJS nomination (suco)",
+            "nomination_ejs_aldeia": "EJS nomination (aldeia)",
+            "signing_annual_subsidy_accord": "Signing of annual subsidy accord",
+            "determination_priorities_suco": "Determination of priorities (suco)",
+            "determination_priorities_aldeia": "Determination of priorities (aldeia)",
+            "determination_priorities_aldeia_female": "Determination of priorities (aldeia-female)",
+            "signing_project_implementation_accord": "Signing of project implementation accord",
+            "accountability_meeting_1": "Accountability meeting 1",
+            "accountability_meeting_2": "Accountability meeting 2"
+        },
+        "$formkit": "radio"
+    },
+    {
+        "if": "$get(meeting_type).value === training",
+        "id": "meeting_subtype",
+        "name": "meeting_subtype",
+        "options": {
+            "planning_introduction": "Module A - Introduction and Planning",
+            "female_capacitation_1": "Module B - Capacitation for Women 1",
+            "guidelines_facilitator_suku": "Module C - Suku Facilitator Guidelines",
+            "finance_management_1": "Module D - Finance Management 1",
+            "prepare_proposal": "Module E - Proposal Preparation",
+            "female_capacitation_2": "Module F - Capacitation for Women 2",
+            "construction_management": "Module G - Construction Management",
+            "finance_management_2": "Module H - Finance Management 2",
+            "monitoring_accountancy": "Module I - Monitoring and Accountancy",
+            "operation_maitenance": "Module J - Operation and Maintenance",
+            "finance_management_3": "Module K - Finance Management 3",
+            "monitoring_om": "Module L - Operation and Monitoring"
+        },
+        "$formkit": "radio"
+    },
+    {
         "if": "$get(meeting_subtype).value === 'accountability_meeting_1' || $get(meeting_subtype).value === 'socialization_aldeia' || $get(meeting_subtype).value === 'socialization_municipality' || $get(meeting_subtype).value === 'nomination_ejs_aldeia' || $get(meeting_type).value === 'training' || $get(meeting_subtype).value === 'socialization_suco' || $get(meeting_subtype).value === 'nomination_ejs_suku' || $get(meeting_subtype).value === 'determination_priorities_aldeia' || $get(meeting_subtype).value === 'accountability_meeting_2' || $get(meeting_subtype).value === 'determination_priorities_aldeia_female' || $get(meeting_subtype).value === 'socialization_adminpost'",
         "id": "total_female",
         "name": "total_female",
@@ -85,56 +135,6 @@
         "$formkit": "number"
     },
     {
-        "id": "meeting_type",
-        "name": "meeting_type",
-        "options": {
-            "socialization": "Socialization",
-            "training": "Training"
-        },
-        "$formkit": "select"
-    },
-    {
-        "if": "$get(meeting_type).value === socialization",
-        "id": "meeting_subtype",
-        "name": "meeting_subtype",
-        "options": {
-            "socialization_municipality": "Socialization (municipality)",
-            "socialization_adminpost": "Socialization (administrative post)",
-            "socialization_suco": "Socialization (suco)",
-            "socialization_aldeia": "Socialization (aldeia)",
-            "nomination_ejs_suku": "EJS nomination (suco)",
-            "nomination_ejs_aldeia": "EJS nomination (aldeia)",
-            "signing_annual_subsidy_accord": "Signing of annual subsidy accord",
-            "determination_priorities_suco": "Determination of priorities (suco)",
-            "determination_priorities_aldeia": "Determination of priorities (aldeia)",
-            "determination_priorities_aldeia_female": "Determination of priorities (aldeia-female)",
-            "signing_project_implementation_accord": "Signing of project implementation accord",
-            "accountability_meeting_1": "Accountability meeting 1",
-            "accountability_meeting_2": "Accountability meeting 2"
-        },
-        "$formkit": "radio"
-    },
-    {
-        "if": "$get(meeting_type).value === training",
-        "id": "meeting_subtype",
-        "name": "meeting_subtype",
-        "options": {
-            "planning_introduction": "Module A - Introduction and Planning",
-            "female_capacitation_1": "Module B - Capacitation for Women 1",
-            "guidelines_facilitator_suku": "Module C - Suku Facilitator Guidelines",
-            "finance_management_1": "Module D - Finance Management 1",
-            "prepare_proposal": "Module E - Proposal Preparation",
-            "female_capacitation_2": "Module F - Capacitation for Women 2",
-            "construction_management": "Module G - Construction Management",
-            "finance_management_2": "Module H - Finance Management 2",
-            "monitoring_accountancy": "Module I - Monitoring and Accountancy",
-            "operation_maitenance": "Module J - Operation and Maintenance",
-            "finance_management_3": "Module K - Finance Management 3",
-            "monitoring_om": "Module L - Operation and Monitoring"
-        },
-        "$formkit": "radio"
-    },
-    {
         "id": "district",
         "label": "Select District",
         "placeholder": "Select District",
@@ -195,7 +195,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 2",
+        "if": "$get(district).value == 2",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -220,7 +220,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 2 && $get(subdistrict).value === 201",
+        "if": "$get(district).value == 2 && $get(subdistrict).value == 201",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -273,7 +273,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 2 && $get(subdistrict).value === 204",
+        "if": "$get(district).value == 2 && $get(subdistrict).value == 204",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -302,7 +302,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 2 && $get(subdistrict).value === 202",
+        "if": "$get(district).value == 2 && $get(subdistrict).value == 202",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -339,7 +339,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 2 && $get(subdistrict).value === 203",
+        "if": "$get(district).value == 2 && $get(subdistrict).value == 203",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -380,7 +380,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 1",
+        "if": "$get(district).value == 1",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -405,7 +405,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 1 && $get(subdistrict).value === 101",
+        "if": "$get(district).value == 1 && $get(subdistrict).value == 101",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -442,7 +442,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 1 && $get(subdistrict).value === 102",
+        "if": "$get(district).value == 1 && $get(subdistrict).value == 102",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -463,7 +463,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 1 && $get(subdistrict).value === 104",
+        "if": "$get(district).value == 1 && $get(subdistrict).value == 104",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -480,7 +480,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 1 && $get(subdistrict).value === 103",
+        "if": "$get(district).value == 1 && $get(subdistrict).value == 103",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -525,7 +525,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 3",
+        "if": "$get(district).value == 3",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -558,7 +558,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 3 && $get(subdistrict).value === 304",
+        "if": "$get(district).value == 3 && $get(subdistrict).value == 304",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -607,7 +607,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 3 && $get(subdistrict).value === 301",
+        "if": "$get(district).value == 3 && $get(subdistrict).value == 301",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -660,7 +660,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 3 && $get(subdistrict).value === 302",
+        "if": "$get(district).value == 3 && $get(subdistrict).value == 302",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -701,7 +701,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 3 && $get(subdistrict).value === 303",
+        "if": "$get(district).value == 3 && $get(subdistrict).value == 303",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -770,7 +770,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 3 && $get(subdistrict).value === 305",
+        "if": "$get(district).value == 3 && $get(subdistrict).value == 305",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -807,7 +807,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 3 && $get(subdistrict).value === 306",
+        "if": "$get(district).value == 3 && $get(subdistrict).value == 306",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -848,7 +848,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 4",
+        "if": "$get(district).value == 4",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -881,7 +881,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 4 && $get(subdistrict).value === 404",
+        "if": "$get(district).value == 4 && $get(subdistrict).value == 404",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -906,7 +906,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 4 && $get(subdistrict).value === 403",
+        "if": "$get(district).value == 4 && $get(subdistrict).value == 403",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -939,7 +939,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 4 && $get(subdistrict).value === 406",
+        "if": "$get(district).value == 4 && $get(subdistrict).value == 406",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1020,7 +1020,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 4 && $get(subdistrict).value === 402",
+        "if": "$get(district).value == 4 && $get(subdistrict).value == 402",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1061,7 +1061,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 4 && $get(subdistrict).value === 405",
+        "if": "$get(district).value == 4 && $get(subdistrict).value == 405",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1098,7 +1098,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 4 && $get(subdistrict).value === 401",
+        "if": "$get(district).value == 4 && $get(subdistrict).value == 401",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1135,7 +1135,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 5",
+        "if": "$get(district).value == 5",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -1172,7 +1172,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 5 && $get(subdistrict).value === 501",
+        "if": "$get(district).value == 5 && $get(subdistrict).value == 501",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1189,7 +1189,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 5 && $get(subdistrict).value === 502",
+        "if": "$get(district).value == 5 && $get(subdistrict).value == 502",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1210,7 +1210,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 5 && $get(subdistrict).value === 503",
+        "if": "$get(district).value == 5 && $get(subdistrict).value == 503",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1235,7 +1235,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 5 && $get(subdistrict).value === 504",
+        "if": "$get(district).value == 5 && $get(subdistrict).value == 504",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1260,7 +1260,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 5 && $get(subdistrict).value === 505",
+        "if": "$get(district).value == 5 && $get(subdistrict).value == 505",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1289,7 +1289,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 5 && $get(subdistrict).value === 506",
+        "if": "$get(district).value == 5 && $get(subdistrict).value == 506",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1314,7 +1314,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 5 && $get(subdistrict).value === 507",
+        "if": "$get(district).value == 5 && $get(subdistrict).value == 507",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1351,7 +1351,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 7",
+        "if": "$get(district).value == 7",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -1380,7 +1380,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 7 && $get(subdistrict).value === 704",
+        "if": "$get(district).value == 7 && $get(subdistrict).value == 704",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1437,7 +1437,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 7 && $get(subdistrict).value === 702",
+        "if": "$get(district).value == 7 && $get(subdistrict).value == 702",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1486,7 +1486,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 7 && $get(subdistrict).value === 705",
+        "if": "$get(district).value == 7 && $get(subdistrict).value == 705",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1547,7 +1547,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 7 && $get(subdistrict).value === 703",
+        "if": "$get(district).value == 7 && $get(subdistrict).value == 703",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1588,7 +1588,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 7 && $get(subdistrict).value === 701",
+        "if": "$get(district).value == 7 && $get(subdistrict).value == 701",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1633,7 +1633,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 8",
+        "if": "$get(district).value == 8",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -1654,7 +1654,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 8 && $get(subdistrict).value === 801",
+        "if": "$get(district).value == 8 && $get(subdistrict).value == 801",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1699,7 +1699,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 8 && $get(subdistrict).value === 802",
+        "if": "$get(district).value == 8 && $get(subdistrict).value == 802",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1736,7 +1736,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 8 && $get(subdistrict).value === 803",
+        "if": "$get(district).value == 8 && $get(subdistrict).value == 803",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1773,7 +1773,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 11",
+        "if": "$get(district).value == 11",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -1806,7 +1806,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 11 && $get(subdistrict).value === 1105",
+        "if": "$get(district).value == 11 && $get(subdistrict).value == 1105",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1835,7 +1835,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 11 && $get(subdistrict).value === 1103",
+        "if": "$get(district).value == 11 && $get(subdistrict).value == 1103",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1860,7 +1860,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 11 && $get(subdistrict).value === 1106",
+        "if": "$get(district).value == 11 && $get(subdistrict).value == 1106",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1893,7 +1893,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 11 && $get(subdistrict).value === 1102",
+        "if": "$get(district).value == 11 && $get(subdistrict).value == 1102",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1914,7 +1914,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 11 && $get(subdistrict).value === 1101",
+        "if": "$get(district).value == 11 && $get(subdistrict).value == 1101",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1947,7 +1947,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 11 && $get(subdistrict).value === 1104",
+        "if": "$get(district).value == 11 && $get(subdistrict).value == 1104",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -1976,7 +1976,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 10",
+        "if": "$get(district).value == 10",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -2001,7 +2001,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 10 && $get(subdistrict).value === 1002",
+        "if": "$get(district).value == 10 && $get(subdistrict).value == 1002",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2030,7 +2030,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 10 && $get(subdistrict).value === 1003",
+        "if": "$get(district).value == 10 && $get(subdistrict).value == 1003",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2059,7 +2059,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 10 && $get(subdistrict).value === 1001",
+        "if": "$get(district).value == 10 && $get(subdistrict).value == 1001",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2100,7 +2100,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 10 && $get(subdistrict).value === 1004",
+        "if": "$get(district).value == 10 && $get(subdistrict).value == 1004",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2153,7 +2153,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 12",
+        "if": "$get(district).value == 12",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -2178,7 +2178,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 12 && $get(subdistrict).value === 1202",
+        "if": "$get(district).value == 12 && $get(subdistrict).value == 1202",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2207,7 +2207,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 12 && $get(subdistrict).value === 1203",
+        "if": "$get(district).value == 12 && $get(subdistrict).value == 1203",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2228,7 +2228,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 12 && $get(subdistrict).value === 1201",
+        "if": "$get(district).value == 12 && $get(subdistrict).value == 1201",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2269,7 +2269,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 12 && $get(subdistrict).value === 1204",
+        "if": "$get(district).value == 12 && $get(subdistrict).value == 1204",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2286,7 +2286,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 13",
+        "if": "$get(district).value == 13",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -2315,7 +2315,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 13 && $get(subdistrict).value === 1305",
+        "if": "$get(district).value == 13 && $get(subdistrict).value == 1305",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2340,7 +2340,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 13 && $get(subdistrict).value === 1302",
+        "if": "$get(district).value == 13 && $get(subdistrict).value == 1302",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2385,7 +2385,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 13 && $get(subdistrict).value === 1301",
+        "if": "$get(district).value == 13 && $get(subdistrict).value == 1301",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2418,7 +2418,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 13 && $get(subdistrict).value === 1304",
+        "if": "$get(district).value == 13 && $get(subdistrict).value == 1304",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2467,7 +2467,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 13 && $get(subdistrict).value === 1303",
+        "if": "$get(district).value == 13 && $get(subdistrict).value == 1303",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2500,7 +2500,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 6",
+        "if": "$get(district).value == 6",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -2533,7 +2533,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 6 && $get(subdistrict).value === 604",
+        "if": "$get(district).value == 6 && $get(subdistrict).value == 604",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2562,7 +2562,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 6 && $get(subdistrict).value === 605",
+        "if": "$get(district).value == 6 && $get(subdistrict).value == 605",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2587,7 +2587,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 6 && $get(subdistrict).value === 602",
+        "if": "$get(district).value == 6 && $get(subdistrict).value == 602",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2620,7 +2620,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 6 && $get(subdistrict).value === 601",
+        "if": "$get(district).value == 6 && $get(subdistrict).value == 601",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2657,7 +2657,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 6 && $get(subdistrict).value === 603",
+        "if": "$get(district).value == 6 && $get(subdistrict).value == 603",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2674,7 +2674,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 6 && $get(subdistrict).value === 606",
+        "if": "$get(district).value == 6 && $get(subdistrict).value == 606",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2711,7 +2711,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 9",
+        "if": "$get(district).value == 9",
         "id": "subdistrict",
         "label": "Select Subdistrict",
         "placeholder": "Select Subdistrict",
@@ -2740,7 +2740,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 9 && $get(subdistrict).value === 902",
+        "if": "$get(district).value == 9 && $get(subdistrict).value == 902",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2789,7 +2789,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 9 && $get(subdistrict).value === 901",
+        "if": "$get(district).value == 9 && $get(subdistrict).value == 901",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2838,7 +2838,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 9 && $get(subdistrict).value === 904",
+        "if": "$get(district).value == 9 && $get(subdistrict).value == 904",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2871,7 +2871,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 9 && $get(subdistrict).value === 905",
+        "if": "$get(district).value == 9 && $get(subdistrict).value == 905",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",
@@ -2888,7 +2888,7 @@
         "$formkit": "radio"
     },
     {
-        "if": "$get(district).value === 9 && $get(subdistrict).value === 903",
+        "if": "$get(district).value == 9 && $get(subdistrict).value == 903",
         "id": "suco",
         "label": "Select Suco",
         "placeholder": "Select Suco",

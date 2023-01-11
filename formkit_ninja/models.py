@@ -1,6 +1,7 @@
 import json
+import logging
 import uuid
-from typing import Callable, Iterable, Sequence, Type
+from typing import Iterable, Self, Type, TypedDict
 
 from django.db import models
 from django.utils.functional import cached_property
@@ -13,6 +14,13 @@ from formkit_ninja.fields import TranslatedField, TranslatedValues
 _ = TranslatedValues.get_str
 
 from . import formkit_schema
+
+logger = logging.getLogger()
+
+
+class OptionDict(TypedDict):
+    value: str
+    label: str
 
 
 class Option(OrderedModel):
@@ -33,6 +41,14 @@ class Option(OrderedModel):
     def __str__(self):
         label = _(self.label)
         return f"{label}"
+
+    @classmethod
+    def from_pydantic(cls, options: list[str] | list[OptionDict]) -> Iterable[Self]:
+        for option in options:
+            if isinstance(option, str):
+                yield cls(value=option, label=option)
+            elif isinstance(option, dict) and option.keys() == {"value", "label"}:
+                yield cls(**option)
 
 
 class FormComponents(OrderedModel):
@@ -63,9 +79,7 @@ class Membership(OrderedModel):
         on_delete=models.CASCADE,
         limit_choices_to={"node__formkit": "group"},
     )
-    member = models.ForeignKey(
-        "FormKitSchemaNode", on_delete=models.CASCADE, related_name="members"
-    )
+    member = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE, related_name="members")
     order_with_respect_to = "group"
 
 
@@ -80,9 +94,7 @@ class NodeChildren(OrderedModel):
         on_delete=models.CASCADE,
         limit_choices_to={"node__node_type": "$el"},
     )
-    child = models.ForeignKey(
-        "FormKitSchemaNode", on_delete=models.CASCADE, related_name="parent"
-    )
+    child = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE, related_name="parent")
     order_with_respect_to = "parent"
 
     class Meta:
@@ -176,9 +188,7 @@ class FormKitSchemaNode(models.Model):
         ("select", "select"),
     ]
     ELEMENT_TYPE_CHOICES = [("p", "p"), ("h1", "h1"), ("h2", "h2")]
-    node_type = models.CharField(
-        max_length=256, choices=NODE_TYPE_CHOICES, blank=True, help_text=""
-    )
+    node_type = models.CharField(max_length=256, choices=NODE_TYPE_CHOICES, blank=True, help_text="")
     description = models.TextField(
         null=True,
         blank=True,
@@ -207,13 +217,7 @@ class FormKitSchemaNode(models.Model):
         separately stored, this step is necessary to
         reinstate them
         """
-        try:
-            return [
-                {"value": option.value, "label": option.label.value}
-                for option in self.option_set.all()
-            ]
-        except:
-            raise
+        return [{"value": option.value, "label": option.label.value} for option in self.option_set.all()]
 
     @cached_property
     def translated_fields(self):
@@ -221,24 +225,58 @@ class FormKitSchemaNode(models.Model):
         Translations are stored as separate fields
         """
         return {
-            "label": self.label.value,
-            "placeholder": self.placeholder.value,
-            "help": self.placeholder.value,
+            fieldname: getattr(self, fieldname).value
+            for fieldname in ("label", "placeholder", "help")
+            if getattr(self, fieldname)
         }
 
-    def get_node(self):
+    def get_node_values(self) -> dict:
         """
-        Return a "decorated" node instance
-        with restored options and translated fields
+        Reify a 'dict' instance suitable for creating
+        a FormKit Schema node from
         """
         values = {**self.node}
         values.update(self.translated_fields)
         if self.node_options:
-            values.set("options", self.node_options)
-        return formkit_schema.FormKitNode(**values)
+            values["options"] = self.node_options
+        return values
+
+    def get_node(self) -> formkit_schema.FormKitNode:
+        """
+        Return a "decorated" node instance
+        with restored options and translated fields
+        """
+        return formkit_schema.FormKitNode.parse_obj(self.get_node_values())
 
     def __str__(self):
-        return f"{self.node}"
+        return f"{self.label.value}"
+
+    @classmethod
+    def from_pydantic(
+        cls, input_models: Iterable[formkit_schema.FormKitNode]
+    ) -> Iterable[tuple[Self, Iterable[Option]]]:
+        for input_model in input_models:
+            instance = cls()
+            # Populate the translated fields
+            if label := getattr(input_model, "label", None):
+                instance.label = label
+                setattr(input_model, "label", None)
+            if placeholder := getattr(input_model, "placeholder", None):
+                instance.placeholder = placeholder
+                setattr(input_model, "placeholder", None)
+            if help := getattr(input_model, "help", None):
+                instance.help = help
+                setattr(input_model, "help", None)
+
+            # Populate the foreign keys to "Option"
+            if options := getattr(input_model, "options", None):
+                option_models = Option.from_pydantic(options)
+                setattr(input_model, "options", None)
+            else:
+                option_models = None
+            instance.node = input_model
+            # All other properties are passed directly
+            yield instance, option_models
 
 
 class SchemaManager(models.Manager):
@@ -266,41 +304,39 @@ class FormKitSchema(models.Model):
     def __str__(self):
         return f"{_(self.name)}"
 
-    @property
-    def schema(self):
-        return self._schema
-
-    def get_nodes(self):
+    def get_schema_values(self):
         """
-        Returns the 'm2m' field "nodes" as Pydantic instances
+        Return a list of "node" dicts
         """
-        instances: list[formkit_schema.FormKitNode] = []
-        nodes: Iterable[FormKitSchemaNode] = self.nodes.order_by(
-            "formcomponents__order"
-        ).filter(node__isnull=False)
+        for node in self.nodes.all():
+            yield node.get_node_values()
 
-        # Each "node" instance is parsed to a Pydantic model
-        for node in nodes:
-            instance: formkit_schema.FormKitNode = node.node.parsed.__root__
-            if node.node_options:
-                try:
-                    instance.options = node.node_options
-                except ValueError:
-                    continue
-                instances.append(instance)
+    def to_pydantic(self):
+        values = list(self.get_schema_values())
+        return formkit_schema.FormKitSchema.parse_obj(values)
 
-        return instances
+    @classmethod
+    def from_pydantic(cls, input_model: formkit_schema.FormKitSchema, name={"en": "My Schema"}) -> Self:
+        """
+        Converts a given Pydantic representation of a Schema
+        to Django database fields
+        """
+        instance = cls.objects.create(name=name)
+        for node, options in FormKitSchemaNode.from_pydantic(input_model.__root__):
+            node.save()
+            if options:
+                for option in options:
+                    option.field = node
+                    option.save()
+            FormComponents.objects.create(schem=instance, node=node)
+            logger.info("Schema load from JSON done")
+        return instance
 
-    @cached_property
-    def _schema(self):
-        return formkit_schema.FormKitSchema(__root__=self.get_nodes())
-
-    @schema.setter
-    def schema(self, value):
-        self.nodes.all().delete()
-        self.nodes.set(
-            [
-                FormKitSchemaNode.objects.create(order=order, node=element)
-                for order, element in enumerate(value)
-            ]
-        )
+    @classmethod
+    def from_json(cls, input_file: json):
+        """
+        Converts a given JSON string to a suitable
+        Django representation
+        """
+        schema_instance = formkit_schema.FormKitSchema.parse_obj(input_file)
+        return cls.from_pydantic(schema_instance)

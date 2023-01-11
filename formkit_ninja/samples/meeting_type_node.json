@@ -1,0 +1,18 @@
+[
+    {
+        "id": "meeting_type",
+        "name": "meeting_type",
+        "label": "Meeting Type",
+        "$formkit": "select",
+        "options": [
+            {
+                "value": "socialization",
+                "label": "Socialization"
+            },
+            {
+                "value": "training", 
+                "label": "Training"
+            }
+        ]
+    }
+]

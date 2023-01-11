@@ -13,7 +13,7 @@
                 "runserver", "localhost:8002"
             ],
             "django": true,
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "Python: Django sh",

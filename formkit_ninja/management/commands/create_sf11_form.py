@@ -16,9 +16,7 @@ class Command(BaseCommand):
 
         schema = json.loads(files(samples).joinpath("sf_11.json").read_text())
         formkit_schema.FormKitNode.parse_obj(schema[0])
-        sf11_schema: models.FormKitSchema = models.FormKitSchema.objects.create(
-            name="SF11"
-        )
+        sf11_schema: models.FormKitSchema = models.FormKitSchema.objects.create(name="SF11")
         for node_object in schema:
             # Extract "options" from the node
             # for option_object in node_object:
@@ -32,23 +30,17 @@ class Command(BaseCommand):
                 label=node_object.pop("label", None),
             )
 
-            model = models.FormKitSchemaNode(
-                node=formkit_schema.FormKitNode.parse_obj(node_object), **translated
-            )
+            model = models.FormKitSchemaNode(node=formkit_schema.FormKitNode.parse_obj(node_object), **translated)
 
             model.save()
             model.refresh_from_db()
             if options and isinstance(options, dict):
                 for key in options:
-                    models.Option.objects.create(
-                        value=key, label=options[key], field=model
-                    )
+                    models.Option.objects.create(value=key, label=options[key], field=model)
             elif options and isinstance(options, list):
                 for value in options:
                     if isinstance(value, str):
-                        models.Option.objects.create(
-                            value=value, label=value, field=model
-                        )
+                        models.Option.objects.create(value=value, label=value, field=model)
                     elif isinstance(value, dict) and value.keys() == {"value", "label"}:
                         models.Option.objects.create(**value, field=model)
             sf11_schema.nodes.add(model)

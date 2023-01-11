@@ -1,5 +1,5 @@
-from django.urls import include, path
+from django.urls import path
 
-from .api import api
+from formkit_ninja.api import api
 
 urlpatterns = (path("", api.urls),)

@@ -11,9 +11,7 @@ def test_node_parse():
 
 
 def test_login_form():
-    schema = json.loads(
-        files(samples).joinpath("form_generation_example.json").read_text()
-    )
+    schema = json.loads(files(samples).joinpath("form_generation_example.json").read_text())
     formkit_schema.FormKitNode.parse_obj(schema[0])
     formkit_schema.FormKitSchema.parse_obj(schema)
 
@@ -31,3 +29,24 @@ def test_raw_values():
     node_reloaded = json.loads(node.json(by_alias=True, exclude_unset=True))
     assert node_reloaded["props"]["__raw__price"] == "$2.99"
     assert node_reloaded["$cmp"] == "PriceComponent"
+
+
+def test_meeting_type_node():
+    """
+    Loads a single element schema, checking that return values
+    are the same as entered values
+    """
+    schema = json.loads(files(samples).joinpath("meeting_type_node.json").read_text())
+    formkit_schema.FormKitNode.parse_obj(schema[0])
+    meeting_type_schema = formkit_schema.FormKitSchema.parse_obj(schema)
+    reloaded = json.loads(meeting_type_schema.json(by_alias=True, exclude_none=True))
+
+    assert reloaded[0].get("id") == "meeting_type"
+    assert reloaded[0].get("name") == "meeting_type"
+    assert reloaded[0].get("$formkit") == "select"
+
+    # Not part of the FormKit schema
+    assert reloaded[0].get("node_type") == "formkit"
+    assert reloaded[0].get("formkit") == "select"
+
+    assert len(reloaded[0]["options"]) == 2

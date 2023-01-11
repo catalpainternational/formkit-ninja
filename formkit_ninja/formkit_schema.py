@@ -13,8 +13,6 @@ to Pydantic models.
 
 logger = logging.getLogger(__name__)
 
-print(__name__)
-
 HtmlAttrs = dict[str, str | dict[str, str]]
 
 
@@ -108,9 +106,7 @@ class FormKitSchemaProps(BaseModel):
     # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
     #     default_factory=list
     # )
-    children: str | list[
-        FormKitSchemaProps
-    ] | FormKitSchemaConditionNoCircularRefs | None = Field(default_factory=list)
+    children: str | list[FormKitSchemaProps] | FormKitSchemaConditionNoCircularRefs | None = Field()
     key: str | None
     if_condition: str | None = Field(alias="if")
     for_loop: FormKitListStatement | None = Field(alias="for")
@@ -185,9 +181,7 @@ class GroupNode(FormKitSchemaProps):
 
 
 FormKitSchemaFormKit = Annotated[
-    Union[
-        TextNode, PasswordNode, SelectNode, EmailNode, NumberNode, RadioNode, GroupNode
-    ],
+    Union[TextNode, PasswordNode, SelectNode, EmailNode, NumberNode, RadioNode, GroupNode],
     Field(discriminator="formkit"),
 ]
 
@@ -302,14 +296,13 @@ Node = Annotated[
 ]
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
-FORMKIT_TYPE = Literal[
-    "select", "number", "group", "list", "password", "button", "select", "radio", "form"
-]
+FORMKIT_TYPE = Literal["select", "number", "group", "list", "password", "button", "select", "radio", "form"]
 
 
 class Discriminators(TypedDict, total=False):
     node_type: NODE_TYPE
     formkit: FORMKIT_TYPE
+    dollar_formkit: FORMKIT_TYPE
 
 
 def get_node_type(obj: dict) -> Discriminators:
@@ -339,31 +332,19 @@ def get_node_type(obj: dict) -> Discriminators:
             # "formkit" and "$formkit" are aliases
             # Because we use these in a disriminated union, we can't alias
             # So for consistency: we always return both
-            if return_value == "formkit" and key == "$formkit":
-                fields["formkit"] = obj.get("$formkit")
-            if return_value == "formkit" and key == "dollar_formkit":
-                fields["$formkit"] = obj.pop("dollar_formkit")
-                fields["formkit"] = fields["$formkit"]
+            if key == "$formkit":
+                fields["formkit"] = obj["$formkit"]
+                fields["dollar_formkit"] = obj["$formkit"]
+            elif key == "dollar_formkit":
+                fields["formkit"] = obj["dollar_formkit"]
+                fields["dollar_formkit"] = obj["dollar_formkit"]
 
             return fields
     raise KeyError("Could not determine node type")
 
 
-# This definition here because the API breaks when using an AnnotatedFieldUnion complicated thingy
-
-NodeForSchema = Annotated[
-    Union[
-        FormKitSchemaFormKit,
-        FormKitSchemaDOMNode,
-        FormKitSchemaComponent,
-        FormKitSchemaConditionNoCircularRefs,
-    ],
-    Field(discriminator="node_type"),
-]
-
-
 class FormKitNode(BaseModel):
-    __root__: NodeForSchema
+    __root__: Node
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
@@ -373,23 +354,11 @@ class FormKitNode(BaseModel):
 
 
 class FormKitSchema(BaseModel):
-    __root__: list[NodeForSchema]
+    __root__: list[Node]
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
         return super().parse_obj([{**get_node_type(obj), **obj} for obj in obj])
-
-    def json(self, *args, **kwargs):
-        """
-        By default, exclude fields which are "unset"
-        """
-        return super().json(
-            *args,
-            exclude_unset=True,
-            exclude_none=True,
-            exclude_defaults=True,
-            **kwargs,
-        )
 
 
 FormKitSchema.update_forward_refs()

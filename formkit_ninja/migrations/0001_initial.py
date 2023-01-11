@@ -30,9 +30,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "order",
-                    models.PositiveIntegerField(
-                        db_index=True, editable=False, verbose_name="order"
-                    ),
+                    models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order"),
                 ),
             ],
             options={
@@ -75,9 +73,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 # (
                 #     "children",
@@ -145,9 +141,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "order",
-                    models.PositiveIntegerField(
-                        db_index=True, editable=False, verbose_name="order"
-                    ),
+                    models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order"),
                 ),
                 ("value", models.CharField(max_length=1024)),
                 ("label", formkit_ninja.fields.TranslatedField(blank=True, null=True)),
@@ -182,9 +176,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "order",
-                    models.PositiveIntegerField(
-                        db_index=True, editable=False, verbose_name="order"
-                    ),
+                    models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order"),
                 ),
                 (
                     "group",
