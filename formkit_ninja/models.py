@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from typing import Iterable, Self, Type, TypedDict
+from typing import Iterable, Type, TypedDict
 
 from django.db import models
 from django.utils.functional import cached_property
@@ -44,7 +44,7 @@ class Option(OrderedModel):
         return f"{label}"
 
     @classmethod
-    def from_pydantic(cls, options: list[str] | list[OptionDict]) -> Iterable[Self]:
+    def from_pydantic(cls, options: list[str] | list[OptionDict]) -> Iterable["Option"]:
         for option in options:
             if isinstance(option, str):
                 yield cls(value=option, label=option)
@@ -255,7 +255,7 @@ class FormKitSchemaNode(models.Model):
     @classmethod
     def from_pydantic(
         cls, input_models: Iterable[formkit_schema.FormKitNode]
-    ) -> Iterable[tuple[Self, Iterable[Option]]]:
+    ) -> Iterable[tuple["FormKitSchemaNode", Iterable[Option]]]:
         for input_model in input_models:
             instance = cls()
             # Populate the translated fields
@@ -314,7 +314,7 @@ class FormKitSchema(models.Model):
         return formkit_schema.FormKitSchema.parse_obj(values)
 
     @classmethod
-    def from_pydantic(cls, input_model: formkit_schema.FormKitSchema, name={"en": "My Schema"}) -> Self:
+    def from_pydantic(cls, input_model: formkit_schema.FormKitSchema, name={"en": "My Schema"}) -> "FormKitSchema":
         """
         Converts a given Pydantic representation of a Schema
         to Django database fields
