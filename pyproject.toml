@@ -5,8 +5,8 @@ description = "A Django-Ninja backend to specify FormKit schemas"
 authors = ["Josh Brooks <josh@catalpa.io>"]
 license = "GPLv3"
 readme = "README.md"
-homepage = "https://github.com/joshbrooks/formkit-ninja"
-repository = "https://github.com/joshbrooks/formkit-ninja"
+homepage = "https://github.com/catalpainternational/formkit-ninja"
+repository = "https://github.com/catalpainternational/formkit-ninja"
 packages = [{include = "formkit_ninja"}]
 exclude = ["tests", "formkit_ninja/samples"]
 
