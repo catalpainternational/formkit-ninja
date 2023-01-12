@@ -52,7 +52,7 @@ class WhitelistedKeysDict(dict):
         if isinstance(dict_, str):
             if self.default_key:
                 return self.__init__({self.default_key: dict_})
-            warnings.warn(f"No default key was set. You must have a default_key to initialize with a string.")
+            warnings.warn("No default key was set. You must have a default_key to initialize with a string.")
             return super().__init__()
         return super().__init__(dict_ or {})
 

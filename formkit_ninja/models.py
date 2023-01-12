@@ -11,9 +11,10 @@ from pydantic.utils import ROOT_KEY
 
 from formkit_ninja.fields import TranslatedField, TranslatedValues
 
+from . import formkit_schema
+
 _ = TranslatedValues.get_str
 
-from . import formkit_schema
 
 logger = logging.getLogger()
 
@@ -285,10 +286,7 @@ class SchemaManager(models.Manager):
     """
 
     def get_queryset(self):
-        try:
-            return super().get_queryset().prefetch_related("nodes", "nodes__children")
-        except:
-            raise
+        return super().get_queryset().prefetch_related("nodes", "nodes__children")
 
 
 class FormKitSchema(models.Model):

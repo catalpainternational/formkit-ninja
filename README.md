@@ -24,3 +24,18 @@ INSTALLED_APPS = [
     ...
 ]
 ```
+
+## Test
+
+Pull the repo:
+
+`gh repo clone catalpainternational/formkit-ninja`
+`cd formkit-ninja`
+`poetry install`
+`poetry run pytest`
+
+## Lint
+
+`poetry run black --check .`
+`poetry run isort --check .`
+`poetry run flake8 .`

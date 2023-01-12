@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from html.parser import HTMLParser
 from typing import Annotated, Any, ForwardRef, Literal, Type, TypedDict, TypeVar, Union
 
 from pydantic import BaseModel, Field
@@ -91,7 +92,7 @@ class FormKitSchemaAttributes(BaseModel):
     __root__: dict[
         str,
         FormKitAttributeValue
-        # | FormKitSchemaAttributes  #<-- Causes trouble for Ninja
+        | FormKitSchemaAttributes  # <-- Causes trouble for Ninja
         | FormKitSchemaAttributesCondition,
     ]
 
@@ -215,7 +216,7 @@ class FormKitSchemaComponent(FormKitSchemaProps):
     cmp: str = Field(
         ...,
         alias="$cmp",
-        description="The $cmp property should be a string that references a globally defined component or a component passed into FormKitSchema with the library prop.",
+        description="The $cmp property should be a string that references a globally defined component or a component passed into FormKitSchema with the library prop.",  # noqa: E501
     )
     props: dict[str, str | Any] | None
 
@@ -229,8 +230,6 @@ FormKitAttributeValue.update_forward_refs()
 FormKitSchemaDOMNode.update_forward_refs()
 FormKitSchemaCondition.update_forward_refs()
 FormKitSchemaComponent.update_forward_refs()
-
-from html.parser import HTMLParser
 
 
 class FormKitTagParser(HTMLParser):

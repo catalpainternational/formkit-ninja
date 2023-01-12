@@ -2,7 +2,6 @@ import json
 from importlib.resources import files
 
 from django.test import TestCase
-from django.urls import reverse
 
 from formkit_ninja import formkit_schema, models, samples
 from formkit_ninja.models import FormKitSchema, FormKitSchemaNode, Option
@@ -17,7 +16,7 @@ class FormKitSchemaNodeTestCase(TestCase):
     def test_init_schema(self):
         nodes = formkit_schema.FormKitSchema.parse_raw(files(samples).joinpath("element.json").read_text())
         node = nodes.__root__[0]
-        django_instance = FormKitSchemaNode(node=node)
+        FormKitSchemaNode(node=node)
 
     def test_sf11_schema(self):
 
@@ -54,7 +53,7 @@ class FormKitSchemaNodeTestCase(TestCase):
             model.node.parsed
 
         sf11_schema.save()
-        print(sf11_schema.schema.json())
+        print(sf11_schema.to_pydantic().json())
 
         # Test that we can now fetch the list of schemas
         list_request = self.client.get("/api/formkit/list-schemas")
