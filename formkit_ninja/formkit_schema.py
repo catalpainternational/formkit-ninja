@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from html.parser import HTMLParser
-from typing import Annotated, Any, ForwardRef, Literal, Type, TypedDict, TypeVar, Union
+from typing import Annotated, Any, ForwardRef, List, Literal, Type, TypedDict, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
@@ -23,8 +23,8 @@ Node = ForwardRef("Node")
 class FormKitSchemaCondition(BaseModel):
     node_type: Literal["condition"]
     if_condition: str = Field(..., alias="if")
-    then_condition: Node | list[Node] = Field(..., alias="then")
-    else_condition: Node | list[Node] | None = Field(None, alias="else")
+    then_condition: Node | List[Node] = Field(..., alias="then")
+    else_condition: Node | List[Node] | None = Field(None, alias="else")
 
 
 class FormKitSchemaConditionNoCircularRefs(BaseModel):
