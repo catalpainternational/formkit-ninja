@@ -92,7 +92,7 @@ class FormKitSchemaAttributes(BaseModel):
     __root__: dict[
         str,
         FormKitAttributeValue
-        | FormKitSchemaAttributes  # <-- Causes trouble for Ninja
+        # | FormKitSchemaAttributes  # <-- Causes trouble for Ninja
         | FormKitSchemaAttributesCondition,
     ]
 
