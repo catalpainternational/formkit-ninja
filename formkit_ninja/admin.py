@@ -194,10 +194,12 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
     _json_fields = {
         "node": (
             "formkit",
-            "if_condition",
+            "if_condition",,
+            "node_type"
         )
     }
 
+    node_type = forms.CharField(widget=forms.HiddenInput)
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
     if_condition = forms.CharField(
         widget=forms.TextInput,
@@ -210,8 +212,9 @@ class FormKitNodeForm(JsonDecoratedFormBase):
         model = models.FormKitSchemaNode
         fields = ("description",)
 
-    _json_fields = {"node": ("formkit", "description", "name", "key", "html_id", "if_condition")}
+    _json_fields = {"node": ("formkit", "description", "name", "key", "html_id", "if_condition", "node_type")}
 
+    node_type = forms.CharField(widget=forms.HiddenInput)
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES)
     name = forms.CharField(
         required=False,
@@ -233,6 +236,8 @@ class FormKitTextNode(TransModelForm):
     class Meta:
         model = models.FormKitSchemaNode
         fields = ("description",)
+    _json_fields = {"node": ("node_type")}
+    node_type = forms.CharField(widget=forms.HiddenInput)
 
 
 class FormKitElementForm(JsonDecoratedFormBase):
@@ -241,8 +246,9 @@ class FormKitElementForm(JsonDecoratedFormBase):
         fields = ("description",)
 
     _skip_translations = {"label", "placeholder"}
-    _json_fields = {"node": ("el", "name", "if_condition", "classes")}
+    _json_fields = {"node": ("el", "name", "if_condition", "classes", "node_type")}
 
+    node_type = forms.CharField(widget=forms.HiddenInput)
     el = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES)
     name = forms.CharField(
         required=False,
@@ -262,8 +268,9 @@ class FormKitConditionForm(JsonDecoratedFormBase):
         # fields = '__all__'
         fields = ("description",)
 
-    _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
+    _json_fields = {"node": ("if_condition", "then_condition", "else_condition", "node_type")}
 
+    node_type = forms.CharField(widget=forms.HiddenInput)
     if_condition = forms.CharField(
         widget=forms.TextInput,
         required=False,
@@ -279,11 +286,12 @@ class FormKitConditionForm(JsonDecoratedFormBase):
 
 
 class FormKitComponentForm(JsonDecoratedFormBase):
+    """
+    Very incomplete
+    """
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("description",)
-
-    _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
+        fields = ("description", "node")
 
 
 class MembershipInline(OrderedTabularInline):
