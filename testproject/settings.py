@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
+import importlib
 from importlib.util import find_spec
 from os import environ
 from pathlib import Path
@@ -153,3 +154,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 if DEBUG and find_spec("django_extensions"):
     # "pip install django-extensions"
     INSTALLED_APPS.append("django_extensions")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "rich.logging.RichHandler" if importlib.util.find_spec("rich") else "logging.StreamHandler",
+        }
+    },
+    "loggers": {
+        "formkit_ninja": {"handlers": ["console"], "level": "DEBUG", "propagate": True},
+    },
+}
