@@ -250,7 +250,10 @@ class FormKitSchemaNode(models.Model):
         return formkit_schema.FormKitNode.parse_obj(self.get_node_values())
 
     def __str__(self):
-        return f"{self.label.value}"
+        return TranslatedValues.get_str(self.label)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
     @classmethod
     def from_pydantic(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import warnings
 from typing import Any, Optional
 
@@ -13,6 +14,8 @@ from ordered_model.admin import OrderedInlineModelAdminMixin, OrderedModelAdmin,
 from formkit_ninja import models
 from formkit_ninja.fields import TranslatedField
 from formkit_ninja.formkit_schema import FORMKIT_TYPE
+
+logger = logging.getLogger(__name__)
 
 
 class ItemAdmin(OrderedModelAdmin):
@@ -138,10 +141,21 @@ class JsonDecoratedFormBase(TransModelForm):
         return
 
     def save(self, commit=True):
+        """
+        Updates the JSON field(s) from the fields specified in the `_json_fields` dict
+        """
+
         for field, keys in self._json_fields.items():
-            # Populate JSON values from form fields
-            json_data = {key: self.cleaned_data[key] for key in keys}
-            setattr(self.instance, field, json_data)
+            # Populate a JSON field in a model named "form"
+            # from a set of standard form elements
+            data = getattr(self.instance, field, {})
+            if not isinstance(data, dict):
+                # This is a bit unexpected
+                raise ValueError("Expected a JSON dict object here")
+            logger.debug(data)
+            data.update({key: self.cleaned_data[key] for key in keys})
+            logger.debug(data)
+            setattr(self.instance, field, data)
         return super().save(commit=commit)
 
 
@@ -194,12 +208,10 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
     _json_fields = {
         "node": (
             "formkit",
-            "if_condition",,
-            "node_type"
+            "if_condition",
         )
     }
 
-    node_type = forms.CharField(widget=forms.HiddenInput)
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
     if_condition = forms.CharField(
         widget=forms.TextInput,
@@ -212,9 +224,8 @@ class FormKitNodeForm(JsonDecoratedFormBase):
         model = models.FormKitSchemaNode
         fields = ("description",)
 
-    _json_fields = {"node": ("formkit", "description", "name", "key", "html_id", "if_condition", "node_type")}
+    _json_fields = {"node": ("formkit", "description", "name", "key", "html_id", "if_condition")}
 
-    node_type = forms.CharField(widget=forms.HiddenInput)
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES)
     name = forms.CharField(
         required=False,
@@ -236,8 +247,6 @@ class FormKitTextNode(TransModelForm):
     class Meta:
         model = models.FormKitSchemaNode
         fields = ("description",)
-    _json_fields = {"node": ("node_type")}
-    node_type = forms.CharField(widget=forms.HiddenInput)
 
 
 class FormKitElementForm(JsonDecoratedFormBase):
@@ -246,9 +255,8 @@ class FormKitElementForm(JsonDecoratedFormBase):
         fields = ("description",)
 
     _skip_translations = {"label", "placeholder"}
-    _json_fields = {"node": ("el", "name", "if_condition", "classes", "node_type")}
+    _json_fields = {"node": ("el", "name", "if_condition", "classes")}
 
-    node_type = forms.CharField(widget=forms.HiddenInput)
     el = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES)
     name = forms.CharField(
         required=False,
@@ -268,9 +276,8 @@ class FormKitConditionForm(JsonDecoratedFormBase):
         # fields = '__all__'
         fields = ("description",)
 
-    _json_fields = {"node": ("if_condition", "then_condition", "else_condition", "node_type")}
+    _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
-    node_type = forms.CharField(widget=forms.HiddenInput)
     if_condition = forms.CharField(
         widget=forms.TextInput,
         required=False,
@@ -286,12 +293,11 @@ class FormKitConditionForm(JsonDecoratedFormBase):
 
 
 class FormKitComponentForm(JsonDecoratedFormBase):
-    """
-    Very incomplete
-    """
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("description", "node")
+        fields = ("description",)
+
+    _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
 
 class MembershipInline(OrderedTabularInline):
