@@ -139,6 +139,12 @@ class TextNode(FormKitSchemaProps):
     text: str | None
 
 
+class CheckBoxNode(FormKitSchemaProps):
+    node_type: Literal["formkit"]
+    formkit: Literal["checkbox"]
+    dollar_formkit: str = Field(default="checkbox", alias="$formkit")
+
+
 class NumberNode(FormKitSchemaProps):
     node_type: Literal["formkit"]
     formkit: Literal["number"]
@@ -182,7 +188,7 @@ class GroupNode(FormKitSchemaProps):
 
 
 FormKitSchemaFormKit = Annotated[
-    Union[TextNode, PasswordNode, SelectNode, EmailNode, NumberNode, RadioNode, GroupNode],
+    Union[TextNode, CheckBoxNode, PasswordNode, SelectNode, EmailNode, NumberNode, RadioNode, GroupNode],
     Field(discriminator="formkit"),
 ]
 
@@ -295,7 +301,9 @@ Node = Annotated[
 ]
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
-FORMKIT_TYPE = Literal["select", "number", "group", "list", "password", "button", "select", "radio", "form"]
+FORMKIT_TYPE = Literal[
+    "select", "checkbox", "number", "group", "list", "password", "button", "select", "radio", "form"
+]
 
 
 class Discriminators(TypedDict, total=False):
