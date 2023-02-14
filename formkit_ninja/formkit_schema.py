@@ -133,56 +133,56 @@ class FormKitSchemaProps(BaseModel):
 
 
 class TextNode(FormKitSchemaProps):
-    node_type: Literal["formkit"]
-    formkit: Literal["text"]
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["text"] = "text"
     dollar_formkit: str = Field(default="text", alias="$formkit")
     text: str | None
 
 
 class CheckBoxNode(FormKitSchemaProps):
-    node_type: Literal["formkit"]
-    formkit: Literal["checkbox"]
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["checkbox"] = "checkbox"
     dollar_formkit: str = Field(default="checkbox", alias="$formkit")
 
 
 class NumberNode(FormKitSchemaProps):
-    node_type: Literal["formkit"]
-    formkit: Literal["number"]
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["number"] = "number"
     dollar_formkit: str = Field(default="number", alias="$formkit")
     text: str | None
 
 
 class PasswordNode(FormKitSchemaProps):
-    node_type: Literal["formkit"]
-    formkit: Literal["password"]
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["password"] = "password"
     dollar_formkit: str = Field(default="password", alias="$formkit")
     name: str | None
 
 
 class RadioNode(FormKitSchemaProps):
-    node_type: Literal["formkit"]
-    formkit: Literal["radio"]
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["radio"] = "radio"
     dollar_formkit: str = Field(default="radio", alias="$formkit")
     name: str | None
     options: list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
 
 
 class SelectNode(FormKitSchemaProps):
-    node_type: Literal["formkit"]
-    formkit: Literal["select"]
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["select"] = "select"
     dollar_formkit: str = Field(default="select", alias="$formkit")
     options: list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
 
 
 class EmailNode(FormKitSchemaProps):
-    node_type: Literal["formkit"]
-    formkit: Literal["email"]
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["email"] = "email"
     dollar_formkit: str = Field(default="email", alias="$formkit")
 
 
 class GroupNode(FormKitSchemaProps):
-    node_type: Literal["formkit"]
-    formkit: Literal["group"]
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["group"] = "group"
     dollar_formkit: str = Field(default="group", alias="$formkit")
     text: str | None
 
