@@ -139,6 +139,12 @@ class TextNode(FormKitSchemaProps):
     text: str | None
 
 
+class DateNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["date"] = "date"
+    dollar_formkit: str = Field(default="date", alias="$formkit")
+
+
 class CheckBoxNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["checkbox"] = "checkbox"
@@ -188,7 +194,7 @@ class GroupNode(FormKitSchemaProps):
 
 
 FormKitSchemaFormKit = Annotated[
-    Union[TextNode, CheckBoxNode, PasswordNode, SelectNode, EmailNode, NumberNode, RadioNode, GroupNode],
+    Union[TextNode, CheckBoxNode, PasswordNode, SelectNode, EmailNode, NumberNode, RadioNode, GroupNode, DateNode],
     Field(discriminator="formkit"),
 ]
 
@@ -302,7 +308,7 @@ Node = Annotated[
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
-    "select", "checkbox", "number", "group", "list", "password", "button", "select", "radio", "form"
+    "select", "checkbox", "number", "group", "list", "password", "button", "select", "radio", "form", "date"
 ]
 
 
