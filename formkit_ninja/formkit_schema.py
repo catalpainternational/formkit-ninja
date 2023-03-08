@@ -170,14 +170,14 @@ class RadioNode(FormKitSchemaProps):
     formkit: Literal["radio"] = "radio"
     dollar_formkit: str = Field(default="radio", alias="$formkit")
     name: str | None
-    options: list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
 
 
 class SelectNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["select"] = "select"
     dollar_formkit: str = Field(default="select", alias="$formkit")
-    options: list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
 
 
 class EmailNode(FormKitSchemaProps):
@@ -190,15 +190,16 @@ class DropDownNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["dropdown"] = "dropdown"
     dollar_formkit: str = Field(default="dropdown", alias="$formkit")
-
+    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    empty_message: str | None = Field(None, alias="empty-message")
 
 class RepeaterNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["repeater"] = "repeater"
     dollar_formkit: str = Field(default="repeater", alias="$formkit")
-    up_control: bool | None = None
-    down_control: bool | None = None
-    add_label: str | None = None
+    up_control: bool | None = Field(default=True, alias="upControl")
+    down_control: bool | None = Field(default=True, alias="downControl")
+    add_label: str | None = Field(default="Add another", alias="addLabel")
     name: str | None = None
 
 
@@ -235,7 +236,7 @@ class FormKitSchemaDOMNode(FormKitSchemaProps):
     and content is assigned with the children property
     """
 
-    node_type: Literal["element"]
+    node_type: Literal["element"] = "element"
     el: str = Field(alias="$el")
     attrs: FormKitSchemaAttributes | None
 
