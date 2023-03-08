@@ -1,0 +1,15 @@
+[
+    {
+        "$formkit": "dropdown",
+        "name": "unit",
+        "label": "Unit",
+        "placeholder": "Please select",
+        "selectIcon": "angleDown",
+        "options": [
+            "Km",
+            "m3",
+            "m2",
+            "package"
+        ]
+    }
+]

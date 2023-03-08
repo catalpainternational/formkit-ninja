@@ -186,6 +186,22 @@ class EmailNode(FormKitSchemaProps):
     dollar_formkit: str = Field(default="email", alias="$formkit")
 
 
+class DropDownNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["dropdown"] = "dropdown"
+    dollar_formkit: str = Field(default="dropdown", alias="$formkit")
+
+
+class RepeaterNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["repeater"] = "repeater"
+    dollar_formkit: str = Field(default="repeater", alias="$formkit")
+    up_control: bool | None = None
+    down_control: bool | None = None
+    add_label: str | None = None
+    name: str | None = None
+
+
 class GroupNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["group"] = "group"
@@ -194,7 +210,19 @@ class GroupNode(FormKitSchemaProps):
 
 
 FormKitSchemaFormKit = Annotated[
-    Union[TextNode, CheckBoxNode, PasswordNode, SelectNode, EmailNode, NumberNode, RadioNode, GroupNode, DateNode],
+    Union[
+        TextNode,
+        CheckBoxNode,
+        PasswordNode,
+        SelectNode,
+        EmailNode,
+        NumberNode,
+        RadioNode,
+        GroupNode,
+        DateNode,
+        DropDownNode,
+        RepeaterNode,
+    ],
     Field(discriminator="formkit"),
 ]
 
@@ -308,7 +336,19 @@ Node = Annotated[
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
-    "select", "checkbox", "number", "group", "list", "password", "button", "select", "radio", "form", "date"
+    "select",
+    "checkbox",
+    "number",
+    "group",
+    "list",
+    "password",
+    "button",
+    "select",
+    "radio",
+    "form",
+    "date",
+    "dropdown",
+    "repeater",
 ]
 
 

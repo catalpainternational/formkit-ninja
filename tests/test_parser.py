@@ -50,3 +50,13 @@ def test_meeting_type_node():
     assert reloaded[0].get("formkit") == "select"
 
     assert len(reloaded[0]["options"]) == 2
+
+
+def test_repeater():
+    schema = json.loads(files(samples).joinpath("repeater.json").read_text())
+    formkit_schema.FormKitNode.parse_obj(schema[0])
+
+
+def test_dropdown():
+    schema = json.loads(files(samples).joinpath("dropdown.json").read_text())
+    formkit_schema.FormKitNode.parse_obj(schema[0])
