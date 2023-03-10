@@ -127,6 +127,7 @@ class FormKitSchemaProps(BaseModel):
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
+    classes: dict[str, str] | None = Field(None)
 
     class Config:
         allow_population_by_field_name = True
