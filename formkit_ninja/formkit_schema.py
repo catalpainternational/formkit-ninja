@@ -193,6 +193,7 @@ class DropDownNode(FormKitSchemaProps):
     options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
     empty_message: str | None = Field(None, alias="empty-message")
     select_icon: str | None = Field(None, alias="selectIcon")
+    placeholder: str | None
 
 
 class RepeaterNode(FormKitSchemaProps):
