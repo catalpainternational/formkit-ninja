@@ -145,7 +145,6 @@ class PydanticBaseModelField(models.JSONField):
                 # by_alias=True,
                 exclude_unset=True,
                 exclude_none=True,
-                exclude_defaults=True,
             )
             return super().get_db_prep_value(
                 _value.get(ROOT_KEY) if ROOT_KEY in _value else _value,

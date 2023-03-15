@@ -408,7 +408,10 @@ class FormKitNode(BaseModel):
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
         if "id" in obj:
             obj["html_id"] = obj.pop("id")
-        return super().parse_obj({**get_node_type(obj), **obj})
+        try:
+            return super().parse_obj({**get_node_type(obj), **obj})
+        except KeyError as E:
+            raise Exception(f"Unable to parse content {obj} to a {cls}") from E
 
 
 class FormKitSchema(BaseModel):
