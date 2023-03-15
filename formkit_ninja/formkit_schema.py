@@ -127,6 +127,7 @@ class FormKitSchemaProps(BaseModel):
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
+    classes: dict[str, str] | None = Field(None)
 
     class Config:
         allow_population_by_field_name = True
@@ -170,20 +171,40 @@ class RadioNode(FormKitSchemaProps):
     formkit: Literal["radio"] = "radio"
     dollar_formkit: str = Field(default="radio", alias="$formkit")
     name: str | None
-    options: list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
 
 
 class SelectNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["select"] = "select"
     dollar_formkit: str = Field(default="select", alias="$formkit")
-    options: list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
 
 
 class EmailNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["email"] = "email"
     dollar_formkit: str = Field(default="email", alias="$formkit")
+
+
+class DropDownNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["dropdown"] = "dropdown"
+    dollar_formkit: str = Field(default="dropdown", alias="$formkit")
+    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    empty_message: str | None = Field(None, alias="empty-message")
+    select_icon: str | None = Field(None, alias="selectIcon")
+    placeholder: str | None
+
+
+class RepeaterNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["repeater"] = "repeater"
+    dollar_formkit: str = Field(default="repeater", alias="$formkit")
+    up_control: bool | None = Field(default=True, alias="upControl")
+    down_control: bool | None = Field(default=True, alias="downControl")
+    add_label: str | None = Field(default="Add another", alias="addLabel")
+    name: str | None = None
 
 
 class GroupNode(FormKitSchemaProps):
@@ -194,7 +215,19 @@ class GroupNode(FormKitSchemaProps):
 
 
 FormKitSchemaFormKit = Annotated[
-    Union[TextNode, CheckBoxNode, PasswordNode, SelectNode, EmailNode, NumberNode, RadioNode, GroupNode, DateNode],
+    Union[
+        TextNode,
+        CheckBoxNode,
+        PasswordNode,
+        SelectNode,
+        EmailNode,
+        NumberNode,
+        RadioNode,
+        GroupNode,
+        DateNode,
+        DropDownNode,
+        RepeaterNode,
+    ],
     Field(discriminator="formkit"),
 ]
 
@@ -207,7 +240,7 @@ class FormKitSchemaDOMNode(FormKitSchemaProps):
     and content is assigned with the children property
     """
 
-    node_type: Literal["element"]
+    node_type: Literal["element"] = "element"
     el: str = Field(alias="$el")
     attrs: FormKitSchemaAttributes | None
 
@@ -308,7 +341,19 @@ Node = Annotated[
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
-    "select", "checkbox", "number", "group", "list", "password", "button", "select", "radio", "form", "date"
+    "select",
+    "checkbox",
+    "number",
+    "group",
+    "list",
+    "password",
+    "button",
+    "select",
+    "radio",
+    "form",
+    "date",
+    "dropdown",
+    "repeater",
 ]
 
 

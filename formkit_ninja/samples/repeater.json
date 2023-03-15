@@ -1,0 +1,18 @@
+[
+    {
+      "$formkit": "repeater",
+      "upControl": false,
+      "downControl": false,
+      "addLabel": "Add another priority",
+      "name": "priorities",
+      "children": [
+        {
+          "$el": "div",
+          "attrs": {
+            "class": "mb-5 bg-zinc-400 text-base text-zinc-900 h-[50px] px-5 flex items-center rounded-full font-bold"
+          },
+          "children": "Priority 1"
+        }
+    ]
+}
+]
