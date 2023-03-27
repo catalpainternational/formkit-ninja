@@ -157,6 +157,9 @@ class NumberNode(FormKitSchemaProps):
     formkit: Literal["number"] = "number"
     dollar_formkit: str = Field(default="number", alias="$formkit")
     text: str | None
+    max: int | None = None
+    min: int | None = None
+    step: int | None = None
 
 
 class PasswordNode(FormKitSchemaProps):

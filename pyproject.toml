@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "formkit-ninja"
-version = "0.1.6a8"
+version = "0.1.6a10"
 description = "A Django-Ninja backend to specify FormKit schemas"
 authors = ["Josh Brooks <josh@catalpa.io>"]
 license = "GPLv3"
@@ -12,7 +12,7 @@ exclude = ["tests", "formkit_ninja/samples"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-django-ninja = "^0.20.0"
+django-ninja = "^0.21.0"
 Django = "^4.1.5"
 django-ordered-model = "^3.6"
 pydantic = "<2"
