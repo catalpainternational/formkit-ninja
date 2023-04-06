@@ -124,6 +124,7 @@ class FormKitSchemaProps(BaseModel):
     validation: str | None = Field(None)
     validationLabel: str | None = Field(None, alias="validation-label")
     validationVisibility: str | None = Field(None, alias="validation-visibility")
+    validationMessages: str | dict[str, str] = Field(None, alias="validation-messages")
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
