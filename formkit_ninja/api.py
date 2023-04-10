@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from ninja import ModelSchema, Router
+from pydantic import UUID4
 
 from formkit_ninja import formkit_schema, models
 
@@ -44,3 +45,15 @@ def get_schemas(request, schema_id: int):
     schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, id=schema_id)
     model = schema.to_pydantic()
     return model
+
+
+@router.get(
+    "node/{node_id}",
+    response=formkit_schema.FormKitNode,
+    exclude_none=True,
+    by_alias=True,
+)
+def get_node(request, node_id: UUID4):
+    node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
+    instance = node.get_node()
+    return instance

@@ -148,14 +148,11 @@ class JsonDecoratedFormBase(TransModelForm):
         for field, keys in self._json_fields.items():
             # Populate a JSON field in a model named "form"
             # from a set of standard form elements
-            data = getattr(self.instance, field, {})
-            if not isinstance(data, dict):
-                # This is a bit unexpected
-                raise ValueError("Expected a JSON dict object here")
-            logger.debug(data)
-            data.update({key: self.cleaned_data[key] for key in keys})
-            logger.debug(data)
-            setattr(self.instance, field, data)
+            data = {}
+            for key in keys:
+                if cleaned_data := self.cleaned_data[key]:
+                    data[key] = cleaned_data
+        setattr(self.instance, field, data)
         return super().save(commit=commit)
 
 
@@ -340,6 +337,9 @@ class FormKitSchemaForm(TransModelForm):
 
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
+
+    list_display = ["id", "label", "node_type"]
+
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
 
         if not obj:
@@ -389,7 +389,7 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
             return NewFormKitForm
 
         try:
-            node_type: FORMKIT_TYPE = obj.node.get("node_type")
+            node_type: FORMKIT_TYPE = obj.node_type
         except (AttributeError, KeyError) as E:
             warnings.warn("Expected a 'Node' with a 'NodeType' in the admin form")
             warnings.warn(f"{E}")
@@ -397,19 +397,19 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
         if node_type == "condition":
             return FormKitConditionForm
 
-        elif node_type == "formkit":
+        elif node_type == "$formkit":
             formkit_node_type = (obj.node or {}).get("formkit", None)
             if formkit_node_type == "group":
                 return enlangished_class(FormKitNodeGroupForm)
             return enlangished_class(FormKitNodeForm)
 
-        elif node_type == "el":
+        elif node_type == "$el":
             return enlangished_class(FormKitElementForm)
 
         elif node_type == "text":
             return enlangished_class(FormKitTextNode)
 
-        elif node_type == "component":
+        elif node_type == "$cmp":
             return enlangished_class(FormKitComponentForm)
 
         else:

@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from typing import Iterable, Type, TypedDict
+from typing import Iterable, Type, TypedDict, get_args
 
 from django.db import models
 from django.utils.functional import cached_property
@@ -179,14 +179,8 @@ class FormKitSchemaNode(models.Model):
         ("$el", "Element"),
         ("raw", "Raw JSON"),
     )
-    FORMKIT_CHOICES = [
-        ("text", "text"),
-        ("number", "number"),
-        ("group", "group"),
-        ("button", "button"),
-        ("radio", "radio"),
-        ("select", "select"),
-    ]
+    FORMKIT_CHOICES = [(t, t) for t in get_args(formkit_schema.FORMKIT_TYPE)]
+
     ELEMENT_TYPE_CHOICES = [("p", "p"), ("h1", "h1"), ("h2", "h2")]
     node_type = models.CharField(max_length=256, choices=NODE_TYPE_CHOICES, blank=True, help_text="")
     description = models.TextField(
@@ -247,9 +241,6 @@ class FormKitSchemaNode(models.Model):
         with restored options and translated fields
         """
         return formkit_schema.FormKitNode.parse_obj(self.get_node_values())
-
-    def __str__(self):
-        return TranslatedValues.get_str(self.label)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
