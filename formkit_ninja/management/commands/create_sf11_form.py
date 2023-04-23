@@ -31,8 +31,8 @@ def partisipants_schema():
     """
     Create the "Partisipants" section
     """
-    partisipants = models.FormKitSchema.objects.get_or_create(key="SF 1.1 Partisipants")[0]
-
+    partisipants, created = models.FormKitSchema.objects.get_or_create(key="SF 1.1 Partisipants")
+    yield partisipants, created
     # This is a dump from python code
     partisipants_group = {
         "children": [
@@ -141,19 +141,21 @@ def partisipants_schema():
 
     for node in partisipants_group["children"]:
         node_from_fk = FormKitNode.parse_obj(node).__root__
-        schema_node = models.FormKitSchemaNode.objects.update_or_create(
+        schema_node, schema_node_created = models.FormKitSchemaNode.objects.update_or_create(
             admin_key=f"SF 1.1 partisipants ({node_from_fk.name})",
             node_type="$formkit",
             translation_context="partisipants",
             defaults=dict(node=node_from_fk.dict()),
-        )[0]
-        models.FormComponents.objects.update_or_create(
+        )
+        yield schema_node, schema_node_created
+        component, component_created = models.FormComponents.objects.update_or_create(
             defaults=dict(
                 schema=partisipants,
                 node=schema_node,
             ),
             key=f"SF 1.1 partisipants ({node_from_fk.name})",
         )
+        yield component, component_created
 
 
 def meeting_information_schema():
@@ -161,8 +163,9 @@ def meeting_information_schema():
     Create or recreate the SF 1.1 Meeting Information schema
     """
 
-    meeting_information = models.FormKitSchema.objects.get_or_create(key="SF 1.1 Meeting Information")[0]
-    activity_type = models.FormKitSchemaNode.objects.update_or_create(
+    meeting_information, mi_created = models.FormKitSchema.objects.get_or_create(key="SF 1.1 Meeting Information")
+    yield meeting_information, mi_created
+    activity_type, activity_type_created = models.FormKitSchemaNode.objects.update_or_create(
         admin_key="SF 1.1 Activity Type",
         node_type="$formkit",
         defaults=dict(
@@ -175,16 +178,17 @@ def meeting_information_schema():
                 "formkit": "select",
             }
         ),
-    )[0]
+    )
+    yield activity_type, activity_type_created
 
-    models.Option.objects.get_or_create(
+    yield models.Option.objects.update_or_create(
         field=activity_type, value=str(TrainingOrMeeting.Formasaun.value), label="Training"
     )
-    models.Option.objects.get_or_create(
+    yield models.Option.objects.update_or_create(
         field=activity_type, value=str(TrainingOrMeeting.Enkontru.value), label="Meeting"
     )
 
-    models.FormComponents.objects.update_or_create(
+    yield models.FormComponents.objects.update_or_create(
         defaults=dict(
             schema=meeting_information,
             node=activity_type,
@@ -253,32 +257,35 @@ def meeting_information_schema():
         {"value": "40", "label": "Priority setting at aldeia-Women"},
     ]
 
-    activity_subtype_node = models.FormKitSchemaNode.objects.update_or_create(
+    activity_subtype_node, c = models.FormKitSchemaNode.objects.update_or_create(
         admin_key="SF 1.1 Activity Sub-Type (Training)",
         node_type="$formkit",
         defaults=dict(translation_context="activitytype", node=activity_subtype.dict(exclude_none=True)),
-    )[0]
+    )
+    yield activity_subtype_node, c
 
     for option in options_activity_subtype_training:
-        models.Option.objects.get_or_create(field=activity_subtype_node, **option)
+        yield models.Option.objects.get_or_create(field=activity_subtype_node, **option)
 
-    activity_subtype_node_meetings = models.FormKitSchemaNode.objects.update_or_create(
+    activity_subtype_node_meetings, c = models.FormKitSchemaNode.objects.update_or_create(
         admin_key="SF 1.1 Activity Sub-Type (Meeting)",
         node_type="$formkit",
         defaults=dict(translation_context="activitytype", node=activity_subtype_meetings.dict(exclude_none=True)),
-    )[0]
+    )
+    yield activity_subtype_node_meetings, c
 
     for option in options_activity_subtype_meeting:
-        models.Option.objects.get_or_create(field=activity_subtype_node_meetings, **option)
+        yield models.Option.objects.get_or_create(field=activity_subtype_node_meetings, **option)
+
 
 def create_sf11_locations():
     """
     This is a special "SF11 Locations" schema with additional conditions
     For these 'SF11' type forms, we add some conditions as described in our spreadsheet
     """
-    locations_sf11 = models.FormKitSchema.objects.get_or_create(key="SF 1.1 Locations")[0]
-
-    district = models.FormKitSchemaNode.objects.update_or_create(
+    locations_sf11, c = models.FormKitSchema.objects.get_or_create(key="SF 1.1 Locations")
+    yield locations_sf11, c
+    district, c = models.FormKitSchemaNode.objects.update_or_create(
         admin_key="municipality",
         defaults=dict(
             node_type="$formkit",
@@ -292,9 +299,10 @@ def create_sf11_locations():
                 options="$getLocations()",
             ),
         ),
-    )[0]
+    )
+    yield district, c
 
-    sf11_admin_post = models.FormKitSchemaNode.objects.get_or_create(
+    sf11_admin_post, c = models.FormKitSchemaNode.objects.get_or_create(
         admin_key="Administrative Post select (SF 1.1 options)",
         defaults=dict(
             node_type="$formkit",
@@ -314,9 +322,10 @@ def create_sf11_locations():
                 options='$getLocations($get("municipality").value)',
             ),
         ),
-    )[0]
+    )
+    yield sf11_admin_post, c
 
-    sf11_suco = models.FormKitSchemaNode.objects.get_or_create(
+    sf11_suco, c = models.FormKitSchemaNode.objects.get_or_create(
         admin_key="Suco select (SF 1.1 options)",
         defaults=dict(
             node_type="$formkit",
@@ -337,9 +346,10 @@ def create_sf11_locations():
                 options='$getLocations($get("municipality").value, $get("admin_post").value)',
             ),
         ),
-    )[0]
+    )
+    yield sf11_suco, c
 
-    sf11_aldeia = models.FormKitSchemaNode.objects.get_or_create(
+    sf11_aldeia, c = models.FormKitSchemaNode.objects.get_or_create(
         admin_key="Aldeia select (SF 1.1 options)",
         defaults=dict(
             node_type="$formkit",
@@ -372,9 +382,10 @@ def create_sf11_locations():
                 options='$getLocations($get("municipality").value, $get("admin_post").value, $get("suco").value)',
             ),
         ),
-    )[0]
+    )
+    yield sf11_aldeia, c
 
-    models.FormComponents.objects.update_or_create(
+    yield models.FormComponents.objects.update_or_create(
         defaults=dict(
             schema=locations_sf11,
             node=district,
@@ -382,7 +393,7 @@ def create_sf11_locations():
         key="Municipalities for the SF 1.1 Location Select schema",
     )
 
-    models.FormComponents.objects.update_or_create(
+    yield models.FormComponents.objects.update_or_create(
         key="Administrative Posts for the SF 1.1 Location Select schema",
         defaults=dict(
             schema=locations_sf11,
@@ -390,7 +401,7 @@ def create_sf11_locations():
         ),
     )
 
-    models.FormComponents.objects.update_or_create(
+    yield models.FormComponents.objects.update_or_create(
         defaults=dict(
             schema=locations_sf11,
             node=sf11_suco,
@@ -398,7 +409,7 @@ def create_sf11_locations():
         key="Suco for the SF 1.1 Location Select schema",
     )
 
-    models.FormComponents.objects.update_or_create(
+    yield models.FormComponents.objects.update_or_create(
         key="Aldeias for the for SF 1.1 Location Select schema",
         defaults=dict(
             schema=locations_sf11,
@@ -410,6 +421,7 @@ def create_sf11_locations():
     sf11_admin_post.translatable_content()
     sf11_suco.translatable_content()
 
+
 def add_location_schema():
     """
     This is a "general" location picker without the special SF 1.1 logic
@@ -418,11 +430,10 @@ def add_location_schema():
     # The SF11 schema is represented by these parts
     locations = models.FormKitSchema.objects.get_or_create(key="Locations except SF 1.1")[0]
 
-
     # Locations has: suco, aldeia, postu_admin, district nodes
     # From the admin, you'll set the "admin key" and the "node type"
 
-    district = models.FormKitSchemaNode.objects.update_or_create(
+    district, c = models.FormKitSchemaNode.objects.update_or_create(
         admin_key="municipality",
         defaults=dict(
             node_type="$formkit",
@@ -436,11 +447,12 @@ def add_location_schema():
                 options="$getLocations()",
             ),
         ),
-    )[0]
+    )
+    yield district, c
 
     district.translatable_content()
 
-    admin_post = models.FormKitSchemaNode.objects.get_or_create(
+    admin_post, c = models.FormKitSchemaNode.objects.get_or_create(
         admin_key="admin_post",
         defaults=dict(
             node_type="$formkit",
@@ -455,9 +467,10 @@ def add_location_schema():
                 options='$getLocations($get("municipality").value)',
             ),
         ),
-    )[0]
+    )
+    yield admin_post, c
 
-    suco = models.FormKitSchemaNode.objects.get_or_create(
+    suco, c = models.FormKitSchemaNode.objects.get_or_create(
         admin_key="suco",
         defaults=dict(
             node_type="$formkit",
@@ -472,9 +485,10 @@ def add_location_schema():
                 options='$getLocations($get("municipality").value, $get("admin_post").value)',
             ),
         ),
-    )[0]
+    )
+    yield suco, c
 
-    aldeia = models.FormKitSchemaNode.objects.get_or_create(
+    aldeia, c = models.FormKitSchemaNode.objects.get_or_create(
         admin_key="aldeia",
         defaults=dict(
             node_type="$formkit",
@@ -489,9 +503,10 @@ def add_location_schema():
                 options='$getLocations($get("municipality").value, $get("admin_post").value, $get("suco").value)',
             ),
         ),
-    )[0]
+    )
+    yield aldeia, c
 
-    models.FormComponents.objects.update_or_create(
+    yield models.FormComponents.objects.update_or_create(
         defaults=dict(
             schema=locations,
             node=district,
@@ -499,7 +514,7 @@ def add_location_schema():
         key="Municipalities for the Location Select schema",
     )
 
-    models.FormComponents.objects.update_or_create(
+    yield models.FormComponents.objects.update_or_create(
         key="Administrative Posts for the Location Select schema",
         defaults=dict(
             schema=locations,
@@ -507,7 +522,7 @@ def add_location_schema():
         ),
     )
 
-    models.FormComponents.objects.update_or_create(
+    yield models.FormComponents.objects.update_or_create(
         defaults=dict(
             schema=locations,
             node=suco,
@@ -515,7 +530,7 @@ def add_location_schema():
         key="Suco for the Location Select schema",
     )
 
-    models.FormComponents.objects.update_or_create(
+    yield models.FormComponents.objects.update_or_create(
         key="Aldeias for the Location Select schema",
         defaults=dict(
             schema=locations,
@@ -527,6 +542,7 @@ def add_location_schema():
     admin_post.translatable_content()
     suco.translatable_content()
 
+
 class Command(BaseCommand):
     help = """
         Create the Partisipa 'SF11' form
@@ -534,8 +550,23 @@ class Command(BaseCommand):
     """
 
     def handle(self, *args, **options):
+        print(options["verbosity"])
+        self.stdout.write(self.style.SUCCESS("Writing Partisipants schema"))
+        for instance, created in partisipants_schema():
+            if options["verbosity"] > 1:
+                self.stdout.write(self.style.SUCCESS(f"{'Created' if created else 'Updated'} {instance}"))
 
-        partisipants_schema()
-        meeting_information_schema()
-        create_sf11_locations()
-        add_location_schema()
+        self.stdout.write(self.style.SUCCESS("Writing Meeting Information schema"))
+        for instance, created in meeting_information_schema():
+            if options["verbosity"] > 1:
+                self.stdout.write(self.style.SUCCESS(f"{'Created' if created else 'Updated'} {instance}"))
+
+        self.stdout.write(self.style.SUCCESS("Writing Locations schema for SF 11"))
+        for instance, created in create_sf11_locations():
+            if options["verbosity"] > 1:
+                self.stdout.write(self.style.SUCCESS(f"{'Created' if created else 'Updated'} {instance}"))
+
+        self.stdout.write(self.style.SUCCESS("Writing Locations schema for other forms"))
+        for instance, created in add_location_schema():
+            if options["verbosity"] > 1:
+                self.stdout.write(self.style.SUCCESS(f"{'Created' if created else 'Updated'} {instance}"))

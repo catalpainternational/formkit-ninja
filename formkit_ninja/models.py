@@ -21,6 +21,8 @@ class UuidIdModel(models.Model):
      - UUID field is the ID
      - Created field
      - Last Modified field
+     - updated_by (optional)
+     - created_by (optional)
     """
 
     class Meta:
@@ -84,6 +86,9 @@ class Option(OrderedModel, UuidIdModel):
                 yield cls(value=option, label=option)
             elif isinstance(option, dict) and option.keys() == {"value", "label"}:
                 yield cls(**option)
+
+    def __str__(self):
+        return f"{self.label} : {self.value}"
 
 
 class FormComponents(OrderedModel, UuidIdModel):
