@@ -35,7 +35,8 @@ def translated_fields(form: forms.BaseForm | TransModelForm) -> tuple[str]:
         Expect this field to be present and to be a subclass of TranslatedField
         """
         for field_name in list(getattr(form, "_skip_translations", {})):
-            assert isinstance(model_._meta.get_field(field_name), TranslatedField)
+            if not isinstance(model_._meta.get_field(field_name), TranslatedField):
+                warnings.warn(f"Field {field_name} on model {model_} is not a Translatable field")
 
     def get_model() -> dj_models.Model:
         if hasattr(form, "model"):
@@ -56,21 +57,6 @@ def translated_fields(form: forms.BaseForm | TransModelForm) -> tuple[str]:
             if isinstance(field, TranslatedField) and field.name not in getattr(form, "_skip_translations", {})
         )
     )
-
-
-def enlangished_class(base_form: forms.BaseForm) -> forms.BaseForm:
-    """
-    Enhances a 'Form' with additional fields based on settings languages
-    """
-    fields = translated_fields(base_form)
-    label = "json_languages_{prefix}".format(prefix="_".join(fields))
-    language_fields = {}
-    for field in fields:
-        for langcode, langname in settings.LANGUAGES:
-            fieldname = "%s_%s" % (field, langcode)
-            language_fields[fieldname] = forms.CharField()
-
-    return type(label, (base_form,), language_fields)
 
 
 class TransModelForm(forms.ModelForm):
@@ -159,13 +145,13 @@ class JsonDecoratedFormBase(TransModelForm):
 class NewFormKitForm(forms.ModelForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("node_type", "description")
+        fields = ("admin_key", "translation_context", "node_type", "description")
 
 
 class OptionForm(TransModelForm):
     class Meta:
         model = models.Option
-        exclude = ("label",)
+        exclude = ()
 
 
 class FormComponentsForm(TransModelForm):
@@ -176,13 +162,14 @@ class FormComponentsForm(TransModelForm):
 
 class FormKitSchemaNodeOptionsInline(OrderedTabularInline):
     model = models.Option
-    form = enlangished_class(OptionForm)
+    form = OptionForm
     readonly_fields = (
+        # "id",
         "order",
         "move_up_down_links",
     )
     ordering = ("order",)
-    extra = 1
+    extra = 0
 
 
 class FormKitSchemaComponentInline(OrderedTabularInline):
@@ -194,13 +181,17 @@ class FormKitSchemaComponentInline(OrderedTabularInline):
         "node",
     )
     ordering = ("order",)
-    extra = 1
+    extra = 0
 
 
 class FormKitNodeGroupForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("description",)
+        fields = (
+            "admin_key",
+            "translation_context",
+            "description",
+        )
 
     _json_fields = {
         "node": (
@@ -217,39 +208,84 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
 
 
 class FormKitNodeForm(JsonDecoratedFormBase):
+    """
+    This is the most common component type: the 'FormKit' schema node
+    """
+
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("description",)
+        fields = ("admin_key", "translation_context", "description", "additional_props")
 
-    _json_fields = {"node": ("formkit", "description", "name", "key", "html_id", "if_condition")}
+    # The `_json_fields["node"]` item affects the admin form, adding the fields included in the `FormKitSchemaProps.__fields__.items` dict
+    _json_fields = {
+        "node": (
+            "formkit",
+            "description",
+            "name",
+            "key",
+            "html_id",
+            "if_condition",
+            "options",
+            "label",
+            "placeholder",
+            "help",
+            # Validation of fields
+            "validation",
+            "validationLabel",
+            "validationVisibility",
+            "validationMessages",
+            "prefixIcon",
+            # Numeric forms
+            "min",
+            "max",
+            "step",
+        )
+    }
 
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES)
-    name = forms.CharField(
-        required=False,
-    )
-    if_condition = forms.CharField(
-        widget=forms.TextInput,
-        required=False,
-    )
-    key = forms.CharField(
-        required=False,
-    )
+    name = forms.CharField(required=False)
+    if_condition = forms.CharField(widget=forms.TextInput, required=False)
+    key = forms.CharField(required=False)
+    label = forms.CharField(required=False)
+    placeholder = forms.CharField(required=False)
+    help = forms.CharField(required=False)
     html_id = forms.CharField(
-        required=False,
-        help_text="Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)",
+        required=False, help_text="Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"
     )
+    options = forms.CharField(
+        required=False, help_text="Use this if adding Options using a JS function (hint: $get(my_field).value )"
+    )
+    validation = forms.CharField(required=False)
+    validationLabel = forms.CharField(required=False)
+    validationVisibility = forms.CharField(required=False)
+    validationMessages = forms.JSONField(required=False)
+    prefixIcon = forms.CharField(required=False)
+
+    # NumberNode props
+
+    max = forms.IntegerField(required=False)
+    min = forms.IntegerField(required=False)
+    step = forms.IntegerField(required=False)
 
 
 class FormKitTextNode(TransModelForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("description",)
+        fields = (
+            "admin_key",
+            "translation_context",
+            "description",
+        )
 
 
 class FormKitElementForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("description",)
+        fields = (
+            "admin_key",
+            "translation_context",
+            "description",
+        )
 
     _skip_translations = {"label", "placeholder"}
     _json_fields = {"node": ("el", "name", "if_condition", "classes")}
@@ -271,7 +307,11 @@ class FormKitConditionForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
         # fields = '__all__'
-        fields = ("description",)
+        fields = (
+            "admin_key",
+            "translation_context",
+            "description",
+        )
 
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
@@ -292,7 +332,11 @@ class FormKitConditionForm(JsonDecoratedFormBase):
 class FormKitComponentForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("description",)
+        fields = (
+            "admin_key",
+            "translation_context",
+            "description",
+        )
 
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
@@ -338,7 +382,7 @@ class FormKitSchemaForm(TransModelForm):
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 
-    list_display = ["id", "label", "node_type"]
+    list_display = ("admin_key", "id", "node_type")
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
 
@@ -375,8 +419,15 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
     def get_fieldsets(
         self, request: HttpRequest, obj: Optional[models.FormKitSchemaNode] = ...
     ) -> list[tuple[Optional[str], dict[str, Any]]]:
+        try:
+            FORMKIT_TYPE = obj.node_type
+        except (AttributeError, KeyError) as E:
+            warnings.warn("Expected a 'Node' with a 'NodeType' in the admin form")
+            warnings.warn(f"{E}")
 
-        return super().get_fieldsets(request, obj)
+        fieldsets = super().get_fieldsets(request, obj)
+        # TODO: Arrange admin form nicely with fieldsets
+        return fieldsets
 
     def get_form(
         self,
@@ -400,17 +451,17 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
         elif node_type == "$formkit":
             formkit_node_type = (obj.node or {}).get("formkit", None)
             if formkit_node_type == "group":
-                return enlangished_class(FormKitNodeGroupForm)
-            return enlangished_class(FormKitNodeForm)
+                return FormKitNodeGroupForm
+            return FormKitNodeForm
 
         elif node_type == "$el":
-            return enlangished_class(FormKitElementForm)
+            return FormKitElementForm
 
         elif node_type == "text":
-            return enlangished_class(FormKitTextNode)
+            return FormKitTextNode
 
         elif node_type == "$cmp":
-            return enlangished_class(FormKitComponentForm)
+            return FormKitComponentForm
 
         else:
             return super().get_form(request, obj, change, **kwargs)
@@ -418,16 +469,19 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 
 @admin.register(models.Option)
 class OptionAdmin(OrderedModelAdmin):
-    form = enlangished_class(OptionForm)
-    list_display = ("label", "field", "move_up_down_links")
+    form = OptionForm
+    readonly_fields = ("id",)
+    list_display = ("value", "label", "field", "move_up_down_links")
 
 
 @admin.register(models.FormKitSchema)
 class FormKitSchemaAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
-    form = enlangished_class(FormKitSchemaForm)
+    form = FormKitSchemaForm
 
     def get_inlines(self, request, obj: models.FormKitSchema | None):
-
+        """
+        For a "new object" do not show the Form Components
+        """
         if not obj:
             return []
         return [
@@ -437,3 +491,13 @@ class FormKitSchemaAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
     inlines = [
         FormKitSchemaComponentInline,
     ]
+
+
+@admin.register(models.FormComponents)
+class FormComponentsAdmin(OrderedModelAdmin):
+    list_display = ("key", "schema", "node", "move_up_down_links")
+
+
+@admin.register(models.Translatable)
+class TranslatableAdmin(admin.ModelAdmin):
+    list_display = ("field", "language_code", "value", "context")

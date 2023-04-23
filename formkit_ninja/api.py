@@ -16,7 +16,7 @@ class FormKitSchemaIn(ModelSchema):
 class FormKitSchemaListOut(ModelSchema):
     class Config:
         model = models.FormKitSchema
-        model_fields = ("id", "name")
+        model_fields = ("id", "key")
 
 
 @router.get("list-schemas", response=list[FormKitSchemaListOut])
@@ -41,7 +41,7 @@ def post_schema(request, payload: list[dict]):
     exclude_none=True,
     by_alias=True,
 )
-def get_schemas(request, schema_id: int):
+def get_schemas(request, schema_id: UUID4):
     schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, id=schema_id)
     model = schema.to_pydantic()
     return model

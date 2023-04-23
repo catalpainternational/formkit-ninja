@@ -1,22 +1,60 @@
+import itertools
 import json
 import logging
 import uuid
-from typing import Iterable, Type, TypedDict, get_args
+from typing import Iterable, TypedDict, get_args
 
+from django.conf import settings
 from django.db import models
 from django.utils.functional import cached_property
 from ordered_model.models import OrderedModel
-from pydantic import BaseModel
-from pydantic.utils import ROOT_KEY
-
-from formkit_ninja.fields import TranslatedField, TranslatedValues
 
 from . import formkit_schema
 
-_ = TranslatedValues.get_str
-
-
 logger = logging.getLogger()
+
+
+class UuidIdModel(models.Model):
+    """
+    Consistently use fields which will
+    help with syncing data:
+     - UUID field is the ID
+     - Created field
+     - Last Modified field
+    """
+
+    class Meta:
+        abstract = True
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated = models.DateTimeField(auto_now=True, blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True
+    )
+
+
+class Translatable(UuidIdModel):
+    """
+    This is a holder for "translatable" content from different fields
+    """
+
+    object_id = models.UUIDField(editable=False)
+    language_code = models.CharField(max_length=3, editable=False)
+
+    # These are translation values: "field", "value", "context" and "msgstr"
+    field = models.CharField(max_length=100, help_text="The field on the generic model to translate", editable=False)
+    value = models.CharField(max_length=5000, null=True, blank=True, editable=False)
+    context = models.CharField(max_length=1024, null=True, blank=True, editable=False)
+    msgstr = models.CharField(max_length=5000, help_text="The string")
+
+    # options_function = models.CharField(max_length=1024, null=True, blank=True, editable=False, help_text="If 'options' are provided client side enter the function string. ie `$getOptions(...)`")
+
+    def __str__(self):
+        return f"{self.value} ({self.language_code})"
 
 
 class OptionDict(TypedDict):
@@ -24,24 +62,20 @@ class OptionDict(TypedDict):
     label: str
 
 
-class Option(OrderedModel):
+class Option(OrderedModel, UuidIdModel):
     """
-    In Python this corresponds to a "FormKit Option"
+    This is a key/value field representing one "option" for a FormKit property
+    The translated values for this option are in the `Translatable` table
     """
 
     value = models.CharField(max_length=1024)
-    label = TranslatedField(null=True, blank=True)
-
+    label = models.CharField(max_length=1024)
     field = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,
-        limit_choices_to={"node__formkit": "group"},
+        limit_choices_to={"node__formkit__in": ["select", "radio"]},
     )
     order_with_respect_to = "field"
-
-    def __str__(self):
-        label = _(self.label)
-        return f"{label}"
 
     @classmethod
     def from_pydantic(cls, options: list[str] | list[OptionDict]) -> Iterable["Option"]:
@@ -52,29 +86,31 @@ class Option(OrderedModel):
                 yield cls(**option)
 
 
-class FormComponents(OrderedModel):
+class FormComponents(OrderedModel, UuidIdModel):
     """
     A model relating "nodes" of a schema to a schema with model ordering
     """
 
-    schem = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
+    schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     node = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE)
+    key = models.CharField(max_length=1024, unique=True, help_text="Used as a human-readable label")
 
-    order_with_respect_to = "schem"
+    order_with_respect_to = "schema"
 
     class Meta:
-        ordering = ("schem", "order")
+        ordering = ("schema", "order")
 
     def __str__(self):
-        return f"{self.node}[{self.order}]: {self.schem}"
+        return f"{self.node}[{self.order}]: {self.schema}"
 
 
-class Membership(OrderedModel):
+class Membership(OrderedModel, UuidIdModel):
     """
     This is an ordered m2m model representing
     how parts of a "FormKit group" are arranged
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     group = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,
@@ -84,12 +120,13 @@ class Membership(OrderedModel):
     order_with_respect_to = "group"
 
 
-class NodeChildren(OrderedModel):
+class NodeChildren(OrderedModel, UuidIdModel):
     """
     This is an ordered m2m model representing
     the "children" of an HTML element
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     parent = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,
@@ -102,65 +139,7 @@ class NodeChildren(OrderedModel):
         ordering = ("order",)
 
 
-"""
-Trying a new field type which saves / returns a Pydantic schema
-"""
-
-
-class PydanticBaseModelField(models.JSONField):
-    class WrappedDict(dict):
-        def __init__(self, _base_class, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self._base_class = _base_class
-
-        _base_class: Type[BaseModel] | None = None
-
-        @cached_property
-        def parsed(self):
-            return self._base_class.parse_obj(self)
-
-    def __init__(self, base_class: Type[BaseModel] | None = None, *args, **kwargs):
-        self._base_class = base_class
-        super().__init__(*args, **kwargs)
-
-    def from_db_value(self, value, expression, connection):
-        self.WrappedDict._base_class = self._base_class
-        if value is None:
-            return value
-        if isinstance(value, str):
-            return self.WrappedDict(self._base_class, json.loads(value))
-        else:
-            raise NotImplementedError
-
-    def to_python(self, value):
-        if isinstance(value, self._base_class):
-            return value
-        if value is None:
-            return value
-        return self._base_class.parse_obj(value)
-
-    def get_db_prep_value(self, value: BaseModel, connection, prepared=False):
-        if isinstance(value, BaseModel):
-            _value = value.dict(
-                # by_alias=True,
-                exclude_unset=True,
-                exclude_none=True,
-            )
-            return super().get_db_prep_value(
-                _value.get(ROOT_KEY) if ROOT_KEY in _value else _value,
-                connection,
-                prepared,
-            )
-        return super().get_db_prep_value(value, connection, prepared)
-
-
-class PydanticBaseModelManyToManyField(models.ManyToManyField):
-    def __init__(self, to, base_class: Type[BaseModel] | None = None, **kwargs):
-        self._base_class = base_class
-        super().__init__(to, **kwargs)
-
-
-class FormKitSchemaNode(models.Model):
+class FormKitSchemaNode(UuidIdModel):
     """
     This represents a single "Node" in a FormKit schema.
     There are several different types of node which may be defined:
@@ -183,26 +162,78 @@ class FormKitSchemaNode(models.Model):
 
     ELEMENT_TYPE_CHOICES = [("p", "p"), ("h1", "h1"), ("h2", "h2")]
     node_type = models.CharField(max_length=256, choices=NODE_TYPE_CHOICES, blank=True, help_text="")
-    description = models.TextField(
+    description = models.CharField(
+        max_length=4000,
         null=True,
         blank=True,
         help_text="Decribe the type of data / reason for this component",
     )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    admin_key = models.CharField(max_length=1024, unique=True, help_text="Used as a human-readable label")
     group = models.ManyToManyField("self", through=Membership, blank=True)
     children = models.ManyToManyField("self", through=NodeChildren, blank=True)
 
-    # If set, "label" and "placeholder" will replace the values passed in the schema.
-    label = TranslatedField(null=True, blank=True)
-    placeholder = TranslatedField(null=True, blank=True)
-    help = TranslatedField(null=True, blank=True)
-
-    node = PydanticBaseModelField(
-        base_class=formkit_schema.FormKitNode,
+    node = models.JSONField(
         null=True,
         blank=True,
         help_text="A JSON representation of select parts of the FormKit schema",
     )
+
+    additional_props = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="User space for additional, less used props",
+    )
+
+    translation_context = models.CharField(
+        max_length=1024,
+        null=True,
+        blank=True,
+        help_text="The gettext context to use to translate Options, label, placeholder and help text",
+    )
+
+    def translatable_content(self):
+        """
+        Returns UUID, context, and label for content which can be i18n marked
+        """
+        from django.conf import settings
+
+        translatable_fields = ("label", "placeholder")
+        language_codes = [lang[0] for lang in settings.LANGUAGES if lang[0] != "en"]
+
+        # Make a 'translatable' type object for each language/field
+        # specified in settings
+
+        for field, code in itertools.product(translatable_fields, language_codes):
+            if not self.node:
+                continue
+            value = self.node.get(field, None)
+            if not value:
+                continue
+            logger.info(f"adding translatable string: {value}")
+            Translatable.objects.get_or_create(
+                object_id=self.id, language_code=code, field=field, context=self.translation_context, value=value
+            )
+
+        # Also add translation hooks for the content of "options" if present
+        options: Iterable[Option] = self.option_set.all()
+        for option, code in itertools.product(options, language_codes):
+            Translatable.objects.get_or_create(
+                object_id=self.id,
+                language_code=code,
+                field="option",
+                value=option.label or option.value,
+                context=self.translation_context,
+            )
+
+    def __str__(self):
+        return self.admin_key
+
+    def save(self, *args, **kwargs):
+        """
+        On save validate the 'node' field matches the 'FormKitNode'
+        """
+        return super().save(*args, **kwargs)
 
     @cached_property
     def node_options(self):
@@ -211,18 +242,8 @@ class FormKitSchemaNode(models.Model):
         separately stored, this step is necessary to
         reinstate them
         """
-        return [{"value": option.value, "label": option.label.value} for option in self.option_set.all()]
-
-    @cached_property
-    def translated_fields(self):
-        """
-        Translations are stored as separate fields
-        """
-        return {
-            fieldname: getattr(self, fieldname).value
-            for fieldname in ("label", "placeholder", "help")
-            if getattr(self, fieldname)
-        }
+        options: Iterable[Option] = self.option_set.all()
+        return [{"value": option.value} for option in options]
 
     def get_node_values(self) -> dict:
         """
@@ -230,7 +251,6 @@ class FormKitSchemaNode(models.Model):
         a FormKit Schema node from
         """
         values = {**self.node}
-        values.update(self.translated_fields)
         if self.node_options:
             values["options"] = self.node_options
         return values
@@ -242,8 +262,11 @@ class FormKitSchemaNode(models.Model):
         """
         return formkit_schema.FormKitNode.parse_obj(self.get_node_values())
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
+    def get_node_type() -> str:
+        """
+        Return the "type" of a FormKit node
+        """
+        return
 
     @classmethod
     def from_pydantic(
@@ -282,18 +305,16 @@ class SchemaManager(models.Manager):
         return super().get_queryset().prefetch_related("nodes", "nodes__children")
 
 
-class FormKitSchema(models.Model):
+class FormKitSchema(UuidIdModel):
     """
     This represents a "FormKitSchema" which is an heterogenous
     collection of items.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    key = models.SlugField(max_length=1024, unique=True)
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
-    name = TranslatedField()
     objects = SchemaManager()
-
-    def __str__(self):
-        return f"{_(self.name)}"
 
     def get_schema_values(self):
         """
@@ -305,6 +326,9 @@ class FormKitSchema(models.Model):
     def to_pydantic(self):
         values = list(self.get_schema_values())
         return formkit_schema.FormKitSchema.parse_obj(values)
+
+    def __str__(self):
+        return self.key
 
     @classmethod
     def from_pydantic(cls, input_model: formkit_schema.FormKitSchema, name={"en": "My Schema"}) -> "FormKitSchema":

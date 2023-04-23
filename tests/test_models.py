@@ -53,8 +53,6 @@ class FormKitSchemaNodeTestCase(TestCase):
             model.node.parsed
 
         sf11_schema.save()
-        print(sf11_schema.to_pydantic().json())
-
         # Test that we can now fetch the list of schemas
         list_request = self.client.get("/api/formkit/list-schemas")
         self.assertEqual(list_request.status_code, 200)
