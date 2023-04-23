@@ -26,7 +26,7 @@ class UuidIdModel(models.Model):
     class Meta:
         abstract = True
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True)
     created_by = models.ForeignKey(
@@ -42,7 +42,7 @@ class Translatable(UuidIdModel):
     This is a holder for "translatable" content from different fields
     """
 
-    object_id = models.UUIDField(editable=False)
+    object_id = models.UUIDField(editable=False, help_text="The UUID of the model which this translation relates to")
     language_code = models.CharField(max_length=3, editable=False)
 
     # These are translation values: "field", "value", "context" and "msgstr"
@@ -110,7 +110,6 @@ class Membership(OrderedModel, UuidIdModel):
     how parts of a "FormKit group" are arranged
     """
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     group = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,
@@ -125,8 +124,6 @@ class NodeChildren(OrderedModel, UuidIdModel):
     This is an ordered m2m model representing
     the "children" of an HTML element
     """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     parent = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,
@@ -168,7 +165,6 @@ class FormKitSchemaNode(UuidIdModel):
         blank=True,
         help_text="Decribe the type of data / reason for this component",
     )
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     admin_key = models.CharField(max_length=1024, unique=True, help_text="Used as a human-readable label")
     group = models.ManyToManyField("self", through=Membership, blank=True)
     children = models.ManyToManyField("self", through=NodeChildren, blank=True)
@@ -311,7 +307,6 @@ class FormKitSchema(UuidIdModel):
     collection of items.
     """
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     key = models.SlugField(max_length=1024, unique=True)
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
