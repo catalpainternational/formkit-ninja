@@ -1,6 +1,8 @@
 from __future__ import annotations
+from functools import reduce
 
 import logging
+import operator
 import warnings
 from typing import Any, Optional
 
@@ -109,13 +111,21 @@ class JsonDecoratedFormBase(TransModelForm):
     # value is a list of fields to get/set in that JSON field
     _json_fields: dict[str, tuple[str]] = {"my_json_field": ("formkit", "description", "name", "key", "html_id")}
 
+    def get_json_fields(self) -> dict[str, tuple[str]]:
+        """
+        Custom which json fields will be included in the return
+        """
+        return self._json_fields
+
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
-
-        for field, keys in self._json_fields.items():
+        instance = kwargs["instance"]
+        for field, keys in self.get_json_fields().items():
             # Extract the dict of JSON values from the model instance if supplied
-            values = getattr(kwargs["instance"], field) or {} if kwargs.get("instance") else {}
+            values = {}
+            if instance:
+                values = getattr(instance, field, {}) or {}  # Don't allow none
             for key in keys:
                 # The value, extracted from the JSON value in the database
                 field_value = values.get(key, None)
@@ -131,7 +141,7 @@ class JsonDecoratedFormBase(TransModelForm):
         Updates the JSON field(s) from the fields specified in the `_json_fields` dict
         """
 
-        for field, keys in self._json_fields.items():
+        for field, keys in self.get_json_fields().items():
             # Populate a JSON field in a model named "form"
             # from a set of standard form elements
             data = {}
@@ -259,6 +269,9 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     validationLabel = forms.CharField(required=False)
     validationVisibility = forms.CharField(required=False)
     validationMessages = forms.JSONField(required=False)
+    validationRules = forms.CharField(
+        required=False, help_text="A function for validation passed into the schema: a key on `formSchemaData`"
+    )
     prefixIcon = forms.CharField(required=False)
 
     # NumberNode props
@@ -266,6 +279,35 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     max = forms.IntegerField(required=False)
     min = forms.IntegerField(required=False)
     step = forms.IntegerField(required=False)
+
+    def get_fields(self, request, obj: models.FormKitSchemaNode):
+        """
+        Customise the returned fields based on the type
+        of formkit node
+        """
+        return super().get_fields(request, obj)
+
+
+class FormKitNodeRepeaterForm(FormKitNodeForm):
+    def get_json_fields(self) -> dict[str, tuple[str]]:
+        return {
+            "node": (
+                *(super()._json_fields["node"]),
+                "addLabel",
+                "upControl",
+                "downControl",
+                "itemsClass",
+                "itemClass",
+            )
+        }
+
+    addLabel = forms.CharField(required=False)
+    upControl = forms.BooleanField(required=False)
+    downControl = forms.BooleanField(required=False)
+    itemsClass = forms.CharField(required=False)
+    itemClass = forms.CharField(required=False)
+    max = forms.IntegerField(required=False)
+    min = forms.IntegerField(required=False)
 
 
 class FormKitTextNode(TransModelForm):
@@ -425,8 +467,34 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
             warnings.warn("Expected a 'Node' with a 'NodeType' in the admin form")
             warnings.warn(f"{E}")
 
-        fieldsets = super().get_fieldsets(request, obj)
-        # TODO: Arrange admin form nicely with fieldsets
+        fieldsets: list[tuple[str, dict]] = []
+        if obj.node_type == "$formkit":
+            fieldsets.append(
+                (
+                    "Field Validation",
+                    {
+                        "fields": (
+                            "validation",
+                            "validationLabel",
+                            "validationVisibility",
+                            "validationMessages",
+                            "validationRules",
+                        )
+                    },
+                )
+            )
+            if obj.node.get("formkit") == "repeater":
+                fieldsets.append(
+                    (
+                        "Repeater field properties",
+                        {"fields": ("addLabel", "upControl", "downControl", "itemsClass", "itemClass")},
+                    )
+                )
+
+        grouped_fields = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets))
+        fieldsets.insert(
+            0, (None, {"fields": [field for field in self.get_fields(request, obj) if field not in grouped_fields]})
+        )
         return fieldsets
 
     def get_form(
@@ -450,8 +518,12 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 
         elif node_type == "$formkit":
             formkit_node_type = (obj.node or {}).get("formkit", None)
+
+            # Some special 'formkitnode' types have their own admin page
             if formkit_node_type == "group":
                 return FormKitNodeGroupForm
+            elif formkit_node_type == "repeater":
+                return FormKitNodeRepeaterForm
             return FormKitNodeForm
 
         elif node_type == "$el":
