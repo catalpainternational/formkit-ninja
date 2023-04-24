@@ -23,82 +23,7 @@ logger = logging.getLogger(__name__)
 class ItemAdmin(OrderedModelAdmin):
     list_display = ("name", "move_up_down_links")
 
-
-def translated_fields(form: forms.BaseForm | TransModelForm) -> tuple[str]:
-    """
-    List the names of fields which are TranslatedField types
-    """
-
-    def check_skip_translation_fields(model_) -> None:
-        """
-        A model can express "Don't translate" fields
-        by means of a set `_skip_translations` on the
-        form instance.
-        Expect this field to be present and to be a subclass of TranslatedField
-        """
-        for field_name in list(getattr(form, "_skip_translations", {})):
-            if not isinstance(model_._meta.get_field(field_name), TranslatedField):
-                warnings.warn(f"Field {field_name} on model {model_} is not a Translatable field")
-
-    def get_model() -> dj_models.Model:
-        if hasattr(form, "model"):
-            return form.model
-        elif hasattr(form, "Meta"):
-            return form.Meta.model
-        else:
-            raise TypeError()
-
-    model_ = get_model()
-    check_skip_translation_fields(model_)
-    fields_ = model_._meta.fields
-
-    return tuple(
-        (
-            field.name
-            for field in fields_
-            if isinstance(field, TranslatedField) and field.name not in getattr(form, "_skip_translations", {})
-        )
-    )
-
-
-class TransModelForm(forms.ModelForm):
-    """
-    Adds additional text fields to the admin where a model uses the "TranslatedField"
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for translated_field in translated_fields(self):
-
-            # Find the initial value of the translated fields
-            if kwargs.get("instance"):
-                values = getattr(kwargs["instance"], translated_field) or {}
-            else:
-                values = {}
-
-            for (langcode, langname) in settings.LANGUAGES:
-                # Field names should be compatible with
-                # JSON format ie {field}_{languuge}
-                fieldname = "%s_%s" % (translated_field, langcode)
-                self.fields[fieldname] = forms.CharField(
-                    label=f"{translated_field} in {langname}",
-                    required=False,
-                    initial=values.get(langcode, ""),
-                )
-
-    def save(self, commit=True):
-        for translated_field in translated_fields(self):
-            translated = {}
-            for (langcode, langname) in settings.LANGUAGES:
-                fieldname = "%s_%s" % (translated_field, langcode)
-                value = self.cleaned_data[fieldname]
-                if value:
-                    translated[langcode] = value
-            setattr(self.instance, translated_field, translated)
-        return super().save(commit=commit)
-
-
-class JsonDecoratedFormBase(TransModelForm):
+class JsonDecoratedFormBase(forms.ModelForm):
     """
     Adds additional fields to the admin where a model has a JSON field
     and some appropriate (tbc?) field parameters
@@ -158,13 +83,13 @@ class NewFormKitForm(forms.ModelForm):
         fields = ("admin_key", "translation_context", "node_type", "description")
 
 
-class OptionForm(TransModelForm):
+class OptionForm(forms.ModelForm):
     class Meta:
         model = models.Option
         exclude = ()
 
 
-class FormComponentsForm(TransModelForm):
+class FormComponentsForm(forms.ModelForm):
     class Meta:
         model = models.FormComponents
         exclude = ()
@@ -310,7 +235,7 @@ class FormKitNodeRepeaterForm(FormKitNodeForm):
     min = forms.IntegerField(required=False)
 
 
-class FormKitTextNode(TransModelForm):
+class FormKitTextNode(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
         fields = (
@@ -318,7 +243,11 @@ class FormKitTextNode(TransModelForm):
             "translation_context",
             "description",
         )
-
+    _json_fields = {"node": ("content",)}
+    content = forms.CharField(
+        widget=forms.TextInput,
+        required=True,
+    )
 
 class FormKitElementForm(JsonDecoratedFormBase):
     class Meta:
@@ -415,7 +344,7 @@ class NodeChildrenInline(OrderedTabularInline):
     extra = 0
 
 
-class FormKitSchemaForm(TransModelForm):
+class FormKitSchemaForm(forms.ModelForm):
     class Meta:
         model = models.FormKitSchema
         exclude = ("name",)
@@ -468,6 +397,8 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
             warnings.warn(f"{E}")
 
         fieldsets: list[tuple[str, dict]] = []
+        if not obj:
+            return super().get_fieldsets(request, obj)
         if obj.node_type == "$formkit":
             fieldsets.append(
                 (
@@ -491,7 +422,7 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
                     )
                 )
 
-        grouped_fields = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets))
+        grouped_fields = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
         fieldsets.insert(
             0, (None, {"fields": [field for field in self.get_fields(request, obj) if field not in grouped_fields]})
         )
