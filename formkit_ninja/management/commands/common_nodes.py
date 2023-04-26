@@ -1,6 +1,3 @@
-
-
-
 from formkit_ninja import models
 
 
@@ -81,6 +78,7 @@ def create_location_nodes():
         ),
     )
     yield aldeia, c
+
 
 def add_location_schema():
     """

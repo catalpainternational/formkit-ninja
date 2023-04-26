@@ -7,14 +7,11 @@ import warnings
 from typing import Any, Optional
 
 from django import forms
-from django.conf import settings
 from django.contrib import admin
-from django.db import models as dj_models
 from django.http import HttpRequest
 from ordered_model.admin import OrderedInlineModelAdminMixin, OrderedModelAdmin, OrderedTabularInline
 
 from formkit_ninja import models
-from formkit_ninja.fields import TranslatedField
 from formkit_ninja.formkit_schema import FORMKIT_TYPE
 
 logger = logging.getLogger(__name__)
@@ -22,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class ItemAdmin(OrderedModelAdmin):
     list_display = ("name", "move_up_down_links")
+
 
 class JsonDecoratedFormBase(forms.ModelForm):
     """
@@ -243,11 +241,13 @@ class FormKitTextNode(JsonDecoratedFormBase):
             "translation_context",
             "description",
         )
+
     _json_fields = {"node": ("content",)}
     content = forms.CharField(
         widget=forms.TextInput,
         required=True,
     )
+
 
 class FormKitElementForm(JsonDecoratedFormBase):
     class Meta:
@@ -390,11 +390,8 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
     def get_fieldsets(
         self, request: HttpRequest, obj: Optional[models.FormKitSchemaNode] = ...
     ) -> list[tuple[Optional[str], dict[str, Any]]]:
-        try:
-            FORMKIT_TYPE = obj.node_type
-        except (AttributeError, KeyError) as E:
+        if not getattr(obj, "node_type", None):
             warnings.warn("Expected a 'Node' with a 'NodeType' in the admin form")
-            warnings.warn(f"{E}")
 
         fieldsets: list[tuple[str, dict]] = []
         if not obj:
@@ -498,7 +495,7 @@ class FormKitSchemaAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 
 @admin.register(models.FormComponents)
 class FormComponentsAdmin(OrderedModelAdmin):
-    list_display = ("key", "schema", "node", "move_up_down_links")
+    list_display = ("label", "schema", "node", "move_up_down_links")
 
 
 @admin.register(models.Translatable)

@@ -98,7 +98,9 @@ class FormComponents(OrderedModel, UuidIdModel):
 
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     node = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE)
-    key = models.CharField(max_length=1024, unique=True, help_text="Used as a human-readable label")
+    label = models.CharField(
+        max_length=1024, unique=True, help_text="Used as a human-readable label", default=uuid.uuid4
+    )
 
     order_with_respect_to = "schema"
 
@@ -129,6 +131,7 @@ class NodeChildren(OrderedModel, UuidIdModel):
     This is an ordered m2m model representing
     the "children" of an HTML element
     """
+
     parent = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,

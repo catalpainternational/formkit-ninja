@@ -1,5 +1,6 @@
 import json
 from importlib.resources import files
+from uuid import uuid4
 
 from django.test import TestCase
 
@@ -29,18 +30,22 @@ class FormKitSchemaNodeTestCase(TestCase):
             # Create the "Pydantic" node model
 
             options: list[str] | list[dict[str, any]] = node_object.pop("options", None)
-            model = models.FormKitSchemaNode(node=formkit_schema.FormKitNode.parse_obj(node_object).dict())
+            model = models.FormKitSchemaNode(
+                label=node_object.get("name", "?") + str(uuid4()),
+                node=formkit_schema.FormKitNode.parse_obj(node_object).dict(),
+            )
             model.save()
             model.refresh_from_db()
             if options and isinstance(options, dict):
-                for key in options:
-                    Option.objects.create(value=key, label=options[key], field=model)
+                for key, label in options.items():
+                    Option.objects.create(value=key, label=label + str(uuid4()), field=model)
             elif options and isinstance(options, list):
                 for value in options:
                     if isinstance(value, str):
-                        Option.objects.create(value=value, label=value, field=model)
+                        Option.objects.create(value=value, label=value + str(uuid4()), field=model)
                     elif isinstance(value, dict) and value.keys() == {"value", "label"}:
                         Option.objects.create(**value, field=model)
+            # Update in version 2.0: This now requires a unique "label" field
             sf11_schema.nodes.add(model)
 
         sf11_schema.save()

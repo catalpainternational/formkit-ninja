@@ -31,6 +31,7 @@ def get_formkit_components(request):
     """
     return models.FormKitSchema.objects.all()
 
+
 @router.post(
     "schema/create",
     response=formkit_schema.FormKitSchema,

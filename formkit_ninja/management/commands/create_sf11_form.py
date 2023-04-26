@@ -153,7 +153,7 @@ def partisipants_schema():
                 schema=partisipants,
                 node=schema_node,
             ),
-            key=f"SF 1.1 partisipants ({node_from_fk.name})",
+            label=f"SF 1.1 partisipants ({node_from_fk.name})",
         )
         yield component, component_created
 
@@ -193,7 +193,7 @@ def meeting_information_schema():
             schema=meeting_information,
             node=activity_type,
         ),
-        key=f"SF 1.1 Meeting Information (activity type)",
+        label=f"SF 1.1 Meeting Information (activity type)",
     )
 
     # The JSON code for the Subtype nodes
@@ -390,11 +390,11 @@ def create_sf11_locations():
             schema=locations_sf11,
             node=district,
         ),
-        key="Municipalities for the SF 1.1 Location Select schema",
+        label="Municipalities for the SF 1.1 Location Select schema",
     )
 
     yield models.FormComponents.objects.update_or_create(
-        key="Administrative Posts for the SF 1.1 Location Select schema",
+        label="Administrative Posts for the SF 1.1 Location Select schema",
         defaults=dict(
             schema=locations_sf11,
             node=sf11_admin_post,
@@ -406,11 +406,11 @@ def create_sf11_locations():
             schema=locations_sf11,
             node=sf11_suco,
         ),
-        key="Suco for the SF 1.1 Location Select schema",
+        label="Suco for the SF 1.1 Location Select schema",
     )
 
     yield models.FormComponents.objects.update_or_create(
-        key="Aldeias for the for SF 1.1 Location Select schema",
+        label="Aldeias for the for SF 1.1 Location Select schema",
         defaults=dict(
             schema=locations_sf11,
             node=sf11_aldeia,

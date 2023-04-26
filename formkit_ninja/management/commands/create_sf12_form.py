@@ -1,9 +1,6 @@
-from enum import Enum
-
 from django.core.management.base import BaseCommand
 
 from formkit_ninja import models
-from formkit_ninja.formkit_schema import FormKitNode
 from formkit_ninja.management.commands.common_nodes import create_location_nodes
 
 
@@ -18,11 +15,11 @@ def create():
             schema=locations,
             node=municipality,
         ),
-        key="Municipalities for the SF 1.2 Location and Date schema",
+        label="Municipalities for the SF 1.2 Location and Date schema",
     )
 
     yield models.FormComponents.objects.update_or_create(
-        key="Administrative Posts for the SF 1.2 Location and Date schema",
+        label="Administrative Posts for the SF 1.2 Location and Date schema",
         defaults=dict(
             schema=locations,
             node=admin_post,
@@ -34,11 +31,11 @@ def create():
             schema=locations,
             node=suco,
         ),
-        key="Suco for the SF 1.2 Location and Date schema",
+        label="Suco for the SF 1.2 Location and Date schema",
     )
 
     yield models.FormComponents.objects.update_or_create(
-        key="Aldeias for the SF 1.2 Location and Date schema",
+        label="Aldeias for the SF 1.2 Location and Date schema",
         defaults=dict(
             schema=locations,
             node=aldeia,
@@ -55,7 +52,7 @@ def create():
     yield date_component, created
 
     yield models.FormComponents.objects.update_or_create(
-        key="Date picker for the SF 1.2 Location and Date schema",
+        label="Date picker for the SF 1.2 Location and Date schema",
         defaults=dict(
             schema=locations,
             node=date_component,
@@ -63,25 +60,23 @@ def create():
     )
 
     cc, cc_created = models.FormKitSchemaNode.objects.update_or_create(
-            label="SF 1.2 Community Contribution",
-            defaults=dict(
-                node_type="$formkit",
-                node=dict(
-                    label="Cost estimation",
-                    placeholder="Please enter",
-                    name="cost_estimation",
-                    min=0,
-                ),
-                additional_props={"icon": "las la-address-book"},
-
+        label="SF 1.2 Community Contribution",
+        defaults=dict(
+            node_type="$formkit",
+            node=dict(
+                label="Cost estimation",
+                placeholder="Please enter",
+                name="cost_estimation",
+                min=0,
             ),
-        )
+            additional_props={"icon": "las la-address-book"},
+        ),
+    )
 
     yield cc, cc_created
 
-
     yield models.FormComponents.objects.update_or_create(
-        key="Community Contributions for SF 1.2",
+        label="Community Contributions for SF 1.2",
         defaults=dict(
             schema=count,
             node=cc,
