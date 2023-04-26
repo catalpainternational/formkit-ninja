@@ -10,7 +10,7 @@ def create_location_nodes():
     """
 
     district, c = models.FormKitSchemaNode.objects.update_or_create(
-        admin_key="municipality",
+        label="municipality",
         defaults=dict(
             node_type="$formkit",
             translation_context="municipality",
@@ -29,7 +29,7 @@ def create_location_nodes():
     district.translatable_content()
 
     admin_post, c = models.FormKitSchemaNode.objects.get_or_create(
-        admin_key="admin_post",
+        label="admin_post",
         defaults=dict(
             node_type="$formkit",
             translation_context="admin_post",
@@ -47,7 +47,7 @@ def create_location_nodes():
     yield admin_post, c
 
     suco, c = models.FormKitSchemaNode.objects.get_or_create(
-        admin_key="suco",
+        label="suco",
         defaults=dict(
             node_type="$formkit",
             translation_context="suco",
@@ -65,7 +65,7 @@ def create_location_nodes():
     yield suco, c
 
     aldeia, c = models.FormKitSchemaNode.objects.get_or_create(
-        admin_key="aldeia",
+        label="aldeia",
         defaults=dict(
             node_type="$formkit",
             translation_context="aldeia",

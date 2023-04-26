@@ -46,7 +46,7 @@ def create():
     )
 
     date_component, created = models.FormKitSchemaNode.objects.update_or_create(
-        admin_key="SF 1.2 Date",
+        label="SF 1.2 Date",
         defaults=dict(
             node_type="$formkit", node=dict(name="date", label="""$gettext("Date")""", calendarIcon="calendar")
         ),
@@ -63,7 +63,7 @@ def create():
     )
 
     cc, cc_created = models.FormKitSchemaNode.objects.update_or_create(
-            admin_key="SF 1.2 Community Contribution",
+            label="SF 1.2 Community Contribution",
             defaults=dict(
                 node_type="$formkit",
                 node=dict(

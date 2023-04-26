@@ -170,7 +170,7 @@ class FormKitSchemaNode(UuidIdModel):
         blank=True,
         help_text="Decribe the type of data / reason for this component",
     )
-    admin_key = models.CharField(max_length=1024, unique=True, help_text="Used as a human-readable label")
+    label = models.CharField(max_length=1024, unique=True, help_text="Used as a human-readable label")
     group = models.ManyToManyField("self", through=Membership, blank=True)
     children = models.ManyToManyField("self", through=NodeChildren, blank=True)
 
@@ -228,7 +228,7 @@ class FormKitSchemaNode(UuidIdModel):
             )
 
     def __str__(self):
-        return self.admin_key
+        return self.label
 
     def save(self, *args, **kwargs):
         """
@@ -275,24 +275,11 @@ class FormKitSchemaNode(UuidIdModel):
     ) -> Iterable[tuple["FormKitSchemaNode", Iterable[Option]]]:
         for input_model in input_models:
             instance = cls()
-            # Populate the translated fields
-            if label := getattr(input_model, "label", None):
-                instance.label = label
-                setattr(input_model, "label", None)
-            if placeholder := getattr(input_model, "placeholder", None):
-                instance.placeholder = placeholder
-                setattr(input_model, "placeholder", None)
-            if help := getattr(input_model, "help", None):
-                instance.help = help
-                setattr(input_model, "help", None)
-
-            # Populate the foreign keys to "Option"
             if options := getattr(input_model, "options", None):
                 option_models = Option.from_pydantic(options)
-                setattr(input_model, "options", None)
             else:
-                option_models = None
-            instance.node = input_model
+                option_models = Option.objects.none()
+            instance.node = input_model.dict(exclude={"options"})
             # All other properties are passed directly
             yield instance, option_models
 
@@ -331,19 +318,19 @@ class FormKitSchema(UuidIdModel):
         return self.key
 
     @classmethod
-    def from_pydantic(cls, input_model: formkit_schema.FormKitSchema, name={"en": "My Schema"}) -> "FormKitSchema":
+    def from_pydantic(cls, input_model: formkit_schema.FormKitSchema) -> "FormKitSchema":
         """
         Converts a given Pydantic representation of a Schema
         to Django database fields
         """
-        instance = cls.objects.create(name=name)
+        instance = cls.objects.create()
         for node, options in FormKitSchemaNode.from_pydantic(input_model.__root__):
             node.save()
             if options:
                 for option in options:
                     option.field = node
                     option.save()
-            FormComponents.objects.create(schem=instance, node=node)
+            FormComponents.objects.create(schema=instance, node=node)
             logger.info("Schema load from JSON done")
         return instance
 

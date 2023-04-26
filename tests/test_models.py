@@ -22,22 +22,14 @@ class FormKitSchemaNodeTestCase(TestCase):
 
         schema = json.loads(files(samples).joinpath("sf_11.json").read_text())
         formkit_schema.FormKitNode.parse_obj(schema[0])
-        sf11_schema: FormKitSchema = FormKitSchema.objects.create(name="SF11")
+        sf11_schema: FormKitSchema = FormKitSchema.objects.create()
         for node_object in schema:
             # Extract "options" from the node
             # for option_object in node_object:
             # Create the "Pydantic" node model
 
             options: list[str] | list[dict[str, any]] = node_object.pop("options", None)
-
-            # Translated fields extract
-            translated = dict(
-                placeholder=node_object.pop("placeholder", None),
-                help=node_object.pop("help", None),
-                label=node_object.pop("label", None),
-            )
-
-            model = models.FormKitSchemaNode(node=formkit_schema.FormKitNode.parse_obj(node_object), **translated)
+            model = models.FormKitSchemaNode(node=formkit_schema.FormKitNode.parse_obj(node_object).dict())
             model.save()
             model.refresh_from_db()
             if options and isinstance(options, dict):
@@ -50,7 +42,6 @@ class FormKitSchemaNodeTestCase(TestCase):
                     elif isinstance(value, dict) and value.keys() == {"value", "label"}:
                         Option.objects.create(**value, field=model)
             sf11_schema.nodes.add(model)
-            model.node.parsed
 
         sf11_schema.save()
         # Test that we can now fetch the list of schemas
@@ -77,17 +68,15 @@ class FormKitSchemaNodeTestCase(TestCase):
         self.assertEqual(loaded_schema.nodes.count(), 1)
         node: models.FormKitSchemaNode = loaded_schema.nodes.first()
 
-        # "node.node" should be a dict, with superpowers
-        self.assertTrue(isinstance(node.node, dict))
+        node_content = node.node
 
-        # Superpower 1: You can access the reconstructed pydantic model
-        self.assertTrue(isinstance(node.node.parsed, formkit_schema.FormKitNode))
+        self.assertTrue(isinstance(node_content, dict))
 
-        # However "options" were stripped out to be translated
-        self.assertIsNone(node.node.parsed.__root__.options)
+        # "options" are in a separate table
+        self.assertFalse("options" in node_content)
 
         # We're expecting to find two options for the node
-        self.assertEqual(loaded_schema.nodes.first().option_set.count(), 2)
+        self.assertEqual(node.option_set.count(), 2)
 
         # And we can "rehydrate" the node:
         node.get_node()

@@ -80,7 +80,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
 class NewFormKitForm(forms.ModelForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("admin_key", "translation_context", "node_type", "description")
+        fields = ("label", "translation_context", "node_type", "description")
 
 
 class OptionForm(forms.ModelForm):
@@ -123,7 +123,7 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
         fields = (
-            "admin_key",
+            "label",
             "translation_context",
             "description",
         )
@@ -149,7 +149,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
 
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("admin_key", "translation_context", "description", "additional_props")
+        fields = ("label", "translation_context", "description", "additional_props")
 
     # The `_json_fields["node"]` item affects the admin form, adding the fields included in the `FormKitSchemaProps.__fields__.items` dict
     _json_fields = {
@@ -239,7 +239,7 @@ class FormKitTextNode(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
         fields = (
-            "admin_key",
+            "label",
             "translation_context",
             "description",
         )
@@ -253,7 +253,7 @@ class FormKitElementForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
         fields = (
-            "admin_key",
+            "label",
             "translation_context",
             "description",
         )
@@ -279,7 +279,7 @@ class FormKitConditionForm(JsonDecoratedFormBase):
         model = models.FormKitSchemaNode
         # fields = '__all__'
         fields = (
-            "admin_key",
+            "label",
             "translation_context",
             "description",
         )
@@ -304,7 +304,7 @@ class FormKitComponentForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
         fields = (
-            "admin_key",
+            "label",
             "translation_context",
             "description",
         )
@@ -353,7 +353,7 @@ class FormKitSchemaForm(forms.ModelForm):
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 
-    list_display = ("admin_key", "id", "node_type")
+    list_display = ("label", "id", "node_type")
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
 

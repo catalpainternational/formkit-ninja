@@ -142,7 +142,7 @@ def partisipants_schema():
     for node in partisipants_group["children"]:
         node_from_fk = FormKitNode.parse_obj(node).__root__
         schema_node, schema_node_created = models.FormKitSchemaNode.objects.update_or_create(
-            admin_key=f"SF 1.1 partisipants ({node_from_fk.name})",
+            label=f"SF 1.1 partisipants ({node_from_fk.name})",
             node_type="$formkit",
             translation_context="partisipants",
             defaults=dict(node=node_from_fk.dict()),
@@ -166,7 +166,7 @@ def meeting_information_schema():
     meeting_information, mi_created = models.FormKitSchema.objects.get_or_create(key="SF 1.1 Meeting Information")
     yield meeting_information, mi_created
     activity_type, activity_type_created = models.FormKitSchemaNode.objects.update_or_create(
-        admin_key="SF 1.1 Activity Type",
+        label="SF 1.1 Activity Type",
         node_type="$formkit",
         defaults=dict(
             node={
@@ -258,7 +258,7 @@ def meeting_information_schema():
     ]
 
     activity_subtype_node, c = models.FormKitSchemaNode.objects.update_or_create(
-        admin_key="SF 1.1 Activity Sub-Type (Training)",
+        label="SF 1.1 Activity Sub-Type (Training)",
         node_type="$formkit",
         defaults=dict(translation_context="activitytype", node=activity_subtype.dict(exclude_none=True)),
     )
@@ -268,7 +268,7 @@ def meeting_information_schema():
         yield models.Option.objects.get_or_create(field=activity_subtype_node, **option)
 
     activity_subtype_node_meetings, c = models.FormKitSchemaNode.objects.update_or_create(
-        admin_key="SF 1.1 Activity Sub-Type (Meeting)",
+        label="SF 1.1 Activity Sub-Type (Meeting)",
         node_type="$formkit",
         defaults=dict(translation_context="activitytype", node=activity_subtype_meetings.dict(exclude_none=True)),
     )
@@ -286,7 +286,7 @@ def create_sf11_locations():
     locations_sf11, c = models.FormKitSchema.objects.get_or_create(key="SF 1.1 Locations")
     yield locations_sf11, c
     district, c = models.FormKitSchemaNode.objects.update_or_create(
-        admin_key="municipality",
+        label="municipality",
         defaults=dict(
             node_type="$formkit",
             translation_context="municipality",
@@ -303,7 +303,7 @@ def create_sf11_locations():
     yield district, c
 
     sf11_admin_post, c = models.FormKitSchemaNode.objects.get_or_create(
-        admin_key="Administrative Post select (SF 1.1 options)",
+        label="Administrative Post select (SF 1.1 options)",
         defaults=dict(
             node_type="$formkit",
             translation_context="admin_post",
@@ -326,7 +326,7 @@ def create_sf11_locations():
     yield sf11_admin_post, c
 
     sf11_suco, c = models.FormKitSchemaNode.objects.get_or_create(
-        admin_key="Suco select (SF 1.1 options)",
+        label="Suco select (SF 1.1 options)",
         defaults=dict(
             node_type="$formkit",
             translation_context="suco",
@@ -350,7 +350,7 @@ def create_sf11_locations():
     yield sf11_suco, c
 
     sf11_aldeia, c = models.FormKitSchemaNode.objects.get_or_create(
-        admin_key="Aldeia select (SF 1.1 options)",
+        label="Aldeia select (SF 1.1 options)",
         defaults=dict(
             node_type="$formkit",
             translation_context="aldeia",
