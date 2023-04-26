@@ -24,6 +24,13 @@ def get_list_schemas(request):
     return models.FormKitSchema.objects.all()
 
 
+@router.get("list-schemas", response=list[FormKitSchemaListOut])
+def get_formkit_components(request):
+    """
+    List all of the FormKit objects
+    """
+    return models.FormKitSchema.objects.all()
+
 @router.post(
     "schema/create",
     response=formkit_schema.FormKitSchema,
