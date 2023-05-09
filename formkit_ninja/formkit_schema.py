@@ -149,7 +149,7 @@ class DateNode(FormKitSchemaProps):
 
 class DatePickerNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["date"] = "datepicker"
+    formkit: Literal["datepicker"] = "datepicker"
     dollar_formkit: str = Field(default="datepicker", alias="$formkit")
 
 
