@@ -147,6 +147,12 @@ class DateNode(FormKitSchemaProps):
     dollar_formkit: str = Field(default="date", alias="$formkit")
 
 
+class DatePickerNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["date"] = "datepicker"
+    dollar_formkit: str = Field(default="datepicker", alias="$formkit")
+
+
 class CheckBoxNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["checkbox"] = "checkbox"
@@ -229,6 +235,7 @@ FormKitSchemaFormKit = Annotated[
         RadioNode,
         GroupNode,
         DateNode,
+        DatePickerNode,
         DropDownNode,
         RepeaterNode,
     ],
@@ -356,6 +363,7 @@ FORMKIT_TYPE = Literal[
     "radio",
     "form",
     "date",
+    "datepicker",
     "dropdown",
     "repeater",
 ]
@@ -410,6 +418,10 @@ class FormKitNode(BaseModel):
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
+        """
+        This classmethod differentiates between the different "Node" types
+        when deserializing
+        """
         if "id" in obj:
             obj["html_id"] = obj.pop("id")
         try:

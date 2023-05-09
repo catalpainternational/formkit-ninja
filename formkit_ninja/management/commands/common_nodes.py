@@ -23,8 +23,6 @@ def create_location_nodes():
     )
     yield district, c
 
-    district.translatable_content()
-
     admin_post, c = models.FormKitSchemaNode.objects.get_or_create(
         label="admin_post",
         defaults=dict(
@@ -126,7 +124,3 @@ def add_location_schema():
             node=aldeia,
         ),
     )
-
-    municipality.translatable_content()
-    admin_post.translatable_content()
-    suco.translatable_content()

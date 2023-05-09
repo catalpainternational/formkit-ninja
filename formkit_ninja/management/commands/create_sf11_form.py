@@ -41,10 +41,10 @@ def partisipants_schema():
                 "if": "$get(activity_type).value !== '----' && $get(activity_subtype).value !== '----' && $get(activity_subtype).value != 16 && $get(activity_subtype).value != 40 && $get(activity_subtype).value != 11",
                 "id": "attendance_male",
                 "name": "attendance_male",
-                "label": "$pgettext('partisipants', 'Total participants male')",
+                "label": "Total participants male",
                 "validation": "greaterThanOrEqualSum:kpa_male+community_member_male",
                 "validation-messages": {
-                    "greaterThanOrEqualSum": '$gettext("The total participants male should be greater than or equal to the sum of Participants Suku Management Team (SMT) - male and Number of community members - male")'
+                    "greaterThanOrEqualSum": "The total participants male should be greater than or equal to the sum of Participants Suku Management Team (SMT) - male and Number of community members - male"
                 },
                 "node_type": "formkit",
                 "formkit": "number",
@@ -56,10 +56,10 @@ def partisipants_schema():
                 "if": "$get(activity_type).value !== '----' && $get(activity_subtype).value !== '----' && $get(activity_subtype).value != 16 && $get(activity_subtype).value != 11",
                 "id": "attendance_female",
                 "name": "attendance_female",
-                "label": "$pgettext('partisipants', 'Total participants female')",
+                "label": "Total participants female",
                 "validation": "greaterThanOrEqualSum:kpa_female+community_member_female",
                 "validation-messages": {
-                    "greaterThanOrEqualSum": '$gettext("The total participants female should be greater than or equal to the sum of Participants Suku Management Team (SMT) - female and Number of community members - female")'
+                    "greaterThanOrEqualSum": "The total participants female should be greater than or equal to the sum of Participants Suku Management Team (SMT) - female and Number of community members - female"
                 },
                 "node_type": "formkit",
                 "formkit": "number",
@@ -71,7 +71,7 @@ def partisipants_schema():
                 "if": "$get(activity_type).value !== '----' && $get(activity_subtype).value !== '----' && $get(activity_subtype).value != 16 && $get(activity_subtype).value != 20 && $get(activity_subtype).value != 21 && $get(activity_subtype).value != 40 && $get(activity_subtype).value != 11",
                 "id": "kpa_male",
                 "name": "kpa_male",
-                "label": "$pgettext('partisipants', 'Participants Suku Management Team (SMT) - male')",
+                "label": "Participants Suku Management Team (SMT) - male",
                 "node_type": "formkit",
                 "formkit": "number",
                 "$formkit": "number",
@@ -82,7 +82,7 @@ def partisipants_schema():
                 "if": "$get(activity_type).value !== '----' && $get(activity_subtype).value !== '----' && $get(activity_subtype).value != 16 && $get(activity_subtype).value != 11 && $get(activity_subtype).value != 20 && $get(activity_subtype).value != 21",
                 "id": "kpa_female",
                 "name": "kpa_female",
-                "label": "$pgettext('partisipants', 'Participants Suku Management Team (SMT) - female')",
+                "label": "Participants Suku Management Team (SMT) - female",
                 "node_type": "formkit",
                 "formkit": "number",
                 "$formkit": "number",
@@ -93,7 +93,7 @@ def partisipants_schema():
                 "if": "$get(activity_type).value !== '----' && $get(activity_subtype).value !== '----' && $get(activity_subtype).value != 16 && $get(activity_subtype).value != 40 && $get(activity_subtype).value != 11",
                 "id": "disable_male",
                 "name": "disable_male",
-                "label": "$pgettext('partisipants', 'Number of People with Disability - male')",
+                "label": "Number of People with Disability - male",
                 "node_type": "formkit",
                 "formkit": "number",
                 "$formkit": "number",
@@ -104,7 +104,7 @@ def partisipants_schema():
                 "if": "$get(activity_type).value !== '----' && $get(activity_subtype).value !== '----' && $get(activity_subtype).value != 16 && $get(activity_subtype).value != 11",
                 "id": "disable_female",
                 "name": "disable_female",
-                "label": "$pgettext('partisipants', 'Number of People with Disability - female')",
+                "label": "Number of People with Disability - female",
                 "node_type": "formkit",
                 "formkit": "number",
                 "$formkit": "number",
@@ -115,7 +115,7 @@ def partisipants_schema():
                 "if": "$get(activity_type).value !== '----' && $get(activity_subtype).value !== '----' && $get(activity_subtype).value != 16 && $get(activity_subtype).value != 20 && $get(activity_subtype).value != 21 && $get(activity_subtype).value != 40 && $get(activity_subtype).value != 11",
                 "id": "community_member_male",
                 "name": "community_member_male",
-                "label": "$pgettext('partisipants', 'Number of community members - male')",
+                "label": "Number of community members - male",
                 "node_type": "formkit",
                 "formkit": "number",
                 "$formkit": "number",
@@ -126,7 +126,7 @@ def partisipants_schema():
                 "if": "$get(activity_type).value !== '----' && $get(activity_subtype).value !== '----' && $get(activity_subtype).value != 16 && $get(activity_subtype).value != 11 && $get(activity_subtype).value != 20 && $get(activity_subtype).value != 21",
                 "id": "community_member_female",
                 "name": "community_member_female",
-                "label": "$pgettext('partisipants', 'Number of community members - female')",
+                "label": "Number of community members - female",
                 "node_type": "formkit",
                 "formkit": "number",
                 "$formkit": "number",
@@ -193,7 +193,7 @@ def meeting_information_schema():
             schema=meeting_information,
             node=activity_type,
         ),
-        label=f"SF 1.1 Meeting Information (activity type)",
+        label="SF 1.1 Meeting Information (activity type)",
     )
 
     # The JSON code for the Subtype nodes
@@ -417,10 +417,6 @@ def create_sf11_locations():
         ),
     )
 
-    sf11_aldeia.translatable_content()
-    sf11_admin_post.translatable_content()
-    sf11_suco.translatable_content()
-
 
 class Command(BaseCommand):
     help = """
@@ -441,5 +437,10 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Writing Locations schema for SF 11"))
         for instance, created in create_sf11_locations():
+            if options["verbosity"] > 1:
+                self.stdout.write(self.style.SUCCESS(f"{'Created' if created else 'Updated'} {instance}"))
+
+        # Update / Create translated content hooks for "labels" and "options"
+        for instance, created in models.FormKitSchemaNode.translatable_content():
             if options["verbosity"] > 1:
                 self.stdout.write(self.style.SUCCESS(f"{'Created' if created else 'Updated'} {instance}"))

@@ -1,10 +1,10 @@
 from __future__ import annotations
-from functools import reduce
 
 import logging
 import operator
 import warnings
-from typing import Any, Optional
+from functools import reduce
+from typing import Any, Literal, Optional
 
 from django import forms
 from django.contrib import admin
@@ -107,11 +107,13 @@ class FormKitSchemaNodeOptionsInline(OrderedTabularInline):
 
 class FormKitSchemaComponentInline(OrderedTabularInline):
     model = models.FormComponents
-    # form = FormComponentsForm
     readonly_fields = (
+        "node",
+        "created_by",
+        "updated_by",
+        "id",
         "order",
         "move_up_down_links",
-        "node",
     )
     ordering = ("order",)
     extra = 0
@@ -149,7 +151,8 @@ class FormKitNodeForm(JsonDecoratedFormBase):
         model = models.FormKitSchemaNode
         fields = ("label", "translation_context", "description", "additional_props")
 
-    # The `_json_fields["node"]` item affects the admin form, adding the fields included in the `FormKitSchemaProps.__fields__.items` dict
+    # The `_json_fields["node"]` item affects the admin form,
+    # adding the fields included in the `FormKitSchemaProps.__fields__.items` dict
     _json_fields = {
         "node": (
             "formkit",
@@ -411,7 +414,9 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
                     },
                 )
             )
-            if obj.node.get("formkit") == "repeater":
+            # The "Repeater" has some specific fields
+            # See these specified in FormKitNodeRepeaterForm
+            if obj.node and obj.node.get("formkit", None) == "repeater":
                 fieldsets.append(
                     (
                         "Repeater field properties",
@@ -432,39 +437,33 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
         change: None = None,
         **kwargs,
     ):
+        # Handle different formkit node types
+        formkit_forms = {"group": FormKitNodeGroupForm, "repeater": FormKitNodeRepeaterForm}
+
+        # Handle different node types
+        forms = {
+            "condition": FormKitConditionForm,
+            "$formkit": FormKitNodeForm,
+            "$el": FormKitElementForm,
+            "text": FormKitTextNode,
+            "$cmp": FormKitComponentForm,
+        }
         if not obj:
             return NewFormKitForm
-
-        try:
-            node_type: FORMKIT_TYPE = obj.node_type
-        except (AttributeError, KeyError) as E:
-            warnings.warn("Expected a 'Node' with a 'NodeType' in the admin form")
-            warnings.warn(f"{E}")
-
-        if node_type == "condition":
-            return FormKitConditionForm
-
-        elif node_type == "$formkit":
-            formkit_node_type = (obj.node or {}).get("formkit", None)
-
-            # Some special 'formkitnode' types have their own admin page
-            if formkit_node_type == "group":
-                return FormKitNodeGroupForm
-            elif formkit_node_type == "repeater":
-                return FormKitNodeRepeaterForm
-            return FormKitNodeForm
-
-        elif node_type == "$el":
-            return FormKitElementForm
-
-        elif node_type == "text":
-            return FormKitTextNode
-
-        elif node_type == "$cmp":
-            return FormKitComponentForm
-
-        else:
+        if node_type := getattr(obj, "node_type", None) is None:
             return super().get_form(request, obj, change, **kwargs)
+
+        if node_type == "$formkit":
+            formkit_node_type: Literal["group", "repeater", None] = (obj.node or {}).get("formkit", None)
+            # Some special 'formkitnode' types have their own admin page
+            if formkit_node_type in formkit_forms:
+                return formkit_forms.get(formkit_node_type)
+
+        if node_type in forms:
+            return forms[node_type]
+
+        warnings.warn(f"Expected: one of [{','.join(forms.keys())}]. Got {node_type}")
+        return super().get_form(request, obj, change, **kwargs)
 
 
 @admin.register(models.Option)
@@ -496,8 +495,3 @@ class FormKitSchemaAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 @admin.register(models.FormComponents)
 class FormComponentsAdmin(OrderedModelAdmin):
     list_display = ("label", "schema", "node", "move_up_down_links")
-
-
-@admin.register(models.Translatable)
-class TranslatableAdmin(admin.ModelAdmin):
-    list_display = ("field", "language_code", "value", "context")

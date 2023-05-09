@@ -5,8 +5,10 @@ import uuid
 from typing import Iterable, TypedDict, get_args
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.functional import cached_property
+from django.utils.text import slugify
 from ordered_model.models import OrderedModel
 
 from . import formkit_schema
@@ -37,26 +39,6 @@ class UuidIdModel(models.Model):
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True
     )
-
-
-class Translatable(UuidIdModel):
-    """
-    This is a holder for "translatable" content from different fields
-    """
-
-    object_id = models.UUIDField(editable=False, help_text="The UUID of the model which this translation relates to")
-    language_code = models.CharField(max_length=3, editable=False)
-
-    # These are translation values: "field", "value", "context" and "msgstr"
-    field = models.CharField(max_length=100, help_text="The field on the generic model to translate", editable=False)
-    value = models.CharField(max_length=5000, null=True, blank=True, editable=False)
-    context = models.CharField(max_length=1024, null=True, blank=True, editable=False)
-    msgstr = models.CharField(max_length=5000, help_text="The string")
-
-    # options_function = models.CharField(max_length=1024, null=True, blank=True, editable=False, help_text="If 'options' are provided client side enter the function string. ie `$getOptions(...)`")
-
-    def __str__(self):
-        return f"{self.value} ({self.language_code})"
 
 
 class OptionDict(TypedDict):
@@ -98,9 +80,7 @@ class FormComponents(OrderedModel, UuidIdModel):
 
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     node = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE)
-    label = models.CharField(
-        max_length=1024, unique=True, help_text="Used as a human-readable label", default=uuid.uuid4
-    )
+    label = models.CharField(max_length=1024, help_text="Used as a human-readable label")
 
     order_with_respect_to = "schema"
 
@@ -196,40 +176,6 @@ class FormKitSchemaNode(UuidIdModel):
         help_text="The gettext context to use to translate Options, label, placeholder and help text",
     )
 
-    def translatable_content(self):
-        """
-        Returns UUID, context, and label for content which can be i18n marked
-        """
-        from django.conf import settings
-
-        translatable_fields = ("label", "placeholder")
-        language_codes = [lang[0] for lang in settings.LANGUAGES if lang[0] != "en"]
-
-        # Make a 'translatable' type object for each language/field
-        # specified in settings
-
-        for field, code in itertools.product(translatable_fields, language_codes):
-            if not self.node:
-                continue
-            value = self.node.get(field, None)
-            if not value:
-                continue
-            logger.info(f"adding translatable string: {value}")
-            Translatable.objects.get_or_create(
-                object_id=self.id, language_code=code, field=field, context=self.translation_context, value=value
-            )
-
-        # Also add translation hooks for the content of "options" if present
-        options: Iterable[Option] = self.option_set.all()
-        for option, code in itertools.product(options, language_codes):
-            Translatable.objects.get_or_create(
-                object_id=self.id,
-                language_code=code,
-                field="option",
-                value=option.label or option.value,
-                context=self.translation_context,
-            )
-
     def __str__(self):
         return self.label
 
@@ -247,30 +193,30 @@ class FormKitSchemaNode(UuidIdModel):
         reinstate them
         """
         options: Iterable[Option] = self.option_set.all()
-        return [{"value": option.value} for option in options]
+        return [{"value": option.value, "label": option.label} for option in options]
 
     def get_node_values(self) -> dict:
         """
         Reify a 'dict' instance suitable for creating
         a FormKit Schema node from
         """
+        if not self.node:
+            return {}
         values = {**self.node}
         if self.node_options:
             values["options"] = self.node_options
         return values
 
-    def get_node(self) -> formkit_schema.FormKitNode:
+    def get_node(self) -> formkit_schema.Node:
         """
         Return a "decorated" node instance
         with restored options and translated fields
         """
-        return formkit_schema.FormKitNode.parse_obj(self.get_node_values())
-
-    def get_node_type() -> str:
-        """
-        Return the "type" of a FormKit node
-        """
-        return
+        node_content = self.get_node_values()
+        formkit_node = formkit_schema.FormKitNode.parse_obj(node_content)
+        # 'FormKitNode' is really a container to store any kind
+        # of Node
+        return formkit_node.__root__
 
     @classmethod
     def from_pydantic(
@@ -302,7 +248,7 @@ class FormKitSchema(UuidIdModel):
     collection of items.
     """
 
-    key = models.SlugField(max_length=1024, unique=True)
+    key = models.TextField(max_length=1024, unique=True)
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
 
@@ -319,6 +265,15 @@ class FormKitSchema(UuidIdModel):
 
     def __str__(self):
         return self.key
+
+    def clean(self):
+        slugified = slugify(self.key)
+        for instance in self._meta.model.objects.exclude(pk=self.pk):
+            if slugified == slugify(instance.key):
+                raise ValidationError(
+                    f"The name '{self.key} clashed with {instance.key}. Please enter a different name."
+                )
+        return super().clean()
 
     @classmethod
     def from_pydantic(cls, input_model: formkit_schema.FormKitSchema) -> "FormKitSchema":
