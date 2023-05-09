@@ -151,6 +151,8 @@ class DatePickerNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["datepicker"] = "datepicker"
     dollar_formkit: str = Field(default="datepicker", alias="$formkit")
+    calendarIcon: str = "calendar"
+    format: str = 'DD/MM/YY'
 
 
 class CheckBoxNode(FormKitSchemaProps):
