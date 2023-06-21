@@ -153,6 +153,8 @@ class DatePickerNode(FormKitSchemaProps):
     dollar_formkit: str = Field(default="datepicker", alias="$formkit")
     calendarIcon: str = "calendar"
     format: str = 'DD/MM/YY'
+    nextIcon: str = 'angleRight'
+    prevIcon: str = 'angleLeft'
 
 
 class CheckBoxNode(FormKitSchemaProps):
