@@ -107,7 +107,7 @@ class FormKitSchemaProps(BaseModel):
     # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
     #     default_factory=list
     # )
-    children: str | list[FormKitSchemaProps] | FormKitSchemaConditionNoCircularRefs | None = Field()
+    children: str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoCircularRefs | None = Field()
     key: str | None
     if_condition: str | None = Field(alias="if")
     for_loop: FormKitListStatement | None = Field(alias="for")
@@ -145,6 +145,12 @@ class DateNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["date"] = "date"
     dollar_formkit: str = Field(default="date", alias="$formkit")
+
+
+class CurrencyNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["currency"] = "currency"
+    dollar_formkit: str = Field(default="currency", alias="$formkit")
 
 
 class DatePickerNode(FormKitSchemaProps):
@@ -201,6 +207,12 @@ class EmailNode(FormKitSchemaProps):
     dollar_formkit: str = Field(default="email", alias="$formkit")
 
 
+class TelNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["tel"] = "tel"
+    dollar_formkit: str = Field(default="tel", alias="$formkit")
+
+
 class DropDownNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["dropdown"] = "dropdown"
@@ -242,6 +254,8 @@ FormKitSchemaFormKit = Annotated[
         DatePickerNode,
         DropDownNode,
         RepeaterNode,
+        TelNode,
+        CurrencyNode
     ],
     Field(discriminator="formkit"),
 ]
@@ -356,6 +370,8 @@ Node = Annotated[
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
+    "tel",
+    "currency",
     "select",
     "checkbox",
     "number",
