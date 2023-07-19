@@ -170,7 +170,7 @@ class NumberNode(FormKitSchemaProps):
     text: str | None
     max: int | None = None
     min: int | None = None
-    step: int | None = None
+    step: str | None = None
 
 
 class PasswordNode(FormKitSchemaProps):
