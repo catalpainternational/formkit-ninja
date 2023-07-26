@@ -12,7 +12,6 @@ from django.http import HttpRequest
 from ordered_model.admin import OrderedInlineModelAdminMixin, OrderedModelAdmin, OrderedTabularInline
 
 from formkit_ninja import models
-from formkit_ninja.formkit_schema import FORMKIT_TYPE
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,6 @@ class JsonDecoratedFormBase(forms.ModelForm):
         return self._json_fields
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
         instance = kwargs["instance"]
         for field, keys in self.get_json_fields().items():
@@ -355,11 +353,9 @@ class FormKitSchemaForm(forms.ModelForm):
 
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
-
     list_display = ("label", "id", "node_type")
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
-
         if not obj:
             return []
 

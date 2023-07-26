@@ -20,7 +20,6 @@ class FormKitSchemaNodeTestCase(TestCase):
         FormKitSchemaNode(node=node)
 
     def test_sf11_schema(self):
-
         schema = json.loads(files(samples).joinpath("sf_11.json").read_text())
         formkit_schema.FormKitNode.parse_obj(schema[0])
         sf11_schema: FormKitSchema = FormKitSchema.objects.create()
@@ -60,7 +59,6 @@ class FormKitSchemaNodeTestCase(TestCase):
         one_schema.json()
 
     def test_meeting_type_node(self):
-
         """
         Loads a single element schema, checking that return values
         are the same as entered values
