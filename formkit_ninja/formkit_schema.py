@@ -158,9 +158,9 @@ class DatePickerNode(FormKitSchemaProps):
     formkit: Literal["datepicker"] = "datepicker"
     dollar_formkit: str = Field(default="datepicker", alias="$formkit")
     calendarIcon: str = "calendar"
-    format: str = 'DD/MM/YY'
-    nextIcon: str = 'angleRight'
-    prevIcon: str = 'angleLeft'
+    format: str = "DD/MM/YY"
+    nextIcon: str = "angleRight"
+    prevIcon: str = "angleLeft"
 
 
 class CheckBoxNode(FormKitSchemaProps):
@@ -198,6 +198,13 @@ class SelectNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["select"] = "select"
     dollar_formkit: str = Field(default="select", alias="$formkit")
+    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+
+
+class AutocompleteNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["autocomplete"] = "autocomplete"
+    dollar_formkit: str = Field(default="autocomplete", alias="$formkit")
     options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
 
 
@@ -246,6 +253,7 @@ FormKitSchemaFormKit = Annotated[
         CheckBoxNode,
         PasswordNode,
         SelectNode,
+        AutocompleteNode,
         EmailNode,
         NumberNode,
         RadioNode,
@@ -255,7 +263,7 @@ FormKitSchemaFormKit = Annotated[
         DropDownNode,
         RepeaterNode,
         TelNode,
-        CurrencyNode
+        CurrencyNode,
     ],
     Field(discriminator="formkit"),
 ]
