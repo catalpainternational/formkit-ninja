@@ -264,7 +264,7 @@ FormKitSchemaFormKit = Annotated[
         DropDownNode,
         RepeaterNode,
         TelNode,
-        CurrencyNode
+        CurrencyNode,
     ],
     Field(discriminator="formkit"),
 ]
