@@ -1,5 +1,6 @@
 from keyword import iskeyword
 from typing import Any, Iterable, Literal
+
 from formkit_ninja.formkit_schema import (
     CurrencyNode,
     FormKitSchemaFormKit,
