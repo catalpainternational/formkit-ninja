@@ -330,7 +330,7 @@ class RepeaterLinkFactory(DjangoClassFactory):
         yield from iter(
             BaseDjangoAttrib(
                 fieldname=f"{from_field}",
-                fieldtype="OneToOneField",
+                fieldtype="ForeignKey",
                 args=(f'"{from_model}"', "on_delete=models.CASCADE", "null=True", "blank=True"),
             )
         )
