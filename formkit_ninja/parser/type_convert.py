@@ -20,6 +20,9 @@ class NodePath:
         self.nodes = nodes
 
     def __truediv__(self, node: Literal[".."] | GroupNode | RepeaterNode | FormKitSchemaProps):
+        """
+        This overrides the builtin '/' operator, like "Path", to allow appending nodes
+        """
         if node == "..":
             return NodePath(*self.nodes[:-1])
         return NodePath(*self.nodes, node)
@@ -214,7 +217,6 @@ class ToDjango:
                 return "DateTimeField", ()
             case "date":
                 return "DateField", ()
-
 
 class BaseDjangoAttrib:
     def __init__(self, fieldname: str, fieldtype: str, args: tuple[str]):
