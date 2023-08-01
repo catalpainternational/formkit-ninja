@@ -84,7 +84,7 @@ class NodePath:
 
     @property
     def children(self):
-        return getattr(self.node, "children", [])
+        return getattr(self.node, "children", []) or []
 
     def filter_children(self, type_) -> Iterable[Any]:
         for n in self.children:
@@ -395,9 +395,10 @@ class PydanticClassFactory:
         # Write the class for the "current" node
 
         yield f"\nclass {self.nodes.suggest_class_name()}(BaseModel):"
-
+        has_attributes = False
         # Attributes
         if self.extra_attribs:
+            has_attributes = True
             for e_a in self.extra_attribs:
                 if isinstance(e_a, str):
                     yield e_a
@@ -405,6 +406,7 @@ class PydanticClassFactory:
                     yield from iter(e_a)
 
         for c in self.nodes.formkits:
+            has_attributes = True
             yield from iter(PydanticAttrib(c, pydantic_field_parser=self.pydantic_field_parser))
 
         # Validators for custom fields
@@ -412,7 +414,10 @@ class PydanticClassFactory:
             if isinstance(c.node, CurrencyNode):
                 validate_fn = "v_currency"
                 yield f'    _normalize_{c.suggest_field_name()} = {validate_fn}("{c.suggest_field_name()}")'
-        yield "\n"
+        if not has_attributes:
+            yield "    pass"
+        else:
+            yield "\n"
 
     @staticmethod
     def pydantic_header() -> Iterable[str]:

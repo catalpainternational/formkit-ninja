@@ -1,18 +1,15 @@
 from importlib.resources import files
 import json
 from unittest import TestCase
-from formkit_ninja.formkit_schema import FormKitSchemaFormKit, FormKitNode, GroupNode, NumberNode, get_node_type
-from formkit_ninja.parser.get_schemas import get_pydantic_fields, pydantic_base_models
+from formkit_ninja.formkit_schema import FormKitNode, GroupNode, NumberNode
 from formkit_ninja.parser.type_convert import (
     DjangoAttrib,
     DjangoClassFactory,
     NodePath,
     PydanticAttrib,
     PydanticClassFactory,
-    RepeaterLinkFactory,
-    to_django,
-    to_postgres,
-    to_pydantic,
+    ToDjango,
+    ToPydantic,
 )
 
 number_node = {
@@ -25,34 +22,24 @@ beneficiaries = {
     "name": "beneficiaries_female",
 }
 
-group_node = {
-    "$formkit": "group",
-    "name": "foo",
-    "children": [number_node]
-}
+group_node = {"$formkit": "group", "name": "foo", "children": [number_node]}
 
-nested_group_node = {
-    "$formkit": "group",
-    "name": "bar",
-    "children": [group_node]
-}
+nested_group_node = {"$formkit": "group", "name": "bar", "children": [group_node]}
 
 repeater_node = {"$formkit": "repeater", "name": "foorepeater", "children": [number_node]}
 
 
-nested_repeater_node = {
-    **nested_group_node,
-    "children": [repeater_node]
-}
+nested_repeater_node = {**nested_group_node, "children": [repeater_node]}
+
 
 class FormKitSchemaNodeTestCase(TestCase):
     def test_parse_node(self):
         node = FormKitNode.parse_obj(number_node).__root__
         node = NodePath(node)
 
-        self.assertEqual(to_pydantic(node), "int")
-        self.assertEqual(to_postgres(node), "int")
-        self.assertEqual(to_django(node), ("IntegerField", ()))
+        self.assertEqual(ToPydantic()(node), "int")
+        # self.assertEqual(to_postgres(node), "int")
+        self.assertEqual(ToDjango()(node), ("IntegerField", ()))
 
     def test_parse_group_node_children(self):
         """
@@ -65,32 +52,47 @@ class FormKitSchemaNodeTestCase(TestCase):
         node: GroupNode = NodePath(FormKitNode.parse_obj(group_node).__root__)
 
         # group = list(get_pydantic_fields(node))[0]
-        text_content, abstract_model_names = pydantic_base_models(node)
-
-        self.assertEqual("class Foo(BaseModel):\n    foonum: Optional[int]\n", "".join(text_content))
+        defn = iter(PydanticClassFactory(node))
+        self.assertEqual(next(defn), "\nclass Foo(BaseModel):")
+        self.assertEqual(next(defn), "    foonum: int | None = None")
 
     def test_parse_nested_group(self):
         node: GroupNode = FormKitNode.parse_obj(nested_group_node).__root__
-        text_content, abstract_model_names = pydantic_base_models(node)
+        list(iter(PydanticClassFactory(NodePath(node))))
 
 
 class DjangoAttribTestCase(TestCase):
     def test_normal_node(self):
+        """
+        Parse an integer node to Django and Pydantic
+        """
         node = FormKitNode.parse_obj(number_node).__root__
-        self.assertEqual(f"{DjangoAttrib(NodePath(node))}", "    foonum = models.IntegerField()\n")
-        self.assertEqual(f"{PydanticAttrib(NodePath(node))}", "    foonum: int\n")
+        np = NodePath(node)
+        django_attr = next(iter(DjangoAttrib(np)))
+        pydantic_attr = next(iter(PydanticAttrib(np)))
+
+        self.assertEqual(django_attr, "    foonum = models.IntegerField()")
+        self.assertEqual(pydantic_attr, "    foonum: int | None = None")
 
     def test_group_node(self):
         node = FormKitNode.parse_obj(group_node).__root__
-        self.assertEqual(f"{DjangoAttrib(NodePath(node))}", "    foo = models.OneToOneField(Foo, on_delete=models.CASCADE)\n")
-        self.assertEqual(f"{PydanticAttrib(NodePath(node))}", "    foo: Foo\n")
+        np = NodePath(node)
+        django_attr = next(iter(DjangoAttrib(np)))
+        pydantic_attr = next(iter(PydanticAttrib(np)))
+
+        self.assertEqual(django_attr, "    foo = models.OneToOneField(Foo, on_delete=models.CASCADE)")
+        self.assertEqual(pydantic_attr, "    foo: Foo | None = None")
 
     def test_repeater_node(self):
         node = FormKitNode.parse_obj(repeater_node).__root__
-        self.assertEqual(f"{DjangoAttrib(NodePath(node))}", '    foorepeater = models.ManyToManyField(Foorepeater, through="FoorepeaterLink")\n')
-        self.assertEqual(f"{PydanticAttrib(NodePath(node))}", "    foorepeater: list[Foorepeater]\n")
+        np = NodePath(node)
+        django_attr = next(iter(DjangoAttrib(np)))
+        pydantic_attr = next(iter(PydanticAttrib(np)))
 
-
+        self.assertEqual(
+            django_attr, '    foorepeater = models.ManyToManyField(Foorepeater, through="FoorepeaterLink")'
+        )
+        self.assertEqual(pydantic_attr, "    foorepeater: list[Foorepeater] | None = None")
 
 
 class GroupNodeClassTestCase(TestCase):
@@ -100,9 +102,11 @@ class GroupNodeClassTestCase(TestCase):
 
     def test_group_node(self):
         definition = {"$formkit": "group", "name": "foo"}
-
         node = FormKitNode.parse_obj(definition).__root__
-        self.assertEqual(f"{DjangoClassFactory(node)}", "class Foo(models.Model):\n    pass\n")
+        np = NodePath(node)
+        django_iterator = iter(DjangoClassFactory(np))
+        self.assertEqual(next(django_iterator), "class Foo(models.Model):")
+        self.assertEqual(next(django_iterator), "    pass")
 
     def test_group_node_field(self):
         """
@@ -118,172 +122,64 @@ class GroupNodeClassTestCase(TestCase):
                 }
             ],
         }
-
         node = FormKitNode.parse_obj(definition).__root__
-        self.assertEqual(
-            f"{DjangoClassFactory(node)}",
-            "class Foo(models.Model):\n    beneficiaries_female = models.IntegerField()\n",
-        )
+        np = NodePath(node)
+        django_iterator = iter(DjangoClassFactory(np))
+        self.assertEqual(next(django_iterator), "class Foo(models.Model):")
+        self.assertEqual(next(django_iterator), "    beneficiaries_female = models.IntegerField()")
 
 
 class GroupNodePydanticClassTestCase(TestCase):
     """
-    A group node should be converted to a valid Django class
+    A group node should be converted to a valid Pydantic class
     """
 
     def test_group_node(self):
         definition = {"$formkit": "group", "name": "foo"}
-
         node = FormKitNode.parse_obj(definition).__root__
-        self.assertEqual(f"{PydanticClassFactory(node)}", "class Foo(BaseModel):\n    pass\n")
+        np = NodePath(node)
+        pydantic_iterator = iter(PydanticClassFactory(np))
+        self.assertEqual(next(pydantic_iterator), "\nclass Foo(BaseModel):")
+        self.assertEqual(next(pydantic_iterator), "    pass")
 
     def test_group_node_field(self):
         """
         A group node with attrs should be converted to a valid Django class
         """
         node = FormKitNode.parse_obj(group_node).__root__
-        self.assertEqual(f"{PydanticClassFactory(node)}", "class Foo(BaseModel):\n    foonum: int\n")
+        np = NodePath(node)
+        pydantic_iterator = iter(PydanticClassFactory(np))
+        self.assertEqual(next(pydantic_iterator), "\nclass Foo(BaseModel):")
+        self.assertEqual(next(pydantic_iterator), "    foonum: int | None = None")
 
 
 class NestedGroupNodes(TestCase):
-
     def test_nested_nodes(self):
-
         node = FormKitNode.parse_obj(nested_group_node).__root__
+        np = NodePath(node)
+        django_iterator = iter(DjangoClassFactory(np))
 
-        self.assertEqual(
-            f"{DjangoClassFactory(node).dependencies[0]}",
-            "class Foo(models.Model):\n    foonum = models.IntegerField()\n"
-        )
-
-        self.assertEqual(
-            f"{DjangoClassFactory(node)}",
-            "class Bar(models.Model):\n    foo = models.OneToOneField(Foo, on_delete=models.CASCADE)\n",
-        )
+        self.assertEqual(next(django_iterator), "class BarFoo(models.Model):")
+        self.assertEqual(next(django_iterator), "    foonum = models.IntegerField()")
+        self.assertEqual(next(django_iterator), "class Bar(models.Model):")
+        self.assertEqual(next(django_iterator), "    foo = models.OneToOneField(BarFoo, on_delete=models.CASCADE)")
 
     def test_nested_repeater_nodes(self):
-
         node = FormKitNode.parse_obj(nested_repeater_node).__root__
+        np = NodePath(node)
+        django_iterator = iter(DjangoClassFactory(np))
 
+        self.assertEqual(next(django_iterator), "class BarFoorepeaterLink(models.Model):")
+        self.assertEqual(next(django_iterator), "    ordinality = models.IntegerField()")
+        self.assertEqual(next(django_iterator), '    bar = models.OneToOneField("Bar", on_delete=models.CASCADE)')
         self.assertEqual(
-            f"{DjangoClassFactory(node).dependencies[0]}",
-            "class Foorepeater(models.Model):\n"+
-            "    foonum = models.IntegerField()\n"
+            next(django_iterator),
+            '    repeater_foorepeater = models.ForeignKey("BarFoorepeater", on_delete=models.CASCADE)',
         )
-
+        self.assertEqual(next(django_iterator), "class BarFoorepeater(models.Model):")
+        self.assertEqual(next(django_iterator), "    foonum = models.IntegerField()")
+        self.assertEqual(next(django_iterator), "class Bar(models.Model):")
         self.assertEqual(
-            f"{DjangoClassFactory(node)}",
-            "class Bar(models.Model):\n    foorepeater = models.ManyToManyField(Foorepeater, through=\"BarFoorepeaterLink\")\n",
+            next(django_iterator),
+            '    foorepeater = models.ManyToManyField(BarFoorepeater, through="BarFoorepeaterLink")',
         )
-
-        self.assertEqual(
-            f"{DjangoClassFactory(node).repeaters[0]}",
-            "class BarFoorepeaterLink(models.Model):\n" +
-            "    ordinality = models.IntegerField()\n" +
-            '    bar = models.ForeignKey("Bar", on_delete=models.CASCADE)\n' +
-            '    foorepeater = models.ForeignKey("Foorepeater", on_delete=models.CASCADE)\n'
-        )
-
-    def test_write_nested_repeater_nodes(self):
-
-        node = FormKitNode.parse_obj(nested_repeater_node).__root__
-        _ = DjangoClassFactory(node).write()
-        _.seek(0)
-
-class PydanticClassesTestCase(TestCase):
-
-    def test_nested_repeater_pydantic(self):
-        node = FormKitNode.parse_obj(nested_repeater_node).__root__
-
-        self.assertEqual(
-            f"{PydanticClassFactory(node).dependencies[0]}",
-            "class Foorepeater(BaseModel):\n"+
-            "    foonum: int\n"
-        )
-
-        _ = PydanticClassFactory(node).write()
-        _.seek(0)
-
-
-class PydanticClassesTestCase(TestCase):
-
-    def test_sf23_pydantic(self):
-        
-        form = files("tests").joinpath("sf23.json").open('rb')
-        form_json: dict = json.loads(form.read())
-        form_json.update({"$formkit": "group", "name": "sf23"})
-        form_json.update({"children": form_json.pop("SF_2_3")})
-
-        node: GroupNode = FormKitNode.parse_obj(form_json).__root__
-        _ = PydanticClassFactory(NodePath(node)).write()
-        _.seek(0)
-
-    def test_sf23_django(self):
-        
-        form = files("tests").joinpath("sf23.json").open('rb')
-        form_json: dict = json.loads(form.read())
-        form_json.update({"$formkit": "group", "name": "sf23"})
-        form_json.update({"children": form_json.pop("SF_2_3")})
-
-        node: GroupNode = FormKitNode.parse_obj(form_json).__root__
-        _ = DjangoClassFactory(node).write()
-        _.seek(0)
-
-        # Current output is
-        """
-class Sf23location(models.Model):
-    district = models.ForeignKey(pnds_data.zDistrict, on_delete=models.CASCADE)
-    administrative_post = models.ForeignKey(pnds_data.zSubdistrict, on_delete=models.CASCADE)
-    suco = models.ForeignKey(pnds_data.zSuco, on_delete=models.CASCADE)
-    date = models.DateTimeField()
-class PrioritiesPrioritiesPrioritiesLink(models.Model):
-    ordinality = models.IntegerField()
-    priorities = models.ForeignKey("Priorities", on_delete=models.CASCADE)
-    priorities = models.ForeignKey("PrioritiesPriorities", on_delete=models.CASCADE)
-class Prioritiespriorities(models.Model):
-    aldeia = models.ForeignKey(pnds_data.zAldeia, on_delete=models.CASCADE)
-    project_sector = models.IntegerField()
-    project_sub_sector = models.IntegerField()
-    project_name = models.TextField()
-    place = models.TextField()
-    unit = models.ForeignKey(pnds_data.zUnits, on_delete=models.CASCADE)
-    project_type = models.TextField()
-    beneficiaries_female = models.IntegerField()
-    beneficiaries_male = models.IntegerField()
-    households = models.IntegerField()
-    women_priority = models.BooleanField()
-    cost_estimation = models.DecimalField(max_digits=20, decimal_places=2)
-class Sf23priorities(models.Model):
-    priorities = models.ManyToManyField(Priorities, through="PrioritiesLink")
-class Sf23(models.Model):
-    location = models.OneToOneField(Location, on_delete=models.CASCADE)
-    priorities = models.OneToOneField(Priorities, on_delete=models.CASCADE)
-"""
-
-"""
-TODO: 
- - The `PrioritiesLink` table != `PrioritiesPrioritiesPrioritiesLink` is not being generated
- - Field name clash in `PrioritiesPrioritiesPrioritiesLink`
-"""
-
-"""
-class PrioritiesLink(models.Model):
-    ordinality = models.IntegerField()
-    from = models.ForeignKey("Sf23priorities", on_delete=models.CASCADE)
-    to = models.ForeignKey("SF23Prioritiespriorities", on_delete=models.CASCADE)
-class SF23Prioritiespriorities(models.Model):
-    aldeia = models.ForeignKey(pnds_data.zAldeia, on_delete=models.CASCADE)
-    project_sector = models.IntegerField()
-    project_sub_sector = models.IntegerField()
-    project_name = models.TextField()
-    place = models.TextField()
-    unit = models.ForeignKey(pnds_data.zUnits, on_delete=models.CASCADE)
-    project_type = models.TextField()
-    beneficiaries_female = models.IntegerField()
-    beneficiaries_male = models.IntegerField()
-    households = models.IntegerField()
-    women_priority = models.BooleanField()
-    cost_estimation = models.DecimalField(max_digits=20, decimal_places=2)
-class Sf23priorities(models.Model):
-    priorities = models.ManyToManyField(Priorities, through="PrioritiesLink")
-"""
