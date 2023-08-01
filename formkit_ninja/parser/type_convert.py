@@ -308,7 +308,7 @@ class DjangoClassFactory:
 
     @staticmethod
     def header():
-        yield "from django import models\n"
+        yield "from django.db import models\n"
 
 
 class RepeaterLinkFactory(DjangoClassFactory):
