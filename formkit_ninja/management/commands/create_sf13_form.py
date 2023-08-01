@@ -4,7 +4,6 @@ from formkit_ninja.management.commands.common_nodes import create_location_nodes
 
 
 def create():
-
     # The SF 13 form has the following schemas
     # meetingInformation
     # participants

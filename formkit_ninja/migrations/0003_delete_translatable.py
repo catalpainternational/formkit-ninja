@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("formkit_ninja", "0002_alter_formcomponents_label_alter_formkitschema_key"),
     ]

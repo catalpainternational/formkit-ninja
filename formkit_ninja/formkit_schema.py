@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from html.parser import HTMLParser
 from typing import Annotated, Any, ForwardRef, List, Literal, Type, TypedDict, TypeVar, Union
 
@@ -107,7 +108,7 @@ class FormKitSchemaProps(BaseModel):
     # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
     #     default_factory=list
     # )
-    children: str | list[FormKitSchemaProps] | FormKitSchemaConditionNoCircularRefs | None = Field()
+    children: str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoCircularRefs | None = Field()
     key: str | None
     if_condition: str | None = Field(alias="if")
     for_loop: FormKitListStatement | None = Field(alias="for")
@@ -147,14 +148,20 @@ class DateNode(FormKitSchemaProps):
     dollar_formkit: str = Field(default="date", alias="$formkit")
 
 
+class CurrencyNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["currency"] = "currency"
+    dollar_formkit: str = Field(default="currency", alias="$formkit")
+
+
 class DatePickerNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["datepicker"] = "datepicker"
     dollar_formkit: str = Field(default="datepicker", alias="$formkit")
     calendarIcon: str = "calendar"
-    format: str = 'DD/MM/YY'
-    nextIcon: str = 'angleRight'
-    prevIcon: str = 'angleLeft'
+    format: str = "DD/MM/YY"
+    nextIcon: str = "angleRight"
+    prevIcon: str = "angleLeft"
 
 
 class CheckBoxNode(FormKitSchemaProps):
@@ -195,10 +202,23 @@ class SelectNode(FormKitSchemaProps):
     options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
 
 
+class AutocompleteNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["autocomplete"] = "autocomplete"
+    dollar_formkit: str = Field(default="autocomplete", alias="$formkit")
+    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+
+
 class EmailNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["email"] = "email"
     dollar_formkit: str = Field(default="email", alias="$formkit")
+
+
+class TelNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["tel"] = "tel"
+    dollar_formkit: str = Field(default="tel", alias="$formkit")
 
 
 class DropDownNode(FormKitSchemaProps):
@@ -234,6 +254,7 @@ FormKitSchemaFormKit = Annotated[
         CheckBoxNode,
         PasswordNode,
         SelectNode,
+        AutocompleteNode,
         EmailNode,
         NumberNode,
         RadioNode,
@@ -242,6 +263,8 @@ FormKitSchemaFormKit = Annotated[
         DatePickerNode,
         DropDownNode,
         RepeaterNode,
+        TelNode,
+        CurrencyNode,
     ],
     Field(discriminator="formkit"),
 ]
@@ -356,6 +379,8 @@ Node = Annotated[
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
+    "tel",
+    "currency",
     "select",
     "checkbox",
     "number",
@@ -429,7 +454,18 @@ class FormKitNode(BaseModel):
         if "id" in obj:
             obj["html_id"] = obj.pop("id")
         try:
-            return super().parse_obj({**get_node_type(obj), **obj})
+            parsed = super().parse_obj({**get_node_type(obj), **obj})
+            if getattr(parsed.__root__, "children", None):
+                children = []
+                for n in obj["children"]:
+                    if isinstance(n, str):
+                        pass
+                    try:
+                        children.append(cls.parse_obj(n).__root__)
+                    except Exception as E:
+                        warnings.warn(f"{E}")
+                parsed.__root__.children = children
+            return parsed
         except KeyError as E:
             raise Exception(f"Unable to parse content {obj} to a {cls}") from E
 
