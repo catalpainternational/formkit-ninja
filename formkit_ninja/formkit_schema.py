@@ -4,7 +4,6 @@ import logging
 import warnings
 from html.parser import HTMLParser
 from typing import Annotated, Any, ForwardRef, List, Literal, Type, TypedDict, TypeVar, Union
-import warnings
 
 from pydantic import BaseModel, Field
 

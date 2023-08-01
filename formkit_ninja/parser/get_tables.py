@@ -1,11 +1,10 @@
 from typing import Any, Callable, Iterable, NamedTuple
 
-from formkit_schema import FormKitSchemaFormKit, FormKitSchemaDOMNode, RepeaterNode, GroupNode
-from . import type_convert
-
+from formkit_schema import FormKitSchemaDOMNode, FormKitSchemaFormKit, GroupNode, RepeaterNode
 from rich.console import Console
-from .get_schemas import repeaters, groups, process_node
 
+from . import type_convert
+from .get_schemas import groups, process_node, repeaters
 
 strings = tuple[str]
 
