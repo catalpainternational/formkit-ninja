@@ -215,6 +215,7 @@ class ToDjango:
             case "date":
                 return "DateField", ()
 
+
 class BaseDjangoAttrib:
     def __init__(self, fieldname: str, fieldtype: str, args: tuple[str]):
         self.fieldname = fieldname
@@ -417,18 +418,3 @@ class PydanticClassFactory:
         yield "from pydantic import BaseModel, validator, Field\n"
         yield "from uuid import UUID\n"
         yield "from typing import Annotated, Union, Literal"
-        
-
-
-class TriggerFactory:
-    def __init__(self, nodes: NodePath):
-        self.nodes = nodes
-
-    def __iter__(self):
-        """
-        Write code for a Django "trigger".
-        on dumping JSON data into a field,
-        create/update the relevant Django model including nested
-        groups and repeaters
-        """
-        ...
