@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from html.parser import HTMLParser
 from typing import Annotated, Any, ForwardRef, List, Literal, Type, TypedDict, TypeVar, Union
+import warnings
 
 from pydantic import BaseModel, Field
 
@@ -453,7 +454,18 @@ class FormKitNode(BaseModel):
         if "id" in obj:
             obj["html_id"] = obj.pop("id")
         try:
-            return super().parse_obj({**get_node_type(obj), **obj})
+            parsed = super().parse_obj({**get_node_type(obj), **obj})
+            if getattr(parsed.__root__, "children", None):
+                children = []
+                for n in obj["children"]:
+                    if isinstance(n, str):
+                        pass
+                    try:
+                        children.append(cls.parse_obj(n).__root__)
+                    except Exception as E:
+                        warnings.warn(f"{E}")
+                parsed.__root__.children = children
+            return parsed
         except KeyError as E:
             raise Exception(f"Unable to parse content {obj} to a {cls}") from E
 
