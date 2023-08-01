@@ -218,6 +218,7 @@ class ToDjango:
             case "date":
                 return "DateField", ()
 
+
 class BaseDjangoAttrib:
     def __init__(self, fieldname: str, fieldtype: str, args: tuple[str]):
         self.fieldname = fieldname

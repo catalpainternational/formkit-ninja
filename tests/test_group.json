@@ -1,0 +1,23 @@
+[
+    {
+        "id": "SF_1_1",
+        "title": "SF_1_1",
+        "$formkit": "group",
+        "children": [
+            [
+                {
+                    "id": "location",
+                    "title": "Location",
+                    "$formkit": "group",
+                    "children": [
+                        {
+                            "$formkit": "number",
+                            "id": "foo",
+                            "name": "foo"
+                        }
+                    ]
+                }
+            ]
+        ]
+    }
+]
