@@ -205,19 +205,19 @@ class ToDjango:
 
         match pydantic_field_parser()(nodes):
             case "bool":
-                return "BooleanField", ()
+                return "BooleanField", ("null=True", "blank=True")
             case "str":
-                return "TextField", ()
+                return "TextField", ("null=True", "blank=True")
             case "Decimal":
-                return "DecimalField", ("max_digits=20", "decimal_places=2")
+                return "DecimalField", ("max_digits=20", "decimal_places=2", "null=True", "blank=True")
             case "int":
-                return "IntegerField", ()
+                return "IntegerField", ("null=True", "blank=True")
             case "float":
-                return "FloatField", ()
+                return "FloatField", ("null=True", "blank=True")
             case "datetime":
-                return "DateTimeField", ()
+                return "DateTimeField", ("null=True", "blank=True")
             case "date":
-                return "DateField", ()
+                return "DateField", ("null=True", "blank=True")
 
 
 class BaseDjangoAttrib:
@@ -321,7 +321,9 @@ class RepeaterLinkFactory(DjangoClassFactory):
 
     @property
     def _attributes(self):
-        yield from iter(BaseDjangoAttrib(fieldname="ordinality", fieldtype="IntegerField", args=()))
+        yield from iter(
+            BaseDjangoAttrib(fieldname="ordinality", fieldtype="IntegerField", args=("null=True", "blank=True"))
+        )
 
         from_field = self.nodes.safe_node_name(self.nodes.parent)
         from_model = (self.nodes / "..").suggest_class_name()
@@ -329,7 +331,7 @@ class RepeaterLinkFactory(DjangoClassFactory):
             BaseDjangoAttrib(
                 fieldname=f"{from_field}",
                 fieldtype="OneToOneField",
-                args=(f'"{from_model}"', "on_delete=models.CASCADE"),
+                args=(f'"{from_model}"', "on_delete=models.CASCADE", "null=True", "blank=True"),
             )
         )
 
@@ -339,7 +341,7 @@ class RepeaterLinkFactory(DjangoClassFactory):
             BaseDjangoAttrib(
                 fieldname=f"repeater_{to_field}",
                 fieldtype="ForeignKey",
-                args=(f'"{to_model}"', "on_delete=models.CASCADE"),
+                args=(f'"{to_model}"', "on_delete=models.CASCADE", "null=True", "blank=True"),
             )
         )
 
