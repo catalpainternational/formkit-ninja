@@ -424,8 +424,9 @@ class PydanticClassFactory:
 
     @staticmethod
     def pydantic_header() -> Iterable[str]:
+        yield "# pydantic_header imports\n"
         yield "from datetime import datetime\n"
         yield "from decimal import Decimal\n"
         yield "from pydantic import BaseModel, validator, Field\n"
         yield "from uuid import UUID\n"
-        yield "from typing import Annotated, Union, Literal"
+        yield "from typing import Union, Literal"
