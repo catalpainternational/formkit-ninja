@@ -277,7 +277,6 @@ class DjangoClassFactory:
 
     def __iter__(self):
         for r in self.nodes.repeaters:
-            yield from iter(RepeaterLinkFactory(r))
             yield from iter(
                 DjangoClassFactory(
                     r, django_field_parser=self.django_field_parser, pydantic_field_parser=self.pydantic_field_parser
@@ -293,6 +292,15 @@ class DjangoClassFactory:
         yield f"class {self.nodes.suggest_class_name()}(models.Model):"
 
         has_attributes = False
+
+        # if a Repeater node, we want to preserve insertion order
+        if self.nodes.is_repeater:
+            has_attributes = True
+            parent_class_name = (self.nodes / "..").suggest_class_name()
+            yield f"    # This class is a Repeater: Parent and ordinality fields have been added"
+            yield f'    parent = models.ForeignKey("{parent_class_name}")\n'
+            yield "    ordinality = models.IntegerField()\n"
+
         if self.extra_attribs:
             has_attributes = True
             for e_a in self.extra_attribs:
@@ -309,49 +317,6 @@ class DjangoClassFactory:
     @staticmethod
     def header():
         yield "from django.db import models\n"
-
-
-class RepeaterLinkFactory(DjangoClassFactory):
-    def __init__(self, nodes: NodePath):
-        """
-        An additional model is required for "repeaters"
-        to preserve the order
-        """
-        super().__init__(nodes)
-
-    @property
-    def _attributes(self):
-        yield from iter(
-            BaseDjangoAttrib(fieldname="ordinality", fieldtype="IntegerField", args=("null=True", "blank=True"))
-        )
-
-        from_field = self.nodes.safe_node_name(self.nodes.parent)
-        from_model = (self.nodes / "..").suggest_class_name()
-        yield from iter(
-            BaseDjangoAttrib(
-                fieldname=f"{from_field}",
-                fieldtype="ForeignKey",
-                args=(f'"{from_model}"', "on_delete=models.CASCADE", "null=True", "blank=True"),
-            )
-        )
-
-        to_field = self.nodes.safe_node_name(self.nodes.node)
-        to_model = self.nodes.suggest_class_name()
-        yield from iter(
-            BaseDjangoAttrib(
-                fieldname=f"repeater_{to_field}",
-                fieldtype="ForeignKey",
-                args=(f'"{to_model}"', "on_delete=models.CASCADE", "null=True", "blank=True"),
-            )
-        )
-
-    @property
-    def _modelname(self):
-        return self.nodes.suggest_link_class_name()
-
-    def __iter__(self):
-        yield f"class {self._modelname}(models.Model):"
-        yield from self._attributes
 
 
 class PydanticAttrib:
@@ -424,9 +389,8 @@ class PydanticClassFactory:
 
     @staticmethod
     def pydantic_header() -> Iterable[str]:
-        yield "# pydantic_header imports\n"
         yield "from datetime import datetime\n"
         yield "from decimal import Decimal\n"
         yield "from pydantic import BaseModel, validator, Field\n"
         yield "from uuid import UUID\n"
-        yield "from typing import Union, Literal"
+        yield "from typing import Annotated, Union, Literal"
