@@ -1,13 +1,9 @@
 from __future__ import annotations
+
 from keyword import iskeyword
 from typing import Any, Iterable, Literal
 
-from formkit_ninja.formkit_schema import (
-    FormKitSchemaFormKit,
-    FormKitSchemaProps,
-    GroupNode,
-    RepeaterNode,
-)
+from formkit_ninja.formkit_schema import FormKitSchemaFormKit, FormKitSchemaProps, GroupNode, RepeaterNode
 from formkit_ninja.parser.logger import log
 
 
@@ -84,20 +80,26 @@ class NodePath:
                 yield self / n
 
     @property
+    def formkits_not_repeaters(self) -> Iterable["NodePath"]:
+        for n in self.children:
+            if hasattr(n, "formkit") and not isinstance(n, RepeaterNode):
+                yield self / n
+
+    @property
     def children(self):
         return getattr(self.node, "children", []) or []
 
-    def filter_children(self, type_) -> Iterable[Any]:
+    def filter_children(self, type_) -> Iterable["NodePath"]:
         for n in self.children:
             if isinstance(n, type_):
                 yield self / n
 
     @property
-    def repeaters(self) -> RepeaterNode:
+    def repeaters(self):
         yield from self.filter_children(RepeaterNode)
 
     @property
-    def groups(self) -> GroupNode:
+    def groups(self):
         yield from self.filter_children(GroupNode)
 
     @property
@@ -185,10 +187,7 @@ class ToDjango:
     Returns a string suitable for a Django models file `field` parameter
     """
 
-    def __call__(
-        self, nodes: NodePath, config: "ParserConfig" | None = None
-    ) -> tuple[django_type, tuple[str, ...]]:
-
+    def __call__(self, nodes: NodePath, config: "ParserConfig" | None = None) -> tuple[django_type, tuple[str, ...]]:
         if nodes.is_group:
             log(f"[yellow]Group node: {nodes.safe_node_name(nodes.node)}")
             return "OneToOneField", (
@@ -238,11 +237,7 @@ class DjangoAttrib(BaseDjangoAttrib):
     Formkit node
     """
 
-    def __init__(
-        self,
-        nodes: NodePath | FormKitSchemaFormKit,
-        config: "ParserConfig" | None = None
-    ):
+    def __init__(self, nodes: NodePath | FormKitSchemaFormKit, config: "ParserConfig" | None = None):
         """
         A single property
         """
@@ -251,6 +246,7 @@ class DjangoAttrib(BaseDjangoAttrib):
         fieldtype, field_args = config.DjangoParser()(nodes, config)
         # The field name is based on the "last" node in the aequence
         super().__init__(fieldname=nodes.tail().suggest_model_name(), fieldtype=fieldtype, args=field_args)
+
 
 class ParserConfig:
     DjangoParser = ToDjango
@@ -275,17 +271,9 @@ class DjangoClassFactory:
 
     def __iter__(self):
         for r in self.nodes.repeaters:
-            yield from iter(
-                self.__class__(
-                    r, config=self.config
-                )
-            )
+            yield from iter(self.__class__(r, config=self.config))
         for g in self.nodes.groups:
-            yield from iter(
-                self.__class__(
-                    g, config=self.config
-                )
-            )
+            yield from iter(self.__class__(g, config=self.config))
 
         yield f"class {self.nodes.suggest_class_name()}(models.Model):"
 
@@ -295,7 +283,9 @@ class DjangoClassFactory:
         if self.nodes.is_repeater:
             has_attributes = True
             parent_class_name = (self.nodes / "..").suggest_class_name()
-            related_name = self.nodes.node.name  # This is the property name in JSON. It's important to have for importers to know where to put nested data.
+            related_name = (
+                self.nodes.node.name
+            )  # This is the property name in JSON. It's important to have for importers to know where to put nested data.
             yield f"    # This class is a Repeater: Parent and ordinality fields have been added"
             yield f'    parent = models.ForeignKey("{parent_class_name}", on_delete=models.CASCADE, related_name="{related_name}")'
             yield "    ordinality = models.IntegerField()"
@@ -327,9 +317,7 @@ class PydanticAttrib:
     Formkit node
     """
 
-    def __init__(
-        self, nodes: NodePath | FormKitSchemaFormKit, opt: bool = True, config: ParserConfig | None = None
-    ):
+    def __init__(self, nodes: NodePath | FormKitSchemaFormKit, opt: bool = True, config: ParserConfig | None = None):
         self.nodes = nodes
         self.opt = opt
         self.config = config or ParserConfig
@@ -346,7 +334,7 @@ class PydanticClassFactory:
         nodes: NodePath,
         extra_attribs: list[PydanticAttrib | str] | None = None,
         config: ParserConfig | None = None,
-        klassname = "BaseModel"  # Allows us to use a Django-Ninja schema or a subclass of models.Model
+        klassname="BaseModel",  # Allows us to use a Django-Ninja schema or a subclass of models.Model
     ):
         self.nodes = nodes
         self.extra_attribs = extra_attribs
@@ -398,10 +386,94 @@ class PydanticSchemaClassFactory(PydanticClassFactory):
     """
     Subclasses `PydanticClassFactory` to prefer Django-Ninja's `schema`
     """
+
     def __init__(*args, **wkargs):
-        super().__init__(klassname='Schema')
+        super().__init__(klassname="Schema")
 
     @staticmethod
     def pydantic_header() -> Iterable[str]:
         yield from super().pydantic_header()
         yield "from ninja import Schema"
+
+
+class DjangoAdminClassFactory(DjangoClassFactory):
+    def _list_display(self):
+        if attribs := list(self.nodes.formkits_not_repeaters):
+            yield "    list_display = ["
+            for a in attribs:
+                yield f'        "{a.node.name}",'
+            yield "    ]"
+
+    # All fields are readonly
+    def _readonly_fields(self):
+        if attribs := list(self.nodes.formkits_not_repeaters):
+            yield "    readonly_fields = ["
+            for a in attribs:
+                yield f'        "{a.node.name}",'
+            yield "    ]"
+
+    def _inlines(self):
+        if reps := list(self.nodes.repeaters):
+            yield "    inlines = ["
+            for a in reps:
+                yield f"        {a.suggest_class_name()}Inline,"
+            yield "    ]"
+
+    def __iter__(self):
+        for r in self.nodes.repeaters:
+            yield from iter(self.__class__(r, config=self.config))
+        for g in self.nodes.groups:
+            yield from iter(self.__class__(g, config=self.config))
+
+        if self.nodes.is_repeater:
+            yield f"class {self.nodes.suggest_class_name()}Inline(ReadOnlyInline):"
+            yield f"    model = models.{self.nodes.suggest_class_name()}"
+
+        yield f"@admin.register(models.{self.nodes.suggest_class_name()})"
+        yield f"class {self.nodes.suggest_class_name()}Admin(admin.ModelAdmin):"
+        yield from self._list_display()
+        yield from self._inlines()
+        yield from self._readonly_fields()
+
+        # has_attributes = []
+
+        # # if a Repeater node, we want to preserve insertion order
+
+        # if self.nodes.is_repeater:
+        #     has_attributes = True
+        #     parent_class_name = (self.nodes / "..").suggest_class_name()
+        #     related_name = self.nodes.node.name  # This is the property name in JSON. It's important to have for importers to know where to put nested data.
+        #     yield f"    # This class is a Repeater: Parent and ordinality fields have been added"
+        #     yield f'    parent = models.ForeignKey("{parent_class_name}", on_delete=models.CASCADE, related_name="{related_name}")'
+        #     yield "    ordinality = models.IntegerField()"
+
+        # if self.extra_attribs:
+        #     has_attributes = True
+        #     for e_a in self.extra_attribs:
+        #         if isinstance(e_a, str):
+        #             yield e_a
+        #         else:
+        #             yield from iter(e_a)
+        # for a in self.nodes.formkits:
+        #     has_attributes = True
+        #     # Skip "repeaters" as they are a separate model
+        #     if a.is_repeater:
+        #         continue
+        #     yield from iter(DjangoAttrib(a, config=self.config))
+        # if not has_attributes:
+        #     yield "    pass"
+
+    @staticmethod
+    def header():
+        yield "from django.contrib import admin\n"
+        yield "from . import models\n"
+
+        yield "class ReadOnlyInline(admin.TabularInline):\n"
+        yield "    def has_change_permission(self, request, obj=None):\n"
+        yield "        return False\n"
+        yield "    def has_add_permission(self, request, obj=None):\n"
+        yield "        return False\n"
+        yield "    def has_delete_permission(self, request, obj=None):\n"
+        yield "        return False\n"
+        yield "    def get_readonly_fields(self, request, obj=None):\n"
+        yield "        return list(super().get_fields(request, obj))\n"

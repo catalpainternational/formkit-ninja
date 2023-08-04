@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from formkit_ninja.formkit_schema import FormKitNode, GroupNode, NumberNode
 from formkit_ninja.parser.type_convert import (
+    DjangoAdminClassFactory,
     DjangoAttrib,
     DjangoClassFactory,
     NodePath,
@@ -38,7 +39,7 @@ class FormKitSchemaNodeTestCase(TestCase):
 
         self.assertEqual(ToPydantic()(node), "int")
         # self.assertEqual(to_postgres(node), "int")
-        self.assertEqual(ToDjango()(node), ("IntegerField", ('null=True', 'blank=True')))
+        self.assertEqual(ToDjango()(node), ("IntegerField", ("null=True", "blank=True")))
 
     def test_parse_group_node_children(self):
         """
@@ -82,6 +83,7 @@ class DjangoAttribTestCase(TestCase):
         self.assertEqual(django_attr, "    foo = models.OneToOneField(Foo, on_delete=models.CASCADE)")
         self.assertEqual(pydantic_attr, "    foo: Foo | None = None")
 
+
 class GroupNodeClassTestCase(TestCase):
     """
     A group node should be converted to a valid Django class
@@ -113,7 +115,9 @@ class GroupNodeClassTestCase(TestCase):
         np = NodePath(node)
         django_iterator = iter(DjangoClassFactory(np))
         self.assertEqual(next(django_iterator), "class Foo(models.Model):")
-        self.assertEqual(next(django_iterator), "    beneficiaries_female = models.IntegerField(null=True, blank=True)")
+        self.assertEqual(
+            next(django_iterator), "    beneficiaries_female = models.IntegerField(null=True, blank=True)"
+        )
 
 
 class GroupNodePydanticClassTestCase(TestCase):
@@ -140,7 +144,7 @@ class GroupNodePydanticClassTestCase(TestCase):
         self.assertEqual(next(pydantic_iterator), "    foonum: int | None = None")
 
 
-class NestedGroupNodes(TestCase):
+class NestedGroupNodesTestCase(TestCase):
     def test_nested_nodes(self):
         node = FormKitNode.parse_obj(nested_group_node).__root__
         np = NodePath(node)
@@ -158,5 +162,59 @@ class NestedGroupNodes(TestCase):
 
         self.assertEqual(next(django_iterator), "class BarFoorepeater(models.Model):")
         next(django_iterator)
-        self.assertEqual(next(django_iterator), '    parent = models.ForeignKey("Bar", on_delete=models.CASCADE, related_name="foorepeater")')
+        self.assertEqual(
+            next(django_iterator),
+            '    parent = models.ForeignKey("Bar", on_delete=models.CASCADE, related_name="foorepeater")',
+        )
         self.assertEqual(next(django_iterator), "    ordinality = models.IntegerField()")
+
+
+class DjangoAdminTestCase(TestCase):
+    def test_group_node_field(self):
+        """
+        A group node with attrs should be converted to a valid Django admin definition
+        """
+        definition = {
+            "$formkit": "group",
+            "name": "foo",
+            "children": [
+                {
+                    "$formkit": "number",
+                    "name": "beneficiaries_female",
+                }
+            ],
+        }
+        node = FormKitNode.parse_obj(definition).__root__
+        np = NodePath(node)
+        django_iterator = iter(DjangoAdminClassFactory(np))
+
+        self.assertEqual(next(django_iterator), "@admin.register(models.Foo)")
+        self.assertEqual(next(django_iterator), "class FooAdmin(models.Model):")
+        self.assertEqual(next(django_iterator), "    list_display = [")
+        self.assertEqual(next(django_iterator), '        "beneficiaries_female",')
+        self.assertEqual(next(django_iterator), "    ]")
+
+    def test_repeated_node_admin(self):
+        node = FormKitNode.parse_obj(nested_repeater_node).__root__
+        np = NodePath(node)
+        django_iterator = iter(DjangoAdminClassFactory(np))
+        # We should have an inline model defined
+        self.assertEqual(next(django_iterator), "class BarFoorepeaterInline(admin.TabularInline):")
+        self.assertEqual(next(django_iterator), "    model = models.BarFoorepeater")
+
+        # Then the "repeater" itself
+        self.assertEqual(next(django_iterator), "@admin.register(models.BarFoorepeater)")
+        self.assertEqual(next(django_iterator), "class BarFoorepeaterAdmin(models.Model):")
+        self.assertEqual(next(django_iterator), "    list_display = [")
+        self.assertEqual(next(django_iterator), '        "foonum",')
+        self.assertEqual(next(django_iterator), "    ]")
+        self.assertEqual(next(django_iterator), "    readonly_fields = [")
+        self.assertEqual(next(django_iterator), '        "foonum",')
+        self.assertEqual(next(django_iterator), "    ]")
+
+        # Then the main 'bar' model with the inline repeater
+        self.assertEqual(next(django_iterator), "@admin.register(models.Bar)")
+        self.assertEqual(next(django_iterator), "class BarAdmin(models.Model):")
+        self.assertEqual(next(django_iterator), "    inlines = [")
+        self.assertEqual(next(django_iterator), "        BarFoorepeaterInline,")
+        self.assertEqual(next(django_iterator), "    ]")
