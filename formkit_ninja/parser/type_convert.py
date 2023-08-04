@@ -1,3 +1,4 @@
+from __future__ import annotations
 from keyword import iskeyword
 from typing import Any, Iterable, Literal
 
@@ -185,7 +186,7 @@ class ToDjango:
     """
 
     def __call__(
-        self, nodes: NodePath, pydantic_field_parser: ToPydantic = ToPydantic
+        self, nodes: NodePath, config: "ParserConfig" | None = None
     ) -> tuple[django_type, tuple[str, ...]]:
 
         if nodes.is_group:
@@ -194,8 +195,9 @@ class ToDjango:
                 nodes.suggest_class_name(),
                 "on_delete=models.CASCADE",
             )
-
-        match pydantic_field_parser()(nodes):
+        if not config:
+            config = ParserConfig
+        match config.PydanticParser()(nodes):
             case "bool":
                 return "BooleanField", ("null=True", "blank=True")
             case "str":
@@ -239,15 +241,21 @@ class DjangoAttrib(BaseDjangoAttrib):
     def __init__(
         self,
         nodes: NodePath | FormKitSchemaFormKit,
-        django_field_parser: ToDjango = ToDjango,
-        pydantic_field_parser: ToPydantic = ToPydantic,
+        config: "ParserConfig" | None = None
     ):
         """
         A single property
         """
-        fieldtype, field_args = django_field_parser()(nodes, pydantic_field_parser)
+        if not config:
+            config = ParserConfig
+        fieldtype, field_args = config.DjangoParser()(nodes, config)
         # The field name is based on the "last" node in the aequence
         super().__init__(fieldname=nodes.tail().suggest_model_name(), fieldtype=fieldtype, args=field_args)
+
+class ParserConfig:
+    DjangoParser = ToDjango
+    PydanticParser = ToPydantic
+    DjangoAttribParser = DjangoAttrib
 
 
 class DjangoClassFactory:
@@ -259,25 +267,23 @@ class DjangoClassFactory:
         self,
         nodes: NodePath,
         extra_attribs: list[BaseDjangoAttrib | str] | None = None,
-        django_field_parser: ToDjango | None = ToDjango,
-        pydantic_field_parser: ToPydantic | None = ToPydantic,
+        config: ParserConfig | None = None,
     ):
+        self.config = config if config else ParserConfig()
         self.nodes = nodes
         self.extra_attribs = extra_attribs
-        self.django_field_parser = django_field_parser
-        self.pydantic_field_parser = pydantic_field_parser
 
     def __iter__(self):
         for r in self.nodes.repeaters:
             yield from iter(
-                DjangoClassFactory(
-                    r, django_field_parser=self.django_field_parser, pydantic_field_parser=self.pydantic_field_parser
+                self.__class__(
+                    r, config=self.config
                 )
             )
         for g in self.nodes.groups:
             yield from iter(
-                DjangoClassFactory(
-                    g, django_field_parser=self.django_field_parser, pydantic_field_parser=self.pydantic_field_parser
+                self.__class__(
+                    g, config=self.config
                 )
             )
 
@@ -305,7 +311,7 @@ class DjangoClassFactory:
             # Skip "repeaters" as they are a separate model
             if a.is_repeater:
                 continue
-            yield from iter(DjangoAttrib(a, self.django_field_parser, self.pydantic_field_parser))
+            yield from iter(DjangoAttrib(a, config=self.config))
         if not has_attributes:
             yield "    pass"
 
@@ -321,14 +327,14 @@ class PydanticAttrib:
     """
 
     def __init__(
-        self, nodes: NodePath | FormKitSchemaFormKit, opt: bool = True, pydantic_field_parser: ToPydantic = ToPydantic
+        self, nodes: NodePath | FormKitSchemaFormKit, opt: bool = True, config: ParserConfig | None = None
     ):
         self.nodes = nodes
         self.opt = opt
-        self.parser = pydantic_field_parser
+        self.config = config or ParserConfig
 
     def __iter__(self):
-        fieldtype = self.parser()(self.nodes)
+        fieldtype = self.config.PydanticParser()(self.nodes)
         fieldname = self.nodes.suggest_field_name()
         yield f"    {fieldname}: {fieldtype} {'| None = None' if self.opt else ''}"
 
@@ -338,12 +344,12 @@ class PydanticClassFactory:
         self,
         nodes: NodePath,
         extra_attribs: list[PydanticAttrib | str] | None = None,
-        pydantic_field_parser: ToPydantic = ToPydantic,
+        config: ParserConfig | None = None,
         klassname = "BaseModel"  # Allows us to use a Django-Ninja schema or a subclass of models.Model
     ):
         self.nodes = nodes
         self.extra_attribs = extra_attribs
-        self.pydantic_field_parser = pydantic_field_parser
+        self.config = config or ParserConfig
         self.klassname = klassname
 
     def __iter__(self) -> Iterable[str]:
@@ -353,9 +359,9 @@ class PydanticClassFactory:
         """
         # Recursively write dependencies
         for n in self.nodes.repeaters:
-            yield from self.__class__(n, pydantic_field_parser=self.pydantic_field_parser)
+            yield from self.__class__(n, config=self.config)
         for g in self.nodes.groups:
-            yield from self.__class__(g, pydantic_field_parser=self.pydantic_field_parser)
+            yield from self.__class__(g, config=self.config)
 
         # Write the class for the "current" node
 
@@ -372,7 +378,7 @@ class PydanticClassFactory:
 
         for c in self.nodes.formkits:
             has_attributes = True
-            yield from iter(PydanticAttrib(c, pydantic_field_parser=self.pydantic_field_parser))
+            yield from iter(PydanticAttrib(c, config=self.config))
 
         if not has_attributes:
             yield "    pass"
