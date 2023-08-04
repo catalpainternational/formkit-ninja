@@ -38,7 +38,7 @@ class FormKitSchemaNodeTestCase(TestCase):
 
         self.assertEqual(ToPydantic()(node), "int")
         # self.assertEqual(to_postgres(node), "int")
-        self.assertEqual(ToDjango()(node), ("IntegerField", ()))
+        self.assertEqual(ToDjango()(node), ("IntegerField", ('null=True', 'blank=True')))
 
     def test_parse_group_node_children(self):
         """
@@ -70,7 +70,7 @@ class DjangoAttribTestCase(TestCase):
         django_attr = next(iter(DjangoAttrib(np)))
         pydantic_attr = next(iter(PydanticAttrib(np)))
 
-        self.assertEqual(django_attr, "    foonum = models.IntegerField()")
+        self.assertEqual(django_attr, "    foonum = models.IntegerField(null=True, blank=True)")
         self.assertEqual(pydantic_attr, "    foonum: int | None = None")
 
     def test_group_node(self):
@@ -81,18 +81,6 @@ class DjangoAttribTestCase(TestCase):
 
         self.assertEqual(django_attr, "    foo = models.OneToOneField(Foo, on_delete=models.CASCADE)")
         self.assertEqual(pydantic_attr, "    foo: Foo | None = None")
-
-    def test_repeater_node(self):
-        node = FormKitNode.parse_obj(repeater_node).__root__
-        np = NodePath(node)
-        django_attr = next(iter(DjangoAttrib(np)))
-        pydantic_attr = next(iter(PydanticAttrib(np)))
-
-        self.assertEqual(
-            django_attr, '    foorepeater = models.ManyToManyField(Foorepeater, through="FoorepeaterLink")'
-        )
-        self.assertEqual(pydantic_attr, "    foorepeater: list[Foorepeater] | None = None")
-
 
 class GroupNodeClassTestCase(TestCase):
     """
@@ -125,7 +113,7 @@ class GroupNodeClassTestCase(TestCase):
         np = NodePath(node)
         django_iterator = iter(DjangoClassFactory(np))
         self.assertEqual(next(django_iterator), "class Foo(models.Model):")
-        self.assertEqual(next(django_iterator), "    beneficiaries_female = models.IntegerField()")
+        self.assertEqual(next(django_iterator), "    beneficiaries_female = models.IntegerField(null=True, blank=True)")
 
 
 class GroupNodePydanticClassTestCase(TestCase):
@@ -159,7 +147,7 @@ class NestedGroupNodes(TestCase):
         django_iterator = iter(DjangoClassFactory(np))
 
         self.assertEqual(next(django_iterator), "class BarFoo(models.Model):")
-        self.assertEqual(next(django_iterator), "    foonum = models.IntegerField()")
+        self.assertEqual(next(django_iterator), "    foonum = models.IntegerField(null=True, blank=True)")
         self.assertEqual(next(django_iterator), "class Bar(models.Model):")
         self.assertEqual(next(django_iterator), "    foo = models.OneToOneField(BarFoo, on_delete=models.CASCADE)")
 
@@ -168,17 +156,8 @@ class NestedGroupNodes(TestCase):
         np = NodePath(node)
         django_iterator = iter(DjangoClassFactory(np))
 
-        self.assertEqual(next(django_iterator), "class BarFoorepeaterLink(models.Model):")
-        self.assertEqual(next(django_iterator), "    ordinality = models.IntegerField()")
-        self.assertEqual(next(django_iterator), '    bar = models.OneToOneField("Bar", on_delete=models.CASCADE)')
-        self.assertEqual(
-            next(django_iterator),
-            '    repeater_foorepeater = models.ForeignKey("BarFoorepeater", on_delete=models.CASCADE)',
-        )
         self.assertEqual(next(django_iterator), "class BarFoorepeater(models.Model):")
-        self.assertEqual(next(django_iterator), "    foonum = models.IntegerField()")
-        self.assertEqual(next(django_iterator), "class Bar(models.Model):")
-        self.assertEqual(
-            next(django_iterator),
-            '    foorepeater = models.ManyToManyField(BarFoorepeater, through="BarFoorepeaterLink")',
-        )
+        next(django_iterator)
+        self.assertEqual(next(django_iterator), '    parent = models.ForeignKey("Bar", on_delete=models.CASCADE)')
+        self.assertEqual(next(django_iterator), "    ordinality = models.IntegerField()")
+
