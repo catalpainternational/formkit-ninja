@@ -1,13 +1,7 @@
 from keyword import iskeyword
 from typing import Any, Iterable, Literal
 
-from formkit_ninja.formkit_schema import (
-    CurrencyNode,
-    FormKitSchemaFormKit,
-    FormKitSchemaProps,
-    GroupNode,
-    RepeaterNode,
-)
+from formkit_ninja.formkit_schema import FormKitSchemaFormKit, FormKitSchemaProps, GroupNode, RepeaterNode
 from formkit_ninja.parser.logger import log
 
 
@@ -185,17 +179,9 @@ class ToDjango:
     Returns a string suitable for a Django models file `field` parameter
     """
 
-    def __call__(
-        self, nodes: NodePath, pydantic_field_parser: ToPydantic = ToPydantic
-    ) -> tuple[django_type, tuple[str, ...]]:
-        if nodes.is_repeater:
-            log(f"[blue]Repeater node: {nodes.safe_node_name(nodes.node)}")
-            through = nodes.suggest_link_class_name()
-            return "ManyToManyField", (
-                nodes.suggest_class_name(),
-                f'through="{through}"',
-            )
+    pydantic_field_parser: ToPydantic = ToPydantic
 
+    def __call__(self, nodes: NodePath) -> tuple[django_type, tuple[str, ...]]:
         if nodes.is_group:
             log(f"[yellow]Group node: {nodes.safe_node_name(nodes.node)}")
             return "OneToOneField", (
@@ -203,7 +189,7 @@ class ToDjango:
                 "on_delete=models.CASCADE",
             )
 
-        match pydantic_field_parser()(nodes):
+        match self.pydantic_field_parser()(nodes):
             case "bool":
                 return "BooleanField", ("null=True", "blank=True")
             case "str":
@@ -244,16 +230,17 @@ class DjangoAttrib(BaseDjangoAttrib):
     Formkit node
     """
 
+    django_field_parser: ToDjango = ToDjango
+    pydantic_field_parser: ToPydantic = ToPydantic
+
     def __init__(
         self,
         nodes: NodePath | FormKitSchemaFormKit,
-        django_field_parser: ToDjango = ToDjango,
-        pydantic_field_parser: ToPydantic = ToPydantic,
     ):
         """
         A single property
         """
-        fieldtype, field_args = django_field_parser()(nodes, pydantic_field_parser)
+        fieldtype, field_args = self.django_field_parser()(nodes, self.pydantic_field_parser)
         # The field name is based on the "last" node in the aequence
         super().__init__(fieldname=nodes.tail().suggest_model_name(), fieldtype=fieldtype, args=field_args)
 
@@ -263,17 +250,16 @@ class DjangoClassFactory:
     A factory to generate a Django class definition
     """
 
+    django_field_parser: ToDjango | None = ToDjango
+    pydantic_field_parser: ToPydantic | None = ToPydantic
+
     def __init__(
         self,
         nodes: NodePath,
         extra_attribs: list[BaseDjangoAttrib | str] | None = None,
-        django_field_parser: ToDjango | None = ToDjango,
-        pydantic_field_parser: ToPydantic | None = ToPydantic,
     ):
         self.nodes = nodes
         self.extra_attribs = extra_attribs
-        self.django_field_parser = django_field_parser
-        self.pydantic_field_parser = pydantic_field_parser
 
     def __iter__(self):
         for r in self.nodes.repeaters:
@@ -297,9 +283,9 @@ class DjangoClassFactory:
         if self.nodes.is_repeater:
             has_attributes = True
             parent_class_name = (self.nodes / "..").suggest_class_name()
-            yield f"    # This class is a Repeater: Parent and ordinality fields have been added"
-            yield f'    parent = models.ForeignKey("{parent_class_name}")\n'
-            yield "    ordinality = models.IntegerField()\n"
+            yield "    # This class is a Repeater: Parent and ordinality fields have been added"
+            yield f'    parent = models.ForeignKey("{parent_class_name}", on_delete=models.CASCADE)'
+            yield "    ordinality = models.IntegerField()"
 
         if self.extra_attribs:
             has_attributes = True
@@ -310,6 +296,9 @@ class DjangoClassFactory:
                     yield from iter(e_a)
         for a in self.nodes.formkits:
             has_attributes = True
+            # Skip "repeaters" as they are a separate model
+            if a.is_repeater:
+                continue
             yield from iter(DjangoAttrib(a, self.django_field_parser, self.pydantic_field_parser))
         if not has_attributes:
             yield "    pass"
@@ -344,10 +333,12 @@ class PydanticClassFactory:
         nodes: NodePath,
         extra_attribs: list[PydanticAttrib | str] | None = None,
         pydantic_field_parser: ToPydantic = ToPydantic,
+        klassname="BaseModel",  # Allows us to use a Django-Ninja schema or a subclass of models.Model
     ):
         self.nodes = nodes
         self.extra_attribs = extra_attribs
         self.pydantic_field_parser = pydantic_field_parser
+        self.klassname = klassname
 
     def __iter__(self) -> Iterable[str]:
         """
@@ -356,13 +347,13 @@ class PydanticClassFactory:
         """
         # Recursively write dependencies
         for n in self.nodes.repeaters:
-            yield from PydanticClassFactory(n, pydantic_field_parser=self.pydantic_field_parser)
+            yield from self.__class__(n, pydantic_field_parser=self.pydantic_field_parser)
         for g in self.nodes.groups:
-            yield from PydanticClassFactory(g, pydantic_field_parser=self.pydantic_field_parser)
+            yield from self.__class__(g, pydantic_field_parser=self.pydantic_field_parser)
 
         # Write the class for the "current" node
 
-        yield f"\nclass {self.nodes.suggest_class_name()}(BaseModel):"
+        yield f"\nclass {self.nodes.suggest_class_name()}({self.klassname}):"
         has_attributes = False
         # Attributes
         if self.extra_attribs:
@@ -377,11 +368,6 @@ class PydanticClassFactory:
             has_attributes = True
             yield from iter(PydanticAttrib(c, pydantic_field_parser=self.pydantic_field_parser))
 
-        # Validators for custom fields
-        for c in self.nodes.formkits:
-            if isinstance(c.node, CurrencyNode):
-                validate_fn = "v_currency"
-                yield f'    _normalize_{c.suggest_field_name()} = {validate_fn}("{c.suggest_field_name()}")'
         if not has_attributes:
             yield "    pass"
         else:
@@ -391,6 +377,19 @@ class PydanticClassFactory:
     def pydantic_header() -> Iterable[str]:
         yield "from datetime import datetime\n"
         yield "from decimal import Decimal\n"
-        yield "from pydantic import BaseModel, validator, Field\n"
-        yield "from uuid import UUID\n"
-        yield "from typing import Annotated, Union, Literal"
+        yield "from pydantic import BaseModel\n"
+        yield "from typing import Union, Literal"
+
+
+class PydanticSchemaClassFactory(PydanticClassFactory):
+    """
+    Subclasses `PydanticClassFactory` to prefer Django-Ninja's `schema`
+    """
+
+    def __init__(*args, **wkargs):
+        super().__init__(klassname="Schema")
+
+    @staticmethod
+    def pydantic_header() -> Iterable[str]:
+        yield from super().pydantic_header()
+        yield "from ninja import Schema"
