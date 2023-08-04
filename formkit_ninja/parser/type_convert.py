@@ -1,7 +1,12 @@
 from keyword import iskeyword
 from typing import Any, Iterable, Literal
 
-from formkit_ninja.formkit_schema import FormKitSchemaFormKit, FormKitSchemaProps, GroupNode, RepeaterNode
+from formkit_ninja.formkit_schema import (
+    FormKitSchemaFormKit,
+    FormKitSchemaProps,
+    GroupNode,
+    RepeaterNode,
+)
 from formkit_ninja.parser.logger import log
 
 
@@ -179,9 +184,10 @@ class ToDjango:
     Returns a string suitable for a Django models file `field` parameter
     """
 
-    pydantic_field_parser: ToPydantic = ToPydantic
+    def __call__(
+        self, nodes: NodePath, pydantic_field_parser: ToPydantic = ToPydantic
+    ) -> tuple[django_type, tuple[str, ...]]:
 
-    def __call__(self, nodes: NodePath) -> tuple[django_type, tuple[str, ...]]:
         if nodes.is_group:
             log(f"[yellow]Group node: {nodes.safe_node_name(nodes.node)}")
             return "OneToOneField", (
@@ -189,7 +195,7 @@ class ToDjango:
                 "on_delete=models.CASCADE",
             )
 
-        match self.pydantic_field_parser()(nodes):
+        match pydantic_field_parser()(nodes):
             case "bool":
                 return "BooleanField", ("null=True", "blank=True")
             case "str":
@@ -230,17 +236,16 @@ class DjangoAttrib(BaseDjangoAttrib):
     Formkit node
     """
 
-    django_field_parser: ToDjango = ToDjango
-    pydantic_field_parser: ToPydantic = ToPydantic
-
     def __init__(
         self,
         nodes: NodePath | FormKitSchemaFormKit,
+        django_field_parser: ToDjango = ToDjango,
+        pydantic_field_parser: ToPydantic = ToPydantic,
     ):
         """
         A single property
         """
-        fieldtype, field_args = self.django_field_parser()(nodes, self.pydantic_field_parser)
+        fieldtype, field_args = django_field_parser()(nodes, pydantic_field_parser)
         # The field name is based on the "last" node in the aequence
         super().__init__(fieldname=nodes.tail().suggest_model_name(), fieldtype=fieldtype, args=field_args)
 
@@ -250,16 +255,17 @@ class DjangoClassFactory:
     A factory to generate a Django class definition
     """
 
-    django_field_parser: ToDjango | None = ToDjango
-    pydantic_field_parser: ToPydantic | None = ToPydantic
-
     def __init__(
         self,
         nodes: NodePath,
         extra_attribs: list[BaseDjangoAttrib | str] | None = None,
+        django_field_parser: ToDjango | None = ToDjango,
+        pydantic_field_parser: ToPydantic | None = ToPydantic,
     ):
         self.nodes = nodes
         self.extra_attribs = extra_attribs
+        self.django_field_parser = django_field_parser
+        self.pydantic_field_parser = pydantic_field_parser
 
     def __iter__(self):
         for r in self.nodes.repeaters:
@@ -283,7 +289,7 @@ class DjangoClassFactory:
         if self.nodes.is_repeater:
             has_attributes = True
             parent_class_name = (self.nodes / "..").suggest_class_name()
-            yield "    # This class is a Repeater: Parent and ordinality fields have been added"
+            yield f"    # This class is a Repeater: Parent and ordinality fields have been added"
             yield f'    parent = models.ForeignKey("{parent_class_name}", on_delete=models.CASCADE)'
             yield "    ordinality = models.IntegerField()"
 
@@ -333,7 +339,7 @@ class PydanticClassFactory:
         nodes: NodePath,
         extra_attribs: list[PydanticAttrib | str] | None = None,
         pydantic_field_parser: ToPydantic = ToPydantic,
-        klassname="BaseModel",  # Allows us to use a Django-Ninja schema or a subclass of models.Model
+        klassname = "BaseModel"  # Allows us to use a Django-Ninja schema or a subclass of models.Model
     ):
         self.nodes = nodes
         self.extra_attribs = extra_attribs
@@ -385,9 +391,8 @@ class PydanticSchemaClassFactory(PydanticClassFactory):
     """
     Subclasses `PydanticClassFactory` to prefer Django-Ninja's `schema`
     """
-
     def __init__(*args, **wkargs):
-        super().__init__(klassname="Schema")
+        super().__init__(klassname='Schema')
 
     @staticmethod
     def pydantic_header() -> Iterable[str]:
