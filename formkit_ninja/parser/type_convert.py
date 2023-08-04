@@ -295,8 +295,9 @@ class DjangoClassFactory:
         if self.nodes.is_repeater:
             has_attributes = True
             parent_class_name = (self.nodes / "..").suggest_class_name()
+            related_name = self.nodes.node.name  # This is the property name in JSON. It's important to have for importers to know where to put nested data.
             yield f"    # This class is a Repeater: Parent and ordinality fields have been added"
-            yield f'    parent = models.ForeignKey("{parent_class_name}", on_delete=models.CASCADE)'
+            yield f'    parent = models.ForeignKey("{parent_class_name}", on_delete=models.CASCADE, related_name="{related_name}")'
             yield "    ordinality = models.IntegerField()"
 
         if self.extra_attribs:

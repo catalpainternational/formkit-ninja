@@ -158,5 +158,5 @@ class NestedGroupNodes(TestCase):
 
         self.assertEqual(next(django_iterator), "class BarFoorepeater(models.Model):")
         next(django_iterator)
-        self.assertEqual(next(django_iterator), '    parent = models.ForeignKey("Bar", on_delete=models.CASCADE)')
+        self.assertEqual(next(django_iterator), '    parent = models.ForeignKey("Bar", on_delete=models.CASCADE, related_name="foorepeater")')
         self.assertEqual(next(django_iterator), "    ordinality = models.IntegerField()")
