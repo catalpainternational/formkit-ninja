@@ -475,5 +475,3 @@ class DjangoAdminClassFactory(DjangoClassFactory):
         yield "        return False\n"
         yield "    def has_delete_permission(self, request, obj=None):\n"
         yield "        return False\n"
-        yield "    def get_readonly_fields(self, request, obj=None):\n"
-        yield "        return list(super().get_fields(request, obj))\n"
