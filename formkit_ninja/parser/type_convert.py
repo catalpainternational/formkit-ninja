@@ -117,6 +117,10 @@ class NodePath:
     def is_child(self):
         return self.parent is not None
 
+    @property
+    def depth(self):
+        return len(self.nodes)
+
     def tail(self):
         return NodePath(self.node)
 
@@ -340,6 +344,9 @@ class PydanticClassFactory:
         self.extra_attribs = extra_attribs
         self.config = config or ParserConfig
         self.klassname = klassname
+
+    def get_extra_attribs(self):
+        return self.extra_attribs
 
     def __iter__(self) -> Iterable[str]:
         """
