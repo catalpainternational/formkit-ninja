@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from keyword import iskeyword
-from typing import Any, Iterable, Literal
+from typing import Iterable, Literal
 
 from formkit_ninja.formkit_schema import FormKitSchemaFormKit, FormKitSchemaProps, GroupNode, RepeaterNode
 from formkit_ninja.parser.logger import log
@@ -290,7 +290,7 @@ class DjangoClassFactory:
             related_name = (
                 self.nodes.node.name
             )  # This is the property name in JSON. It's important to have for importers to know where to put nested data.
-            yield f"    # This class is a Repeater: Parent and ordinality fields have been added"
+            yield "    # This class is a Repeater: Parent and ordinality fields have been added"
             yield f'    parent = models.ForeignKey("{parent_class_name}", on_delete=models.CASCADE, related_name="{related_name}")'
             yield "    ordinality = models.IntegerField()"
 
