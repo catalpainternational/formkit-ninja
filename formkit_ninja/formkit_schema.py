@@ -459,7 +459,7 @@ class FormKitNode(BaseModel):
                 children = []
                 for n in obj["children"]:
                     if isinstance(n, str):
-                        pass
+                        continue
                     try:
                         children.append(cls.parse_obj(n).__root__)
                     except Exception as E:
