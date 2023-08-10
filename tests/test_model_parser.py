@@ -189,7 +189,7 @@ class DjangoAdminTestCase(TestCase):
         django_iterator = iter(DjangoAdminClassFactory(np))
 
         self.assertEqual(next(django_iterator), "@admin.register(models.Foo)")
-        self.assertEqual(next(django_iterator), "class FooAdmin(models.Model):")
+        self.assertEqual(next(django_iterator), "class FooAdmin(admin.ModelAdmin):")
         self.assertEqual(next(django_iterator), "    list_display = [")
         self.assertEqual(next(django_iterator), '        "beneficiaries_female",')
         self.assertEqual(next(django_iterator), "    ]")
@@ -199,12 +199,12 @@ class DjangoAdminTestCase(TestCase):
         np = NodePath(node)
         django_iterator = iter(DjangoAdminClassFactory(np))
         # We should have an inline model defined
-        self.assertEqual(next(django_iterator), "class BarFoorepeaterInline(admin.TabularInline):")
+        self.assertEqual(next(django_iterator), "class BarFoorepeaterInline(ReadOnlyInline):")
         self.assertEqual(next(django_iterator), "    model = models.BarFoorepeater")
 
         # Then the "repeater" itself
         self.assertEqual(next(django_iterator), "@admin.register(models.BarFoorepeater)")
-        self.assertEqual(next(django_iterator), "class BarFoorepeaterAdmin(models.Model):")
+        self.assertEqual(next(django_iterator), "class BarFoorepeaterAdmin(admin.ModelAdmin):")
         self.assertEqual(next(django_iterator), "    list_display = [")
         self.assertEqual(next(django_iterator), '        "foonum",')
         self.assertEqual(next(django_iterator), "    ]")
@@ -214,7 +214,7 @@ class DjangoAdminTestCase(TestCase):
 
         # Then the main 'bar' model with the inline repeater
         self.assertEqual(next(django_iterator), "@admin.register(models.Bar)")
-        self.assertEqual(next(django_iterator), "class BarAdmin(models.Model):")
+        self.assertEqual(next(django_iterator), "class BarAdmin(admin.ModelAdmin):")
         self.assertEqual(next(django_iterator), "    inlines = [")
         self.assertEqual(next(django_iterator), "        BarFoorepeaterInline,")
         self.assertEqual(next(django_iterator), "    ]")
