@@ -1,0 +1,13 @@
+"""
+Don't make changes to this code directly
+Instead, make changes to the template and re-generate this file
+"""
+
+
+from django.db import models
+
+{% for nodepath in nodepaths %}
+{% with this = nodepath %}
+{% include "model.jinja2" %}
+{% endwith %}
+{% endfor %}

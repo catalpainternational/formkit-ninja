@@ -292,7 +292,7 @@ class FormKitSchema(UuidIdModel):
         return instance
 
     @classmethod
-    def from_json(cls, input_file: json):
+    def from_json(cls, input_file: dict):
         """
         Converts a given JSON string to a suitable
         Django representation

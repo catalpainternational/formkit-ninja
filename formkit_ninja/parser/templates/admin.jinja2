@@ -1,0 +1,38 @@
+{% for repeater in this.repeaters %}
+    {% with this=repeater %}
+        {% include "admin.jinja2" %}
+    {% endwith %}
+{% endfor %}
+{% if this.is_repeater %}
+class {{this.classname}}Inline(ReadOnlyInline):
+    model = models.{{this.classname}}
+{% endif %}
+{% for group in this.groups %}
+    {% with this=group %}
+        {% include "admin.jinja2" %}
+    {% endwith %}
+{% endfor %}
+{% if this.is_group or this.is_repeater %}
+@admin.register(models.{{this.classname}})
+class {{this.classname}}Admin(admin.ModelAdmin):
+    {% if this.formkits_not_repeaters %}
+    list_display = [
+    {% for attrib in this.formkits_not_repeaters %}
+        "{{attrib.node.name}}",
+    {% endfor %}
+    ]
+    {% if this.repeaters %}
+    inlines = [
+    {% for repeater in this.repeaters%}
+        {{repeater.classname}}Inline,
+    {% endfor %}
+    ]
+    {% endif%}
+    readonly_fields = [
+    {% for attrib in this.formkits_not_repeaters %}
+        "{{attrib.node.name}}",
+    {% endfor %}
+    ]
+    {% endif %}
+{% endif %}
+

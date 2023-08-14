@@ -248,6 +248,24 @@ class GroupNode(FormKitSchemaProps):
     text: str | None
 
 
+FormKitType = (
+    TextNode
+    | CheckBoxNode
+    | PasswordNode
+    | SelectNode
+    | AutocompleteNode
+    | EmailNode
+    | NumberNode
+    | RadioNode
+    | GroupNode
+    | DateNode
+    | DatePickerNode
+    | DropDownNode
+    | RepeaterNode
+    | TelNode
+    | CurrencyNode
+)
+
 FormKitSchemaFormKit = Annotated[
     Union[
         TextNode,

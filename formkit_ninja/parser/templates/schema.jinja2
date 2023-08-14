@@ -1,0 +1,27 @@
+{% for repeater in this.repeaters %}
+    {% with this=repeater %}
+        {% include "schema.jinja2" %}
+    {% endwith %}
+{% endfor %}
+{% for group in this.groups %}
+    {% with this=group %}
+        {% include "schema.jinja2" %}
+    {% endwith %}
+{% endfor %}
+class {{this.classname_schema}}(Schema):
+{% for e_a in this.extra_attribs_schema %}
+    {{e_a}}
+{% endfor %}
+{% for f in this.formkits_not_repeaters %}
+    {% if f.django_type == "ForeignKey" %}
+    {{f.pydantic_attrib_name}}_id: {{f.pydantic_type}} | None = None
+    {% else %}
+    {{f.pydantic_attrib_name}}: {{f.pydantic_type}} | None = None
+    {% endif %}
+{% endfor %}
+{% for repeater in this.repeaters %}
+    {{repeater.pydantic_attrib_name}}: list[{{repeater.classname_schema}}] | None = None
+{% endfor %}
+{% if this.is_repeater %}{# If I am a repeater I have the original order of insertion, as "ordinality" #}
+    ordinality: int
+{% endif %}
