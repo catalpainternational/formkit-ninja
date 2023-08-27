@@ -4,14 +4,14 @@ import logging
 import operator
 import warnings
 from functools import reduce
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
 from ordered_model.admin import OrderedInlineModelAdminMixin, OrderedModelAdmin, OrderedTabularInline
 
-from formkit_ninja import models
+from formkit_ninja import formkit_schema, models
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
 class NewFormKitForm(forms.ModelForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "translation_context", "node_type", "description")
+        fields = ("label", "node_type", "description")
 
 
 class OptionForm(forms.ModelForm):
@@ -94,6 +94,7 @@ class FormComponentsForm(forms.ModelForm):
 class FormKitSchemaNodeOptionsInline(OrderedTabularInline):
     model = models.Option
     form = OptionForm
+    fields = ("label", "value", "id")
     readonly_fields = (
         # "id",
         "order",
@@ -109,7 +110,6 @@ class FormKitSchemaComponentInline(OrderedTabularInline):
         "node",
         "created_by",
         "updated_by",
-        "id",
         "order",
         "move_up_down_links",
     )
@@ -122,7 +122,6 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
         model = models.FormKitSchemaNode
         fields = (
             "label",
-            "translation_context",
             "description",
         )
 
@@ -147,7 +146,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
 
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "translation_context", "description", "additional_props")
+        fields = ("label", "description", "additional_props")
 
     # The `_json_fields["node"]` item affects the admin form,
     # adding the fields included in the `FormKitSchemaProps.__fields__.items` dict
@@ -239,7 +238,6 @@ class FormKitTextNode(JsonDecoratedFormBase):
         model = models.FormKitSchemaNode
         fields = (
             "label",
-            "translation_context",
             "description",
         )
 
@@ -255,7 +253,6 @@ class FormKitElementForm(JsonDecoratedFormBase):
         model = models.FormKitSchemaNode
         fields = (
             "label",
-            "translation_context",
             "description",
         )
 
@@ -281,7 +278,6 @@ class FormKitConditionForm(JsonDecoratedFormBase):
         # fields = '__all__'
         fields = (
             "label",
-            "translation_context",
             "description",
         )
 
@@ -306,7 +302,6 @@ class FormKitComponentForm(JsonDecoratedFormBase):
         model = models.FormKitSchemaNode
         fields = (
             "label",
-            "translation_context",
             "description",
         )
 
@@ -336,6 +331,7 @@ class NodeChildrenInline(OrderedTabularInline):
     """
 
     model = models.NodeChildren
+    fields = ("child", "id", "order", "move_up_down_links")
     readonly_fields = (
         "order",
         "move_up_down_links",
@@ -363,9 +359,9 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 
         if formkit_node_type == "group":
             return [
-                MembershipInline,
+                NodeChildrenInline,
             ]
-        elif formkit_node_type in {"radio", "select"}:
+        elif formkit_node_type in {"radio", "select", "dropdown"}:
             return [
                 MembershipComponentInline,
                 FormKitSchemaNodeOptionsInline,
@@ -383,19 +379,36 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
         else:
             return []
 
-    # Note that although overridden these are necessary
+    # # Note that although overridden these are necessary
+    # inlines = [NodeChildrenInline]
     inlines = [FormKitSchemaNodeOptionsInline, NodeChildrenInline, MembershipInline]
 
     def get_fieldsets(
         self, request: HttpRequest, obj: Optional[models.FormKitSchemaNode] = ...
     ) -> list[tuple[Optional[str], dict[str, Any]]]:
+        """
+        Set fieldsets to control the layout of admin “add” and “change” pages.
+        fieldsets is a list of two-tuples, in which each two-tuple represents a <fieldset>
+        on the admin form page. (A <fieldset> is a “section” of the form.)
+        """
+        fieldsets: list[tuple[str, dict]] = []
         if not getattr(obj, "node_type", None):
             warnings.warn("Expected a 'Node' with a 'NodeType' in the admin form")
 
-        fieldsets: list[tuple[str, dict]] = []
         if not obj:
+            # This default form is returned before a field
+            # type is selected
             return super().get_fieldsets(request, obj)
-        if obj.node_type == "$formkit":
+        try:
+            node = obj.get_node()
+        except Exception as E:
+            warnings.warn(f"{E}")
+            return fieldsets
+        if isinstance(node, formkit_schema.FormKitSchemaProps) and not isinstance(
+            node, (formkit_schema.GroupNode, formkit_schema.FormKitSchemaDOMNode, formkit_schema.RepeaterNode)
+        ):
+            # Field validation applies to formkit
+            # except repeater and group
             fieldsets.append(
                 (
                     "Field Validation",
@@ -410,8 +423,7 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
                     },
                 )
             )
-            # The "Repeater" has some specific fields
-            # See these specified in FormKitNodeRepeaterForm
+        elif isinstance(node, formkit_schema.RepeaterNode):
             if obj.node and obj.node.get("formkit", None) == "repeater":
                 fieldsets.append(
                     (
@@ -421,9 +433,11 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
                 )
 
         grouped_fields = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
+        # Add 'ungrouped' fields
         fieldsets.insert(
             0, (None, {"fields": [field for field in self.get_fields(request, obj) if field not in grouped_fields]})
         )
+        logger.info(fieldsets)
         return fieldsets
 
     def get_form(
@@ -433,33 +447,29 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
         change: None = None,
         **kwargs,
     ):
-        # Handle different formkit node types
-        formkit_forms = {"group": FormKitNodeGroupForm, "repeater": FormKitNodeRepeaterForm}
-
-        # Handle different node types
-        forms = {
-            "condition": FormKitConditionForm,
-            "$formkit": FormKitNodeForm,
-            "$el": FormKitElementForm,
-            "text": FormKitTextNode,
-            "$cmp": FormKitComponentForm,
-        }
         if not obj:
             return NewFormKitForm
-        if node_type := getattr(obj, "node_type", None) is None:
+        try:
+            node = obj.get_node()
+        except Exception as E:
+            warnings.warn(f"{E}")
+            return NewFormKitForm
+        if isinstance(node, formkit_schema.GroupNode):
+            return FormKitNodeGroupForm
+        elif isinstance(node, formkit_schema.RepeaterNode):
+            return FormKitNodeRepeaterForm
+        elif isinstance(node, formkit_schema.FormKitSchemaDOMNode):
+            return FormKitElementForm
+        elif isinstance(node, formkit_schema.FormKitSchemaComponent):
+            return FormKitComponentForm
+        elif isinstance(node, formkit_schema.FormKitSchemaCondition):
+            return FormKitConditionForm
+        elif isinstance(node, formkit_schema.FormKitSchemaProps):
+            return FormKitNodeForm
+
+        else:
+            warnings.warn(f"Unable to determine form type for {obj}")
             return super().get_form(request, obj, change, **kwargs)
-
-        if node_type == "$formkit":
-            formkit_node_type: Literal["group", "repeater", None] = (obj.node or {}).get("formkit", None)
-            # Some special 'formkitnode' types have their own admin page
-            if formkit_node_type in formkit_forms:
-                return formkit_forms.get(formkit_node_type)
-
-        if node_type in forms:
-            return forms[node_type]
-
-        warnings.warn(f"Expected: one of [{','.join(forms.keys())}]. Got {node_type}")
-        return super().get_form(request, obj, change, **kwargs)
 
 
 @admin.register(models.Option)
