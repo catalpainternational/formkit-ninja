@@ -60,3 +60,16 @@ def test_repeater():
 def test_dropdown():
     schema = json.loads(files(samples).joinpath("dropdown.json").read_text())
     formkit_schema.FormKitNode.parse_obj(schema[0])
+
+
+def test_sf11_v2():
+    schema = json.loads(files(samples).joinpath("sf11_v2.json").read_text())
+    pydantic_schema = formkit_schema.FormKitSchema.parse_obj(schema)
+
+    # Should be a one element list of 'GroupNode'
+    root = pydantic_schema.__root__
+    assert len(root) == 1
+    assert isinstance(root, list)
+
+    assert isinstance(root[0], formkit_schema.GroupNode)
+    assert isinstance(root[0].children[0], formkit_schema.SelectNode)

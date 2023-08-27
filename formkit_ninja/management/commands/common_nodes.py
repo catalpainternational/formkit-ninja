@@ -10,7 +10,6 @@ def create_location_nodes():
         label="municipality",
         defaults=dict(
             node_type="$formkit",
-            translation_context="municipality",
             node=dict(
                 label="Municipality",
                 html_id="municipality",
@@ -27,7 +26,6 @@ def create_location_nodes():
         label="admin_post",
         defaults=dict(
             node_type="$formkit",
-            translation_context="admin_post",
             node=dict(
                 label="Administrative Post",
                 html_id="admin_post",
@@ -45,7 +43,6 @@ def create_location_nodes():
         label="suco",
         defaults=dict(
             node_type="$formkit",
-            translation_context="suco",
             node=dict(
                 label="Suco",
                 html_id="suco",
@@ -63,7 +60,6 @@ def create_location_nodes():
         label="aldeia",
         defaults=dict(
             node_type="$formkit",
-            translation_context="aldeia",
             node=dict(
                 label="Aldeia",
                 html_id="aldeia",

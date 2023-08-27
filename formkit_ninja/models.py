@@ -1,16 +1,17 @@
-import json
+import itertools
 import logging
 import uuid
 from typing import Iterable, TypedDict, get_args
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.db import models
-from django.utils.functional import cached_property
-from django.utils.text import slugify
 from ordered_model.models import OrderedModel
+from rich.console import Console
 
-from . import formkit_schema
+from formkit_ninja import formkit_schema
+
+console = Console()
+log = console.log
 
 logger = logging.getLogger()
 
@@ -78,8 +79,9 @@ class FormComponents(OrderedModel, UuidIdModel):
     """
 
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
-    node = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE)
-    label = models.CharField(max_length=1024, help_text="Used as a human-readable label")
+    # This is null=True so that a new FormComponent can be added from the admin inline
+    node = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE, null=True, blank=True)
+    label = models.CharField(max_length=1024, help_text="Used as a human-readable label", null=True, blank=True)
 
     order_with_respect_to = "schema"
 
@@ -152,7 +154,7 @@ class FormKitSchemaNode(UuidIdModel):
         blank=True,
         help_text="Decribe the type of data / reason for this component",
     )
-    label = models.CharField(max_length=1024, unique=True, help_text="Used as a human-readable label")
+    label = models.CharField(max_length=1024, help_text="Used as a human-readable label", null=True, blank=True)
     group = models.ManyToManyField("self", through=Membership, blank=True)
     children = models.ManyToManyField("self", through=NodeChildren, blank=True)
 
@@ -168,15 +170,8 @@ class FormKitSchemaNode(UuidIdModel):
         help_text="User space for additional, less used props",
     )
 
-    translation_context = models.CharField(
-        max_length=1024,
-        null=True,
-        blank=True,
-        help_text="The gettext context to use to translate Options, label, placeholder and help text",
-    )
-
     def __str__(self):
-        return self.label
+        return f"{self.label}" if self.label else f"{self.node_type} {self.id}"
 
     def save(self, *args, **kwargs):
         """
@@ -184,7 +179,7 @@ class FormKitSchemaNode(UuidIdModel):
         """
         return super().save(*args, **kwargs)
 
-    @cached_property
+    @property
     def node_options(self):
         """
         Because "options" are translated and
@@ -202,8 +197,15 @@ class FormKitSchemaNode(UuidIdModel):
         if not self.node:
             return {}
         values = {**self.node}
+
+        # Options may come from a string in the node, or
+        # may come from an m2m
         if self.node_options:
             values["options"] = self.node_options
+
+        children = [c.get_node_values() for c in self.children.order_by("parent__order")]
+        if children:
+            values["children"] = children
         return values
 
     def get_node(self) -> formkit_schema.Node:
@@ -212,24 +214,82 @@ class FormKitSchemaNode(UuidIdModel):
         with restored options and translated fields
         """
         node_content = self.get_node_values()
+        if node_content == {}:
+            if self.node_type == "$el":
+                node_content = {"$el": "span"}
+            elif self.node_type == "$formkit":
+                node_content = {"$formkit": "text"}
         formkit_node = formkit_schema.FormKitNode.parse_obj(node_content)
-        # 'FormKitNode' is really a container to store any kind
-        # of Node
         return formkit_node.__root__
 
     @classmethod
     def from_pydantic(
-        cls, input_models: Iterable[formkit_schema.FormKitNode]
+        cls, input_models: formkit_schema.FormKitSchemaProps | Iterable[formkit_schema.FormKitSchemaProps]
     ) -> Iterable[tuple["FormKitSchemaNode", Iterable[Option]]]:
-        for input_model in input_models:
+        if isinstance(input_models, Iterable) and not isinstance(input_models, formkit_schema.FormKitSchemaProps):
+            yield from (cls.from_pydantic(n) for n in input_models)
+
+        elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
+            input_model = input_models
             instance = cls()
+            log(f"[green]Creating {instance}")
             if options := getattr(input_model, "options", None):
-                option_models = Option.from_pydantic(options)
+                if isinstance(options, str):
+                    option_models = Option.objects.none()
+                else:
+                    option_models = Option.from_pydantic(options)
+                    instance.save()
+                    for o in option_models:
+                        o.field = instance
+                        log(f"[green]    Adding option {o} to {instance}")
+                        o.save()
             else:
                 option_models = Option.objects.none()
-            instance.node = input_model.dict(exclude={"options"})
+            if label := getattr(input_model, "html_id", None):
+                instance.label = label
+            instance.node = input_model.dict(
+                exclude={"options", "children", "additional_props"}, exclude_none=True, exclude_unset=True
+            )
+
+            # Node types
+            if props := getattr(input_model, "additional_props", None):
+                instance.additional_props = props
+
+            node_type = getattr(input_model, "node_type")
+            if node_type == "condition":
+                instance.node_type = "condition"
+            elif node_type == "formkit":
+                instance.node_type = "$formkit"
+            elif node_type == "element":
+                instance.node_type = "$el"
+            elif node_type == "component":
+                instance.node_type = "$cmp"
+
+            child_nodes = getattr(input_model, "children")
             # All other properties are passed directly
+            log(f"[green]Yielding: {instance}")
+
+            # Add the "options" if it is a 'text' type getter
+            if options := getattr(input_model, "options", None):
+                if isinstance(options, str):
+                    instance.node["options"] = options
+
             yield instance, option_models
+
+            if child_nodes:
+                instance.save()
+                instance.refresh_from_db()
+                for child_node in child_nodes:
+                    for c, c_opts in cls.from_pydantic(child_node):
+                        log(f"[green]    Adding child node {c} to {instance}")
+                        c.save()
+                        NodeChildren.objects.create(parent=instance, child=c)
+
+        else:
+            raise TypeError(f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}")
+
+    def to_pydantic(self):
+        return formkit_schema.FormKitSchema.parse_obj(self.get_node_values())
 
 
 class SchemaManager(models.Manager):
@@ -247,7 +307,7 @@ class FormKitSchema(UuidIdModel):
     collection of items.
     """
 
-    key = models.TextField(max_length=1024, unique=True)
+    label = models.TextField(null=True, blank=True, help_text="Used as a human-readable label")
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
 
@@ -255,7 +315,8 @@ class FormKitSchema(UuidIdModel):
         """
         Return a list of "node" dicts
         """
-        for node in self.nodes.all():
+        nodes: Iterable[FormKitSchemaNode] = self.nodes.all()
+        for node in nodes:
             yield node.get_node_values()
 
     def to_pydantic(self):
@@ -263,16 +324,10 @@ class FormKitSchema(UuidIdModel):
         return formkit_schema.FormKitSchema.parse_obj(values)
 
     def __str__(self):
-        return self.key
+        return f"{self.label}" or f"{str(self.id)[:8]}"
 
-    def clean(self):
-        slugified = slugify(self.key)
-        for instance in self._meta.model.objects.exclude(pk=self.pk):
-            if slugified == slugify(instance.key):
-                raise ValidationError(
-                    f"The name '{self.key} clashed with {instance.key}. Please enter a different name."
-                )
-        return super().clean()
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
     @classmethod
     def from_pydantic(cls, input_model: formkit_schema.FormKitSchema) -> "FormKitSchema":
@@ -281,14 +336,15 @@ class FormKitSchema(UuidIdModel):
         to Django database fields
         """
         instance = cls.objects.create()
-        for node, options in FormKitSchemaNode.from_pydantic(input_model.__root__):
+        for node, options in itertools.chain.from_iterable(FormKitSchemaNode.from_pydantic(input_model.__root__)):
+            log(f"[yellow]Saving {node}")
             node.save()
             if options:
                 for option in options:
                     option.field = node
                     option.save()
             FormComponents.objects.create(schema=instance, node=node)
-            logger.info("Schema load from JSON done")
+        logger.info("Schema load from JSON done")
         return instance
 
     @classmethod

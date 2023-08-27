@@ -19,7 +19,7 @@ class FormKitSchemaIn(ModelSchema):
 class FormKitSchemaListOut(ModelSchema):
     class Config:
         model = models.FormKitSchema
-        model_fields = ("id", "key")
+        model_fields = ("id", "label")
 
 
 class FormComponentsOut(ModelSchema):

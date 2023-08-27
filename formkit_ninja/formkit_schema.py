@@ -130,6 +130,7 @@ class FormKitSchemaProps(BaseModel):
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
     classes: dict[str, str] | None = Field(None)
+    additional_props: dict[str, str] | None = Field(None)
 
     class Config:
         allow_population_by_field_name = True
@@ -397,6 +398,7 @@ Node = Annotated[
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
+    "text",
     "tel",
     "currency",
     "select",
@@ -406,13 +408,14 @@ FORMKIT_TYPE = Literal[
     "list",
     "password",
     "button",
-    "select",
     "radio",
     "form",
     "date",
     "datepicker",
     "dropdown",
     "repeater",
+    "autocomplete",
+    "email",
 ]
 
 
@@ -471,21 +474,46 @@ class FormKitNode(BaseModel):
         """
         if "id" in obj:
             obj["html_id"] = obj.pop("id")
+
+        # Parsing is complicated by the fact that some instances use differentiation we
+        # can't express in Python, so the `get_node_type` here tries to
+        # translate the possible node types we received
         try:
             parsed = super().parse_obj({**get_node_type(obj), **obj})
-            if getattr(parsed.__root__, "children", None):
-                children = []
-                for n in obj["children"]:
-                    if isinstance(n, str):
-                        continue
-                    try:
-                        children.append(cls.parse_obj(n).__root__)
-                    except Exception as E:
-                        warnings.warn(f"{E}")
-                parsed.__root__.children = children
-            return parsed
         except KeyError as E:
-            raise Exception(f"Unable to parse content {obj} to a {cls}") from E
+            raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
+
+        # A FormKit node can have 'arbitrary' additional properties
+        # For instance classes to apply to child nodes
+        # here we can't realistically cover every scenario so
+        # fall back to JSON storage for these
+        if hasattr(parsed.__root__, "additional_props"):
+            add_props_keys = (
+                obj.keys()
+                - parsed.__root__.dict().keys()
+                - {"$formkit", "if", "for", "then", "else", "children", "dollar_formkit", "node_type", "formkit"}
+            )
+            for k in add_props_keys:
+                parsed.__root__.additional_props = {k: obj[k]}
+
+
+        # Recursively parse 'child' nodes back to Pydantic models for 'children'
+        if getattr(parsed.__root__, "children", None):
+            children = []
+            for n in obj["children"]:
+                # Especially for HTML, we can have a 'string' value
+                # of HTML content
+                if isinstance(n, str):
+                    # What to do here? Append the `str` or ignore?
+                    continue
+                    # children.append(str)
+                try:
+                    children.append(cls.parse_obj(n).__root__)
+                except Exception as E:
+                    warnings.warn(f"{E}")
+            parsed.__root__.children = children
+
+        return parsed
 
 
 class FormKitSchema(BaseModel):
@@ -493,7 +521,7 @@ class FormKitSchema(BaseModel):
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
-        return super().parse_obj([{**get_node_type(obj), **obj} for obj in obj])
+        return cls(__root__=[FormKitNode.parse_obj(_).__root__ for _ in obj])
 
 
 FormKitSchema.update_forward_refs()

@@ -144,7 +144,6 @@ def partisipants_schema():
         schema_node, schema_node_created = models.FormKitSchemaNode.objects.update_or_create(
             label=f"SF 1.1 partisipants ({node_from_fk.name})",
             node_type="$formkit",
-            translation_context="partisipants",
             defaults=dict(node=node_from_fk.dict()),
         )
         yield schema_node, schema_node_created
@@ -260,7 +259,7 @@ def meeting_information_schema():
     activity_subtype_node, c = models.FormKitSchemaNode.objects.update_or_create(
         label="SF 1.1 Activity Sub-Type (Training)",
         node_type="$formkit",
-        defaults=dict(translation_context="activitytype", node=activity_subtype.dict(exclude_none=True)),
+        defaults=dict(node=activity_subtype.dict(exclude_none=True)),
     )
     yield activity_subtype_node, c
 
@@ -270,7 +269,7 @@ def meeting_information_schema():
     activity_subtype_node_meetings, c = models.FormKitSchemaNode.objects.update_or_create(
         label="SF 1.1 Activity Sub-Type (Meeting)",
         node_type="$formkit",
-        defaults=dict(translation_context="activitytype", node=activity_subtype_meetings.dict(exclude_none=True)),
+        defaults=dict(node=activity_subtype_meetings.dict(exclude_none=True)),
     )
     yield activity_subtype_node_meetings, c
 
@@ -289,7 +288,6 @@ def create_sf11_locations():
         label="municipality",
         defaults=dict(
             node_type="$formkit",
-            translation_context="municipality",
             node=dict(
                 label="Municipality",
                 html_id="municipality",
@@ -306,7 +304,6 @@ def create_sf11_locations():
         label="Administrative Post select (SF 1.1 options)",
         defaults=dict(
             node_type="$formkit",
-            translation_context="admin_post",
             node=dict(
                 label="Administrative Post",
                 html_id="admin_post",
@@ -329,7 +326,6 @@ def create_sf11_locations():
         label="Suco select (SF 1.1 options)",
         defaults=dict(
             node_type="$formkit",
-            translation_context="suco",
             node=dict(
                 label="Suco",
                 html_id="suco",
@@ -353,7 +349,6 @@ def create_sf11_locations():
         label="Aldeia select (SF 1.1 options)",
         defaults=dict(
             node_type="$formkit",
-            translation_context="aldeia",
             node=dict(
                 label="Aldeia",
                 html_id="aldeia",
