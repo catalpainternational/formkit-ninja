@@ -289,7 +289,7 @@ class FormKitSchemaNode(UuidIdModel):
             raise TypeError(f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}")
 
     def to_pydantic(self):
-        return formkit_schema.FormKitSchema.parse_obj(self.get_node_values())
+        return formkit_schema.FormKitNode.parse_obj(self.get_node_values())
 
 
 class SchemaManager(models.Manager):
