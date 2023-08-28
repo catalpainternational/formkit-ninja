@@ -14,14 +14,14 @@ def {{this.classname_lower}}(request):
 {% if this.groups%}
     queryset = queryset.select_related(
     {% for group in this.groups %}
-        "{{group.fieldname}}"
+        "{{group.fieldname}}",
     {% endfor %}
     )
 {% endif %}
 {% if this.repeaters%}
     queryset = queryset.prefetch_related(
     {% for repeater in this.repeaters %}
-        "{{repeater.fieldname}}"
+        "{{repeater.fieldname}}",
     {% endfor %}
     )
 {% endif %}
