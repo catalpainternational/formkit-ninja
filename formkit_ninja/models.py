@@ -31,7 +31,7 @@ class UuidIdModel(models.Model):
     class Meta:
         abstract = True
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True)
     created_by = models.ForeignKey(
@@ -64,6 +64,9 @@ class OptionGroup(models.Model):
         help_text="This is a reference to the original source object (typically a PNDS ztable)",
     )
 
+    def __str__(self):
+        return f"{self.group}"
+
 
 class Option(OrderedModel, UuidIdModel):
     """
@@ -81,16 +84,21 @@ class Option(OrderedModel, UuidIdModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["group", "object_id"], name="unique_option_id")]
-        ordering = ("order",)
+        ordering = (
+            "group",
+            "order",
+        )
 
     value = models.CharField(max_length=1024)
-    label = models.CharField(max_length=1024)
     field = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,
-        limit_choices_to={"node__formkit__in": ["select", "radio"]},
+        limit_choices_to={"node__formkit__in": ["select", "radio", "dropdown"]},
+        null=True,
+        blank=True,
+        help_text="The ID of an Option node (select, dropdown or radio) if this option is embedded as part of a selection node",
     )
-    order_with_respect_to = "field"
+    order_with_respect_to = "group"
 
     @classmethod
     def from_pydantic(cls, options: list[str] | list[OptionDict]) -> Iterable["Option"]:
@@ -101,7 +109,7 @@ class Option(OrderedModel, UuidIdModel):
                 yield cls(**option)
 
     def __str__(self):
-        return f"{self.label} : {self.value}"
+        return f"{self.group.group}::{self.value}"
 
 
 class OptionLabel(models.Model):
@@ -166,7 +174,6 @@ class NodeChildren(OrderedModel, UuidIdModel):
     parent = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,
-        limit_choices_to={"node__node_type": "$el"},
     )
     child = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE, related_name="parent")
     order_with_respect_to = "parent"
@@ -218,6 +225,10 @@ class FormKitSchemaNode(UuidIdModel):
         null=True,
         blank=True,
         help_text="User space for additional, less used props",
+    )
+
+    text_content = models.TextField(
+        null=True, blank=True, help_text="Content for a text element, for children of an $el type component"
     )
 
     def __str__(self):

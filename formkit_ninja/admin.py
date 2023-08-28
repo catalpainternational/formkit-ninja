@@ -251,10 +251,7 @@ class FormKitTextNode(JsonDecoratedFormBase):
 class FormKitElementForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = (
-            "label",
-            "description",
-        )
+        fields = ("label", "description", "text_content")
 
     _skip_translations = {"label", "placeholder"}
     _json_fields = {"node": ("el", "name", "if_condition", "classes")}
@@ -498,16 +495,22 @@ class FormComponentsAdmin(OrderedModelAdmin):
 
 class OptionLabelInline(admin.TabularInline):
     model = models.OptionLabel
+    extra = 0
 
 
 class OptionInline(admin.TabularInline):
     model = models.Option
+    extra = 0
+    fields = ("group", "object_id", "value", "field")
+    readonly_fields = ("group", "object_id", "value", "field")
 
 
 @admin.register(models.Option)
 class OptionAdmin(OrderedModelAdmin):
-    list_display = ("value", "label", "field", "move_up_down_links")
+    list_display = ("object_id", "value", "field", "order", "group", "move_up_down_links")
     inlines = [OptionLabelInline]
+    list_select_related = ("group",)
+    readonly_fields = ("group", "object_id", "value", "field", "created_by", "updated_by")
 
 
 @admin.register(models.OptionGroup)
@@ -522,4 +525,5 @@ class OptionLabelAdmin(admin.ModelAdmin):
         "label",
         "lang",
     )
+    readonly_fields = ("option",)
     search_fields = ("label",)
