@@ -2,9 +2,9 @@ import datetime
 import warnings
 from typing import List
 from uuid import UUID
-from django.http import HttpRequest, HttpResponse
-from django.db.models import F, Q
 
+from django.db.models import F, Q
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import ModelSchema, Router
 

@@ -5,7 +5,7 @@ from typing import Iterable, TypedDict, get_args
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
-from django.db import models
+from django.db import models, transaction
 from ordered_model.models import OrderedModel
 from rich.console import Console
 
@@ -61,11 +61,31 @@ class OptionGroup(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="This is a reference to the original source object (typically a PNDS ztable)",
+        help_text="This is an optional reference to the original source object for this set of options (typically a table from which we copy options)",
     )
 
     def __str__(self):
         return f"{self.group}"
+
+    @classmethod
+    def copy_table(cls, model: models.Model, field: str, language: str | None = "en", group: str | None = None):
+        """
+        Copy an existing table of options into this OptionGroup
+        """
+
+        with transaction.atomic():
+            group, group_created = cls.objects.get_or_create(
+                group=group, content_type=ContentType.objects.get_for_model(model)
+            )
+            log(group)
+
+            for obj in model.objects.values("pk", field):
+                option, option_created = Option.objects.get_or_create(
+                    object_id=obj["pk"],
+                    group=group,
+                    value=obj["pk"],
+                )
+                OptionLabel.objects.get_or_create(option=option, label=obj[field] or "", lang=language)
 
 
 class Option(OrderedModel, UuidIdModel):
