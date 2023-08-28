@@ -4,10 +4,10 @@ import uuid
 from typing import Iterable, TypedDict, get_args
 
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from ordered_model.models import OrderedModel
 from rich.console import Console
-from django.contrib.contenttypes.models import ContentType
 
 from formkit_ninja import formkit_schema
 
@@ -79,9 +79,9 @@ class Option(OrderedModel, UuidIdModel):
     last_updated = models.DateTimeField(auto_now=True)
     group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE)
 
-    class Meta(OrderedModel.Meta):
+    class Meta:
         constraints = [models.UniqueConstraint(fields=["group", "object_id"], name="unique_option_id")]
-
+        ordering = ("order",)
 
     value = models.CharField(max_length=1024)
     label = models.CharField(max_length=1024)

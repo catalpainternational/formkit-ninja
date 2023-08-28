@@ -513,6 +513,7 @@ class OptionAdmin(OrderedModelAdmin):
 @admin.register(models.OptionGroup)
 class OptionGroupAdmin(admin.ModelAdmin):
     inlines = [OptionInline]
+    ...
 
 
 @admin.register(models.OptionLabel)

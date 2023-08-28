@@ -496,7 +496,6 @@ class FormKitNode(BaseModel):
             for k in add_props_keys:
                 parsed.__root__.additional_props = {k: obj[k]}
 
-
         # Recursively parse 'child' nodes back to Pydantic models for 'children'
         if getattr(parsed.__root__, "children", None):
             children = []
