@@ -472,13 +472,6 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
             return super().get_form(request, obj, change, **kwargs)
 
 
-@admin.register(models.Option)
-class OptionAdmin(OrderedModelAdmin):
-    form = OptionForm
-    readonly_fields = ("id",)
-    list_display = ("value", "label", "field", "move_up_down_links")
-
-
 @admin.register(models.FormKitSchema)
 class FormKitSchemaAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
     form = FormKitSchemaForm
@@ -501,3 +494,31 @@ class FormKitSchemaAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 @admin.register(models.FormComponents)
 class FormComponentsAdmin(OrderedModelAdmin):
     list_display = ("label", "schema", "node", "move_up_down_links")
+
+
+class OptionLabelInline(admin.TabularInline):
+    model = models.OptionLabel
+
+
+class OptionInline(admin.TabularInline):
+    model = models.Option
+
+
+@admin.register(models.Option)
+class OptionAdmin(OrderedModelAdmin):
+    list_display = ("value", "label", "field", "move_up_down_links")
+    inlines = [OptionLabelInline]
+
+
+@admin.register(models.OptionGroup)
+class OptionGroupAdmin(admin.ModelAdmin):
+    inlines = [OptionInline]
+
+
+@admin.register(models.OptionLabel)
+class OptionLabelAdmin(admin.ModelAdmin):
+    list_display = (
+        "label",
+        "lang",
+    )
+    search_fields = ("label",)

@@ -7,6 +7,7 @@ from django.conf import settings
 from django.db import models
 from ordered_model.models import OrderedModel
 from rich.console import Console
+from django.contrib.contenttypes.models import ContentType
 
 from formkit_ninja import formkit_schema
 
@@ -46,11 +47,41 @@ class OptionDict(TypedDict):
     label: str
 
 
+class OptionGroup(models.Model):
+    """
+    This intended to be a "collection" of choices
+    For instance all the values in a single PNDS zTable
+    Also intended to allow users to add / modify their __own__ 'Options'
+    for idb and formkit to recognize
+    """
+
+    group = models.CharField(max_length=1024, primary_key=True, help_text="The label to use for these options")
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="This is a reference to the original source object (typically a PNDS ztable)",
+    )
+
+
 class Option(OrderedModel, UuidIdModel):
     """
     This is a key/value field representing one "option" for a FormKit property
     The translated values for this option are in the `Translatable` table
     """
+
+    object_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="This is a reference to the primary key of the original source object (typically a PNDS ztable ID) or a user-specified ID for a new group",
+    )
+    last_updated = models.DateTimeField(auto_now=True)
+    group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE)
+
+    class Meta(OrderedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["group", "object_id"], name="unique_option_id")]
+
 
     value = models.CharField(max_length=1024)
     label = models.CharField(max_length=1024)
@@ -71,6 +102,25 @@ class Option(OrderedModel, UuidIdModel):
 
     def __str__(self):
         return f"{self.label} : {self.value}"
+
+
+class OptionLabel(models.Model):
+    option = models.ForeignKey("Option", on_delete=models.CASCADE)
+    label = models.CharField(max_length=1024)
+    lang = models.CharField(
+        max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
+    )
+
+    def save(self, *args, **kwargs):
+        """
+        When saved, save also my "option" so that its last_updated is set
+        """
+        if self.option is not None:
+            self.option.save()
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["option", "lang"], name="unique_option_label")]
 
 
 class FormComponents(OrderedModel, UuidIdModel):
