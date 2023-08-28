@@ -1,7 +1,10 @@
+import datetime
 import warnings
 from typing import List
 from uuid import UUID
 
+from django.db.models import F, Q
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import ModelSchema, Router
 
@@ -19,7 +22,7 @@ class FormKitSchemaIn(ModelSchema):
 class FormKitSchemaListOut(ModelSchema):
     class Config:
         model = models.FormKitSchema
-        model_fields = ("id", "key")
+        model_fields = ("id", "label")
 
 
 class FormComponentsOut(ModelSchema):
@@ -35,6 +38,21 @@ class NodeChildrenOut(ModelSchema):
     class Config:
         model = models.NodeChildren
         model_fields = ("parent", "child", "order")
+
+
+class OptionLabel(ModelSchema):
+    class Config:
+        model = models.OptionLabel
+        model_fields = ("lang", "label")
+
+
+class Option(ModelSchema):
+    group_name: str  # This is annotation of the model `content_type_model`
+    optionlabel_set: list[OptionLabel]
+
+    class Config:
+        model = models.Option
+        model_fields = ("id", "object_id")
 
 
 @router.get("list-schemas", response=list[FormKitSchemaListOut])
@@ -94,3 +112,31 @@ def get_node(request, node_id: UUID):
     node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
     instance = node.get_node()
     return instance
+
+
+@router.get("/options", response=list[Option], exclude_none=True)
+def list_options(request: HttpRequest, response: HttpResponse, since: str = None):
+    """
+    List all available options from the zTables
+    and the associated Translations
+    """
+
+    model = Option.Config.model
+    qs = model.objects.all()
+
+    if since is not None and since != "":
+        # Python 3.10 does not support a trailing 'Z'
+        if since.endswith("Z"):
+            since = since[:-1] + "+00:00"
+        try:
+            ts = datetime.datetime.fromisoformat(since)
+            qs = qs.filter(Q(last_updated__gt=ts))
+        except Exception as E:
+            warnings.warn(f"{E}")
+    try:
+        response["X-lastupdated"] = qs.latest("last_updated").last_updated.isoformat()
+    except model.DoesNotExist:
+        # if there are no changes, use the same header as was sent
+        if since:
+            response["X-lastupdated"] = since
+    return qs.annotate(group_name=F("group__group")).prefetch_related("optionlabel_set")

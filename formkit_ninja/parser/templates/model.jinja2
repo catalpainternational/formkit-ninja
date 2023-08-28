@@ -1,0 +1,24 @@
+{% for repeater in this.repeaters %}
+    {% with this=repeater %}
+        {% include "model.jinja2" %}
+    {% endwith %}
+{% endfor %}
+{% for group in this.groups %}
+    {% with this=group %}
+        {% include "model.jinja2" %}
+    {% endwith %}
+{% endfor %}
+{% if this.is_group or this.is_repeater %}
+class {{this.classname}}(models.Model):
+{% if this.is_repeater %}
+    # This class is a Repeater: Parent and ordinality fields have been added"
+    parent = models.ForeignKey("{{repeater.parent_class_name}}", on_delete=models.CASCADE, related_name="{{repeater.node.name}}")
+    ordinality = models.IntegerField()
+{% endif %}
+{% for extra_attrib in this.extra_attribs %}
+    {{extra_attrib}}
+{% endfor %}
+{% for attrib in this.formkits_not_repeaters %}
+    {{attrib.django_attrib_name}} = models.{{attrib.django_type}}({{attrib.django_args}})
+{% endfor %}
+{% endif %}

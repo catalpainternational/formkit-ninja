@@ -1,0 +1,29 @@
+{% for repeater in this.repeaters %}
+    {% with this=repeater %}
+        {% include "api.jinja2" %}
+    {% endwith %}
+{% endfor %}
+{% for group in this.groups %}
+    {% with this=group %}
+        {% include "api.jinja2" %}
+    {% endwith %}
+{% endfor %}
+@router.get("{{this.classname_lower}}", response=list[schema_out.{{this.classname_schema}}], exclude_none=True)
+def {{this.classname_lower}}(request):
+    queryset = models.{{this.classname}}.objects.all()
+{% if this.groups%}
+    queryset = queryset.select_related(
+    {% for group in this.groups %}
+        "{{group.fieldname}}",
+    {% endfor %}
+    )
+{% endif %}
+{% if this.repeaters%}
+    queryset = queryset.prefetch_related(
+    {% for repeater in this.repeaters %}
+        "{{repeater.fieldname}}",
+    {% endfor %}
+    )
+{% endif %}
+    return queryset
+

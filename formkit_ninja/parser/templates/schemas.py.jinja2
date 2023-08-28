@@ -1,0 +1,17 @@
+"""
+Don't make changes to this code directly
+Instead, make changes to the template and re-generate this file
+"""
+
+from datetime import datetime
+from decimal import Decimal
+from uuid import UUID
+
+from ninja import Schema
+
+
+{% for nodepath in nodepaths %}
+{% with this = nodepath %}
+{% include "schema.jinja2" %}
+{% endwith %}
+{% endfor %}
