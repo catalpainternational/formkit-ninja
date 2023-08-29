@@ -266,7 +266,7 @@ def test_api_nested_group_node_field(api_template: Template, nested_group_node: 
         def bar(request):
             queryset = models.Bar.objects.all()
             queryset = queryset.select_related(
-                "foo"
+                "foo",
             )
             return queryset
         """
@@ -284,7 +284,7 @@ def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_
         def bar(request):
             queryset = models.Bar.objects.all()
             queryset = queryset.prefetch_related(
-                "foo"
+                "foo",
             )
             return queryset
         """

@@ -5,7 +5,7 @@ from uuid import uuid4
 from django.test import TestCase
 
 from formkit_ninja import formkit_schema, models, samples
-from formkit_ninja.models import FormKitSchema, FormKitSchemaNode, Option
+from formkit_ninja.models import FormKitSchema, FormKitSchemaNode, Option, OptionGroup, OptionLabel
 
 
 class FormKitSchemaNodeTestCase(TestCase):
@@ -35,15 +35,24 @@ class FormKitSchemaNodeTestCase(TestCase):
             )
             model.save()
             model.refresh_from_db()
+            # Option 'group' is associated
+            group, _ = OptionGroup.objects.get_or_create(group=model._meta.model_name + '_test')
             if options and isinstance(options, dict):
                 for key, label in options.items():
-                    Option.objects.create(value=key, label=label + str(uuid4()), field=model)
+                    opt = Option.objects.create(value=key, field=model, group=group)
+                    label = OptionLabel.objects.create(option = opt, lang="en", label=label)
+                    print(opt)
+                    print(label)
             elif options and isinstance(options, list):
                 for value in options:
                     if isinstance(value, str):
-                        Option.objects.create(value=value, label=value + str(uuid4()), field=model)
+                        opt = Option.objects.create(value=value, field=model, group=group)
+                        label = OptionLabel.objects.create(option = opt, lang="en", label=value)
                     elif isinstance(value, dict) and value.keys() == {"value", "label"}:
-                        Option.objects.create(**value, field=model)
+                        opt = Option.objects.create(value=value["value"], field=model, group=group)
+                        label = OptionLabel.objects.create(option = opt, lang="en", label=value["label"])
+                        print(opt)
+                        print(label)
             # Update in version 2.0: This now requires a unique "label" field
             sf11_schema.nodes.add(model)
 

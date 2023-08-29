@@ -121,12 +121,15 @@ class Option(OrderedModel, UuidIdModel):
     order_with_respect_to = "group"
 
     @classmethod
-    def from_pydantic(cls, options: list[str] | list[OptionDict]) -> Iterable["Option"]:
+    def from_pydantic(cls, options: list[str] | list[OptionDict], field, group: OptionGroup) -> Iterable["Option"]:
         for option in options:
             if isinstance(option, str):
-                yield cls(value=option, label=option)
+                opt = cls(value=option, group=group, field=field)
+                OptionLabel.objects.create(option=opt, lang="en", label=option)
             elif isinstance(option, dict) and option.keys() == {"value", "label"}:
-                yield cls(**option)
+                opt = cls(value=option["value"], group=group, field=field)
+                OptionLabel.objects.create(option=opt, lang="en", label=option["label"])
+            yield opt
 
     def __str__(self):
         return f"{self.group.group}::{self.value}"
@@ -267,8 +270,8 @@ class FormKitSchemaNode(UuidIdModel):
         separately stored, this step is necessary to
         reinstate them
         """
-        options: Iterable[Option] = self.option_set.all()
-        return [{"value": option.value, "label": option.label} for option in options]
+        options: Iterable[Option] = self.option_set.all().prefetch_related('optionlabel_set')
+        return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
     def get_node_values(self) -> dict:
         """
@@ -318,12 +321,8 @@ class FormKitSchemaNode(UuidIdModel):
                 if isinstance(options, str):
                     option_models = Option.objects.none()
                 else:
-                    option_models = Option.from_pydantic(options)
                     instance.save()
-                    for o in option_models:
-                        o.field = instance
-                        log(f"[green]    Adding option {o} to {instance}")
-                        o.save()
+                    option_models = Option.from_pydantic(options, field=instance, group=OptionGroup.objects.get_or_create(group = input_model.name)[0])
             else:
                 option_models = Option.objects.none()
             if label := getattr(input_model, "html_id", None):
