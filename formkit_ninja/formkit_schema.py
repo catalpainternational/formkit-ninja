@@ -549,6 +549,13 @@ class FormKitSchema(BaseModel):
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
+        """
+        Parse a set of FormKit nodes or a single 'GroupNode' to
+        a 'schema'
+        """
+        # If we're parsing a single node, wrap it in a list
+        if isinstance(obj, dict):
+            return cls.parse_obj([obj])
         return cls(__root__=[FormKitNode.parse_obj(_).__root__ for _ in obj])
 
 

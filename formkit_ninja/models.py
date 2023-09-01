@@ -338,8 +338,10 @@ class FormKitSchemaNode(UuidIdModel):
             input_model = input_models
             instance = cls()
             log(f"[green]Creating {instance}")
-            if label := getattr(input_model, "html_id", None):
-                instance.label = label
+            for label_field in ("name", "html_id", "key", "label"):
+                if label := getattr(input_model, label_field, None):
+                    instance.label = label
+                    break
             instance.node = input_model.dict(
                 exclude={"options", "children", "additional_props"}, exclude_none=True, exclude_unset=True
             )

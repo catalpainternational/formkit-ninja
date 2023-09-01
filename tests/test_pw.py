@@ -6,7 +6,7 @@ from playwright.sync_api import Page, Browser
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from formkit_ninja import models
-from tests.fixtures import sf11
+from tests.fixtures import sf11, tf_13_2_1
 
 import os
 
@@ -111,4 +111,13 @@ def test_admin_actions_sf11(sf11, admin_page: Page):  # noqa: F811
     schema = BaseModel.parse_obj(sf11)
     models.FormKitSchema.from_pydantic(schema)
     admin_page.get_by_role("link", name="Form kit schema nodes").click()
+    ...
+
+@pytest.mark.django_db()
+def test_import_1321(tf_13_2_1, admin_page:Page):
+    from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
+    models.FormKitSchema.from_pydantic(BaseModel.parse_obj(tf_13_2_1))
+    admin_page.get_by_role("link", name="Form kit schema nodes").click()
+    admin_page.get_by_role("link", name="repeaterProjectProgress").click()
+    admin_page.pause()
     ...

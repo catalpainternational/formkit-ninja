@@ -5,7 +5,6 @@ import logging
 import operator
 import warnings
 from functools import reduce
-from typing import Any, Optional, Sequence
 
 from django import forms
 import django.core.exceptions
@@ -82,7 +81,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
             duplicates = list(((k, v) for k, v in fields_in_model.items() if v > 1))
             if duplicates:
                 raise KeyError(f"Some fields were duplicated: {','.join(duplicates)}")
-            
+        
         check_json_fields_exist()
         check_no_duplicates()
 
@@ -95,16 +94,31 @@ class JsonDecoratedFormBase(forms.ModelForm):
             values = getattr(instance, field, {}) or {}  # Don't allow none:
             # field_name is the property on the ModelForm to use.
             # This allows "aliasing" so that fields on the model / JSON are not shadowed.
+
+            fields_from_json = set()
+
             for key in keys:
                 if isinstance(key, str):
                     form_field = key
                     json_field = key
                 else:
                     form_field, json_field = key
-                # The value, extracted from the JSON value in the database
-                field_value = values.get(json_field, None)
-                # The initial value of the admin form is set to the value of the JSON attrib
-                self.fields.get(form_field).initial = field_value
+                fields_from_json.add(json_field)
+                # Assert that the 
+                field = self.fields.get(form_field)
+                if not field:
+                    warnings.warn(f'The field {form_field} was not found on the form')
+                else:
+                    # The value, extracted from the JSON value in the database
+                    field_value = values.get(json_field, None)
+                    # The initial value of the admin form is set to the value of the JSON attrib
+                    field = self.fields.get(form_field).initial = field_value
+
+            # Here we can warn if there are any "hidden" JSON fields
+            
+            if missing := list(set(values) - fields_from_json - {'node_type', 'dollar_formkit'}):
+                warnings.warn(f"Some JSON fields were hidden: {','.join(missing)}")
+                warnings.warn(f'Consider adding fields {missing} to {self.__class__.__name__}')
 
     def __init__(self, *args, **kwargs):
         """
@@ -186,11 +200,13 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
 
     _json_fields = {
         "node": (
+            "name",
             "formkit",
             "if_condition",
         )
     }
 
+    name = forms.CharField(required=False)
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
     if_condition = forms.CharField(
         widget=forms.TextInput,
@@ -502,7 +518,7 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
         self,
         request: HttpRequest,
         obj: models.FormKitSchemaNode | None,
-        change: bool,
+        change: bool | None = None,
         **kwargs,
     ) -> type[forms.ModelForm[Any]]:
         if not obj:
@@ -512,18 +528,22 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
         except Exception as E:
             warnings.warn(f"{E}")
             return NewFormKitForm
-        if isinstance(node, formkit_schema.GroupNode):
-            return FormKitNodeGroupForm
-        elif isinstance(node, formkit_schema.RepeaterNode):
-            return FormKitNodeRepeaterForm
-        elif isinstance(node, formkit_schema.FormKitSchemaDOMNode):
-            return FormKitElementForm
-        elif isinstance(node, formkit_schema.FormKitSchemaComponent):
-            return FormKitComponentForm
-        elif isinstance(node, formkit_schema.FormKitSchemaCondition):
-            return FormKitConditionForm
-        elif isinstance(node, formkit_schema.FormKitSchemaProps):
-            return FormKitNodeForm
+        try:
+            if isinstance(node, formkit_schema.GroupNode):
+                return FormKitNodeGroupForm
+            elif isinstance(node, formkit_schema.RepeaterNode):
+                return FormKitNodeRepeaterForm
+            elif isinstance(node, formkit_schema.FormKitSchemaDOMNode):
+                return FormKitElementForm
+            elif isinstance(node, formkit_schema.FormKitSchemaComponent):
+                return FormKitComponentForm
+            elif isinstance(node, formkit_schema.FormKitSchemaCondition):
+                return FormKitConditionForm
+            elif isinstance(node, formkit_schema.FormKitSchemaProps):
+                return FormKitNodeForm
+        except Exception as E:
+            warnings.warn(f'{E}')
+            raise
 
         else:
             warnings.warn(f"Unable to determine form type for {obj}")
