@@ -1,3 +1,4 @@
+from __future__ import annotations
 import itertools
 import logging
 import uuid
@@ -100,7 +101,7 @@ class Option(OrderedModel, UuidIdModel):
         help_text="This is a reference to the primary key of the original source object (typically a PNDS ztable ID) or a user-specified ID for a new group",
     )
     last_updated = models.DateTimeField(auto_now=True)
-    group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE)
+    group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["group", "object_id"], name="unique_option_id")]
@@ -121,7 +122,10 @@ class Option(OrderedModel, UuidIdModel):
     order_with_respect_to = "group"
 
     @classmethod
-    def from_pydantic(cls, options: list[str] | list[OptionDict], field, group: OptionGroup) -> Iterable["Option"]:
+    def from_pydantic(cls, options: list[str] | list[OptionDict], field: FormKitSchemaNode|None = None, group: OptionGroup | None = None) -> Iterable["Option"]:
+        """
+        Yields "Options" in the database based on the input given
+        """
         for option in options:
             if isinstance(option, str):
                 opt = cls(value=option, group=group, field=field)
@@ -129,11 +133,16 @@ class Option(OrderedModel, UuidIdModel):
             elif isinstance(option, dict) and option.keys() == {"value", "label"}:
                 opt = cls(value=option["value"], group=group, field=field)
                 OptionLabel.objects.create(option=opt, lang="en", label=option["label"])
+            else:
+                console.log(f"[red]Could not format the given object {option}")
+                continue
             yield opt
 
     def __str__(self):
-        return f"{self.group.group}::{self.value}"
-
+        if self.group:
+            return f"{self.group.group}::{self.value}"
+        else:
+            return f"No group: {self.value}"
 
 class OptionLabel(models.Model):
     option = models.ForeignKey("Option", on_delete=models.CASCADE)
@@ -188,7 +197,7 @@ class Membership(OrderedModel, UuidIdModel):
     order_with_respect_to = "group"
 
 
-class NodeChildren(OrderedModel, UuidIdModel):
+class NodeChildren(OrderedModel):
     """
     This is an ordered m2m model representing
     the "children" of an HTML element
@@ -197,8 +206,9 @@ class NodeChildren(OrderedModel, UuidIdModel):
     parent = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,
+        related_name = "parent",
     )
-    child = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE, related_name="parent")
+    child = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE)
     order_with_respect_to = "parent"
 
     class Meta:
@@ -236,7 +246,7 @@ class FormKitSchemaNode(UuidIdModel):
     )
     label = models.CharField(max_length=1024, help_text="Used as a human-readable label", null=True, blank=True)
     group = models.ManyToManyField("self", through=Membership, blank=True)
-    children = models.ManyToManyField("self", through=NodeChildren, blank=True)
+    children = models.ManyToManyField("self", through=NodeChildren, symmetrical=False, blank=True)
 
     node = models.JSONField(
         null=True,
@@ -287,9 +297,11 @@ class FormKitSchemaNode(UuidIdModel):
         if self.node_options:
             values["options"] = self.node_options
 
-        children = [c.get_node_values() for c in self.children.order_by("parent__order")]
+        children = [c.get_node_values() for c in self.children.order_by("nodechildren__order")]
         if children:
             values["children"] = children
+        if self.additional_props:
+            values["additional_props"] = self.additional_props
         return values
 
     def get_node(self) -> formkit_schema.Node:
@@ -309,7 +321,7 @@ class FormKitSchemaNode(UuidIdModel):
     @classmethod
     def from_pydantic(
         cls, input_models: formkit_schema.FormKitSchemaProps | Iterable[formkit_schema.FormKitSchemaProps]
-    ) -> Iterable[tuple["FormKitSchemaNode", Iterable[Option]]]:
+    ) -> Iterable["FormKitSchemaNode"]:
         if isinstance(input_models, Iterable) and not isinstance(input_models, formkit_schema.FormKitSchemaProps):
             yield from (cls.from_pydantic(n) for n in input_models)
 
@@ -317,14 +329,6 @@ class FormKitSchemaNode(UuidIdModel):
             input_model = input_models
             instance = cls()
             log(f"[green]Creating {instance}")
-            if options := getattr(input_model, "options", None):
-                if isinstance(options, str):
-                    option_models = Option.objects.none()
-                else:
-                    instance.save()
-                    option_models = Option.from_pydantic(options, field=instance, group=OptionGroup.objects.get_or_create(group = input_model.name)[0])
-            else:
-                option_models = Option.objects.none()
             if label := getattr(input_model, "html_id", None):
                 instance.label = label
             instance.node = input_model.dict(
@@ -345,25 +349,37 @@ class FormKitSchemaNode(UuidIdModel):
             elif node_type == "component":
                 instance.node_type = "$cmp"
 
-            child_nodes = getattr(input_model, "children")
-            # All other properties are passed directly
+
             log(f"[green]Yielding: {instance}")
-
+            
+            # Must save the instance before  adding "options" or "children"
+            instance.save()
             # Add the "options" if it is a 'text' type getter
-            if options := getattr(input_model, "options", None):
-                if isinstance(options, str):
-                    instance.node["options"] = options
+            options: formkit_schema.OptionsType = getattr(input_model, "options", None)
 
-            yield instance, option_models
+            if isinstance(options, str):
+                # Maintain this as it is probably a `$get...` options call
+                # to a Javascript function
+                instance.node["options"] = options
+
+            elif isinstance(options, Iterable):
+                for option in Option.from_pydantic(options, field=instance):
+                    option.save()
+
+            child_nodes: formkit_schema.ChildNodeType = getattr(input_model, "children")
 
             if child_nodes:
-                instance.save()
-                instance.refresh_from_db()
-                for child_node in child_nodes:
-                    for c, c_opts in cls.from_pydantic(child_node):
-                        log(f"[green]    Adding child node {c} to {instance}")
-                        c.save()
-                        NodeChildren.objects.create(parent=instance, child=c)
+                # This will iterate over creation of child nodes
+                c_n = itertools.chain.from_iterable(
+                    map(cls.from_pydantic, child_nodes)
+                )
+                for child_node in c_n:
+                    log(f'[green]Adding child node: {child_node}')
+                    # This was a 'set' but 'set' did not maintain the order
+                    instance.children.add(child_node)
+
+            
+            yield instance
 
         else:
             raise TypeError(f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}")
@@ -395,7 +411,7 @@ class FormKitSchema(UuidIdModel):
         """
         Return a list of "node" dicts
         """
-        nodes: Iterable[FormKitSchemaNode] = self.nodes.all()
+        nodes: Iterable[FormKitSchemaNode] = self.nodes.order_by('formcomponents__order')
         for node in nodes:
             yield node.get_node_values()
 
@@ -416,13 +432,9 @@ class FormKitSchema(UuidIdModel):
         to Django database fields
         """
         instance = cls.objects.create()
-        for node, options in itertools.chain.from_iterable(FormKitSchemaNode.from_pydantic(input_model.__root__)):
+        for node in itertools.chain.from_iterable(FormKitSchemaNode.from_pydantic(input_model.__root__)):
             log(f"[yellow]Saving {node}")
             node.save()
-            if options:
-                for option in options:
-                    option.field = node
-                    option.save()
             FormComponents.objects.create(schema=instance, node=node)
         logger.info("Schema load from JSON done")
         return instance

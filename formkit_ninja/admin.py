@@ -94,9 +94,8 @@ class FormComponentsForm(forms.ModelForm):
 class FormKitSchemaNodeOptionsInline(OrderedTabularInline):
     model = models.Option
     form = OptionForm
-    fields = ("label", "value", "id")
+    fields = ("value",)
     readonly_fields = (
-        # "id",
         "order",
         "move_up_down_links",
     )
@@ -123,6 +122,7 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
         fields = (
             "label",
             "description",
+            "additional_props"
         )
 
     _json_fields = {
@@ -328,7 +328,7 @@ class NodeChildrenInline(OrderedTabularInline):
     """
 
     model = models.NodeChildren
-    fields = ("child", "id", "order", "move_up_down_links")
+    fields = ("child", "order", "move_up_down_links")
     readonly_fields = (
         "order",
         "move_up_down_links",
