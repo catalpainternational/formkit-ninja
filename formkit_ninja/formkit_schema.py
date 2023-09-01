@@ -20,6 +20,9 @@ HtmlAttrs = dict[str, str | dict[str, str]]
 
 Node = ForwardRef("Node")
 
+# Radio, Select, Autocomplete and Dropdown nodes have
+# these options
+OptionsType = str | list[dict[str, Any]] | list[str] | dict[str, str] | None
 
 class FormKitSchemaCondition(BaseModel):
     node_type: Literal["condition"]
@@ -97,7 +100,6 @@ class FormKitSchemaAttributes(BaseModel):
         | FormKitSchemaAttributesCondition,
     ]
 
-
 class FormKitSchemaProps(BaseModel):
     """
     Properties available in all schema nodes.
@@ -130,11 +132,14 @@ class FormKitSchemaProps(BaseModel):
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
     classes: dict[str, str] | None = Field(None)
-    additional_props: dict[str, str] | None = Field(None)
+    # Additional Props can be quite a complicated structure
+    additional_props: dict[str, str | dict[str, Any]] | None = Field(None)
 
     class Config:
         allow_population_by_field_name = True
 
+# We defined this after the model above as it's a circular reference
+ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoCircularRefs | None
 
 class TextNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
@@ -193,21 +198,21 @@ class RadioNode(FormKitSchemaProps):
     formkit: Literal["radio"] = "radio"
     dollar_formkit: str = Field(default="radio", alias="$formkit")
     name: str | None
-    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: OptionsType = Field(None)
 
 
 class SelectNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["select"] = "select"
     dollar_formkit: str = Field(default="select", alias="$formkit")
-    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: OptionsType = Field(None)
 
 
 class AutocompleteNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["autocomplete"] = "autocomplete"
     dollar_formkit: str = Field(default="autocomplete", alias="$formkit")
-    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: OptionsType = Field(None)
 
 
 class EmailNode(FormKitSchemaProps):
@@ -226,7 +231,7 @@ class DropDownNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["dropdown"] = "dropdown"
     dollar_formkit: str = Field(default="dropdown", alias="$formkit")
-    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: OptionsType = Field(None)
     empty_message: str | None = Field(None, alias="empty-message")
     select_icon: str | None = Field(None, alias="selectIcon")
     placeholder: str | None
@@ -249,6 +254,8 @@ class GroupNode(FormKitSchemaProps):
     text: str | None
 
 
+# This is useful for "isinstance" checks
+# which do not work with "Annotated" below
 FormKitType = (
     TextNode
     | CheckBoxNode
@@ -480,6 +487,10 @@ class FormKitNode(BaseModel):
         # translate the possible node types we received
         try:
             parsed = super().parse_obj({**get_node_type(obj), **obj})
+            node: (FormKitType | 
+               FormKitSchemaDOMNode |
+            FormKitSchemaComponent |
+            FormKitSchemaCondition) = parsed.__root__
         except KeyError as E:
             raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
 
@@ -487,18 +498,22 @@ class FormKitNode(BaseModel):
         # For instance classes to apply to child nodes
         # here we can't realistically cover every scenario so
         # fall back to JSON storage for these
-        if hasattr(parsed.__root__, "additional_props"):
+        add_props = {}
+        if hasattr(node, "additional_props"):
             add_props_keys = (
                 obj.keys()
-                - parsed.__root__.dict().keys()
-                - {"$formkit", "if", "for", "then", "else", "children", "dollar_formkit", "node_type", "formkit"}
+                - node.dict().keys()
+                - {"$formkit", "$el", "if", "for", "then", "else", "children", "dollar_formkit", "node_type", "formkit"}
             )
-            for k in add_props_keys:
-                parsed.__root__.additional_props = {k: obj[k]}
+            add_props |= {k: obj[k] for k in add_props_keys}
+
+        # However: if we're coming from the database we already store these in a separate field
+        if isinstance(obj, dict):
+            add_props |= obj.get("additional_props", dict())
 
         # Recursively parse 'child' nodes back to Pydantic models for 'children'
-        if getattr(parsed.__root__, "children", None):
-            children = []
+        if getattr(node, "children", None):
+            children: list[Type[node]] = []
             for n in obj["children"]:
                 # Especially for HTML, we can have a 'string' value
                 # of HTML content
@@ -510,7 +525,7 @@ class FormKitNode(BaseModel):
                     children.append(cls.parse_obj(n).__root__)
                 except Exception as E:
                     warnings.warn(f"{E}")
-            parsed.__root__.children = children
+            node.children = children
 
         return parsed
 
