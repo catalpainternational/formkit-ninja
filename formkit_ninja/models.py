@@ -274,12 +274,15 @@ class FormKitSchemaNode(UuidIdModel):
         return super().save(*args, **kwargs)
 
     @property
-    def node_options(self):
+    def node_options(self) -> str | list[dict]:
         """
         Because "options" are translated and
         separately stored, this step is necessary to
         reinstate them
         """
+        if opts := self.node.get("options"):
+            return opts
+
         options: Iterable[Option] = self.option_set.all().prefetch_related('optionlabel_set')
         return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
@@ -361,6 +364,7 @@ class FormKitSchemaNode(UuidIdModel):
                 # Maintain this as it is probably a `$get...` options call
                 # to a Javascript function
                 instance.node["options"] = options
+                instance.save()
 
             elif isinstance(options, Iterable):
                 for option in Option.from_pydantic(options, field=instance):

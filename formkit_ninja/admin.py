@@ -1,4 +1,6 @@
 from __future__ import annotations
+from collections import Counter
+import itertools
 
 import logging
 import operator
@@ -7,14 +9,21 @@ from functools import reduce
 from typing import Any, Optional
 
 from django import forms
+import django.core.exceptions
 from django.contrib import admin
 from django.http import HttpRequest
 from ordered_model.admin import OrderedInlineModelAdminMixin, OrderedModelAdmin, OrderedTabularInline
+
+from django.db.models import JSONField
 
 from formkit_ninja import formkit_schema, models
 
 logger = logging.getLogger(__name__)
 
+
+# Define fields in JSON with a tuple of fields
+# The key of the dict provided is a JSON field on the model
+JsonFieldDefn = dict[str, tuple[str | tuple[str,str]]]
 
 class ItemAdmin(OrderedModelAdmin):
     list_display = ("name", "move_up_down_links")
@@ -31,9 +40,9 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
     # key is the name of a `models.JSONField` on the model
     # value is a list of fields to get/set in that JSON field
-    _json_fields: dict[str, tuple[str]] = {"my_json_field": ("formkit", "description", "name", "key", "html_id")}
+    _json_fields: JsonFieldDefn = {"my_json_field": ("formkit", "description", "name", "key", "html_id")}
 
-    def get_json_fields(self) -> dict[str, tuple[str]]:
+    def get_json_fields(self) -> JsonFieldDefn:
         """
         Custom which json fields will be included in the return
         """
@@ -42,19 +51,54 @@ class JsonDecoratedFormBase(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = kwargs["instance"]
+
+        # Preflight check,
+        # Ensure that 'json' fields do not clash with 'model' fields
+        fields_in_model = Counter(self.Meta.fields)
+
+        # These are all the fields we've "JSON"ified
+        for json_keys in self.get_json_fields().values():
+            fields_in_model.update((k for k in json_keys if isinstance(k, str)))
+            fields_in_model.update((k[0] for k in json_keys if not isinstance(k, str)))
+
+        # Duplicate fields raise an exception
+        duplicates = list(((k,v) for k,v in fields_in_model.items() if v > 1))
+        if duplicates:
+            raise KeyError(f"Some fields were duplicated: {','.join(duplicates)}")
+
+        # Assert that keys of `_get_json_fields()` is a dict
+        json_field_names = self.get_json_fields().keys()
+        # Each 'fieldname' should be a JSON field on the model
+        for fieldname in json_field_names:
+            try:
+                model_field = self.Meta.model._meta.get_field(fieldname)
+                if not isinstance(model_field, JSONField):
+                    raise KeyError(f"Expected a JSONField named {fieldname} on the model")
+            except django.core.exceptions.FieldDoesNotExist as E:
+                raise KeyError(f"Expected a JSONField named {fieldname} on the model") from E
+
+
         for field, keys in self.get_json_fields().items():
             # Extract the dict of JSON values from the model instance if supplied
             values = {}
             if instance:
                 values = getattr(instance, field, {}) or {}  # Don't allow none
+
+            # field_name is the property on the ModelForm to use.
+            # This allows "aliasing" so that fields on the model / JSON are not shadowed.
             for key in keys:
-                # The value, extracted from the JSON value in the database
-                field_value = values.get(key, None)
-                # The initial value of the admin form is set to the value of the JSON attrib
-                if key in self.fields:
-                    self.fields.get(key).initial = field_value
+                if isinstance(key, str):
+                    form_field = key
+                    json_field = key
                 else:
-                    warnings.warn(f"Unassociated JSON field found: {key}")
+                    form_field, json_field = key
+                # The value, extracted from the JSON value in the database
+                field_value = values.get(json_field, None)
+                # The initial value of the admin form is set to the value of the JSON attrib
+                if form_field in self.fields:
+                    self.fields.get(form_field).initial = field_value
+                else:
+                    warnings.warn(f"Unassociated JSON field found: {form_field}")
         return
 
     def save(self, commit=True):
@@ -67,8 +111,13 @@ class JsonDecoratedFormBase(forms.ModelForm):
             # from a set of standard form elements
             data = {}
             for key in keys:
-                if cleaned_data := self.cleaned_data[key]:
-                    data[key] = cleaned_data
+                if isinstance(key, str):
+                    form_field = key
+                    json_field = key
+                else:
+                    form_field, json_field = key
+                if cleaned_data := self.cleaned_data[json_field]:
+                    data[form_field] = cleaned_data
         setattr(self.instance, field, data)
         return super().save(commit=commit)
 
@@ -153,13 +202,13 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     _json_fields = {
         "node": (
             "formkit",
-            "description",
+            ("node_description", "description"),
             "name",
             "key",
             "html_id",
             "if_condition",
             "options",
-            "label",
+            ("node_label", "label"),
             "placeholder",
             "help",
             # Validation of fields
@@ -180,6 +229,8 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     if_condition = forms.CharField(widget=forms.TextInput, required=False)
     key = forms.CharField(required=False)
     label = forms.CharField(required=False)
+    node_label = forms.CharField(required=False)
+    node_description = forms.CharField(required=False)
     placeholder = forms.CharField(required=False)
     help = forms.CharField(required=False)
     html_id = forms.CharField(
