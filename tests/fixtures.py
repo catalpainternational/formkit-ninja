@@ -76,9 +76,12 @@ def sf11():
     To recreate this
     >>> from formkit_python_sync.get_schemas import _run_tsx
     >>> import tempfile
-    >>> with tempfile.NamedTemporaryFile(prexix="SF11", delete=False) as o:
-    >>>     o.write(json.dumps(_run_tsx()['SF_1_1']))
-    >>>     print(o.name)
+    >>> import json
+    >>> for form_defn in _run_tsx():
+    >>>      import tempfile
+    >>>      with tempfile.NamedTemporaryFile(prefix=form_defn['name'], delete=False, mode='w') as o:
+    >>>          o.write(json.dumps(form_defn))
+    >>>          print(o.name)
     """
 
     return [
@@ -276,3 +279,156 @@ def sf11():
             "icon": "las la-users",
         },
     ]
+
+
+@pytest.fixture
+def tf_13_2_1():
+    return {
+        "$formkit": "group",
+        "name": "TF_13_2_1",
+        "children": [
+            {
+                "$formkit": "select",
+                "id": "district",
+                "name": "district",
+                "key": "district",
+                "label": "$gettext(Municipality)",
+                "options": "$getLocations()",
+            },
+            {
+                "$formkit": "select",
+                "id": "administrative_post",
+                "name": "administrative_post",
+                "key": "administrative_post",
+                "label": '$gettext("Administrative Post")',
+                "options": "$getLocations($get(district).value)",
+                "if": "$get(district).value",
+            },
+            {
+                "$formkit": "datepicker",
+                "name": "date",
+                "id": "date",
+                "key": "date",
+                "label": '$gettext("Date")',
+                "format": "DD/MM/YYYY",
+                "calendarIcon": "calendar",
+                "nextIcon": "angleRight",
+                "prevIcon": "angleLeft",
+                "_currentDate": "$getCurrentDate",
+                "sectionsSchema": {
+                    "day": {
+                        "children": [
+                            "$day.getDate()",
+                            {
+                                "if": "$attrs._currentDate().day === $day.getDate()",
+                                "children": [
+                                    {
+                                        "if": "$attrs._currentDate().month === $day.getMonth()",
+                                        "children": [
+                                            {
+                                                "$el": "div",
+                                                "if": "$attrs._currentDate().year === $day.getFullYear()",
+                                                "attrs": {"class": "formkit-day-highlight"},
+                                            }
+                                        ],
+                                    }
+                                ],
+                            },
+                        ]
+                    }
+                },
+            },
+            {
+                "$formkit": "select",
+                "name": "month",
+                "label": '$gettext("Month")',
+                "options": [
+                    {"value": 1, "label": "January"},
+                    {"value": 2, "label": "February"},
+                    {"value": 3, "label": "March"},
+                    {"value": 4, "label": "April"},
+                    {"value": 5, "label": "May"},
+                    {"value": 6, "label": "June"},
+                    {"value": 7, "label": "July"},
+                    {"value": 8, "label": "August"},
+                    {"value": 9, "label": "September"},
+                    {"value": 10, "label": "October"},
+                    {"value": 11, "label": "November"},
+                    {"value": 12, "label": "December"},
+                ],
+                "placeholder": '$gettext("Select month")',
+            },
+            {
+                "$formkit": "select",
+                "name": "year",
+                "label": '$gettext("Year")',
+                "options": [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023],
+                "placeholder": '$gettext("Select year")',
+            },
+            {
+                "$formkit": "repeater",
+                "addLabel": '$gettext("Add project")',
+                "upControl": False,
+                "downControl": False,
+                "name": "repeaterProjectProgress",
+                "itemsClass": "repeater",
+                "itemClass": "repeater-children-index",
+                "min": 1,
+                "id": "repeaterProjectProgress",
+                "removeLabel": '$gettext("Remove")',
+                "removeAction": "$repeaterRemoveAction",
+                "sectionsSchema": {
+                    "remove": {
+                        "children": [
+                            {
+                                "$el": "button",
+                                "if": "$value.length > 1",
+                                "attrs": {
+                                    "data-index": "$index",
+                                    "data-repeaterid": "$id",
+                                    "onClick": "$attrs.removeAction",
+                                    "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
+                                },
+                                "children": ["$attrs.removeLabel"],
+                            }
+                        ]
+                    }
+                },
+                "children": [
+                    {
+                        "$el": "div",
+                        "children": ['$gettext("project")', " ", {"$el": "span", "children": ["$: ($index + 1)"]}],
+                        "attrs": {"class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"},
+                    },
+                    {
+                        "key": "$: (sukus + $index)",
+                        "name": "suco",
+                        "label": '$gettext("Suku")',
+                        "placeholder": '$gettext("Select one")',
+                        "formkit": "select",
+                        "$formkit": "select",
+                        "options": "$getLocations($get(district).value, $get(administrative_post).value)",
+                        "id": "$: (sukus + $index)",
+                    },
+                    {
+                        "$formkit": "select",
+                        "label": '$gettext("Project name")',
+                        "key": "project_name",
+                        "placeholder": '$gettext("Please select")',
+                        "options": "$getoptions.tf1321.outputs($get(district).value, $get(administrative_post).value, $get(sukus + $index).value)",
+                        "name": "project_name",
+                        "id": "project_name",
+                    },
+                    {
+                        "$formkit": "number",
+                        "label": "Total (%)",
+                        "placeholder": '$gettext("Please enter")',
+                        "name": "total",
+                        "min": "0",
+                        "max": "100",
+                        "validation": "shouldNotAcceptNegativeValue",
+                    },
+                ],
+            },
+        ],
+    }
