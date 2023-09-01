@@ -4,6 +4,7 @@ from importlib.resources import files
 import pytest
 
 from formkit_ninja import formkit_schema, models, samples
+from tests.fixtures import sf11, sf11meetinginfo
 
 
 @pytest.fixture
@@ -65,3 +66,27 @@ def test_create_from_schema(sf11_schema):
     first_node = c.nodes.first()
 
     c.nodes.first().get_node().dict(exclude_none=True, exclude={"children"})
+
+
+@pytest.mark.django_db()
+def test_parse_sf11(sf11: list[dict]):
+    """
+    This tests that we can successfully import the 'SF11' form from Partisipa
+    """
+    from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
+    schema = BaseModel.parse_obj(sf11)
+    schema_in_the_db = models.FormKitSchema.from_pydantic(schema)
+    schema_back_from_db = schema_in_the_db.to_pydantic()
+    
+    # Check that schema sections retained their order
+    assert [n['html_id'] for n in sf11] == [n.html_id for n in schema_back_from_db.__root__]
+    
+    # The input dict and output dict should be equal
+    sf11_out = schema_back_from_db.dict()['__root__']
+
+    # Check that the label is not altered
+    # This should be the ""
+    assert schema_back_from_db.__root__[2].children[0].label == "$pgettext('partisipants', 'Total participants male')"
+
+    # Nested (children) should retain their order
+    assert [n.key for n in schema_back_from_db.__root__[0].children] == [n['key'] for n in sf11[0]['children']]
