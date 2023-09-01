@@ -122,7 +122,12 @@ class Option(OrderedModel, UuidIdModel):
     order_with_respect_to = "group"
 
     @classmethod
-    def from_pydantic(cls, options: list[str] | list[OptionDict], field: FormKitSchemaNode|None = None, group: OptionGroup | None = None) -> Iterable["Option"]:
+    def from_pydantic(
+        cls,
+        options: list[str] | list[OptionDict],
+        field: FormKitSchemaNode | None = None,
+        group: OptionGroup | None = None,
+    ) -> Iterable["Option"]:
         """
         Yields "Options" in the database based on the input given
         """
@@ -143,6 +148,7 @@ class Option(OrderedModel, UuidIdModel):
             return f"{self.group.group}::{self.value}"
         else:
             return f"No group: {self.value}"
+
 
 class OptionLabel(models.Model):
     option = models.ForeignKey("Option", on_delete=models.CASCADE)
@@ -206,7 +212,7 @@ class NodeChildren(OrderedModel):
     parent = models.ForeignKey(
         "FormKitSchemaNode",
         on_delete=models.CASCADE,
-        related_name = "parent",
+        related_name="parent",
     )
     child = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE)
     order_with_respect_to = "parent"
@@ -283,7 +289,7 @@ class FormKitSchemaNode(UuidIdModel):
         if opts := self.node.get("options"):
             return opts
 
-        options: Iterable[Option] = self.option_set.all().prefetch_related('optionlabel_set')
+        options: Iterable[Option] = self.option_set.all().prefetch_related("optionlabel_set")
         return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
     def get_node_values(self) -> dict:
@@ -352,9 +358,8 @@ class FormKitSchemaNode(UuidIdModel):
             elif node_type == "component":
                 instance.node_type = "$cmp"
 
-
             log(f"[green]Yielding: {instance}")
-            
+
             # Must save the instance before  adding "options" or "children"
             instance.save()
             # Add the "options" if it is a 'text' type getter
@@ -374,15 +379,12 @@ class FormKitSchemaNode(UuidIdModel):
 
             if child_nodes:
                 # This will iterate over creation of child nodes
-                c_n = itertools.chain.from_iterable(
-                    map(cls.from_pydantic, child_nodes)
-                )
+                c_n = itertools.chain.from_iterable(map(cls.from_pydantic, child_nodes))
                 for child_node in c_n:
-                    log(f'[green]Adding child node: {child_node}')
+                    log(f"[green]Adding child node: {child_node}")
                     # This was a 'set' but 'set' did not maintain the order
                     instance.children.add(child_node)
 
-            
             yield instance
 
         else:
@@ -415,7 +417,7 @@ class FormKitSchema(UuidIdModel):
         """
         Return a list of "node" dicts
         """
-        nodes: Iterable[FormKitSchemaNode] = self.nodes.order_by('formcomponents__order')
+        nodes: Iterable[FormKitSchemaNode] = self.nodes.order_by("formcomponents__order")
         for node in nodes:
             yield node.get_node_values()
 

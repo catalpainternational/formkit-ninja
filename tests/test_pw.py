@@ -58,7 +58,9 @@ def test_home_page(live_server: live_server_helper.LiveServer, admin_page: Page,
     admin_page.get_by_role("button", name="Save", exact=True).click()
     admin_page.pause()
 
+
 # Tests that the admin pages from importing SF 1.1 make sense
+
 
 @pytest.mark.django_db()
 def test_import_sf11(sf11):  # noqa: F811
@@ -66,34 +68,38 @@ def test_import_sf11(sf11):  # noqa: F811
     This tests that we can successfully import the 'SF11' form from Partisipa
     """
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
+
     schema = BaseModel.parse_obj(sf11)
     schema_in_the_db = models.FormKitSchema.from_pydantic(schema)
     schema_back_from_db = schema_in_the_db.to_pydantic()
-    
+
     # Check that schema sections retained their order
-    assert [n['html_id'] for n in sf11] == [n.html_id for n in schema_back_from_db.__root__]
-    
+    assert [n["html_id"] for n in sf11] == [n.html_id for n in schema_back_from_db.__root__]
+
     # The input dict and output dict should be equal
-    sf11_out = schema_back_from_db.dict()['__root__']
+    sf11_out = schema_back_from_db.dict()["__root__"]
 
     # The inputs and outputs
-    partA_in = sf11[0]['children']
+    partA_in = sf11[0]["children"]
     partA_schema = schema_back_from_db.__root__[0].children
-    partA_out = sf11_out[0]['children']
+    partA_out = sf11_out[0]["children"]
 
     # Nested (children) should retain their order
-    assert [n['key'] for n in partA_in] == [n.key for n in partA_schema] == [n['key'] for n in partA_out]
-    assert [n['label'] for n in partA_in] == [n.label for n in partA_schema] == [n['label'] for n in partA_out]
+    assert [n["key"] for n in partA_in] == [n.key for n in partA_schema] == [n["key"] for n in partA_out]
+    assert [n["label"] for n in partA_in] == [n.label for n in partA_schema] == [n["label"] for n in partA_out]
 
     # Options are maintained
 
     for field in ("key", "name", "label", "placeholder", "options", "html_id"):
-        for json_in, db_content, json_out in zip(sf11[0]['children'], schema_back_from_db.__root__[0].children, sf11_out[0]['children']):
+        for json_in, db_content, json_out in zip(
+            sf11[0]["children"], schema_back_from_db.__root__[0].children, sf11_out[0]["children"]
+        ):
             json_in_field = json_in.get(field, None)
             db_content_field = getattr(db_content, field, None)
             json_out_field = json_out.get(field, None)
-            
+
             assert json_in_field == db_content_field == json_out_field
+
 
 @pytest.mark.django_db()
 def test_admin_actions_sf11(sf11, admin_page: Page):  # noqa: F811
@@ -101,8 +107,8 @@ def test_admin_actions_sf11(sf11, admin_page: Page):  # noqa: F811
     This tests that we can successfully import the 'SF11' form from Partisipa
     """
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
+
     schema = BaseModel.parse_obj(sf11)
     models.FormKitSchema.from_pydantic(schema)
     admin_page.get_by_role("link", name="Form kit schema nodes").click()
     ...
-

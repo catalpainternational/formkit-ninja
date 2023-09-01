@@ -1,3 +1,4 @@
 *.pyc
 dist/
 db.sqlite3
+db.sqlite3

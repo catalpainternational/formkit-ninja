@@ -115,7 +115,7 @@ def get_node(request, node_id: UUID):
 
 
 @router.get("/options", response=list[Option], exclude_none=True)
-def list_options(request: HttpRequest, response: HttpResponse, since: str = None):
+def list_options(request: HttpRequest, response: HttpResponse, since: str | None = None):
     """
     List all available options from the zTables
     and the associated Translations

@@ -16,6 +16,7 @@ django-ninja = "^0.21"
 Django = "^4"
 django-ordered-model = "^3"
 pydantic = "<2"
+django-stubs = {extras = ["compatible-mypy"], version = "^4.2.3"}
 
 [tool.poetry.group.dev]
 optional = true

@@ -24,6 +24,7 @@ Node = ForwardRef("Node")
 # these options
 OptionsType = str | list[dict[str, Any]] | list[str] | dict[str, str] | None
 
+
 class FormKitSchemaCondition(BaseModel):
     node_type: Literal["condition"]
     if_condition: str = Field(..., alias="if")
@@ -100,6 +101,7 @@ class FormKitSchemaAttributes(BaseModel):
         | FormKitSchemaAttributesCondition,
     ]
 
+
 class FormKitSchemaProps(BaseModel):
     """
     Properties available in all schema nodes.
@@ -138,8 +140,10 @@ class FormKitSchemaProps(BaseModel):
     class Config:
         allow_population_by_field_name = True
 
+
 # We defined this after the model above as it's a circular reference
 ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoCircularRefs | None
+
 
 class TextNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
@@ -487,10 +491,9 @@ class FormKitNode(BaseModel):
         # translate the possible node types we received
         try:
             parsed = super().parse_obj({**get_node_type(obj), **obj})
-            node: (FormKitType | 
-               FormKitSchemaDOMNode |
-            FormKitSchemaComponent |
-            FormKitSchemaCondition) = parsed.__root__
+            node: (
+                FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
+            ) = parsed.__root__
         except KeyError as E:
             raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
 
@@ -503,7 +506,18 @@ class FormKitNode(BaseModel):
             add_props_keys = (
                 obj.keys()
                 - node.dict().keys()
-                - {"$formkit", "$el", "if", "for", "then", "else", "children", "dollar_formkit", "node_type", "formkit"}
+                - {
+                    "$formkit",
+                    "$el",
+                    "if",
+                    "for",
+                    "then",
+                    "else",
+                    "children",
+                    "dollar_formkit",
+                    "node_type",
+                    "formkit",
+                }
             )
             add_props |= {k: obj[k] for k in add_props_keys}
 

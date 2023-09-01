@@ -36,21 +36,21 @@ class FormKitSchemaNodeTestCase(TestCase):
             model.save()
             model.refresh_from_db()
             # Option 'group' is associated
-            group, _ = OptionGroup.objects.get_or_create(group=model._meta.model_name + '_test')
+            group, _ = OptionGroup.objects.get_or_create(group=model._meta.model_name + "_test")
             if options and isinstance(options, dict):
                 for key, label in options.items():
                     opt = Option.objects.create(value=key, field=model, group=group)
-                    label = OptionLabel.objects.create(option = opt, lang="en", label=label)
+                    label = OptionLabel.objects.create(option=opt, lang="en", label=label)
                     print(opt)
                     print(label)
             elif options and isinstance(options, list):
                 for value in options:
                     if isinstance(value, str):
                         opt = Option.objects.create(value=value, field=model, group=group)
-                        label = OptionLabel.objects.create(option = opt, lang="en", label=value)
+                        label = OptionLabel.objects.create(option=opt, lang="en", label=value)
                     elif isinstance(value, dict) and value.keys() == {"value", "label"}:
                         opt = Option.objects.create(value=value["value"], field=model, group=group)
-                        label = OptionLabel.objects.create(option = opt, lang="en", label=value["label"])
+                        label = OptionLabel.objects.create(option=opt, lang="en", label=value["label"])
                         print(opt)
                         print(label)
             # Update in version 2.0: This now requires a unique "label" field

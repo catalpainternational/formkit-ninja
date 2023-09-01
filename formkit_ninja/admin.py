@@ -1,12 +1,11 @@
 from __future__ import annotations
 from collections import Counter
-import itertools
 
 import logging
 import operator
 import warnings
 from functools import reduce
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from django import forms
 import django.core.exceptions
@@ -23,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 # Define fields in JSON with a tuple of fields
 # The key of the dict provided is a JSON field on the model
-JsonFieldDefn = dict[str, tuple[str | tuple[str,str]]]
+JsonFieldDefn = dict[str, tuple[str | tuple[str, str], ...]]
+
 
 class ItemAdmin(OrderedModelAdmin):
     list_display = ("name", "move_up_down_links")
@@ -48,42 +48,51 @@ class JsonDecoratedFormBase(forms.ModelForm):
         """
         return self._json_fields
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        instance = kwargs["instance"]
+    def _field_check(self):
+        """
+        Check that JSON fields specified are json fields on the model
+        do not clash with model fields
+        """
 
-        # Preflight check,
-        # Ensure that 'json' fields do not clash with 'model' fields
-        fields_in_model = Counter(self.Meta.fields)
+        def check_json_fields_exist():
+            """
+            Check that JSON fields specified are json fields on the model
+            """
+            for field in self.get_json_fields().keys():
+                try:
+                    model_field = self.Meta.model._meta.get_field(field)
+                    if not isinstance(model_field, JSONField):
+                        raise KeyError(f"Expected a JSONField named {field} on the model")
+                except django.core.exceptions.FieldDoesNotExist as E:
+                    raise KeyError(f"Expected a JSONField named {field} on the model") from E
 
-        # These are all the fields we've "JSON"ified
-        for json_keys in self.get_json_fields().values():
-            fields_in_model.update((k for k in json_keys if isinstance(k, str)))
-            fields_in_model.update((k[0] for k in json_keys if not isinstance(k, str)))
+        def check_no_duplicates():
+            """
+            Checks that the `_json_fields` specified do not clash with fields 
+            on the model
+            """
+            fields_in_model = Counter(self.Meta.fields)
 
-        # Duplicate fields raise an exception
-        duplicates = list(((k,v) for k,v in fields_in_model.items() if v > 1))
-        if duplicates:
-            raise KeyError(f"Some fields were duplicated: {','.join(duplicates)}")
+            # These are all the fields we've "JSON"ified
+            for json_keys in self.get_json_fields().values():
+                fields_in_model.update((k for k in json_keys if isinstance(k, str)))
+                fields_in_model.update((k[0] for k in json_keys if not isinstance(k, str)))
 
-        # Assert that keys of `_get_json_fields()` is a dict
-        json_field_names = self.get_json_fields().keys()
-        # Each 'fieldname' should be a JSON field on the model
-        for fieldname in json_field_names:
-            try:
-                model_field = self.Meta.model._meta.get_field(fieldname)
-                if not isinstance(model_field, JSONField):
-                    raise KeyError(f"Expected a JSONField named {fieldname} on the model")
-            except django.core.exceptions.FieldDoesNotExist as E:
-                raise KeyError(f"Expected a JSONField named {fieldname} on the model") from E
+            # Duplicate fields raise an exception
+            duplicates = list(((k, v) for k, v in fields_in_model.items() if v > 1))
+            if duplicates:
+                raise KeyError(f"Some fields were duplicated: {','.join(duplicates)}")
+            
+        check_json_fields_exist()
+        check_no_duplicates()
 
-
+    def _set_json_fields(self, instance):
+        """
+        Assign JSON field content to Form fields
+        """
         for field, keys in self.get_json_fields().items():
             # Extract the dict of JSON values from the model instance if supplied
-            values = {}
-            if instance:
-                values = getattr(instance, field, {}) or {}  # Don't allow none
-
+            values = getattr(instance, field, {}) or {}  # Don't allow none:
             # field_name is the property on the ModelForm to use.
             # This allows "aliasing" so that fields on the model / JSON are not shadowed.
             for key in keys:
@@ -95,11 +104,16 @@ class JsonDecoratedFormBase(forms.ModelForm):
                 # The value, extracted from the JSON value in the database
                 field_value = values.get(json_field, None)
                 # The initial value of the admin form is set to the value of the JSON attrib
-                if form_field in self.fields:
-                    self.fields.get(form_field).initial = field_value
-                else:
-                    warnings.warn(f"Unassociated JSON field found: {form_field}")
-        return
+                self.fields.get(form_field).initial = field_value
+
+    def __init__(self, *args, **kwargs):
+        """
+        When the form is initialized, additional "Fields"
+        can be populated from a JSON data field.
+        """
+        super().__init__(*args, **kwargs)
+        if instance := kwargs['instance']:
+            self._set_json_fields(instance)
 
     def save(self, commit=True):
         """
@@ -168,11 +182,7 @@ class FormKitSchemaComponentInline(OrderedTabularInline):
 class FormKitNodeGroupForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = (
-            "label",
-            "description",
-            "additional_props"
-        )
+        fields = ("label", "description", "additional_props")
 
     _json_fields = {
         "node": (
@@ -202,7 +212,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     _json_fields = {
         "node": (
             "formkit",
-            ("node_description", "description"),
+            ("node_description", "description"),  # This tuple escapes a conflict with model field
             "name",
             "key",
             "html_id",
@@ -263,7 +273,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
 
 
 class FormKitNodeRepeaterForm(FormKitNodeForm):
-    def get_json_fields(self) -> dict[str, tuple[str]]:
+    def get_json_fields(self) -> JsonFieldDefn:
         return {
             "node": (
                 *(super()._json_fields["node"]),
@@ -432,8 +442,8 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
     inlines = [FormKitSchemaNodeOptionsInline, NodeChildrenInline, MembershipInline]
 
     def get_fieldsets(
-        self, request: HttpRequest, obj: Optional[models.FormKitSchemaNode] = ...
-    ) -> list[tuple[Optional[str], dict[str, Any]]]:
+        self, request: HttpRequest, obj: models.FormKitSchemaNode | None = None
+    ):
         """
         Set fieldsets to control the layout of admin “add” and “change” pages.
         fieldsets is a list of two-tuples, in which each two-tuple represents a <fieldset>
@@ -490,11 +500,11 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 
     def get_form(
         self,
-        request: Any,
+        request: HttpRequest,
         obj: models.FormKitSchemaNode | None,
-        change: None = None,
+        change: bool,
         **kwargs,
-    ):
+    ) -> type[forms.ModelForm[Any]]:
         if not obj:
             return NewFormKitForm
         try:
