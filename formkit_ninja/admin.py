@@ -476,13 +476,13 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
             return NewFormKitForm
         try:
             for node_type, form_type in (
-                (str, FormKitTextNode)
-                (formkit_schema.GroupNode, FormKitNodeGroupForm)
-                (formkit_schema.RepeaterNode, FormKitNodeRepeaterForm)
-                (formkit_schema.FormKitSchemaDOMNode, FormKitElementForm)
-                (formkit_schema.FormKitSchemaComponent, FormKitComponentForm)
-                (formkit_schema.FormKitSchemaCondition, FormKitConditionForm)
-                (formkit_schema.FormKitSchemaProps, FormKitNodeForm)
+                (str, FormKitTextNode),
+                (formkit_schema.GroupNode, FormKitNodeGroupForm),
+                (formkit_schema.RepeaterNode, FormKitNodeRepeaterForm),
+                (formkit_schema.FormKitSchemaDOMNode, FormKitElementForm),
+                (formkit_schema.FormKitSchemaComponent, FormKitComponentForm),
+                (formkit_schema.FormKitSchemaCondition, FormKitConditionForm),
+                (formkit_schema.FormKitSchemaProps, FormKitNodeForm),
             ):
                 if isinstance(obj.get_node(), node_type):
                     return form_type
