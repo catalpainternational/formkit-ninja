@@ -36,6 +36,7 @@ playwright = "*"
 pytest-playwright = "*"
 mkdocs-material = "*"
 mkdocstrings = {extras = ["python"], version = "*"}
+pytest-cov = "^4.1.0"
 
 [build-system]
 requires = ["poetry-core"]
