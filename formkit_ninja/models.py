@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import itertools
 import logging
 import uuid
@@ -111,21 +112,20 @@ class Option(OrderedModel, UuidIdModel):
         )
 
     value = models.CharField(max_length=1024)
-    field = models.ForeignKey(
-        "FormKitSchemaNode",
-        on_delete=models.CASCADE,
-        limit_choices_to={"node__formkit__in": ["select", "radio", "dropdown"]},
-        null=True,
-        blank=True,
-        help_text="The ID of an Option node (select, dropdown or radio) if this option is embedded as part of a selection node",
-    )
+    # field = models.ForeignKey(
+    #     "FormKitSchemaNode",
+    #     on_delete=models.CASCADE,
+    #     limit_choices_to={"node__formkit__in": ["select", "radio", "dropdown"]},
+    #     null=True,
+    #     blank=True,
+    #     help_text="The ID of an Option node (select, dropdown or radio) if this option is embedded as part of a selection node",
+    # )
     order_with_respect_to = "group"
 
     @classmethod
     def from_pydantic(
         cls,
         options: list[str] | list[OptionDict],
-        field: FormKitSchemaNode | None = None,
         group: OptionGroup | None = None,
     ) -> Iterable["Option"]:
         """
@@ -133,10 +133,10 @@ class Option(OrderedModel, UuidIdModel):
         """
         for option in options:
             if isinstance(option, str):
-                opt = cls(value=option, group=group, field=field)
+                opt = cls(value=option, group=group)
                 OptionLabel.objects.create(option=opt, lang="en", label=option)
             elif isinstance(option, dict) and option.keys() == {"value", "label"}:
-                opt = cls(value=option["value"], group=group, field=field)
+                opt = cls(value=option["value"], group=group)
                 OptionLabel.objects.create(option=opt, lang="en", label=option["label"])
             else:
                 console.log(f"[red]Could not format the given object {option}")
@@ -188,21 +188,6 @@ class FormComponents(OrderedModel, UuidIdModel):
         return f"{self.node}[{self.order}]: {self.schema}"
 
 
-class Membership(OrderedModel, UuidIdModel):
-    """
-    This is an ordered m2m model representing
-    how parts of a "FormKit group" are arranged
-    """
-
-    group = models.ForeignKey(
-        "FormKitSchemaNode",
-        on_delete=models.CASCADE,
-        limit_choices_to={"node__formkit": "group"},
-    )
-    member = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE, related_name="members")
-    order_with_respect_to = "group"
-
-
 class NodeChildren(OrderedModel):
     """
     This is an ordered m2m model representing
@@ -251,7 +236,7 @@ class FormKitSchemaNode(UuidIdModel):
         help_text="Decribe the type of data / reason for this component",
     )
     label = models.CharField(max_length=1024, help_text="Used as a human-readable label", null=True, blank=True)
-    group = models.ManyToManyField("self", through=Membership, blank=True)
+    option_group = models.ForeignKey(OptionGroup, null=True, blank=True, on_delete=models.PROTECT)
     children = models.ManyToManyField("self", through=NodeChildren, symmetrical=False, blank=True)
 
     node = models.JSONField(
@@ -289,7 +274,10 @@ class FormKitSchemaNode(UuidIdModel):
         if opts := self.node.get("options"):
             return opts
 
-        options: Iterable[Option] = self.option_set.all().prefetch_related("optionlabel_set")
+        if not self.option_group:
+            return None
+        options = self.option_group.option_set.all().prefetch_related("optionlabel_set")
+        # options: Iterable[Option] = self.option_set.all().prefetch_related("optionlabel_set")
         return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
     def get_node_values(self) -> dict:
@@ -297,7 +285,10 @@ class FormKitSchemaNode(UuidIdModel):
         Reify a 'dict' instance suitable for creating
         a FormKit Schema node from
         """
+        # Text element
         if not self.node:
+            if self.text_content:
+                return self.text_content
             return {}
         values = {**self.node}
 
@@ -313,11 +304,13 @@ class FormKitSchemaNode(UuidIdModel):
             values["additional_props"] = self.additional_props
         return values
 
-    def get_node(self) -> formkit_schema.Node:
+    def get_node(self) -> formkit_schema.Node | str:
         """
         Return a "decorated" node instance
         with restored options and translated fields
         """
+        if text := self.text_content:
+            return text
         node_content = self.get_node_values()
         if node_content == {}:
             if self.node_type == "$el":
@@ -331,7 +324,10 @@ class FormKitSchemaNode(UuidIdModel):
     def from_pydantic(
         cls, input_models: formkit_schema.FormKitSchemaProps | Iterable[formkit_schema.FormKitSchemaProps]
     ) -> Iterable["FormKitSchemaNode"]:
-        if isinstance(input_models, Iterable) and not isinstance(input_models, formkit_schema.FormKitSchemaProps):
+        if isinstance(input_models, str):
+            yield cls.objects.create(node_type="text", label=input_models, text_content=input_models)
+
+        elif isinstance(input_models, Iterable) and not isinstance(input_models, formkit_schema.FormKitSchemaProps):
             yield from (cls.from_pydantic(n) for n in input_models)
 
         elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
@@ -374,18 +370,19 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.save()
 
             elif isinstance(options, Iterable):
-                for option in Option.from_pydantic(options, field=instance):
+                # Create a new "group" to assign these options to
+                # Here we use a random UUID as the group name
+                instance.option_group = OptionGroup.objects.create(
+                    group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}"
+                )
+                for option in Option.from_pydantic(options, group=instance.option_group):
                     option.save()
+                instance.save()
 
-            child_nodes: formkit_schema.ChildNodeType = getattr(input_model, "children")
-
-            if child_nodes:
-                # This will iterate over creation of child nodes
-                c_n = itertools.chain.from_iterable(map(cls.from_pydantic, child_nodes))
-                for child_node in c_n:
-                    log(f"[green]Adding child node: {child_node}")
-                    # This was a 'set' but 'set' did not maintain the order
-                    instance.children.add(child_node)
+            for c_n in getattr(input_model, "children", []) or []:
+                child_node = next(iter(cls.from_pydantic(c_n)))
+                console.log(f"    {child_node}")
+                instance.children.add(child_node)
 
             yield instance
 
@@ -393,6 +390,8 @@ class FormKitSchemaNode(UuidIdModel):
             raise TypeError(f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}")
 
     def to_pydantic(self):
+        if self.text_content:
+            return self.text_content
         return formkit_schema.FormKitNode.parse_obj(self.get_node_values())
 
 
@@ -411,7 +410,7 @@ class FormKitSchema(UuidIdModel):
     collection of items.
     """
 
-    label = models.TextField(null=True, blank=True, help_text="Used as a human-readable label")
+    label = models.CharField(max_length=1024, null=True, blank=True, help_text="Used as a human-readable label")
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
 
@@ -434,16 +433,16 @@ class FormKitSchema(UuidIdModel):
         super().save(*args, **kwargs)
 
     @classmethod
-    def from_pydantic(cls, input_model: formkit_schema.FormKitSchema) -> "FormKitSchema":
+    def from_pydantic(cls, input_model: formkit_schema.FormKitSchema, label: str | None = None) -> "FormKitSchema":
         """
         Converts a given Pydantic representation of a Schema
         to Django database fields
         """
-        instance = cls.objects.create()
+        instance = cls.objects.create(label=label)
         for node in itertools.chain.from_iterable(FormKitSchemaNode.from_pydantic(input_model.__root__)):
             log(f"[yellow]Saving {node}")
             node.save()
-            FormComponents.objects.create(schema=instance, node=node)
+            FormComponents.objects.create(schema=instance, node=node, label=str(f"{str(instance)} {str(node)}"))
         logger.info("Schema load from JSON done")
         return instance
 
