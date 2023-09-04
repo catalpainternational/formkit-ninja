@@ -4,6 +4,7 @@ import itertools
 import logging
 import uuid
 from typing import Iterable, TypedDict, get_args
+from django.apps import apps
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -66,6 +67,18 @@ class OptionGroup(models.Model):
         help_text="This is an optional reference to the original source object for this set of options (typically a table from which we copy options)",
     )
 
+    # If the object is a "Content Type" we expect it to have a similar layout to this
+
+    def save(self, *args, **kwargs):
+        # Prior to save ensure that content_type, if present, fits suitable schema
+        klass = self.content_type.model_class()
+        try:
+            if klass._meta.get_field("value") is None or not hasattr(klass, 'label_set'):
+                raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute")
+        except Exception as E:
+            raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute") from E
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.group}"
 
@@ -112,14 +125,6 @@ class Option(OrderedModel, UuidIdModel):
         )
 
     value = models.CharField(max_length=1024)
-    # field = models.ForeignKey(
-    #     "FormKitSchemaNode",
-    #     on_delete=models.CASCADE,
-    #     limit_choices_to={"node__formkit__in": ["select", "radio", "dropdown"]},
-    #     null=True,
-    #     blank=True,
-    #     help_text="The ID of an Option node (select, dropdown or radio) if this option is embedded as part of a selection node",
-    # )
     order_with_respect_to = "group"
 
     @classmethod
@@ -454,3 +459,26 @@ class FormKitSchema(UuidIdModel):
         """
         schema_instance = formkit_schema.FormKitSchema.parse_obj(input_file)
         return cls.from_pydantic(schema_instance)
+
+
+class SchemaLabel(models.Model):
+    """
+    This intended to hold translations of Partisipa schema definitions.
+    The title.
+    """
+    schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
+    label = models.CharField(max_length=1024)
+    lang = models.CharField(
+        max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
+    )
+
+class SchemaDescription(models.Model):
+    """
+    This intended to hold translations of Partisipa schema definitions.
+    The description.
+    """
+    schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
+    label = models.CharField(max_length=1024)
+    lang = models.CharField(
+        max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
+    )

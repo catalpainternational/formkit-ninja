@@ -6,7 +6,7 @@ from uuid import UUID
 from django.db.models import F, Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
-from ninja import ModelSchema, Router
+from ninja import ModelSchema, Router, Schema
 
 from formkit_ninja import formkit_schema, models
 
@@ -19,7 +19,22 @@ class FormKitSchemaIn(ModelSchema):
         model_fields = "__all__"
 
 
+class SchemaLabel(ModelSchema):
+    class Config:
+        model = models.SchemaLabel
+        model_fields = ("lang", "label")
+
+
+class SchemaDescription(ModelSchema):
+    class Config:
+        model = models.SchemaLabel
+        model_fields = ("lang", "label")
+
+
 class FormKitSchemaListOut(ModelSchema):
+    schemalabel_set: list[SchemaLabel]
+    schemadescription_set: list[SchemaDescription]
+
     class Config:
         model = models.FormKitSchema
         model_fields = ("id", "label")
@@ -40,19 +55,15 @@ class NodeChildrenOut(ModelSchema):
         model_fields = ("parent", "child", "order")
 
 
-class OptionLabel(ModelSchema):
-    class Config:
-        model = models.OptionLabel
-        model_fields = ("lang", "label")
+class OptionLabel(Schema):
+    lang: str
+    label: str
 
 
-class Option(ModelSchema):
-    group_name: str  # This is annotation of the model `content_type_model`
-    optionlabel_set: list[OptionLabel]
-
-    class Config:
-        model = models.Option
-        model_fields = ("id", "object_id")
+class Option(Schema):
+    group: str  # This is annotation of the model `content_type_model`
+    label_set: list[OptionLabel]
+    value: str
 
 
 @router.get("list-schemas", response=list[FormKitSchemaListOut])
@@ -127,28 +138,34 @@ def get_node(request, node_id: UUID):
 
 
 @router.get("/options", response=list[Option], exclude_none=True)
-def list_options(request: HttpRequest, response: HttpResponse, since: str | None = None):
+def list_options(request: HttpRequest, response: HttpResponse):
     """
     List all available options from the zTables
     and the associated Translations
+    This may include both "native" FormKit ninja labels and links
+    to any model with a compatible table structure.
     """
 
-    model = Option.Config.model
-    qs = model.objects.all()
+    def options_from_formkit():
+        qs = models.Option.objects.annotate(group_name=F("group__group")).prefetch_related("optionlabel_set")
+        for option in qs:
+            yield Option(
+                group=option.group_name,
+                label_set=[dict(lang=_.lang, label=_.label) for _ in option.optionlabel_set.all()],
+                value=option.value,
+            )
 
-    if since is not None and since != "":
-        # Python 3.10 does not support a trailing 'Z'
-        if since.endswith("Z"):
-            since = since[:-1] + "+00:00"
-        try:
-            ts = datetime.datetime.fromisoformat(since)
-            qs = qs.filter(Q(last_updated__gt=ts))
-        except Exception as E:
-            warnings.warn(f"{E}")
-    try:
-        response["X-lastupdated"] = qs.latest("last_updated").last_updated.isoformat()
-    except model.DoesNotExist:
-        # if there are no changes, use the same header as was sent
-        if since:
-            response["X-lastupdated"] = since
-    return qs.annotate(group_name=F("group__group")).prefetch_related("optionlabel_set")
+    def options_from_apps():
+        choice_models = (
+            m.content_type.model_class() for m in models.OptionGroup.objects.filter(content_type__isnull=False)
+        )
+        for model in choice_models:
+            qs = model.objects.all().prefetch_related("label_set")
+            for instance in qs:
+                yield Option(
+                    group=model._meta.verbose_name.capitalize(),
+                    label_set=[dict(lang=_.lang, label=_.label) for _ in instance.label_set.all()],
+                    value=instance.value,
+                )
+
+    return list(options_from_formkit()) + list(options_from_apps())

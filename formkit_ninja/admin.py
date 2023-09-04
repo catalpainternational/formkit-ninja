@@ -385,6 +385,16 @@ class NodeInline(admin.StackedInline):
     extra = 0
 
 
+class SchemaLabelInline(admin.TabularInline):
+    model = models.SchemaLabel
+    extra = 0
+
+
+class SchemaDescriptionInline(admin.TabularInline):
+    model = models.SchemaDescription
+    extra = 0
+
+
 class FormKitSchemaForm(forms.ModelForm):
     class Meta:
         model = models.FormKitSchema
@@ -503,13 +513,22 @@ class FormKitSchemaAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
         """
         For a "new object" do not show the Form Components
         """
-        if not obj:
-            return []
-        return [
-            FormKitSchemaComponentInline,
-        ]
+        return (
+            [
+                SchemaLabelInline,
+                SchemaDescriptionInline,
+                FormKitSchemaComponentInline,
+            ]
+            if obj
+            else [
+                SchemaLabelInline,
+                SchemaDescriptionInline,
+            ]
+        )
 
     inlines = [
+        SchemaLabelInline,
+        SchemaDescriptionInline,
         FormKitSchemaComponentInline,
     ]
 
@@ -542,7 +561,6 @@ class OptionAdmin(OrderedModelAdmin):
 @admin.register(models.OptionGroup)
 class OptionGroupAdmin(admin.ModelAdmin):
     inlines = [OptionInline, NodeInline]
-    ...
 
 
 @admin.register(models.OptionLabel)
