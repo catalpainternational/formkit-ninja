@@ -103,6 +103,18 @@ def get_schemas(request, schema_id: UUID):
 
 
 @router.get(
+    "schema/by-label/{label}",
+    response=formkit_schema.FormKitSchema,
+    exclude_none=True,
+    by_alias=True,
+)
+def get_schema_by_label(request, label: str):
+    schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, label=label)
+    model = schema.to_pydantic()
+    return model
+
+
+@router.get(
     "node/{node_id}",
     response=formkit_schema.FormKitNode,
     exclude_none=True,

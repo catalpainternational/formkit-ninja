@@ -4,7 +4,7 @@ from importlib.resources import files
 import pytest
 
 from formkit_ninja import formkit_schema, models, samples
-from tests.fixtures import sf11, sf11meetinginfo
+from tests.fixtures import SF_1_1, el_priority, formkit_text_node, simple_text_node
 
 
 @pytest.fixture
@@ -69,25 +69,82 @@ def test_create_from_schema(sf11_schema):
 
 
 @pytest.mark.django_db()
-def test_parse_sf11(sf11: list[dict]):
+def test_parse_el_priority(el_priority: dict):
     """
-    This tests that we can successfully import the 'SF11' form from Partisipa
+    Regression test for missing text content
     """
-    from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
+    from formkit_ninja.formkit_schema import FormKitNode, FormKitSchemaDOMNode
 
-    schema = BaseModel.parse_obj(sf11)
-    schema_in_the_db = models.FormKitSchema.from_pydantic(schema)
-    schema_back_from_db = schema_in_the_db.to_pydantic()
+    parsed_node = FormKitNode.parse_obj(el_priority).__root__
+    assert isinstance(parsed_node, FormKitSchemaDOMNode)
 
-    # Check that schema sections retained their order
-    assert [n["html_id"] for n in sf11] == [n.html_id for n in schema_back_from_db.__root__]
+    # Load it into the database
+    node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
+    assert el_priority["children"][0] == parsed_node.children[0]
+    from_db: FormKitSchemaDOMNode = node_in_the_db.to_pydantic().__root__
+    len(from_db.children) == len(el_priority["children"])
 
-    # The input dict and output dict should be equal
-    sf11_out = schema_back_from_db.dict()["__root__"]
+    el_priority["children"][0] == "Priority "
 
-    # Check that the label is not altered
-    # This should be the ""
-    assert schema_back_from_db.__root__[2].children[0].label == "$pgettext('partisipants', 'Total participants male')"
 
-    # Nested (children) should retain their order
-    assert [n.key for n in schema_back_from_db.__root__[0].children] == [n["key"] for n in sf11[0]["children"]]
+@pytest.mark.django_db()
+def test_parse_simple_text_node(simple_text_node: dict):
+    from formkit_ninja.formkit_schema import FormKitNode, FormKitSchemaDOMNode
+
+    node: FormKitNode = FormKitNode.parse_obj(simple_text_node)
+    parsed_node: FormKitSchemaDOMNode = node.__root__
+    # Before the fix, this was breaking into individual letters
+    assert parsed_node.children == ["Priority"]
+
+
+@pytest.mark.django_db()
+def test_additional_props(formkit_text_node: dict):
+    """
+    This ensures that custom attributes are maintained
+    from JSON to Pydantic,
+    from Pydantic to the Database,
+    from the Database to Pydantic,
+    and from Pydantic to JSON.
+    """
+
+    from formkit_ninja.formkit_schema import FormKitNode
+
+    node: FormKitNode = FormKitNode.parse_obj(formkit_text_node)
+
+    # From JSON to a Pydantic class...
+    parsed_node: formkit_schema.SelectNode = node.__root__
+    assert parsed_node.additional_props == {"class": "red"}
+    assert parsed_node.additional_props == formkit_text_node["additional_props"]
+
+    # Into the database...
+    node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
+    assert node_in_the_db.additional_props == {"class": "red"}
+    node_in_the_db.to_pydantic()
+
+    # And out of the database again
+    from_the_db = node_in_the_db.to_pydantic()
+    assert from_the_db.__root__.additional_props == {"class": "red"}
+
+    # And back to JSON
+    json_from_the_db = json.loads(from_the_db.json(exclude_none=True, by_alias=True, exclude={"formkit, node_type"}))
+    assert json_from_the_db["additional_props"] == {"class": "red"}
+
+    # Additional checks that the JSON output is equivalent to the JSON input
+    # Note that json from the db has additional Python 'discriminator' fields 'node_type' and 'formkit'
+
+    assert node_in_the_db.node.get("key") == formkit_text_node["key"]
+    assert node_in_the_db.node.get("html_id") == formkit_text_node["id"]
+    assert node_in_the_db.node.get("name") == formkit_text_node["name"]
+    assert node_in_the_db.node.get("label") == formkit_text_node["label"]
+    assert node_in_the_db.node.get("formkit") == formkit_text_node["$formkit"]
+    assert node_in_the_db.node.get("placeholder") == formkit_text_node["placeholder"]
+    assert node_in_the_db.additional_props == formkit_text_node["additional_props"]
+
+    assert json_from_the_db["key"] == formkit_text_node["key"]
+    assert json_from_the_db["id"] == formkit_text_node["id"]
+    assert json_from_the_db["name"] == formkit_text_node["name"]
+    assert json_from_the_db["label"] == formkit_text_node["label"]
+    assert json_from_the_db["$formkit"] == formkit_text_node["$formkit"]
+    assert json_from_the_db["placeholder"] == formkit_text_node["placeholder"]
+    assert json_from_the_db["additional_props"] == formkit_text_node["additional_props"]
+    assert json_from_the_db["options"] == formkit_text_node["options"]
