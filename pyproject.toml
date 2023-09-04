@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "formkit-ninja"
-version = "0.5.0"
+version = "0.5.1a0"
 description = "A Django-Ninja backend to specify FormKit schemas"
 authors = ["Josh Brooks <josh@catalpa.io>"]
 license = "GPLv3"
