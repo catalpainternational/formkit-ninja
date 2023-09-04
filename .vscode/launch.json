@@ -16,6 +16,17 @@
             "justMyCode": false
         },
         {
+            "name": "Python: Django import forms",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "args": [
+                "import_forms"
+            ],
+            "django": true,
+            "justMyCode": false
+        },
+        {
             "name": "Python: Django sh",
             "type": "python",
             "request": "launch",
