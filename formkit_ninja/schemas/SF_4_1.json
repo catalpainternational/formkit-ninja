@@ -1,161 +1,84 @@
 [
   {
+    "id": "meetinginformation",
+    "title": "Meeting information",
+    "$formkit": "group",
     "children": [
       {
-        "children": null,
-        "key": "date",
-        "if_condition": null,
-        "for_loop": null,
-        "bind": null,
-        "meta": null,
-        "html_id": "date",
+        "$formkit": "datepicker",
         "name": "date",
+        "id": "date",
+        "key": "date",
         "label": "$gettext(\"Date\")",
-        "help": null,
-        "validation": null,
-        "validationLabel": null,
-        "validationVisibility": null,
-        "validationMessages": null,
-        "placeholder": null,
-        "value": null,
-        "prefixIcon": null,
-        "classes": null,
-        "additional_props": null,
-        "node_type": "formkit",
-        "formkit": "datepicker",
-        "dollar_formkit": "datepicker",
-        "calendarIcon": "calendar",
         "format": "DD/MM/YYYY",
+        "valueFormat": "DD/MM/YYYY",
+        "calendarIcon": "calendar",
         "nextIcon": "angleRight",
-        "prevIcon": "angleLeft"
+        "prevIcon": "angleLeft",
+        "_currentDate": "$getCurrentDate",
+        "sectionsSchema": {
+          "day": {
+            "children": [
+              "$day.getDate()",
+              {
+                "if": "$attrs._currentDate().day === $day.getDate()",
+                "children": [
+                  {
+                    "if": "$attrs._currentDate().month === $day.getMonth()",
+                    "children": [
+                      {
+                        "$el": "div",
+                        "if": "$attrs._currentDate().year === $day.getFullYear()",
+                        "attrs": {
+                          "class": "formkit-day-highlight"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
       },
       {
-        "children": null,
-        "key": "district",
-        "if_condition": null,
-        "for_loop": null,
-        "bind": null,
-        "meta": null,
-        "html_id": "district",
+        "$formkit": "select",
+        "id": "district",
         "name": "district",
+        "key": "district",
         "label": "$gettext(Municipality)",
-        "help": null,
-        "validation": null,
-        "validationLabel": null,
-        "validationVisibility": null,
-        "validationMessages": null,
-        "placeholder": null,
-        "value": null,
-        "prefixIcon": null,
-        "classes": null,
-        "additional_props": null,
-        "node_type": "formkit",
-        "formkit": "select",
-        "dollar_formkit": "select",
         "options": "$getLocations()"
       },
       {
-        "children": null,
-        "key": "administrative_post",
-        "if_condition": "$get(district).value",
-        "for_loop": null,
-        "bind": null,
-        "meta": null,
-        "html_id": "administrative_post",
+        "$formkit": "select",
+        "id": "administrative_post",
         "name": "administrative_post",
+        "key": "administrative_post",
         "label": "$gettext(\"Administrative Post\")",
-        "help": null,
-        "validation": null,
-        "validationLabel": null,
-        "validationVisibility": null,
-        "validationMessages": null,
-        "placeholder": null,
-        "value": null,
-        "prefixIcon": null,
-        "classes": null,
-        "additional_props": null,
-        "node_type": "formkit",
-        "formkit": "select",
-        "dollar_formkit": "select",
-        "options": "$getLocations($get(district).value)"
+        "options": "$getLocations($get(district).value)",
+        "if": "$get(district).value"
       },
       {
-        "children": null,
-        "key": "suco",
-        "if_condition": "$get(administrative_post).value",
-        "for_loop": null,
-        "bind": null,
-        "meta": null,
-        "html_id": "suco",
+        "$formkit": "select",
+        "id": "suco",
         "name": "suco",
+        "key": "suco",
         "label": "$gettext(Suco)",
-        "help": null,
-        "validation": null,
-        "validationLabel": null,
-        "validationVisibility": null,
-        "validationMessages": null,
-        "placeholder": null,
-        "value": null,
-        "prefixIcon": null,
-        "classes": null,
-        "additional_props": null,
-        "node_type": "formkit",
-        "formkit": "select",
-        "dollar_formkit": "select",
-        "options": "$getLocations($get(district).value, $get(administrative_post).value)"
+        "options": "$getLocations($get(district).value, $get(administrative_post).value)",
+        "if": "$get(administrative_post).value"
       },
       {
-        "children": null,
-        "key": "meeting_objective",
-        "if_condition": null,
-        "for_loop": null,
-        "bind": null,
-        "meta": null,
-        "html_id": null,
-        "name": "meeting_objective",
+        "$formkit": "dropdown",
         "label": "$gettext(\"Meeting objective\")",
-        "help": null,
-        "validation": null,
-        "validationLabel": null,
-        "validationVisibility": null,
-        "validationMessages": null,
-        "placeholder": null,
-        "value": null,
-        "prefixIcon": null,
-        "classes": null,
-        "additional_props": null,
-        "node_type": "formkit",
-        "formkit": "dropdown",
-        "dollar_formkit": "dropdown",
+        "key": "meeting_objective",
         "options": [
           "First accountability meeting",
           "Final accountability meeting2"
         ],
-        "empty_message": null,
-        "select_icon": "angleDown"
+        "selectIcon": "angleDown",
+        "name": "meeting_objective"
       }
     ],
-    "key": null,
-    "if_condition": null,
-    "for_loop": null,
-    "bind": null,
-    "meta": null,
-    "html_id": "meetinginformation",
-    "name": null,
-    "label": null,
-    "help": null,
-    "validation": null,
-    "validationLabel": null,
-    "validationVisibility": null,
-    "validationMessages": null,
-    "placeholder": null,
-    "value": null,
-    "prefixIcon": null,
-    "classes": null,
-    "additional_props": null,
-    "node_type": "formkit",
-    "formkit": "group",
-    "dollar_formkit": "group",
-    "text": null
+    "icon": "las la-info-circle"
   }
 ]
