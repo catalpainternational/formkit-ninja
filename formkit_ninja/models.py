@@ -4,8 +4,8 @@ import itertools
 import logging
 import uuid
 from typing import Iterable, TypedDict, get_args
-from django.apps import apps
 
+from django.apps import apps
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
@@ -71,12 +71,13 @@ class OptionGroup(models.Model):
 
     def save(self, *args, **kwargs):
         # Prior to save ensure that content_type, if present, fits suitable schema
-        klass = self.content_type.model_class()
-        try:
-            if klass._meta.get_field("value") is None or not hasattr(klass, 'label_set'):
-                raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute")
-        except Exception as E:
-            raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute") from E
+        if self.content_type:
+            klass = self.content_type.model_class()
+            try:
+                if klass._meta.get_field("value") is None or not hasattr(klass, "label_set"):
+                    raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute")
+            except Exception as E:
+                raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute") from E
         return super().save(*args, **kwargs)
 
     def __str__(self):
@@ -466,17 +467,20 @@ class SchemaLabel(models.Model):
     This intended to hold translations of Partisipa schema definitions.
     The title.
     """
+
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     label = models.CharField(max_length=1024)
     lang = models.CharField(
         max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
     )
 
+
 class SchemaDescription(models.Model):
     """
     This intended to hold translations of Partisipa schema definitions.
     The description.
     """
+
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     label = models.CharField(max_length=1024)
     lang = models.CharField(
