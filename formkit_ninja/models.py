@@ -301,6 +301,7 @@ class FormKitSchemaNode(UuidIdModel):
             return None
         options = self.option_group.option_set.all().prefetch_related("optionlabel_set")
         # options: Iterable[Option] = self.option_set.all().prefetch_related("optionlabel_set")
+        # TODO: This is horribly slow
         return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
     def get_node_values(self) -> dict:
@@ -433,7 +434,7 @@ class FormKitSchema(UuidIdModel):
     collection of items.
     """
 
-    label = models.CharField(max_length=1024, null=True, blank=True, help_text="Used as a human-readable label")
+    label = models.CharField(max_length=1024, null=True, blank=True, help_text="Used as a human-readable label", unique=True, default=uuid.uuid4)
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
 

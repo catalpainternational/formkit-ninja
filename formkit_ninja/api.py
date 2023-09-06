@@ -104,14 +104,31 @@ def get_components(request):
 
 
 @router.get(
-    "schema/{schema_id}",
+    "schema/by-uuid/{schema_id}",
     response=formkit_schema.FormKitSchema,
     exclude_none=True,
     by_alias=True,
 )
 def get_schemas(request, schema_id: UUID):
+    """
+    Get a schema based on its UUID
+    """
     schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, id=schema_id)
     model = schema.to_pydantic()
+    return model
+
+@router.get(
+    "schema/all",
+    response=list[formkit_schema.FormKitSchema],
+    exclude_none=True,
+    by_alias=True,
+)
+def get_all_schemas(request):
+    """
+    Get all schemas
+    """
+    schemas = models.FormKitSchema.objects.all()
+    model = [s.to_pydantic() for s in schemas]
     return model
 
 
@@ -122,10 +139,19 @@ def get_schemas(request, schema_id: UUID):
     by_alias=True,
 )
 def get_schema_by_label(request, label: str):
+    """
+    Get a schema based on its label
+    """
     schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, label=label)
     model = schema.to_pydantic()
     return model
 
+@router.get(
+    "schema/by-label/{label}",
+    response=formkit_schema.FormKitSchema,
+    exclude_none=True,
+    by_alias=True,
+)
 
 @router.get(
     "node/{node_id}",
@@ -134,6 +160,9 @@ def get_schema_by_label(request, label: str):
     by_alias=True,
 )
 def get_node(request, node_id: UUID):
+    """
+    Gets a node based on its UUID
+    """
     node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
     instance = node.get_node()
     return instance
