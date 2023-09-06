@@ -55,15 +55,17 @@ class NodeChildrenOut(ModelSchema):
         model_fields = ("parent", "child", "order")
 
 
-class OptionLabel(Schema):
-    lang: str
-    label: str
-
-
-class Option(Schema):
-    group: str  # This is annotation of the model `content_type_model`
-    label_set: list[OptionLabel]
+class Option(ModelSchema):
+    group_name: str  # This is annotation of the model `content_type_model`
     value: str
+    # Note: For other projects you may want to extend this with additional languages
+    label_tet: str | None
+    label_en: str | None
+    label_pt: str | None
+
+    class Config:
+        model = models.Option
+        model_fields = ("value",)
 
 
 @router.get("list-schemas", response=list[FormKitSchemaListOut])
@@ -140,32 +142,6 @@ def get_node(request, node_id: UUID):
 @router.get("/options", response=list[Option], exclude_none=True)
 def list_options(request: HttpRequest, response: HttpResponse):
     """
-    List all available options from the zTables
-    and the associated Translations
-    This may include both "native" FormKit ninja labels and links
-    to any model with a compatible table structure.
+    List all available "native" FormKit ninja labels and links
     """
-
-    def options_from_formkit():
-        qs = models.Option.objects.annotate(group_name=F("group__group")).prefetch_related("optionlabel_set")
-        for option in qs:
-            yield Option(
-                group=option.group_name,
-                label_set=[dict(lang=_.lang, label=_.label) for _ in option.optionlabel_set.all()],
-                value=option.value,
-            )
-
-    def options_from_apps():
-        choice_models = (
-            m.content_type.model_class() for m in models.OptionGroup.objects.filter(content_type__isnull=False)
-        )
-        for model in choice_models:
-            qs = model.objects.all().prefetch_related("label_set")
-            for instance in qs:
-                yield Option(
-                    group=model._meta.verbose_name.capitalize(),
-                    label_set=[dict(lang=_.lang, label=_.label) for _ in instance.label_set.all()],
-                    value=instance.value,
-                )
-
-    return list(options_from_formkit()) + list(options_from_apps())
+    return models.Option.objects.annotate(group_name=F("group__group"))

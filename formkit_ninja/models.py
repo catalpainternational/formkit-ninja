@@ -5,11 +5,10 @@ import logging
 import uuid
 from typing import Iterable, TypedDict, get_args
 
-from django.apps import apps
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
-from ordered_model.models import OrderedModel
+from ordered_model.models import OrderedModel, OrderedModelManager
 from rich.console import Console
 
 from formkit_ninja import formkit_schema
@@ -103,6 +102,22 @@ class OptionGroup(models.Model):
                 )
                 OptionLabel.objects.get_or_create(option=option, label=obj[field] or "", lang=language)
 
+class OptionQuerySet(OrderedModelManager):
+    """
+    Prefetched "labels" for performance
+    """
+
+    def get_queryset(self):
+        """
+        Added a prefetch_related to the queryset
+        """
+        lang_codes = (n[0] for n in settings.LANGUAGES)
+
+        label_model = OptionLabel
+        annotated_fields = {f'label_{lang}': label_model.objects.filter(lang=lang, option=models.OuterRef("pk")) for lang in lang_codes}
+        annotated_fields_subquery = {field: models.Subquery(query.values("label")[:1], output_field=models.CharField()) for field,query in annotated_fields.items()}
+        return super().get_queryset().annotate(**annotated_fields_subquery)
+
 
 class Option(OrderedModel, UuidIdModel):
     """
@@ -127,6 +142,8 @@ class Option(OrderedModel, UuidIdModel):
 
     value = models.CharField(max_length=1024)
     order_with_respect_to = "group"
+
+    objects = OptionQuerySet()
 
     @classmethod
     def from_pydantic(
