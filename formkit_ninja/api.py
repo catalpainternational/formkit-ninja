@@ -62,6 +62,9 @@ class Option(ModelSchema):
     label_tet: str | None
     label_en: str | None
     label_pt: str | None
+    # This is an optional field used to indicate the last update
+    # It's linked to a Django pg trigger instance in Partisipa
+    change_id: int | None = None
 
     class Config:
         model = models.Option
@@ -145,13 +148,6 @@ def get_schema_by_label(request, label: str):
     schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, label=label)
     model = schema.to_pydantic()
     return model
-
-@router.get(
-    "schema/by-label/{label}",
-    response=formkit_schema.FormKitSchema,
-    exclude_none=True,
-    by_alias=True,
-)
 
 @router.get(
     "node/{node_id}",
