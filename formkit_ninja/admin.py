@@ -12,7 +12,6 @@ from django import forms
 from django.contrib import admin
 from django.db.models import JSONField
 from django.http import HttpRequest
-from ordered_model.admin import OrderedInlineModelAdminMixin, OrderedModelAdmin, OrderedTabularInline
 
 from formkit_ninja import formkit_schema, models
 
@@ -24,8 +23,8 @@ logger = logging.getLogger(__name__)
 JsonFieldDefn = dict[str, tuple[str | tuple[str, str], ...]]
 
 
-class ItemAdmin(OrderedModelAdmin):
-    list_display = ("name", "move_up_down_links")
+class ItemAdmin(admin.ModelAdmin):
+    list_display = ("name",)
 
 
 class JsonDecoratedFormBase(forms.ModelForm):
@@ -168,14 +167,12 @@ class FormComponentsForm(forms.ModelForm):
         exclude = ()
 
 
-class FormKitSchemaComponentInline(OrderedTabularInline):
+class FormKitSchemaComponentInline(admin.TabularInline):
     model = models.FormComponents
     readonly_fields = (
         "node",
         "created_by",
         "updated_by",
-        "order",
-        "move_up_down_links",
     )
     ordering = ("order",)
     extra = 0
@@ -359,16 +356,15 @@ class FormKitComponentForm(JsonDecoratedFormBase):
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
 
-class NodeChildrenInline(OrderedTabularInline):
+class NodeChildrenInline(admin.TabularInline):
     """
     Nested HTML elements
     """
 
     model = models.NodeChildren
-    fields = ("child", "order", "move_up_down_links")
-    readonly_fields = (
+    fields = (
+        "child",
         "order",
-        "move_up_down_links",
     )
     ordering = ("order",)
     fk_name = "parent"
@@ -402,7 +398,7 @@ class FormKitSchemaForm(forms.ModelForm):
 
 
 @admin.register(models.FormKitSchemaNode)
-class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
+class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     list_display = ("label", "id", "node_type", "option_group")
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
@@ -506,7 +502,7 @@ class FormKitSchemaNodeAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(models.FormKitSchema)
-class FormKitSchemaAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
+class FormKitSchemaAdmin(admin.ModelAdmin):
     form = FormKitSchemaForm
 
     def get_inlines(self, request, obj: models.FormKitSchema | None):
@@ -534,8 +530,13 @@ class FormKitSchemaAdmin(OrderedInlineModelAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(models.FormComponents)
-class FormComponentsAdmin(OrderedModelAdmin):
-    list_display = ("label", "schema", "node", "order", "move_up_down_links")
+class FormComponentsAdmin(admin.ModelAdmin):
+    list_display = (
+        "label",
+        "schema",
+        "node",
+        "order",
+    )
 
 
 class OptionLabelInline(admin.TabularInline):
@@ -546,13 +547,18 @@ class OptionLabelInline(admin.TabularInline):
 class OptionInline(admin.TabularInline):
     model = models.Option
     extra = 0
-    fields = ("group", "object_id", "value")
+    fields = ("group", "object_id", "value", "order")
     readonly_fields = ("group", "object_id", "value")
 
 
 @admin.register(models.Option)
-class OptionAdmin(OrderedModelAdmin):
-    list_display = ("object_id", "value", "order", "group", "move_up_down_links")
+class OptionAdmin(admin.ModelAdmin):
+    list_display = (
+        "object_id",
+        "value",
+        "order",
+        "group",
+    )
     inlines = [OptionLabelInline]
     list_select_related = ("group",)
     readonly_fields = ("group", "object_id", "value", "created_by", "updated_by")

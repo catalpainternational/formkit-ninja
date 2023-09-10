@@ -5,10 +5,10 @@ import logging
 import uuid
 from typing import Iterable, TypedDict, get_args
 
+import pgtrigger
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
-from ordered_model.models import OrderedModel, OrderedModelManager
 from rich.console import Console
 
 from formkit_ninja import formkit_schema
@@ -17,6 +17,58 @@ console = Console()
 log = console.log
 
 logger = logging.getLogger()
+
+
+def update_group_trigger(order_by_field: str, id_field: str = "pk"):
+    """
+    Takes a model with an "order" field and
+    a "group" field and adds a trigger to
+    keep the ordering correct
+    This assumes a pk field named "id" too
+    """
+    return pgtrigger.Trigger(
+        name="order_on_update_option",
+        when=pgtrigger.After,
+        operation=pgtrigger.Update,
+        func=pgtrigger.Func(
+            f"""
+                -- Do not allow a "null" value
+                -- This stops Django from dumbly updating
+                -- which can break the trigger
+                if NEW."order" IS NULL then
+                    NEW."order" = OLD."order";
+                end if;
+                if NEW."order" > OLD."order" then
+                    update {{meta.db_table}}
+                    set "order" = "order"- 1
+                    where "order" <= NEW."order"
+                    and "order" > OLD."order"
+                    and "{order_by_field}" = OLD."{order_by_field}"
+                    and "{id_field}" <> NEW."{id_field}";
+                else
+                    update {{meta.db_table}}
+                    set "order" = "order"+ 1
+                    where "order" >= NEW."order"
+                    and "order" < OLD."order"
+                    and "{order_by_field}" = OLD."{order_by_field}"
+                    and "{id_field}" <> NEW."{id_field}";
+                end if;
+                RETURN NEW;
+        """
+        ),
+        condition=pgtrigger.Condition("pg_trigger_depth() = 0"),  # Prevents infinite recursion
+    )
+
+
+def insert_group_trigger(order_by_field: str):
+    return pgtrigger.Trigger(
+        name="order_on_insert_option",
+        when=pgtrigger.Before,
+        operation=pgtrigger.Insert,
+        func=pgtrigger.Func(
+            f'NEW."order" = (SELECT coalesce(max("order"), 0) + 1 FROM {{meta.db_table}} WHERE {{meta.db_table}}."{order_by_field}" = NEW."{order_by_field}"); RETURN NEW;'
+        ),
+    )
 
 
 class UuidIdModel(models.Model):
@@ -102,7 +154,8 @@ class OptionGroup(models.Model):
                 )
                 OptionLabel.objects.get_or_create(option=option, label=obj[field] or "", lang=language)
 
-class OptionQuerySet(OrderedModelManager):
+
+class OptionQuerySet(models.Manager):
     """
     Prefetched "labels" for performance
     """
@@ -114,12 +167,17 @@ class OptionQuerySet(OrderedModelManager):
         lang_codes = (n[0] for n in settings.LANGUAGES)
 
         label_model = OptionLabel
-        annotated_fields = {f'label_{lang}': label_model.objects.filter(lang=lang, option=models.OuterRef("pk")) for lang in lang_codes}
-        annotated_fields_subquery = {field: models.Subquery(query.values("label")[:1], output_field=models.CharField()) for field,query in annotated_fields.items()}
+        annotated_fields = {
+            f"label_{lang}": label_model.objects.filter(lang=lang, option=models.OuterRef("pk")) for lang in lang_codes
+        }
+        annotated_fields_subquery = {
+            field: models.Subquery(query.values("label")[:1], output_field=models.CharField())
+            for field, query in annotated_fields.items()
+        }
         return super().get_queryset().annotate(**annotated_fields_subquery)
 
 
-class Option(OrderedModel, UuidIdModel):
+class Option(UuidIdModel):
     """
     This is a key/value field representing one "option" for a FormKit property
     The translated values for this option are in the `Translatable` table
@@ -132,8 +190,11 @@ class Option(OrderedModel, UuidIdModel):
     )
     last_updated = models.DateTimeField(auto_now=True)
     group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE, null=True, blank=True)
+    # is_active = models.BooleanField(default=True)
+    order = models.IntegerField(null=True, blank=True)
 
     class Meta:
+        triggers = [insert_group_trigger("group_id"), update_group_trigger("group_id")]
         constraints = [models.UniqueConstraint(fields=["group", "object_id"], name="unique_option_id")]
         ordering = (
             "group",
@@ -157,6 +218,10 @@ class Option(OrderedModel, UuidIdModel):
         for option in options:
             if isinstance(option, str):
                 opt = cls(value=option, group=group)
+                # Capture the effects of triggers
+                # Else we override with the 'default' value of 0
+                opt.save()
+                opt.refresh_from_db()
                 OptionLabel.objects.create(option=opt, lang="en", label=option)
             elif isinstance(option, dict) and option.keys() == {"value", "label"}:
                 opt = cls(value=option["value"], group=group)
@@ -192,7 +257,7 @@ class OptionLabel(models.Model):
         constraints = [models.UniqueConstraint(fields=["option", "lang"], name="unique_option_label")]
 
 
-class FormComponents(OrderedModel, UuidIdModel):
+class FormComponents(UuidIdModel):
     """
     A model relating "nodes" of a schema to a schema with model ordering
     """
@@ -201,17 +266,18 @@ class FormComponents(OrderedModel, UuidIdModel):
     # This is null=True so that a new FormComponent can be added from the admin inline
     node = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE, null=True, blank=True)
     label = models.CharField(max_length=1024, help_text="Used as a human-readable label", null=True, blank=True)
-
+    order = models.IntegerField(null=True, blank=True)
     order_with_respect_to = "schema"
 
     class Meta:
+        triggers = [insert_group_trigger("schema"), update_group_trigger("schema")]
         ordering = ("schema", "order")
 
     def __str__(self):
         return f"{self.node}[{self.order}]: {self.schema}"
 
 
-class NodeChildren(OrderedModel):
+class NodeChildren(models.Model):
     """
     This is an ordered m2m model representing
     the "children" of an HTML element
@@ -223,10 +289,15 @@ class NodeChildren(OrderedModel):
         related_name="parent",
     )
     child = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE)
+    order = models.IntegerField(null=True, blank=True)
     order_with_respect_to = "parent"
 
     class Meta:
-        ordering = ("order",)
+        triggers = [insert_group_trigger("parent_id"), update_group_trigger("parent_id")]
+        ordering = (
+            "parent_id",
+            "order",
+        )
 
 
 class FormKitSchemaNode(UuidIdModel):
@@ -400,7 +471,7 @@ class FormKitSchemaNode(UuidIdModel):
                     group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}"
                 )
                 for option in Option.from_pydantic(options, group=instance.option_group):
-                    option.save()
+                    pass
                 instance.save()
 
             for c_n in getattr(input_model, "children", []) or []:
@@ -434,7 +505,14 @@ class FormKitSchema(UuidIdModel):
     collection of items.
     """
 
-    label = models.CharField(max_length=1024, null=True, blank=True, help_text="Used as a human-readable label", unique=True, default=uuid.uuid4)
+    label = models.CharField(
+        max_length=1024,
+        null=True,
+        blank=True,
+        help_text="Used as a human-readable label",
+        unique=True,
+        default=uuid.uuid4,
+    )
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
 
