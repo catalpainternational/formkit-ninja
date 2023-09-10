@@ -44,8 +44,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "formkit_ninja",
-    "ordered_model",
     "ninja",
+    "pgtrigger",
 ]
 
 MIDDLEWARE = [

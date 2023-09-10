@@ -10,9 +10,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         models.FormComponents.objects.all().delete()
-        models.Option.objects.all().delete()
         models.FormKitSchema.objects.all().delete()
         models.FormKitSchemaNode.objects.all().delete()
+        models.Option.objects.all().delete()
         models.OptionGroup.objects.all().delete()
 
         schemas = Schemas()
