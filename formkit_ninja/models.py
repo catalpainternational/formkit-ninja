@@ -19,7 +19,7 @@ log = console.log
 logger = logging.getLogger()
 
 
-def update_group_trigger(order_by_field: str, id_field: str = "pk"):
+def update_group_trigger(order_by_field: str, id_field: str = "id"):
     """
     Takes a model with an "order" field and
     a "group" field and adds a trigger to
@@ -270,7 +270,7 @@ class FormComponents(UuidIdModel):
     order_with_respect_to = "schema"
 
     class Meta:
-        triggers = [insert_group_trigger("schema"), update_group_trigger("schema")]
+        triggers = [insert_group_trigger("schema_id"), update_group_trigger("schema_id")]
         ordering = ("schema", "order")
 
     def __str__(self):
