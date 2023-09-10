@@ -85,7 +85,7 @@ WSGI_APPLICATION = "testproject.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "postgres",
+        "NAME": "formkit",
         "USER": "postgres",
         "HOST": "localhost",
     }
