@@ -17,6 +17,7 @@ Django = "^4"
 django-ordered-model = "^3"
 pydantic = "<2"
 django-stubs = {extras = ["compatible-mypy"], version = "^4.2.3"}
+django-pgtrigger = "^4.7.0"
 
 [tool.poetry.group.dev]
 optional = true
@@ -37,6 +38,7 @@ pytest-playwright = "*"
 mkdocs-material = "*"
 mkdocstrings = {extras = ["python"], version = "*"}
 pytest-cov = "^4.1.0"
+psycopg2-binary = "^2.9.7"
 
 [build-system]
 requires = ["poetry-core"]
