@@ -1,0 +1,307 @@
+[
+  {
+    "id": "meetinginformation",
+    "title": "Location",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "select",
+        "id": "district",
+        "name": "district",
+        "key": "district",
+        "label": "$gettext(Municipality)",
+        "options": "$getLocations()"
+      },
+      {
+        "$formkit": "select",
+        "id": "administrative_post",
+        "name": "administrative_post",
+        "key": "administrative_post",
+        "label": "$gettext(\"Administrative Post\")",
+        "options": "$getLocations($get(district).value)",
+        "if": "$get(district).value"
+      },
+      {
+        "$formkit": "select",
+        "id": "suco",
+        "name": "suco",
+        "key": "suco",
+        "label": "$gettext(Suco)",
+        "options": "$getLocations($get(district).value, $get(administrative_post).value)",
+        "if": "$get(administrative_post).value"
+      },
+      {
+        "$formkit": "select",
+        "id": "aldeia",
+        "name": "aldeia",
+        "key": "aldeia",
+        "label": "$gettext(Aldeia)",
+        "options": "$getLocations($get(district).value, $get(administrative_post).value, $get(suco).value)",
+        "if": "$get(suco).value"
+      }
+    ],
+    "icon": "las la-map-marked-alt"
+  },
+  {
+    "id": "projecttimeframe",
+    "title": "Project time frame",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "datepicker",
+        "name": "date_start",
+        "label": "$gettext(\"Date start estimated\")",
+        "calendarIcon": "calendar",
+        "_maxDateSource": "date_finish",
+        "disabledDays": "$setDisabledDays",
+        "format": "DD/MM/YY",
+        "nextIcon": "angleRight",
+        "prevIcon": "angleLeft"
+      },
+      {
+        "$formkit": "datepicker",
+        "name": "date_finish",
+        "label": "$gettext(\"Date finish estimated\")",
+        "calendarIcon": "calendar",
+        "_minDateSource": "date_start",
+        "disabledDays": "$setDisabledDays",
+        "format": "DD/MM/YY",
+        "nextIcon": "angleRight",
+        "prevIcon": "angleLeft"
+      }
+    ],
+    "icon": "las la-clock"
+  },
+  {
+    "id": "projectdetails",
+    "title": "Project details",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "select",
+        "label": "$gettext(\"Project Sector\")",
+        "key": "project_sector",
+        "placeholder": "$gettext(\"Please select\")",
+        "options": "$getoptions.project.sectors()",
+        "name": "project_sector",
+        "id": "project_sector"
+      },
+      {
+        "$formkit": "select",
+        "label": "$gettext(\"Project Sub-Sector\")",
+        "key": "project_sub_sector",
+        "placeholder": "$gettext(\"Please select\")",
+        "if": "$get(\"project_sector\").value && $getoptions.project.subsectors($get(\"project_sector\").value).length",
+        "options": "$getoptions.project.subsectors($get(\"project_sector\").value)",
+        "name": "project_sub_sector",
+        "id": "project_sub_sector"
+      },
+      {
+        "$formkit": "select",
+        "label": "$gettext(\"Project name\")",
+        "key": "project_name",
+        "placeholder": "$gettext(\"Please select\")",
+        "if": "$get(\"project_sub_sector\").value",
+        "options": "$getoptions.project.outputs($get(\"project_sub_sector\").value)",
+        "name": "project_name",
+        "id": "project_name"
+      },
+      {
+        "$formkit": "select",
+        "label": "$gettext(\"Objective\")",
+        "key": "objective",
+        "placeholder": "$gettext(\"Please select\")",
+        "if": "$get(\"project_sub_sector\").value && $get(\"project_name\").value && $get(\"project_sector\").value",
+        "options": "$getoptions.objectives($get(\"project_sector\").value,$get(\"project_sub_sector\").value,$get(\"project_name\").value)",
+        "name": "objective",
+        "help": "$gettext(\"Please select sector, sub sector and project name\")",
+        "id": "objective"
+      },
+      {
+        "$formkit": "text",
+        "label": "$gettext(\"GPS Coordinate - LATITUDE\")",
+        "name": "latitude"
+      },
+      {
+        "$formkit": "text",
+        "label": "$gettext(\"GPS Coordinate - LONGITUDE\")",
+        "name": "longitude"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"Is a women priority?\")",
+        "key": "woman_priority",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "name": "women_priority"
+      }
+    ],
+    "icon": "las la-info-circle"
+  },
+  {
+    "id": "projectbeneficiaries",
+    "title": "Project beneficiaries",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "number",
+        "label": "$gettext(\"Number of households\")",
+        "placeholder": "$gettext(\"Please enter\")",
+        "min": 0,
+        "name": "number_of_households",
+        "validation": "shouldNotAcceptNegativeValue"
+      },
+      {
+        "$formkit": "number",
+        "label": "$gettext(\"No. of women\")",
+        "placeholder": "$gettext(\"Please enter\")",
+        "min": 0,
+        "name": "no_of_women",
+        "validation": "shouldNotAcceptNegativeValue"
+      },
+      {
+        "$formkit": "text",
+        "label": "$gettext(\"No. of men\")",
+        "placeholder": "$gettext(\"Please enter\")",
+        "min": 0,
+        "name": "no_of_men",
+        "validation": "shouldNotAcceptNegativeValue"
+      }
+    ],
+    "icon": "las la-info-circle"
+  },
+  {
+    "id": "projectoutput",
+    "title": "Project outputs",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "repeater",
+        "addLabel": "$gettext(\"Add output\")",
+        "upControl": false,
+        "downControl": false,
+        "name": "repeaterProjectOutput",
+        "itemsClass": "repeater",
+        "itemClass": "repeater-children-index",
+        "id": "repeaterProjectOutput",
+        "removeLabel": "$gettext(\"Remove\")",
+        "removeAction": "$repeaterRemoveAction",
+        "sectionsSchema": {
+          "remove": {
+            "children": [
+              {
+                "$el": "button",
+                "if": "$value.length > 1",
+                "attrs": {
+                  "data-index": "$index",
+                  "data-repeaterid": "$id",
+                  "onClick": "$attrs.removeAction",
+                  "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base"
+                },
+                "children": [
+                  "$attrs.removeLabel"
+                ]
+              }
+            ]
+          }
+        },
+        "children": [
+          {
+            "$el": "div",
+            "children": [
+              "Output ",
+              {
+                "$el": "span",
+                "children": [
+                  "$: ($index + 1)"
+                ]
+              }
+            ],
+            "attrs": {
+              "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+            }
+          },
+          {
+            "$formkit": "select",
+            "key": "output",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Project output\")",
+            "if": "$getoptions.project.outputs($get(\"project_sub_sector\").value).length",
+            "options": "$getoptions.project.outputs($get(\"project_sub_sector\").value)",
+            "name": "output",
+            "id": "output"
+          },
+          {
+            "$formkit": "select",
+            "key": "activity",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Project activity\")",
+            "options": "$getoptions.common.selectOptions(\"zActivities\")",
+            "name": "activity",
+            "id": "activity"
+          },
+          {
+            "$formkit": "number",
+            "min": 0,
+            "label": "$gettext(\"Quantity\")",
+            "name": "quantity",
+            "validation": "shouldNotAcceptNegativeValue"
+          },
+          {
+            "$formkit": "dropdown",
+            "key": "unit",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Unit\")",
+            "options": [
+              {
+                "value": "1",
+                "label": "m2"
+              },
+              {
+                "value": "2",
+                "label": "m"
+              },
+              {
+                "value": "3",
+                "label": "m3"
+              },
+              {
+                "value": "4",
+                "label": "Number"
+              },
+              {
+                "value": "5",
+                "label": "Depth Mete"
+              },
+              {
+                "value": "6",
+                "label": "Package"
+              },
+              {
+                "value": "7",
+                "label": "Km"
+              },
+              {
+                "value": "8",
+                "label": "Sheet"
+              },
+              {
+                "value": "9",
+                "label": "Box"
+              }
+            ],
+            "name": "unit",
+            "selectIcon": "angleDown"
+          },
+          {
+            "$formkit": "radio",
+            "label": "$gettext(\"Is it the main project?\")",
+            "key": "woman_priority",
+            "options": "$getoptions.translatedOptions('Yes', 'No')",
+            "name": "woman_priority"
+          }
+        ]
+      }
+    ],
+    "icon": "las la-users-cog"
+  }
+]

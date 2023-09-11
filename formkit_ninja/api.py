@@ -1,9 +1,8 @@
-import datetime
 import warnings
 from typing import List
 from uuid import UUID
 
-from django.db.models import F, Q
+from django.db.models import F
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import ModelSchema, Router
@@ -19,7 +18,22 @@ class FormKitSchemaIn(ModelSchema):
         model_fields = "__all__"
 
 
+class SchemaLabel(ModelSchema):
+    class Config:
+        model = models.SchemaLabel
+        model_fields = ("lang", "label")
+
+
+class SchemaDescription(ModelSchema):
+    class Config:
+        model = models.SchemaLabel
+        model_fields = ("lang", "label")
+
+
 class FormKitSchemaListOut(ModelSchema):
+    schemalabel_set: list[SchemaLabel]
+    schemadescription_set: list[SchemaDescription]
+
     class Config:
         model = models.FormKitSchema
         model_fields = ("id", "label")
@@ -40,19 +54,20 @@ class NodeChildrenOut(ModelSchema):
         model_fields = ("parent", "child", "order")
 
 
-class OptionLabel(ModelSchema):
-    class Config:
-        model = models.OptionLabel
-        model_fields = ("lang", "label")
-
-
 class Option(ModelSchema):
     group_name: str  # This is annotation of the model `content_type_model`
-    optionlabel_set: list[OptionLabel]
+    value: str
+    # Note: For other projects you may want to extend this with additional languages
+    label_tet: str | None
+    label_en: str | None
+    label_pt: str | None
+    # This is an optional field used to indicate the last update
+    # It's linked to a Django pg trigger instance in Partisipa
+    change_id: int | None = None
 
     class Config:
         model = models.Option
-        model_fields = ("id", "object_id")
+        model_fields = ("value",)
 
 
 @router.get("list-schemas", response=list[FormKitSchemaListOut])
@@ -91,13 +106,46 @@ def get_components(request):
 
 
 @router.get(
-    "schema/{schema_id}",
+    "schema/by-uuid/{schema_id}",
     response=formkit_schema.FormKitSchema,
     exclude_none=True,
     by_alias=True,
 )
 def get_schemas(request, schema_id: UUID):
+    """
+    Get a schema based on its UUID
+    """
     schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, id=schema_id)
+    model = schema.to_pydantic()
+    return model
+
+
+@router.get(
+    "schema/all",
+    response=list[formkit_schema.FormKitSchema],
+    exclude_none=True,
+    by_alias=True,
+)
+def get_all_schemas(request):
+    """
+    Get all schemas
+    """
+    schemas = models.FormKitSchema.objects.all()
+    model = [s.to_pydantic() for s in schemas]
+    return model
+
+
+@router.get(
+    "schema/by-label/{label}",
+    response=formkit_schema.FormKitSchema,
+    exclude_none=True,
+    by_alias=True,
+)
+def get_schema_by_label(request, label: str):
+    """
+    Get a schema based on its label
+    """
+    schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, label=label)
     model = schema.to_pydantic()
     return model
 
@@ -109,34 +157,17 @@ def get_schemas(request, schema_id: UUID):
     by_alias=True,
 )
 def get_node(request, node_id: UUID):
+    """
+    Gets a node based on its UUID
+    """
     node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
     instance = node.get_node()
     return instance
 
 
 @router.get("/options", response=list[Option], exclude_none=True)
-def list_options(request: HttpRequest, response: HttpResponse, since: str = None):
+def list_options(request: HttpRequest, response: HttpResponse):
     """
-    List all available options from the zTables
-    and the associated Translations
+    List all available "native" FormKit ninja labels and links
     """
-
-    model = Option.Config.model
-    qs = model.objects.all()
-
-    if since is not None and since != "":
-        # Python 3.10 does not support a trailing 'Z'
-        if since.endswith("Z"):
-            since = since[:-1] + "+00:00"
-        try:
-            ts = datetime.datetime.fromisoformat(since)
-            qs = qs.filter(Q(last_updated__gt=ts))
-        except Exception as E:
-            warnings.warn(f"{E}")
-    try:
-        response["X-lastupdated"] = qs.latest("last_updated").last_updated.isoformat()
-    except model.DoesNotExist:
-        # if there are no changes, use the same header as was sent
-        if since:
-            response["X-lastupdated"] = since
-    return qs.annotate(group_name=F("group__group")).prefetch_related("optionlabel_set")
+    return models.Option.objects.annotate(group_name=F("group__group"))

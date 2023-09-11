@@ -1,0 +1,401 @@
+[
+  {
+    "id": "meetingInformation",
+    "title": "Location",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "select",
+        "id": "district",
+        "name": "district",
+        "key": "district",
+        "label": "$gettext(Municipality)",
+        "options": "$getLocations()"
+      },
+      {
+        "$formkit": "select",
+        "id": "administrative_post",
+        "name": "administrative_post",
+        "key": "administrative_post",
+        "label": "$gettext(\"Administrative Post\")",
+        "options": "$getLocations($get(district).value)",
+        "if": "$get(district).value"
+      },
+      {
+        "$formkit": "select",
+        "id": "suco",
+        "name": "suco",
+        "key": "suco",
+        "label": "$gettext(Suco)",
+        "options": "$getLocations($get(district).value, $get(administrative_post).value)",
+        "if": "$get(administrative_post).value"
+      },
+      {
+        "$formkit": "datepicker",
+        "name": "date",
+        "id": "date",
+        "key": "date",
+        "label": "$gettext(\"Date\")",
+        "format": "DD/MM/YYYY",
+        "valueFormat": "DD/MM/YYYY",
+        "calendarIcon": "calendar",
+        "nextIcon": "angleRight",
+        "prevIcon": "angleLeft",
+        "_currentDate": "$getCurrentDate",
+        "sectionsSchema": {
+          "day": {
+            "children": [
+              "$day.getDate()",
+              {
+                "if": "$attrs._currentDate().day === $day.getDate()",
+                "children": [
+                  {
+                    "if": "$attrs._currentDate().month === $day.getMonth()",
+                    "children": [
+                      {
+                        "$el": "div",
+                        "if": "$attrs._currentDate().year === $day.getFullYear()",
+                        "attrs": {
+                          "class": "formkit-day-highlight"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "icon": "las la-map-marked-alt"
+  },
+  {
+    "id": "projectteam",
+    "title": "Project implementation team",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "repeater",
+        "addLabel": "$gettext(\"Add another member\")",
+        "upControl": false,
+        "downControl": false,
+        "name": "repeaterProjectTeam",
+        "itemsClass": "repeater",
+        "itemClass": "repeater-children-index",
+        "max": 3,
+        "min": 1,
+        "validationRules": "validateProjectMember",
+        "id": "repeaterProjectTeam",
+        "removeLabel": "$gettext(\"Remove\")",
+        "removeAction": "$repeaterRemoveAction",
+        "sectionsSchema": {
+          "remove": {
+            "children": [
+              {
+                "$el": "button",
+                "if": "$value.length > 1",
+                "attrs": {
+                  "data-index": "$index",
+                  "data-repeaterid": "$id",
+                  "onClick": "$attrs.removeAction",
+                  "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base"
+                },
+                "children": [
+                  "$attrs.removeLabel"
+                ]
+              }
+            ]
+          }
+        },
+        "children": [
+          {
+            "$el": "div",
+            "children": [
+              "Elected Member ",
+              {
+                "$el": "span",
+                "children": [
+                  "$: ($index + 1)"
+                ]
+              },
+              " Project Implementation Team - EIP"
+            ],
+            "attrs": {
+              "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+            }
+          },
+          {
+            "$formkit": "dropdown",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Round\")",
+            "options": [
+              1,
+              2
+            ],
+            "selectIcon": "angleDown",
+            "name": "round"
+          },
+          {
+            "$formkit": "dropdown",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Position\")",
+            "options": "$getoptions.translatedOptions('Chief EIP', 'Secretary', 'Treasurer')",
+            "selectIcon": "angleDown",
+            "name": "position"
+          },
+          {
+            "$formkit": "text",
+            "label": "$gettext(\"Name\")",
+            "placeholder": "$gettext(\"Please enter\")",
+            "name": "name"
+          },
+          {
+            "$formkit": "radio",
+            "label": "$gettext(\"Gender\")",
+            "options": "$getoptions.translatedOptions('Female', 'Male')",
+            "optionsClass": "flex flex-wrap",
+            "optionClass": "mr-6",
+            "name": "gender"
+          },
+          {
+            "$formkit": "radio",
+            "label": "$gettext(\"Person with a disability\")",
+            "options": "$getoptions.translatedOptions('Yes', 'No')",
+            "optionsClass": "flex flex-wrap",
+            "optionClass": "mr-6",
+            "name": "person_with_disability"
+          },
+          {
+            "$formkit": "tel",
+            "label": "$gettext(\"Phone number\")",
+            "name": "phone_number",
+            "validation": "contains_numeric|length:8,8",
+            "maxLength": 8,
+            "validationVisibility": "dirty"
+          }
+        ]
+      }
+    ],
+    "sectionTitle": "Election results",
+    "icon": "las la-users-cog"
+  },
+  {
+    "id": "planning",
+    "title": "Planning and Accountability Commision - KPA",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "repeater",
+        "addLabel": "$gettext(\"Add another member\")",
+        "upControl": false,
+        "downControl": false,
+        "name": "repeaterPlanning",
+        "itemsClass": "repeater",
+        "itemClass": "repeater-children-index",
+        "max": 2,
+        "min": 1,
+        "validationRules": "validatePlanningMember",
+        "id": "repeaterPlanning",
+        "removeLabel": "$gettext(\"Remove\")",
+        "removeAction": "$repeaterRemoveAction",
+        "sectionsSchema": {
+          "remove": {
+            "children": [
+              {
+                "$el": "button",
+                "if": "$value.length > 1",
+                "attrs": {
+                  "data-index": "$index",
+                  "data-repeaterid": "$id",
+                  "onClick": "$attrs.removeAction",
+                  "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base"
+                },
+                "children": [
+                  "$attrs.removeLabel"
+                ]
+              }
+            ]
+          }
+        },
+        "children": [
+          {
+            "$el": "div",
+            "children": [
+              "Elected Member ",
+              {
+                "$el": "span",
+                "children": [
+                  "$: ($index + 1)"
+                ]
+              },
+              " Planning and Accountability Commission - KPA"
+            ],
+            "attrs": {
+              "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+            }
+          },
+          {
+            "$formkit": "dropdown",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Round\")",
+            "options": [
+              1,
+              2
+            ],
+            "selectIcon": "angleDown",
+            "name": "round"
+          },
+          {
+            "$formkit": "dropdown",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Position\")",
+            "options": "$getoptions.translatedOptions('President', 'Secretary')",
+            "selectIcon": "angleDown",
+            "name": "position"
+          },
+          {
+            "$formkit": "text",
+            "label": "$gettext(\"Name\")",
+            "placeholder": "$gettext(\"Please enter\")",
+            "name": "name"
+          },
+          {
+            "$formkit": "radio",
+            "label": "$gettext(\"Gender\")",
+            "options": "$getoptions.translatedOptions('Female', 'Male')",
+            "optionsClass": "flex flex-wrap",
+            "optionClass": "mr-6",
+            "name": "gender"
+          },
+          {
+            "$formkit": "radio",
+            "label": "$gettext(\"Person with a disability\")",
+            "options": "$getoptions.translatedOptions('Yes', 'No')",
+            "optionsClass": "flex flex-wrap",
+            "optionClass": "mr-6",
+            "name": "person_with_disability"
+          },
+          {
+            "$formkit": "tel",
+            "label": "$gettext(\"Phone number\")",
+            "name": "phone_number",
+            "validation": "contains_numeric|length:8,8",
+            "maxLength": 8,
+            "validationVisibility": "dirty"
+          }
+        ]
+      }
+    ],
+    "icon": "las la-balance-scale"
+  },
+  {
+    "id": "sukus",
+    "title": "Suku facilitators",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "repeater",
+        "addLabel": "$gettext(\"Add another member\")",
+        "upControl": false,
+        "downControl": false,
+        "name": "repeaterSukus",
+        "itemsClass": "repeater",
+        "itemClass": "repeater-children-index",
+        "max": 2,
+        "min": 1,
+        "validationRules": "validateSukuFacilitators",
+        "id": "repeaterSukus",
+        "removeLabel": "$gettext(\"Remove\")",
+        "removeAction": "$repeaterRemoveAction",
+        "sectionsSchema": {
+          "remove": {
+            "children": [
+              {
+                "$el": "button",
+                "if": "$value.length > 1",
+                "attrs": {
+                  "data-index": "$index",
+                  "data-repeaterid": "$id",
+                  "onClick": "$attrs.removeAction",
+                  "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base"
+                },
+                "children": [
+                  "$attrs.removeLabel"
+                ]
+              }
+            ]
+          }
+        },
+        "children": [
+          {
+            "$el": "div",
+            "children": [
+              "Elected Member ",
+              {
+                "$el": "span",
+                "children": [
+                  "$: ($index + 1)"
+                ]
+              },
+              " Suku facilitator"
+            ],
+            "attrs": {
+              "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+            }
+          },
+          {
+            "$formkit": "dropdown",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Round\")",
+            "options": [
+              1,
+              2
+            ],
+            "selectIcon": "angleDown",
+            "name": "round"
+          },
+          {
+            "$formkit": "dropdown",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Position\")",
+            "options": "$getoptions.translatedOptions('Suku Facilitator Male', 'Suku Facilitator Female')",
+            "selectIcon": "angleDown",
+            "name": "position"
+          },
+          {
+            "$formkit": "text",
+            "label": "$gettext(\"Name\")",
+            "placeholder": "$gettext(\"Please enter\")",
+            "name": "name"
+          },
+          {
+            "$formkit": "radio",
+            "label": "$gettext(\"Gender\")",
+            "options": "$getoptions.translatedOptions('Female', 'Male')",
+            "optionsClass": "flex flex-wrap",
+            "optionClass": "mr-6",
+            "name": "gender"
+          },
+          {
+            "$formkit": "radio",
+            "label": "$gettext(\"Person with a disability\")",
+            "options": "$getoptions.translatedOptions('Yes', 'No')",
+            "optionsClass": "flex flex-wrap",
+            "optionClass": "mr-6",
+            "name": "person_with_disability"
+          },
+          {
+            "$formkit": "tel",
+            "label": "$gettext(\"Phone number\")",
+            "name": "phone_number",
+            "validation": "contains_numeric|length:8,8",
+            "maxLength": 8,
+            "validationVisibility": "dirty"
+          }
+        ]
+      }
+    ],
+    "icon": "las la-balance-scale"
+  }
+]

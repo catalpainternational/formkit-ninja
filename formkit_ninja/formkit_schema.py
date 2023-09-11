@@ -20,6 +20,10 @@ HtmlAttrs = dict[str, str | dict[str, str]]
 
 Node = ForwardRef("Node")
 
+# Radio, Select, Autocomplete and Dropdown nodes have
+# these options
+OptionsType = str | list[dict[str, Any]] | list[str] | dict[str, str] | None
+
 
 class FormKitSchemaCondition(BaseModel):
     node_type: Literal["condition"]
@@ -130,10 +134,15 @@ class FormKitSchemaProps(BaseModel):
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
     classes: dict[str, str] | None = Field(None)
-    additional_props: dict[str, str] | None = Field(None)
+    # Additional Props can be quite a complicated structure
+    additional_props: dict[str, str | dict[str, Any]] | None = Field(None)
 
     class Config:
         allow_population_by_field_name = True
+
+
+# We defined this after the model above as it's a circular reference
+ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoCircularRefs | None
 
 
 class TextNode(FormKitSchemaProps):
@@ -193,21 +202,21 @@ class RadioNode(FormKitSchemaProps):
     formkit: Literal["radio"] = "radio"
     dollar_formkit: str = Field(default="radio", alias="$formkit")
     name: str | None
-    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: OptionsType = Field(None)
 
 
 class SelectNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["select"] = "select"
     dollar_formkit: str = Field(default="select", alias="$formkit")
-    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: OptionsType = Field(None)
 
 
 class AutocompleteNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["autocomplete"] = "autocomplete"
     dollar_formkit: str = Field(default="autocomplete", alias="$formkit")
-    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: OptionsType = Field(None)
 
 
 class EmailNode(FormKitSchemaProps):
@@ -226,7 +235,7 @@ class DropDownNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
     formkit: Literal["dropdown"] = "dropdown"
     dollar_formkit: str = Field(default="dropdown", alias="$formkit")
-    options: str | list[dict[str, Any]] | list[str] | dict[str, str] | None = Field(None)
+    options: OptionsType = Field(None)
     empty_message: str | None = Field(None, alias="empty-message")
     select_icon: str | None = Field(None, alias="selectIcon")
     placeholder: str | None
@@ -249,6 +258,8 @@ class GroupNode(FormKitSchemaProps):
     text: str | None
 
 
+# This is useful for "isinstance" checks
+# which do not work with "Annotated" below
 FormKitType = (
     TextNode
     | CheckBoxNode
@@ -435,6 +446,9 @@ def get_node_type(obj: dict) -> Discriminators:
     fields: Discriminators = {}
     if "__root__" in obj:
         obj = obj["__root__"]
+    if isinstance(obj, str):
+        fields["node_type"] = "text"
+        return fields
     for key, return_value in (
         # -- Loading from "raw json"
         ("$el", "element"),
@@ -463,55 +477,88 @@ def get_node_type(obj: dict) -> Discriminators:
     raise KeyError("Could not determine node type")
 
 
+NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
+
+
 class FormKitNode(BaseModel):
     __root__: Node
 
     @classmethod
-    def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
+    def parse_obj(cls: Type["Model"], obj: str | dict) -> "Model":
         """
         This classmethod differentiates between the different "Node" types
         when deserializing
         """
+
+        def get_additional_props(object_in: dict[str, Any], exclude: set[str] = set()) -> dict[str, Any] | None:
+            """
+            Parse the object or database return (dict)
+            to break out fields we handle in JSON
+
+            A FormKit node can have 'arbitrary' additional properties
+            For instance classes to apply to child nodes
+            here we can't realistically cover every scenario so
+            fall back to JSON storage for thes
+
+            However: if we're coming from the database we already store these in a separate field
+            """
+            # Things which are not "other attributes"
+            set_handled_keys = {
+                "$formkit",
+                "$el",
+                "if",
+                "for",
+                "then",
+                "else",
+                "children",
+                "dollar_formkit",
+                "node_type",
+                "formkit",
+                "id",
+            }
+            # Merge "additional props" from the input object
+            # with any "unknown" params we received
+            props: dict[str, Any] = object_in.get("additional_props", {})
+            props.update({k: obj[k] for k in object_in.keys() - exclude - set_handled_keys})
+            return props
+
+        def get_children(object_in: dict):
+            if children_in := object_in.get("children", None):
+                if isinstance(children_in, str):
+                    children_in = [children_in]
+
+                children_out = []
+                for n in children_in:
+                    if isinstance(n, str):
+                        children_out.append(n)
+                    else:
+                        try:
+                            children_out.append(cls.parse_obj(n).__root__)
+                        except Exception as E:
+                            warnings.warn(f"{E}")
+                return children_out
+            else:
+                return None
+
+        if isinstance(obj, str):
+            return obj
+
+        # id is reserved in Django models so rename this to `html_id`
+        aliases = {}
         if "id" in obj:
-            obj["html_id"] = obj.pop("id")
+            aliases["html_id"] = obj.get("id")
 
         # Parsing is complicated by the fact that some instances use differentiation we
         # can't express in Python, so the `get_node_type` here tries to
         # translate the possible node types we received
         try:
-            parsed = super().parse_obj({**get_node_type(obj), **obj})
+            parsed = super().parse_obj({**get_node_type(obj), **obj, **aliases})
+            node: NodeTypes = parsed.__root__
         except KeyError as E:
             raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
-
-        # A FormKit node can have 'arbitrary' additional properties
-        # For instance classes to apply to child nodes
-        # here we can't realistically cover every scenario so
-        # fall back to JSON storage for these
-        if hasattr(parsed.__root__, "additional_props"):
-            add_props_keys = (
-                obj.keys()
-                - parsed.__root__.dict().keys()
-                - {"$formkit", "if", "for", "then", "else", "children", "dollar_formkit", "node_type", "formkit"}
-            )
-            for k in add_props_keys:
-                parsed.__root__.additional_props = {k: obj[k]}
-
+        node.additional_props = get_additional_props(obj, exclude=set(node.__fields__))  # , node)
         # Recursively parse 'child' nodes back to Pydantic models for 'children'
-        if getattr(parsed.__root__, "children", None):
-            children = []
-            for n in obj["children"]:
-                # Especially for HTML, we can have a 'string' value
-                # of HTML content
-                if isinstance(n, str):
-                    # What to do here? Append the `str` or ignore?
-                    continue
-                    # children.append(str)
-                try:
-                    children.append(cls.parse_obj(n).__root__)
-                except Exception as E:
-                    warnings.warn(f"{E}")
-            parsed.__root__.children = children
-
+        node.children = get_children(obj)
         return parsed
 
 
@@ -520,7 +567,17 @@ class FormKitSchema(BaseModel):
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
-        return cls(__root__=[FormKitNode.parse_obj(_).__root__ for _ in obj])
+        """
+        Parse a set of FormKit nodes or a single 'GroupNode' to
+        a 'schema'
+        """
+        # If we're parsing a single node, wrap it in a list
+        if isinstance(obj, dict):
+            return cls.parse_obj([obj])
+        try:
+            return cls(__root__=[FormKitNode.parse_obj(_).__root__ for _ in obj])
+        except TypeError:
+            raise
 
 
 FormKitSchema.update_forward_refs()

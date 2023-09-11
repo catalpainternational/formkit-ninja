@@ -14,7 +14,11 @@ class Migration(migrations.Migration):
             model_name="option",
             name="group",
             field=models.ForeignKey(
-                default="", on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.optiongroup"
+                null=True,
+                blank=True,
+                default=None,
+                on_delete=django.db.models.deletion.CASCADE,
+                to="formkit_ninja.optiongroup",
             ),
             preserve_default=False,
         ),

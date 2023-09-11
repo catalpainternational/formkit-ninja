@@ -1,0 +1,321 @@
+[
+  {
+    "id": "meetinginformation",
+    "title": "Location",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "select",
+        "id": "district",
+        "name": "district",
+        "key": "district",
+        "label": "$gettext(Municipality)",
+        "options": "$getLocations()"
+      },
+      {
+        "$formkit": "select",
+        "id": "administrative_post",
+        "name": "administrative_post",
+        "key": "administrative_post",
+        "label": "$gettext(\"Administrative Post\")",
+        "options": "$getLocations($get(district).value)",
+        "if": "$get(district).value"
+      },
+      {
+        "$formkit": "select",
+        "id": "suco",
+        "name": "suco",
+        "key": "suco",
+        "label": "$gettext(Suco)",
+        "options": "$getLocations($get(district).value, $get(administrative_post).value)",
+        "if": "$get(administrative_post).value"
+      },
+      {
+        "$formkit": "datepicker",
+        "name": "date",
+        "id": "date",
+        "key": "date",
+        "label": "$gettext(\"Date\")",
+        "format": "DD/MM/YYYY",
+        "valueFormat": "DD/MM/YYYY",
+        "calendarIcon": "calendar",
+        "nextIcon": "angleRight",
+        "prevIcon": "angleLeft",
+        "_currentDate": "$getCurrentDate",
+        "sectionsSchema": {
+          "day": {
+            "children": [
+              "$day.getDate()",
+              {
+                "if": "$attrs._currentDate().day === $day.getDate()",
+                "children": [
+                  {
+                    "if": "$attrs._currentDate().month === $day.getMonth()",
+                    "children": [
+                      {
+                        "$el": "div",
+                        "if": "$attrs._currentDate().year === $day.getFullYear()",
+                        "attrs": {
+                          "class": "formkit-day-highlight"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "$formkit": "select",
+        "name": "month",
+        "label": "$gettext(\"Month\")",
+        "options": [
+          {
+            "value": 1,
+            "label": "January"
+          },
+          {
+            "value": 2,
+            "label": "February"
+          },
+          {
+            "value": 3,
+            "label": "March"
+          },
+          {
+            "value": 4,
+            "label": "April"
+          },
+          {
+            "value": 5,
+            "label": "May"
+          },
+          {
+            "value": 6,
+            "label": "June"
+          },
+          {
+            "value": 7,
+            "label": "July"
+          },
+          {
+            "value": 8,
+            "label": "August"
+          },
+          {
+            "value": 9,
+            "label": "September"
+          },
+          {
+            "value": 10,
+            "label": "October"
+          },
+          {
+            "value": 11,
+            "label": "November"
+          },
+          {
+            "value": 12,
+            "label": "December"
+          }
+        ],
+        "placeholder": "$gettext(\"Select month\")"
+      },
+      {
+        "$formkit": "select",
+        "name": "year",
+        "label": "$gettext(\"Year\")",
+        "options": [
+          2012,
+          2013,
+          2014,
+          2015,
+          2016,
+          2017,
+          2018,
+          2019,
+          2020,
+          2021,
+          2022,
+          2023
+        ],
+        "placeholder": "$gettext(\"Select year\")"
+      }
+    ],
+    "icon": "las la-info-circle"
+  },
+  {
+    "id": "financialManagement",
+    "title": "Financial Management System and Policy",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"1. Fund withdrawal mechanism is following PNDS mechanism\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "fund_withdrawal_mechanism_is_following_pnds_mechanism",
+        "id": "fund_withdrawal_mechanism_is_following_pnds_mechanism",
+        "key": "fund_withdrawal_mechanism_is_following_pnds_mechanism"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"2. Complete transaction in the Bank book (FF 2 and FF 3) and the balance is match with the bank statement balance\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "complete_transaction_in_the_bank_book",
+        "id": "complete_transaction_in_the_bank_book",
+        "key": "complete_transaction_in_the_bank_book"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"3. Complete the Payment Vouchers (FF 7) and signed\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "complete_the_payment_vouchers_and_signed",
+        "id": "complete_the_payment_vouchers_and_signed",
+        "key": "complete_the_payment_vouchers_and_signed"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"4. Document/evidence are complete, and the value matches with the Payment Vouchers (FF 7)\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "document_are_complete_and_matches",
+        "id": "document_are_complete_and_matches",
+        "key": "document_are_complete_and_matches"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"5. Complete transaction in the Cash book (FF 9 and FF 10) and signed\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "complete_transaction_in_the_cash_book",
+        "id": "complete_transaction_in_the_cash_book",
+        "key": "complete_transaction_in_the_cash_book"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"6. Total Cash in the hands for both Operational and Infrastructure Funds is not more than USD 1,000 (FF 11)\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "total_cash_is_not_more_than_usd_1000",
+        "id": "total_cash_is_not_more_than_usd_1000",
+        "key": "total_cash_is_not_more_than_usd_1000"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"7. Complete Finance Report (FF 12) and signed\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "complete_finance_report_and_signed",
+        "id": "complete_finance_report_and_signed",
+        "key": "complete_finance_report_and_signed"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"8. All Original finance documents are kept properly in the Village /Suku\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "all_original_finance_docs_are_kept_properly",
+        "id": "all_original_finance_docs_are_kept_properly",
+        "key": "all_original_finance_docs_are_kept_properly"
+      }
+    ],
+    "icon": "las la-users-cog"
+  },
+  {
+    "id": "procurementSystem",
+    "title": "Procurement System and Policy",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"9. A PNDS Procurement process mechanism is implemented based on the guidelines\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "pnds_procurement_process_mechanism_is_implemented",
+        "id": "pnds_procurement_process_mechanism_is_implemented",
+        "key": "pnds_procurement_process_mechanism_is_implemented"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"10. Complete FF16, FF17, FF18, FF19, FF 20 and FF 21 forms and signed\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "complete_some_forms",
+        "id": "complete_some_forms",
+        "key": "complete_some_forms"
+      },
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"11. All Original procurement documents are kept properly in the Village/Suku\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "all_original_procurement_documents_are_kept_properly",
+        "id": "all_original_procurement_documents_are_kept_properly",
+        "key": "all_original_procurement_documents_are_kept_properly"
+      }
+    ],
+    "icon": "las la-file-invoice"
+  },
+  {
+    "id": "transparencyAndAccountability",
+    "title": "Transparency and Accountability",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "radio",
+        "label": "$gettext(\"12. Finance reports (FF 12) are published monthly on the village community notice board\")",
+        "options": "$getoptions.translatedOptions('Yes', 'No')",
+        "optionsClass": "flex flex-wrap",
+        "optionClass": "mr-6",
+        "name": "finance_reports_are_published_monthly",
+        "id": "finance_reports_are_published_monthly",
+        "key": "finance_reports_are_published_monthly"
+      }
+    ],
+    "icon": "las la-money-check-alt"
+  },
+  {
+    "id": "results",
+    "title": "Results",
+    "$formkit": "group",
+    "children": [
+      {
+        "$el": "div",
+        "attrs": {
+          "class": "w-full flex items-center justify-between bg-zinc-400 rounded-[5px] px-4.5 py-[15px] text-2base font-bold mt-4"
+        },
+        "children": [
+          {
+            "$el": "p",
+            "children": [
+              "$interpolate.ff14($formula.ff14().total)"
+            ]
+          },
+          {
+            "$el": "p",
+            "children": [
+              "$formula.ff14().status"
+            ]
+          }
+        ]
+      }
+    ],
+    "icon": "las la-clipboard-check"
+  }
+]

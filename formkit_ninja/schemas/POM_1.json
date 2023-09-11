@@ -1,0 +1,187 @@
+[
+  {
+    "id": "meetingInformation",
+    "title": "Location",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "select",
+        "id": "district",
+        "name": "district",
+        "key": "district",
+        "label": "$gettext(Municipality)",
+        "options": "$getLocations()"
+      },
+      {
+        "$formkit": "select",
+        "id": "administrative_post",
+        "name": "administrative_post",
+        "key": "administrative_post",
+        "label": "$gettext(\"Administrative Post\")",
+        "options": "$getLocations($get(district).value)",
+        "if": "$get(district).value"
+      },
+      {
+        "$formkit": "select",
+        "id": "suco",
+        "name": "suco",
+        "key": "suco",
+        "label": "$gettext(Suco)",
+        "options": "$getLocations($get(district).value, $get(administrative_post).value)",
+        "if": "$get(administrative_post).value"
+      },
+      {
+        "$formkit": "datepicker",
+        "name": "date",
+        "id": "date",
+        "key": "date",
+        "label": "$gettext(\"Date\")",
+        "format": "DD/MM/YYYY",
+        "valueFormat": "DD/MM/YYYY",
+        "calendarIcon": "calendar",
+        "nextIcon": "angleRight",
+        "prevIcon": "angleLeft",
+        "_currentDate": "$getCurrentDate",
+        "sectionsSchema": {
+          "day": {
+            "children": [
+              "$day.getDate()",
+              {
+                "if": "$attrs._currentDate().day === $day.getDate()",
+                "children": [
+                  {
+                    "if": "$attrs._currentDate().month === $day.getMonth()",
+                    "children": [
+                      {
+                        "$el": "div",
+                        "if": "$attrs._currentDate().year === $day.getFullYear()",
+                        "attrs": {
+                          "class": "formkit-day-highlight"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "$formkit": "select",
+        "name": "year",
+        "label": "$gettext(\"Fiscal year\")",
+        "options": [
+          2012,
+          2013,
+          2014,
+          2015,
+          2016,
+          2017,
+          2018,
+          2019,
+          2020,
+          2021,
+          2022,
+          2023
+        ],
+        "placeholder": "$gettext(\"Select year\")"
+      }
+    ],
+    "icon": "las la-info-circle"
+  },
+  {
+    "id": "activity",
+    "title": "Activity",
+    "$formkit": "group",
+    "children": [
+      {
+        "$formkit": "repeater",
+        "addLabel": "$gettext(\"Add activity\")",
+        "upControl": false,
+        "downControl": false,
+        "name": "repeaterActivity",
+        "itemsClass": "repeater",
+        "itemClass": "repeater-children-index",
+        "id": "repeaterActivity",
+        "removeLabel": "$gettext(\"Remove\")",
+        "removeAction": "$repeaterRemoveAction",
+        "sectionsSchema": {
+          "remove": {
+            "children": [
+              {
+                "$el": "button",
+                "if": "$value.length > 1",
+                "attrs": {
+                  "data-index": "$index",
+                  "data-repeaterid": "$id",
+                  "onClick": "$attrs.removeAction",
+                  "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base"
+                },
+                "children": [
+                  "$attrs.removeLabel"
+                ]
+              }
+            ]
+          }
+        },
+        "children": [
+          {
+            "$el": "div",
+            "children": [
+              "Activity ",
+              {
+                "$el": "span",
+                "children": [
+                  "$: ($index + 1)"
+                ]
+              }
+            ],
+            "attrs": {
+              "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+            }
+          },
+          {
+            "$formkit": "dropdown",
+            "placeholder": "$gettext(\"Please select\")",
+            "label": "$gettext(\"Activity name\")",
+            "options": [
+              "PNDS",
+              "UKL",
+              "RSS"
+            ],
+            "selectIcon": "angleDown",
+            "name": "activity"
+          },
+          {
+            "$formkit": "currency",
+            "placeholder": "$gettext(\"Please enter\")",
+            "label": "$gettext(\"Operational fund (USD)\")",
+            "name": "operational_fund",
+            "id": "operational_fund",
+            "key": "operational_fund",
+            "onChange": "$formula.pom1"
+          },
+          {
+            "$formkit": "currency",
+            "placeholder": "$gettext(\"Please enter\")",
+            "label": "$gettext(\"Infrastructure fund (USD)\")",
+            "name": "infrastructure_fund",
+            "id": "infrastructure_fund",
+            "key": "infrastructure_fund",
+            "onChange": "$formula.pom1"
+          },
+          {
+            "$formkit": "currency",
+            "placeholder": "$gettext(\"Please enter\")",
+            "label": "$gettext(\"Total (USD)\")",
+            "name": "total_fund",
+            "id": "total_fund",
+            "key": "total_fund"
+          }
+        ]
+      }
+    ],
+    "icon": "las la-users"
+  }
+]
