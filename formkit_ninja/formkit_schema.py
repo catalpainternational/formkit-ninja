@@ -211,6 +211,11 @@ class SelectNode(FormKitSchemaProps):
     dollar_formkit: str = Field(default="select", alias="$formkit")
     options: OptionsType = Field(None)
 
+class HiddenNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = "formkit"
+    formkit: Literal["hidden"] = "hidden"
+    dollar_formkit: str = Field(default="hidden", alias="$formkit")
+
 
 class AutocompleteNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = "formkit"
@@ -276,6 +281,7 @@ FormKitType = (
     | RepeaterNode
     | TelNode
     | CurrencyNode
+    | HiddenNode
 )
 
 FormKitSchemaFormKit = Annotated[
@@ -295,6 +301,7 @@ FormKitSchemaFormKit = Annotated[
         RepeaterNode,
         TelNode,
         CurrencyNode,
+        HiddenNode,
     ],
     Field(discriminator="formkit"),
 ]

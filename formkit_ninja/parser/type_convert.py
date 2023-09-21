@@ -205,6 +205,8 @@ class NodePath:
                 return self.classname
             case "repeater":
                 return f"list[{self.classname}]"
+            case "hidden":
+                return "str"
         return "str"
 
     @property

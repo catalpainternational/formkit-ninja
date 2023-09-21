@@ -36,16 +36,16 @@ def admin_user():
 
 
 @pytest.fixture()
-def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_user):  # noqa: F811
+def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_user: User):  # noqa: F811
     page.goto(f"{live_server.url}/admin", timeout=1000)
-    page.get_by_label("Username:").fill("admin")
+    page.get_by_label("Username:").fill(admin_user.username)
     page.get_by_label("Password:").fill("12341234")
     page.get_by_role("button", name="Log in").click()
     yield page
 
 
 # @pytest.mark.browser_context_args(headless=False)
-def test_home_page(live_server: live_server_helper.LiveServer, admin_page: Page, admin_user: User):  # noqa: F811
+def test_home_page(admin_page: Page):  # noqa: F811
     admin_page.get_by_role("link", name="Form kit schema nodes").click()
     admin_page.get_by_role("link", name="Add form kit schema node").click()
     # There was a bug identified by this test where "label" in JSON
