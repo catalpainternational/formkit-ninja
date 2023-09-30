@@ -19,7 +19,7 @@ class Schemas:
     def as_text(self, schema: str):
         return self.schemas[schema].read_text()
 
-    def as_json(self, schema: str):
+    def as_json(self, schema: str) -> dict:
         return json.loads(self.as_text(schema))
 
     def as_dict(self, schema: str):

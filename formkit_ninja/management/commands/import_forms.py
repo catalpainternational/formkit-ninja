@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from formkit_ninja import models
-from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
+from formkit_ninja.formkit_schema import FormKitNode, FormKitSchema as BaseModel, GroupNode
 from formkit_ninja.schemas import Schemas
 
 
@@ -16,7 +16,9 @@ class Command(BaseCommand):
         models.OptionGroup.objects.all().delete()
 
         schemas = Schemas()
-        for schema_name in schemas.schemas:
+        for schema_name in schemas.list_schemas():
             # Each part of the form becomes a 'Schema'
-            to_json = schemas.as_json(schema_name)
-            models.FormKitSchema.from_pydantic(BaseModel.parse_obj(to_json), label=schema_name)
+            schema = schemas.as_json(schema_name)
+            node: FormKitNode = FormKitNode.parse_obj(schema)
+            parsed_node: GroupNode = node.__root__
+            node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]

@@ -19,7 +19,6 @@ To use, `pip install formkit-ninja` and add the following to settings `INSTALLED
 INSTALLED_APPS = [
     ...
     "formkit_ninja",
-    "ordered_model",
     "ninja",
     ...
 ]

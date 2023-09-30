@@ -113,6 +113,6 @@ def formkit_text_node():
         "label": "$pgettext('activity_type', 'Meeting or Training')",
         "$formkit": "select",
         "placeholder": '$gettext("Please select")',
-        "additional_props": {"class": "red"},
+        "class": "red",
         "options": [{"value": "1", "label": "Training"}, {"value": "2", "label": "Meeting"}],
     }

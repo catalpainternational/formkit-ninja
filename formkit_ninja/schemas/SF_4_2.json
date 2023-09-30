@@ -1,158 +1,165 @@
-[
+{
+ "$formkit": "group",
+ "children": [
   {
-    "id": "meetinginformation",
-    "title": "Meeting information",
-    "$formkit": "group",
-    "children": [
-      {
-        "$formkit": "select",
-        "id": "district",
-        "name": "district",
-        "key": "district",
-        "label": "$gettext(Municipality)",
-        "options": "$getLocations()"
-      },
-      {
-        "$formkit": "select",
-        "id": "administrative_post",
-        "name": "administrative_post",
-        "key": "administrative_post",
-        "label": "$gettext(\"Administrative Post\")",
-        "options": "$getLocations($get(district).value)",
-        "if": "$get(district).value"
-      },
-      {
-        "$formkit": "select",
-        "id": "suco",
-        "name": "suco",
-        "key": "suco",
-        "label": "$gettext(Suco)",
-        "options": "$getLocations($get(district).value, $get(administrative_post).value)",
-        "if": "$get(administrative_post).value"
-      },
-      {
-        "$formkit": "datepicker",
-        "name": "date",
-        "id": "date",
-        "key": "date",
-        "label": "$gettext(\"Date\")",
-        "format": "DD/MM/YYYY",
-        "valueFormat": "DD/MM/YYYY",
-        "calendarIcon": "calendar",
-        "nextIcon": "angleRight",
-        "prevIcon": "angleLeft",
-        "_currentDate": "$getCurrentDate",
-        "sectionsSchema": {
-          "day": {
-            "children": [
-              "$day.getDate()",
-              {
-                "if": "$attrs._currentDate().day === $day.getDate()",
-                "children": [
-                  {
-                    "if": "$attrs._currentDate().month === $day.getMonth()",
-                    "children": [
-                      {
-                        "$el": "div",
-                        "if": "$attrs._currentDate().year === $day.getFullYear()",
-                        "attrs": {
-                          "class": "formkit-day-highlight"
-                        }
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
+   "$formkit": "group",
+   "children": [
+    {
+     "$formkit": "select",
+     "id": "district",
+     "key": "district",
+     "label": "$gettext(Municipality)",
+     "name": "district",
+     "options": "$getLocations()"
+    },
+    {
+     "$formkit": "select",
+     "id": "administrative_post",
+     "if": "$get(district).value",
+     "key": "administrative_post",
+     "label": "$gettext(\"Administrative Post\")",
+     "name": "administrative_post",
+     "options": "$getLocations($get(district).value)"
+    },
+    {
+     "$formkit": "select",
+     "id": "suco",
+     "if": "$get(administrative_post).value",
+     "key": "suco",
+     "label": "$gettext(Suco)",
+     "name": "suco",
+     "options": "$getLocations($get(district).value, $get(administrative_post).value)"
+    },
+    {
+     "$formkit": "datepicker",
+     "_currentDate": "$getCurrentDate",
+     "calendarIcon": "calendar",
+     "format": "DD/MM/YYYY",
+     "id": "date",
+     "key": "date",
+     "label": "$gettext(\"Date\")",
+     "name": "date",
+     "nextIcon": "angleRight",
+     "prevIcon": "angleLeft",
+     "sectionsSchema": {
+      "day": {
+       "children": [
+        "$day.getDate()",
+        {
+         "children": [
+          {
+           "children": [
+            {
+             "$el": "div",
+             "attrs": {
+              "class": "formkit-day-highlight"
+             },
+             "if": "$attrs._currentDate().year === $day.getFullYear()"
+            }
+           ],
+           "if": "$attrs._currentDate().month === $day.getMonth()"
           }
+         ],
+         "if": "$attrs._currentDate().day === $day.getDate()"
         }
-      },
-      {
-        "$formkit": "dropdown",
-        "label": "$gettext(\"Meeting objective\")",
-        "key": "meeting_objective",
-        "id": "meeting_objective",
-        "options": [
-          "First accountability meeting",
-          "Final accountability meeting"
-        ],
-        "selectIcon": "angleDown",
-        "name": "meeting_objective",
-        "placeholder": "$gettext(\"Please select\")"
+       ]
       }
-    ],
-    "icon": "las la-info-circle"
+     }
+    },
+    {
+     "$formkit": "dropdown",
+     "id": "meeting_objective",
+     "key": "meeting_objective",
+     "label": "$gettext(\"Meeting objective\")",
+     "name": "meeting_objective",
+     "options": [
+      "First accountability meeting",
+      "Final accountability meeting"
+     ],
+     "placeholder": "$gettext(\"Please select\")",
+     "selectIcon": "angleDown"
+    }
+   ],
+   "icon": "las la-info-circle",
+   "id": "meetinginformation",
+   "title": "Meeting information"
   },
   {
-    "id": "communitycontribution",
-    "title": "Community Contribution",
-    "$formkit": "group",
-    "children": [
+   "$formkit": "group",
+   "children": [
+    {
+     "$formkit": "repeater",
+     "addLabel": "$gettext(\"Add project\")",
+     "children": [
       {
-        "$formkit": "repeater",
-        "addLabel": "$gettext(\"Add project\")",
-        "upControl": false,
-        "downControl": false,
-        "name": "repeaterProject",
-        "itemsClass": "repeater",
-        "itemClass": "repeater-children-index",
-        "id": "repeaterProject",
-        "removeLabel": "$gettext(\"Remove\")",
-        "removeAction": "$repeaterRemoveAction",
-        "sectionsSchema": {
-          "remove": {
-            "children": [
-              {
-                "$el": "button",
-                "if": "$value.length > 1",
-                "attrs": {
-                  "data-index": "$index",
-                  "data-repeaterid": "$id",
-                  "onClick": "$attrs.removeAction",
-                  "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base"
-                },
-                "children": [
-                  "$attrs.removeLabel"
-                ]
-              }
-            ]
-          }
-        },
-        "children": [
-          {
-            "$el": "div",
-            "children": [
-              "Projetu ",
-              {
-                "$el": "span",
-                "children": [
-                  "$: ($index + 1)"
-                ]
-              }
-            ],
-            "attrs": {
-              "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-            }
-          },
-          {
-            "$formkit": "select",
-            "label": "$gettext(\"Project name\")",
-            "key": "project_name",
-            "placeholder": "$gettext(\"Please select\")",
-            "options": "$getoptions.tf1321.outputs($get(district).value, $get(administrative_post).value, $get(suco).value)",
-            "name": "project_name",
-            "id": "project_name"
-          },
-          {
-            "$formkit": "currency",
-            "label": "$gettext(\"Amount in USD\")",
-            "min": 0,
-            "placeholder": "$gettext(\"Please enter\")",
-            "name": "community_contribution_amount"
-          }
-        ]
+       "$el": "div",
+       "$formkit": "text",
+       "attrs": {
+        "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+       },
+       "children": [
+        "Projetu ",
+        {
+         "$el": "span",
+         "$formkit": "text",
+         "children": [
+          "$: ($index + 1)"
+         ],
+         "node_type": "element"
+        }
+       ],
+       "node_type": "element"
+      },
+      {
+       "$formkit": "select",
+       "id": "project_name",
+       "key": "project_name",
+       "label": "$gettext(\"Project name\")",
+       "name": "project_name",
+       "options": "$getoptions.tf1321.outputs($get(district).value, $get(administrative_post).value, $get(suco).value)",
+       "placeholder": "$gettext(\"Please select\")"
+      },
+      {
+       "$formkit": "currency",
+       "label": "$gettext(\"Amount in USD\")",
+       "min": 0,
+       "name": "community_contribution_amount",
+       "placeholder": "$gettext(\"Please enter\")"
       }
-    ],
-    "icon": "las la-users-cog"
+     ],
+     "downControl": false,
+     "id": "repeaterProject",
+     "itemClass": "repeater-children-index",
+     "itemsClass": "repeater",
+     "name": "repeaterProject",
+     "removeAction": "$repeaterRemoveAction",
+     "removeLabel": "$gettext(\"Remove\")",
+     "sectionsSchema": {
+      "remove": {
+       "children": [
+        {
+         "$el": "button",
+         "attrs": {
+          "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
+          "data-index": "$index",
+          "data-repeaterid": "$id",
+          "onClick": "$attrs.removeAction"
+         },
+         "children": [
+          "$attrs.removeLabel"
+         ],
+         "if": "$value.length > 1"
+        }
+       ]
+      }
+     },
+     "upControl": false
+    }
+   ],
+   "icon": "las la-users-cog",
+   "id": "communitycontribution",
+   "title": "Community Contribution"
   }
-]
+ ],
+ "name": "SF_4_2"
+}

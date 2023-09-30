@@ -375,7 +375,7 @@ class FormKitSchemaNode(UuidIdModel):
         # TODO: This is horribly slow
         return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
-    def get_node_values(self) -> dict:
+    def get_node_values(self, recursive: bool=True) -> dict:
         """
         Reify a 'dict' instance suitable for creating
         a FormKit Schema node from
@@ -391,27 +391,30 @@ class FormKitSchemaNode(UuidIdModel):
         # may come from an m2m
         if self.node_options:
             values["options"] = self.node_options
-
-        children = [c.get_node_values() for c in self.children.order_by("nodechildren__order")]
-        if children:
-            values["children"] = children
-        if self.additional_props:
+        if recursive:
+            children = [c.get_node_values() for c in self.children.order_by("nodechildren__order")]
+            if children:
+                values["children"] = children
+        if self.additional_props and len(self.additional_props) > 0:
             values["additional_props"] = self.additional_props
+
+        if values == {}:
+            if self.node_type == "$el":
+                values.update({"$el": "span"})
+            elif self.node_type == "$formkit":
+                values.update({"$formkit": "text"})
+
         return values
 
-    def get_node(self) -> formkit_schema.Node | str:
+    def get_node(self, **kwargs) -> formkit_schema.Node | str:
         """
         Return a "decorated" node instance
         with restored options and translated fields
         """
         if text := self.text_content:
             return text
-        node_content = self.get_node_values()
-        if node_content == {}:
-            if self.node_type == "$el":
-                node_content = {"$el": "span"}
-            elif self.node_type == "$formkit":
-                node_content = {"$formkit": "text"}
+        node_content = self.get_node_values(**kwargs)
+
         formkit_node = formkit_schema.FormKitNode.parse_obj(node_content)
         return formkit_node.__root__
 
@@ -429,19 +432,18 @@ class FormKitSchemaNode(UuidIdModel):
             input_model = input_models
             instance = cls()
             log(f"[green]Creating {instance}")
-            for label_field in ("name", "html_id", "key", "label"):
+            for label_field in ("name", "id", "key", "label"):
                 if label := getattr(input_model, label_field, None):
                     instance.label = label
                     break
-            instance.node = input_model.dict(
-                exclude={"options", "children", "additional_props"}, exclude_none=True, exclude_unset=True
-            )
 
             # Node types
             if props := getattr(input_model, "additional_props", None):
                 instance.additional_props = props
-
-            node_type = getattr(input_model, "node_type")
+            try:
+                node_type = getattr(input_model, "node_type")
+            except:
+                raise
             if node_type == "condition":
                 instance.node_type = "condition"
             elif node_type == "formkit":
@@ -454,6 +456,16 @@ class FormKitSchemaNode(UuidIdModel):
             log(f"[green]Yielding: {instance}")
 
             # Must save the instance before  adding "options" or "children"
+            instance.node = input_model.dict(
+                exclude={"options", "children", "additional_props", "node_type", }, exclude_none=True, exclude_unset=True
+            )
+            # Where an alias is used ("el", ) restore it to the expected value
+            # of a FormKit schema node
+            for pydantic_key, db_key in (("el", "$el"), ("formkit", "$formkit")):
+                if db_value := instance.node.pop(pydantic_key, None):
+                    instance.node[db_key] = db_value
+
+
             instance.save()
             # Add the "options" if it is a 'text' type getter
             options: formkit_schema.OptionsType = getattr(input_model, "options", None)
@@ -484,10 +496,10 @@ class FormKitSchemaNode(UuidIdModel):
         else:
             raise TypeError(f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}")
 
-    def to_pydantic(self):
+    def to_pydantic(self, **kwargs):
         if self.text_content:
             return self.text_content
-        return formkit_schema.FormKitNode.parse_obj(self.get_node_values())
+        return formkit_schema.FormKitNode.parse_obj(self.get_node_values(**kwargs))
 
 
 class SchemaManager(models.Manager):
@@ -516,13 +528,13 @@ class FormKitSchema(UuidIdModel):
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
 
-    def get_schema_values(self):
+    def get_schema_values(self, **kwargs):
         """
         Return a list of "node" dicts
         """
         nodes: Iterable[FormKitSchemaNode] = self.nodes.order_by("formcomponents__order")
         for node in nodes:
-            yield node.get_node_values()
+            yield node.get_node_values(**kwargs)
 
     def to_pydantic(self):
         values = list(self.get_schema_values())

@@ -122,7 +122,7 @@ class FormKitSchemaProps(BaseModel):
     # These are not formal parts of spec, but
     # are attributes defined in ts as Record<string, any>
     # id: str | uuid.UUID | None = Field(None)
-    html_id: str = Field(None, alias="id")
+    id: str = Field(None)
     name: str | None = Field(None)
     label: str | None = Field(None)
     help: str | None = Field(None)
@@ -134,11 +134,25 @@ class FormKitSchemaProps(BaseModel):
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
     classes: dict[str, str] | None = Field(None)
+
+    # FormKit allows arbitrary values, we do our bset to represent these here
     # Additional Props can be quite a complicated structure
-    additional_props: dict[str, str | dict[str, Any]] | None = Field(None)
+    additional_props: None | dict[str, str | dict[str, Any]] = Field(None)
 
     class Config:
         allow_population_by_field_name = True
+
+    def dict(self, *args, **kwargs):
+        # Set some sensible defaults for "to_dict"
+        if "by_alias" not in kwargs:
+            kwargs["by_alias"] = True
+        if "exclude_none" not in kwargs:
+            kwargs["exclude_none"] = True
+        _ = super().dict(*args, **kwargs)
+        if 'additional_props' in _:
+            _.update(_['additional_props'])
+            del _['additional_props']
+        return _
 
 
 # We defined this after the model above as it's a circular reference
@@ -146,120 +160,89 @@ ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoC
 
 
 class TextNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["text"] = "text"
-    dollar_formkit: str = Field(default="text", alias="$formkit")
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
+    formkit: Literal["text"] = Field(default="text", alias="$formkit")
     text: str | None
 
 
-class DateNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["date"] = "date"
-    dollar_formkit: str = Field(default="date", alias="$formkit")
+class DateNode(TextNode):
+    formkit: Literal["date"] = Field(default="date", alias="$formkit")
 
 
-class CurrencyNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["currency"] = "currency"
-    dollar_formkit: str = Field(default="currency", alias="$formkit")
+class CurrencyNode(TextNode):
+    formkit: Literal["currency"] = Field(default="currency", alias="$formkit")
 
 
-class DatePickerNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["datepicker"] = "datepicker"
-    dollar_formkit: str = Field(default="datepicker", alias="$formkit")
+class DatePickerNode(TextNode):
+    formkit: Literal["datepicker"] = Field(default="datepicker", alias="$formkit")
     calendarIcon: str = "calendar"
     format: str = "DD/MM/YY"
     nextIcon: str = "angleRight"
     prevIcon: str = "angleLeft"
 
 
-class CheckBoxNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["checkbox"] = "checkbox"
-    dollar_formkit: str = Field(default="checkbox", alias="$formkit")
+class CheckBoxNode(TextNode):
+    formkit: Literal["checkbox"] = Field(default="checkbox", alias="$formkit")
 
 
-class NumberNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["number"] = "number"
-    dollar_formkit: str = Field(default="number", alias="$formkit")
+class NumberNode(TextNode):
+    formkit: Literal["number"] = Field(default="number", alias="$formkit")
     text: str | None
     max: int | None = None
     min: int | None = None
     step: str | None = None
 
 
-class PasswordNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["password"] = "password"
-    dollar_formkit: str = Field(default="password", alias="$formkit")
+class PasswordNode(TextNode):
+    formkit: Literal["password"] = Field(default="password", alias="$formkit")
     name: str | None
 
 
-class RadioNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["radio"] = "radio"
-    dollar_formkit: str = Field(default="radio", alias="$formkit")
+class HiddenNode(TextNode):
+    formkit: Literal["hidden"] = Field(default="hidden", alias="$formkit")
+
+
+class RadioNode(TextNode):
+    formkit: Literal["radio"] = Field(default="radio", alias="$formkit")
     name: str | None
     options: OptionsType = Field(None)
 
 
-class SelectNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["select"] = "select"
-    dollar_formkit: str = Field(default="select", alias="$formkit")
+class SelectNode(TextNode):
+    formkit: Literal["select"] = Field(default="select", alias="$formkit")
     options: OptionsType = Field(None)
 
-class HiddenNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["hidden"] = "hidden"
-    dollar_formkit: str = Field(default="hidden", alias="$formkit")
-
-
-class AutocompleteNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["autocomplete"] = "autocomplete"
-    dollar_formkit: str = Field(default="autocomplete", alias="$formkit")
+class AutocompleteNode(TextNode):
+    formkit: Literal["autocomplete"] = Field(default="autocomplete", alias="$formkit")
     options: OptionsType = Field(None)
 
 
-class EmailNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["email"] = "email"
-    dollar_formkit: str = Field(default="email", alias="$formkit")
+class EmailNode(TextNode):
+    formkit: Literal["email"] = Field(default="email", alias="$formkit")
 
 
-class TelNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["tel"] = "tel"
-    dollar_formkit: str = Field(default="tel", alias="$formkit")
+class TelNode(TextNode):
+    formkit: Literal["tel"] = Field(default="tel", alias="$formkit")
 
 
-class DropDownNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["dropdown"] = "dropdown"
-    dollar_formkit: str = Field(default="dropdown", alias="$formkit")
+class DropDownNode(TextNode):
+    formkit: Literal["dropdown"] = Field(default="dropdown", alias="$formkit")
     options: OptionsType = Field(None)
     empty_message: str | None = Field(None, alias="empty-message")
     select_icon: str | None = Field(None, alias="selectIcon")
     placeholder: str | None
 
 
-class RepeaterNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["repeater"] = "repeater"
-    dollar_formkit: str = Field(default="repeater", alias="$formkit")
+class RepeaterNode(TextNode):
+    formkit: Literal["repeater"] = Field(default="repeater", alias="$formkit")
     up_control: bool | None = Field(default=True, alias="upControl")
     down_control: bool | None = Field(default=True, alias="downControl")
     add_label: str | None = Field(default="Add another", alias="addLabel")
     name: str | None = None
 
 
-class GroupNode(FormKitSchemaProps):
-    node_type: Literal["formkit"] = "formkit"
-    formkit: Literal["group"] = "group"
-    dollar_formkit: str = Field(default="group", alias="$formkit")
+class GroupNode(TextNode):
+    formkit: Literal["group"] = Field(default="group", alias="$formkit")
     text: str | None
 
 
@@ -307,7 +290,7 @@ FormKitSchemaFormKit = Annotated[
 ]
 
 
-class FormKitSchemaDOMNode(FormKitSchemaProps):
+class FormKitSchemaDOMNode(TextNode):
     """
     HTML elements are defined using the $el property.
     You can use $el to render any HTML element.
@@ -323,7 +306,7 @@ class FormKitSchemaDOMNode(FormKitSchemaProps):
         allow_population_by_field_name = True
 
 
-class FormKitSchemaComponent(FormKitSchemaProps):
+class FormKitSchemaComponent(TextNode):
     """
     Components can be defined with the $cmp property
     The $cmp property should be a string that references
@@ -440,8 +423,6 @@ FORMKIT_TYPE = Literal[
 class Discriminators(TypedDict, total=False):
     node_type: NODE_TYPE
     formkit: FORMKIT_TYPE
-    dollar_formkit: FORMKIT_TYPE
-
 
 def get_node_type(obj: dict) -> Discriminators:
     """
@@ -450,37 +431,20 @@ def get_node_type(obj: dict) -> Discriminators:
     This function should return the 'node_type' values and if present 'Formkit' value
     which corresponds to the object being inspected.
     """
-    fields: Discriminators = {}
     if "__root__" in obj:
-        obj = obj["__root__"]
+        return get_node_type(obj["__root__"])
+
     if isinstance(obj, str):
-        fields["node_type"] = "text"
-        return fields
+        return "text"
+
     for key, return_value in (
-        # -- Loading from "raw json"
         ("$el", "element"),
         ("$formkit", "formkit"),
-        ("dollar_formkit", "formkit"),
         ("$cmp", "component"),
-        # -- Already in the database
-        ("el", "element"),
-        ("formkit", "formkit"),
-        ("cmp", "component"),
-        ("if", "condition"),
     ):
         if key in obj:
-            fields["node_type"] = return_value
-            # "formkit" and "$formkit" are aliases
-            # Because we use these in a disriminated union, we can't alias
-            # So for consistency: we always return both
-            if key == "$formkit":
-                fields["formkit"] = obj["$formkit"]
-                fields["dollar_formkit"] = obj["$formkit"]
-            elif key == "dollar_formkit":
-                fields["formkit"] = obj["dollar_formkit"]
-                fields["dollar_formkit"] = obj["dollar_formkit"]
+            return return_value
 
-            return fields
     raise KeyError("Could not determine node type")
 
 
@@ -491,13 +455,13 @@ class FormKitNode(BaseModel):
     __root__: Node
 
     @classmethod
-    def parse_obj(cls: Type["Model"], obj: str | dict) -> "Model":
+    def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":
         """
         This classmethod differentiates between the different "Node" types
         when deserializing
         """
 
-        def get_additional_props(object_in: dict[str, Any], exclude: set[str] = set()) -> dict[str, Any] | None:
+        def get_additional_props(object_in: dict[str, Any], exclude: set[str] = set()):
             """
             Parse the object or database return (dict)
             to break out fields we handle in JSON
@@ -518,7 +482,6 @@ class FormKitNode(BaseModel):
                 "then",
                 "else",
                 "children",
-                "dollar_formkit",
                 "node_type",
                 "formkit",
                 "id",
@@ -549,23 +512,23 @@ class FormKitNode(BaseModel):
 
         if isinstance(obj, str):
             return obj
+        
+        # There's a discriminator step which needs assisance: `node_type`
+        # must be set on the input object
+        node_type = get_node_type(obj)
 
-        # id is reserved in Django models so rename this to `html_id`
-        aliases = {}
-        if "id" in obj:
-            aliases["html_id"] = obj.get("id")
-
-        # Parsing is complicated by the fact that some instances use differentiation we
-        # can't express in Python, so the `get_node_type` here tries to
-        # translate the possible node types we received
         try:
-            parsed = super().parse_obj({**get_node_type(obj), **obj, **aliases})
+            parsed = super().parse_obj({**obj, "node_type": node_type})
             node: NodeTypes = parsed.__root__
         except KeyError as E:
             raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
-        node.additional_props = get_additional_props(obj, exclude=set(node.__fields__))  # , node)
+        if additional_props := get_additional_props(obj, exclude=set(node.__fields__)):
+            node.additional_props = additional_props
         # Recursively parse 'child' nodes back to Pydantic models for 'children'
-        node.children = get_children(obj)
+        if recursive:
+            node.children = get_children(obj)
+        else:
+            node.children = None
         return parsed
 
 
@@ -590,3 +553,5 @@ class FormKitSchema(BaseModel):
 FormKitSchema.update_forward_refs()
 FormKitSchemaCondition.update_forward_refs()
 PasswordNode.update_forward_refs()
+
+FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition

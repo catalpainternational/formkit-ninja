@@ -1,84 +1,87 @@
-[
+{
+ "$formkit": "group",
+ "children": [
   {
-    "id": "meetinginformation",
-    "title": "Meeting information",
-    "$formkit": "group",
-    "children": [
-      {
-        "$formkit": "datepicker",
-        "name": "date",
-        "id": "date",
-        "key": "date",
-        "label": "$gettext(\"Date\")",
-        "format": "DD/MM/YYYY",
-        "valueFormat": "DD/MM/YYYY",
-        "calendarIcon": "calendar",
-        "nextIcon": "angleRight",
-        "prevIcon": "angleLeft",
-        "_currentDate": "$getCurrentDate",
-        "sectionsSchema": {
-          "day": {
-            "children": [
-              "$day.getDate()",
-              {
-                "if": "$attrs._currentDate().day === $day.getDate()",
-                "children": [
-                  {
-                    "if": "$attrs._currentDate().month === $day.getMonth()",
-                    "children": [
-                      {
-                        "$el": "div",
-                        "if": "$attrs._currentDate().year === $day.getFullYear()",
-                        "attrs": {
-                          "class": "formkit-day-highlight"
-                        }
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
+   "$formkit": "group",
+   "children": [
+    {
+     "$formkit": "datepicker",
+     "_currentDate": "$getCurrentDate",
+     "calendarIcon": "calendar",
+     "format": "DD/MM/YYYY",
+     "id": "date",
+     "key": "date",
+     "label": "$gettext(\"Date\")",
+     "name": "date",
+     "nextIcon": "angleRight",
+     "prevIcon": "angleLeft",
+     "sectionsSchema": {
+      "day": {
+       "children": [
+        "$day.getDate()",
+        {
+         "children": [
+          {
+           "children": [
+            {
+             "$el": "div",
+             "attrs": {
+              "class": "formkit-day-highlight"
+             },
+             "if": "$attrs._currentDate().year === $day.getFullYear()"
+            }
+           ],
+           "if": "$attrs._currentDate().month === $day.getMonth()"
           }
+         ],
+         "if": "$attrs._currentDate().day === $day.getDate()"
         }
-      },
-      {
-        "$formkit": "select",
-        "id": "district",
-        "name": "district",
-        "key": "district",
-        "label": "$gettext(Municipality)",
-        "options": "$getLocations()"
-      },
-      {
-        "$formkit": "select",
-        "id": "administrative_post",
-        "name": "administrative_post",
-        "key": "administrative_post",
-        "label": "$gettext(\"Administrative Post\")",
-        "options": "$getLocations($get(district).value)",
-        "if": "$get(district).value"
-      },
-      {
-        "$formkit": "select",
-        "id": "suco",
-        "name": "suco",
-        "key": "suco",
-        "label": "$gettext(Suco)",
-        "options": "$getLocations($get(district).value, $get(administrative_post).value)",
-        "if": "$get(administrative_post).value"
-      },
-      {
-        "$formkit": "dropdown",
-        "label": "$gettext(\"Meeting objective\")",
-        "key": "meeting_objective",
-        "options": [
-          "First accountability meeting",
-          "Final accountability meeting2"
-        ],
-        "selectIcon": "angleDown",
-        "name": "meeting_objective"
+       ]
       }
-    ],
-    "icon": "las la-info-circle"
+     }
+    },
+    {
+     "$formkit": "select",
+     "id": "district",
+     "key": "district",
+     "label": "$gettext(Municipality)",
+     "name": "district",
+     "options": "$getLocations()"
+    },
+    {
+     "$formkit": "select",
+     "id": "administrative_post",
+     "if": "$get(district).value",
+     "key": "administrative_post",
+     "label": "$gettext(\"Administrative Post\")",
+     "name": "administrative_post",
+     "options": "$getLocations($get(district).value)"
+    },
+    {
+     "$formkit": "select",
+     "id": "suco",
+     "if": "$get(administrative_post).value",
+     "key": "suco",
+     "label": "$gettext(Suco)",
+     "name": "suco",
+     "options": "$getLocations($get(district).value, $get(administrative_post).value)"
+    },
+    {
+     "$formkit": "dropdown",
+     "key": "meeting_objective",
+     "label": "$gettext(\"Meeting objective\")",
+     "name": "meeting_objective",
+     "options": [
+      "First accountability meeting",
+      "Final accountability meeting2"
+     ],
+     "selectIcon": "angleDown"
+    }
+   ],
+   "icon": "las la-info-circle",
+   "id": "meetinginformation",
+   "title": "Meeting information"
   }
-]
+ ],
+ "name": "SF_4_1"
+}

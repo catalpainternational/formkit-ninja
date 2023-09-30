@@ -1,5 +1,5 @@
 import warnings
-from typing import List
+from typing import List, Union
 from uuid import UUID
 
 from django.db.models import F
@@ -75,17 +75,18 @@ def get_list_schemas(request):
     return models.FormKitSchema.objects.all()
 
 
-@router.get("list-nodes", response=dict[str, formkit_schema.Node], exclude_defaults=True, exclude_none=True)
+@router.get("list-nodes", response=dict[str, Union[str, formkit_schema.FormKitNode]], by_alias=True, exclude_none=True)
 def get_formkit_nodes(request):
     """
     Get all of the FormKit nodes in the database
     """
-    response: dict[str, formkit_schema.Node] = {}
+    response = {}
     for node in models.FormKitSchemaNode.objects.all():
         try:
-            response[f"{node.pk}"] = node.get_node()
-        except:  # noqa: E722
+            response[f"{str(node.id)[:8]}"] = node.get_node(recursive=False)
+        except Exception as E:
             warnings.warn(f"An unparseable FormKit node was hit at {node.pk}")
+            warnings.warn(f"{E}")
     return response
 
 

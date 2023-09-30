@@ -38,7 +38,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
     # key is the name of a `models.JSONField` on the model
     # value is a list of fields to get/set in that JSON field
-    _json_fields: JsonFieldDefn = {"my_json_field": ("formkit", "description", "name", "key", "html_id")}
+    _json_fields: JsonFieldDefn = {"my_json_field": ("formkit", "description", "name", "key", "id")}
 
     def get_json_fields(self) -> JsonFieldDefn:
         """
@@ -115,7 +115,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
             # Here we can warn if there are any "hidden" JSON fields
 
-            if missing := list(set(values) - fields_from_json - {"node_type", "dollar_formkit"}):
+            if missing := list(set(values) - fields_from_json - {"node_type"}):
                 warnings.warn(f"Some JSON fields were hidden: {','.join(missing)}")
                 warnings.warn(f"Consider adding fields {missing} to {self.__class__.__name__}")
 
@@ -186,7 +186,7 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
     _json_fields = {
         "node": (
             "name",
-            "formkit",
+            ("formkit", "$formkit"),
             "if_condition",
         )
     }
@@ -212,10 +212,9 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     # adding the fields included in the `FormKitSchemaProps.__fields__.items` dict
     _json_fields = {
         "node": (
-            "formkit",
+            ("formkit", "$formkit"),
             "name",
             "key",
-            "html_id",
             "if_condition",
             "options",
             ("node_label", "label"),
@@ -399,12 +398,19 @@ class FormKitSchemaForm(forms.ModelForm):
 
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(admin.ModelAdmin):
-    list_display = ("label", "id", "node_type", "option_group")
+    list_display = ("label", "id", "node_type", "option_group", "formkit_or_el_type")
+    list_filter = ("node_type",)
+
+    def formkit_or_el_type(self, obj):
+        if obj and obj.node and obj.node_type == '$formkit':
+            return obj.node.get("$formkit", None)
+        if obj and obj.node and obj.node_type == '$el':
+            return obj.node.get("$el", None)
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
         if not obj:
             return []
-        if obj.node_type == "$el" or (obj.node and obj.node.get("formkit", None) == "group"):
+        if obj.node_type == "$el" or (obj.node and obj.node.get("$formkit", None) == "group"):
             return [
                 NodeChildrenInline,
             ]
@@ -455,7 +461,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                 )
             )
         elif isinstance(node, formkit_schema.RepeaterNode):
-            if obj.node and obj.node.get("formkit", None) == "repeater":
+            if obj.node and obj.node.get("$formkit", None) == "repeater":
                 fieldsets.append(
                     (
                         "Repeater field properties",

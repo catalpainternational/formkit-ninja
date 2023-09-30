@@ -90,8 +90,8 @@ class NodePath:
         """
         if node.name:
             name = self.safe_name(node.name)
-        elif node.html_id:
-            name = self.safe_name(node.html_id)
+        elif node.id:
+            name = self.safe_name(node.id)
         else:
             raise AttributeError("Could not determine a suitable 'name' for this node")
 
