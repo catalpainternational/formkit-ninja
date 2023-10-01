@@ -5,70 +5,20 @@ import logging
 import uuid
 from typing import Iterable, TypedDict, get_args
 
-import pgtrigger
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import models, transaction
+from django.db.models import F
+from django.db.models.aggregates import Max
 from rich.console import Console
 
-from formkit_ninja import formkit_schema
+from formkit_ninja import formkit_schema, triggers
 
 console = Console()
 log = console.log
 
 logger = logging.getLogger()
-
-
-def update_group_trigger(order_by_field: str, id_field: str = "id"):
-    """
-    Takes a model with an "order" field and
-    a "group" field and adds a trigger to
-    keep the ordering correct
-    This assumes a pk field named "id" too
-    """
-    return pgtrigger.Trigger(
-        name="order_on_update_option",
-        when=pgtrigger.After,
-        operation=pgtrigger.Update,
-        func=pgtrigger.Func(
-            f"""
-                -- Do not allow a "null" value
-                -- This stops Django from dumbly updating
-                -- which can break the trigger
-                if NEW."order" IS NULL then
-                    NEW."order" = OLD."order";
-                end if;
-                if NEW."order" > OLD."order" then
-                    update {{meta.db_table}}
-                    set "order" = "order"- 1
-                    where "order" <= NEW."order"
-                    and "order" > OLD."order"
-                    and "{order_by_field}" = OLD."{order_by_field}"
-                    and "{id_field}" <> NEW."{id_field}";
-                else
-                    update {{meta.db_table}}
-                    set "order" = "order"+ 1
-                    where "order" >= NEW."order"
-                    and "order" < OLD."order"
-                    and "{order_by_field}" = OLD."{order_by_field}"
-                    and "{id_field}" <> NEW."{id_field}";
-                end if;
-                RETURN NEW;
-        """
-        ),
-        condition=pgtrigger.Condition("pg_trigger_depth() = 0"),  # Prevents infinite recursion
-    )
-
-
-def insert_group_trigger(order_by_field: str):
-    return pgtrigger.Trigger(
-        name="order_on_insert_option",
-        when=pgtrigger.Before,
-        operation=pgtrigger.Insert,
-        func=pgtrigger.Func(
-            f'NEW."order" = (SELECT coalesce(max("order"), 0) + 1 FROM {{meta.db_table}} WHERE {{meta.db_table}}."{order_by_field}" = NEW."{order_by_field}"); RETURN NEW;'
-        ),
-    )
 
 
 class UuidIdModel(models.Model):
@@ -194,7 +144,7 @@ class Option(UuidIdModel):
     order = models.IntegerField(null=True, blank=True)
 
     class Meta:
-        triggers = [insert_group_trigger("group_id"), update_group_trigger("group_id")]
+        triggers = triggers.update_or_insert_group_trigger("group_id")
         constraints = [models.UniqueConstraint(fields=["group", "object_id"], name="unique_option_id")]
         ordering = (
             "group",
@@ -270,11 +220,28 @@ class FormComponents(UuidIdModel):
     order_with_respect_to = "schema"
 
     class Meta:
-        triggers = [insert_group_trigger("schema_id"), update_group_trigger("schema_id")]
+        triggers = triggers.update_or_insert_group_trigger("schema_id")
         ordering = ("schema", "order")
 
     def __str__(self):
         return f"{self.node}[{self.order}]: {self.schema}"
+
+
+class NodeChildrenManager(models.Manager):
+    """
+    Adds aggregation and filtering for client side data
+    of NodeChildren relations
+    """
+
+    def aggregate_changes_table(self, latest_change: int | None = None):
+        values = (
+            self.get_queryset()
+            .values("parent_id")
+            .annotate(children=ArrayAgg("child", ordering=F("order")), latest_change=Max("track_change"))
+        )
+        if latest_change:
+            values = values.filter(latest_change__gt=latest_change)
+        return values.values_list("parent_id", "latest_change", "children", named=True)
 
 
 class NodeChildren(models.Model):
@@ -290,14 +257,20 @@ class NodeChildren(models.Model):
     )
     child = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE)
     order = models.IntegerField(null=True, blank=True)
+    track_change = models.BigIntegerField(null=True, blank=True)
     order_with_respect_to = "parent"
 
     class Meta:
-        triggers = [insert_group_trigger("parent_id"), update_group_trigger("parent_id")]
+        triggers = [
+            *triggers.update_or_insert_group_trigger("parent_id"),
+            triggers.bump_sequence_value(sequence_name=triggers.NODE_CHILDREN_CHANGE_ID),
+        ]
         ordering = (
             "parent_id",
             "order",
         )
+
+    objects = NodeChildrenManager()
 
 
 class FormKitSchemaNode(UuidIdModel):
@@ -312,12 +285,12 @@ class FormKitSchemaNode(UuidIdModel):
     """
 
     NODE_TYPE_CHOICES = (
-        ("$cmp", "Component"),
+        ("$cmp", "Component"),  # Not yet implemented
         ("text", "Text"),
-        ("condition", "Condition"),
+        ("condition", "Condition"),  # Not yet implemented
         ("$formkit", "FormKit"),
         ("$el", "Element"),
-        ("raw", "Raw JSON"),
+        ("raw", "Raw JSON"),  # Not yet implemented
     )
     FORMKIT_CHOICES = [(t, t) for t in get_args(formkit_schema.FORMKIT_TYPE)]
 
@@ -348,6 +321,7 @@ class FormKitSchemaNode(UuidIdModel):
     text_content = models.TextField(
         null=True, blank=True, help_text="Content for a text element, for children of an $el type component"
     )
+    track_change = models.BigIntegerField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.label}" if self.label else f"{self.node_type} {self.id}"
@@ -375,7 +349,7 @@ class FormKitSchemaNode(UuidIdModel):
         # TODO: This is horribly slow
         return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
-    def get_node_values(self, recursive: bool=True) -> dict:
+    def get_node_values(self, recursive: bool = True) -> dict:
         """
         Reify a 'dict' instance suitable for creating
         a FormKit Schema node from
@@ -406,16 +380,16 @@ class FormKitSchemaNode(UuidIdModel):
 
         return values
 
-    def get_node(self, **kwargs) -> formkit_schema.Node | str:
+    def get_node(self, recursive=False, **kwargs) -> formkit_schema.Node | str:
         """
         Return a "decorated" node instance
         with restored options and translated fields
         """
         if text := self.text_content:
             return text
-        node_content = self.get_node_values(**kwargs)
+        node_content = self.get_node_values(**kwargs, recursive=recursive)
 
-        formkit_node = formkit_schema.FormKitNode.parse_obj(node_content)
+        formkit_node = formkit_schema.FormKitNode.parse_obj(node_content, recursive=recursive)
         return formkit_node.__root__
 
     @classmethod
@@ -442,8 +416,8 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.additional_props = props
             try:
                 node_type = getattr(input_model, "node_type")
-            except:
-                raise
+            except Exception as E:
+                raise E
             if node_type == "condition":
                 instance.node_type = "condition"
             elif node_type == "formkit":
@@ -457,14 +431,20 @@ class FormKitSchemaNode(UuidIdModel):
 
             # Must save the instance before  adding "options" or "children"
             instance.node = input_model.dict(
-                exclude={"options", "children", "additional_props", "node_type", }, exclude_none=True, exclude_unset=True
+                exclude={
+                    "options",
+                    "children",
+                    "additional_props",
+                    "node_type",
+                },
+                exclude_none=True,
+                exclude_unset=True,
             )
             # Where an alias is used ("el", ) restore it to the expected value
             # of a FormKit schema node
             for pydantic_key, db_key in (("el", "$el"), ("formkit", "$formkit")):
                 if db_value := instance.node.pop(pydantic_key, None):
                     instance.node[db_key] = db_value
-
 
             instance.save()
             # Add the "options" if it is a 'text' type getter
@@ -500,6 +480,9 @@ class FormKitSchemaNode(UuidIdModel):
         if self.text_content:
             return self.text_content
         return formkit_schema.FormKitNode.parse_obj(self.get_node_values(**kwargs))
+
+    class Meta:
+        triggers = [triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID)]
 
 
 class SchemaManager(models.Manager):

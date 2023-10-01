@@ -304,7 +304,7 @@ class FormKitElementForm(JsonDecoratedFormBase):
         fields = ("label", "description", "text_content")
 
     _skip_translations = {"label", "placeholder"}
-    _json_fields = {"node": ("el", "name", "if_condition", "classes")}
+    _json_fields = {"node": (("el", "$el"), "name", "if_condition", "classes")}
 
     el = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES)
     name = forms.CharField(
@@ -361,11 +361,9 @@ class NodeChildrenInline(admin.TabularInline):
     """
 
     model = models.NodeChildren
-    fields = (
-        "child",
-        "order",
-    )
+    fields = ("child", "order", "track_change")
     ordering = ("order",)
+    readonly_fields = ("track_change", "child")
     fk_name = "parent"
     extra = 0
 
@@ -396,15 +394,19 @@ class FormKitSchemaForm(forms.ModelForm):
         exclude = ("name",)
 
 
+# @admin.register(models.FormKitSchemaNode)
+
+
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(admin.ModelAdmin):
-    list_display = ("label", "id", "node_type", "option_group", "formkit_or_el_type")
+    list_display = ("label", "id", "node_type", "option_group", "formkit_or_el_type", "track_change")
     list_filter = ("node_type",)
+    readonly_fields = ("track_change",)
 
     def formkit_or_el_type(self, obj):
-        if obj and obj.node and obj.node_type == '$formkit':
+        if obj and obj.node and obj.node_type == "$formkit":
             return obj.node.get("$formkit", None)
-        if obj and obj.node and obj.node_type == '$el':
+        if obj and obj.node and obj.node_type == "$el":
             return obj.node.get("$el", None)
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):

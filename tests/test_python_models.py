@@ -4,15 +4,18 @@ from importlib.resources import files
 import pytest
 
 from formkit_ninja import formkit_schema, models, samples
+from formkit_ninja.formkit_schema import FormKitNode, FormKitSchemaDOMNode
 from formkit_ninja.schemas import Schemas
 from tests.fixtures import SF_1_1, el_priority, formkit_text_node, simple_text_node
-from formkit_ninja.formkit_schema import FormKitNode, FormKitSchemaDOMNode
+
 
 def _read_file(filename: str):
-    return json.loads(files(samples).joinpath(f'{filename}.json').read_text())
+    return json.loads(files(samples).joinpath(f"{filename}.json").read_text())
+
 
 def _parse_file(filename: str):
     return formkit_schema.FormKitSchema.parse_obj(_read_file(filename))
+
 
 @pytest.fixture
 def element_schema():
@@ -45,10 +48,9 @@ def test_create_from_schema(element_schema):
     # The node looks like this:
     # {'children': [], 'node_type': 'element', 'el': 'div', 'attrs': {'style': {...}, 'data-foo': 'bar'}}
 
-    assert set(dictify.keys()) == {"node_type", "children", "el", "attrs"}
-    assert dictify["children"] == []
-    assert dictify["node_type"] == "element"
-    assert dictify["el"] == "div"
+    assert set(dictify.keys()) == {"children", "$el", "attrs"}
+    assert dictify["children"] == ["Hello world"]
+    assert dictify["$el"] == "div"
     assert set(dictify["attrs"].keys()) == {"style", "data-foo"}
 
     # A 'group' node
@@ -75,21 +77,21 @@ def test_parse_el_priority(el_priority: dict):
     assert node_in_the_db.node_type == "$el"
 
     el_priority["children"][0] == "Priority "
-    children: list[models.FormKitSchemaNode] = list(node_in_the_db.children.all().order_by('nodechildren__order'))
+    children: list[models.FormKitSchemaNode] = list(node_in_the_db.children.all().order_by("nodechildren__order"))
 
     # The first child is an 'text'
     node = children[0]
-    assert node.node_type == 'text'
-    assert node.text_content == 'Priority '
-    assert node.to_pydantic() == 'Priority '
+    assert node.node_type == "text"
+    assert node.text_content == "Priority "
+    assert node.to_pydantic() == "Priority "
 
     # The second child is an 'el'
     node = children[1]
-    assert node.node_type == '$el'
-    assert node.node.get('$el') == 'span'
-    assert node.node['attrs'] == {'class': 'ml-1'}
+    assert node.node_type == "$el"
+    assert node.node.get("$el") == "span"
+    assert node.node["attrs"] == {"class": "ml-1"}
     # With appropriate `by_alias` and `exclude_defaults` we should get an equal output as input
-    assert node.to_pydantic().dict(by_alias=True, exclude_defaults=True)['__root__'] == el_priority['children'][1]
+    assert node.to_pydantic().dict(by_alias=True, exclude_defaults=True)["__root__"] == el_priority["children"][1]
 
 
 @pytest.mark.django_db()
@@ -121,8 +123,8 @@ def test_additional_props(formkit_text_node: dict):
     node_in_the_db.to_pydantic()
 
     # The 'discriminator' fields should not be stored in the db
-    assert node_in_the_db.node['$formkit'] == 'select'
-    assert set(node_in_the_db.node.keys()) == {'key', 'id', 'name', 'label', 'placeholder', '$formkit'}
+    assert node_in_the_db.node["$formkit"] == "select"
+    assert set(node_in_the_db.node.keys()) == {"key", "id", "name", "label", "placeholder", "$formkit"}
     # And out of the database again
     from_the_db = node_in_the_db.to_pydantic()
     assert from_the_db.__root__.additional_props == {"class": "red"}
@@ -134,7 +136,7 @@ def test_additional_props(formkit_text_node: dict):
     # Additional checks that the JSON output is equivalent to the JSON input
     # Note that json from the db has additional Python 'discriminator' fields 'node_type' and 'formkit'
 
-    assert set(node_in_the_db.node.keys()) == {'key', 'id', 'name', 'label', 'placeholder', '$formkit'}
+    assert set(node_in_the_db.node.keys()) == {"key", "id", "name", "label", "placeholder", "$formkit"}
 
     assert node_in_the_db.node.get("key") == formkit_text_node["key"]
     assert node_in_the_db.node.get("id") == formkit_text_node["id"]
@@ -154,24 +156,27 @@ def test_additional_props(formkit_text_node: dict):
     assert json_from_the_db["class"] == formkit_text_node["class"]
     assert json_from_the_db["options"] == formkit_text_node["options"]
 
+
 s = Schemas()
 schemas = s.list_schemas()
+
 
 @pytest.fixture(params=list(schemas))
 def schema(request):
     return s.as_json(request.param)
 
+
 def schema_are_same(in_: dict | str, out_: dict | str):
     if isinstance(in_, str):
-        assert in_ == out_, f'{in_=} != {out_=}'
+        assert in_ == out_, f"{in_=} != {out_=}"
         return
 
-    assert in_.keys() == out_.keys()
+    assert set(in_.keys()) == set(out_.keys())
     for key in in_.keys():
-        if key in {'options', 'children'}:
+        if key in {"options", "children"}:
             continue
-        assert in_[key] == out_[key], f'{in_[key]=} != {out_[key]=}'
-    if 'children' in in_:
+        assert in_[key] == out_[key], f"{in_[key]=} != {out_[key]=}"
+    if "children" in in_:
         for c_in, c_out in zip(in_.get("children", []), out_.get("children", [])):
             schema_are_same(c_in, c_out)
 

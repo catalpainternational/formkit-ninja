@@ -25,11 +25,11 @@ class Schemas:
 
     def as_dict(self, schema: str):
         return json.dumps(self.as_json(schema))
-    
+
     def import_all(self):
         from formkit_ninja.models import FormKitSchemaNode
+
         for schema in self.schemas.keys():
             node: FormKitNode = FormKitNode.parse_obj(self.as_json(schema))
             parsed_node = node.__root__
             list(FormKitSchemaNode.from_pydantic(parsed_node))[0]
-

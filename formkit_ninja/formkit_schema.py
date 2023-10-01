@@ -26,7 +26,7 @@ OptionsType = str | list[dict[str, Any]] | list[str] | dict[str, str] | None
 
 
 class FormKitSchemaCondition(BaseModel):
-    node_type: Literal["condition"]
+    node_type: Literal["condition"] = Field(default="condition", exclude=True)
     if_condition: str = Field(..., alias="if")
     then_condition: Node | List[Node] = Field(..., alias="then")
     else_condition: Node | List[Node] | None = Field(None, alias="else")
@@ -39,7 +39,7 @@ class FormKitSchemaConditionNoCircularRefs(BaseModel):
     django_ninja to crash the server hard
     """
 
-    node_type: Literal["condition"]
+    node_type: Literal["condition"] = Field(default="condition", exclude=True)
     if_condition: str = Field(..., alias="if")
     then_condition: str | list[str] = Field(..., alias="then")
     else_condition: str | list[str] | None = Field(None, alias="else")
@@ -149,9 +149,9 @@ class FormKitSchemaProps(BaseModel):
         if "exclude_none" not in kwargs:
             kwargs["exclude_none"] = True
         _ = super().dict(*args, **kwargs)
-        if 'additional_props' in _:
-            _.update(_['additional_props'])
-            del _['additional_props']
+        if "additional_props" in _:
+            _.update(_["additional_props"])
+            del _["additional_props"]
         return _
 
 
@@ -211,6 +211,7 @@ class RadioNode(TextNode):
 class SelectNode(TextNode):
     formkit: Literal["select"] = Field(default="select", alias="$formkit")
     options: OptionsType = Field(None)
+
 
 class AutocompleteNode(TextNode):
     formkit: Literal["autocomplete"] = Field(default="autocomplete", alias="$formkit")
@@ -290,7 +291,7 @@ FormKitSchemaFormKit = Annotated[
 ]
 
 
-class FormKitSchemaDOMNode(TextNode):
+class FormKitSchemaDOMNode(FormKitSchemaProps):
     """
     HTML elements are defined using the $el property.
     You can use $el to render any HTML element.
@@ -298,7 +299,7 @@ class FormKitSchemaDOMNode(TextNode):
     and content is assigned with the children property
     """
 
-    node_type: Literal["element"] = "element"
+    node_type: Literal["element"] = Field(default="element", exclude=True)
     el: str = Field(alias="$el")
     attrs: FormKitSchemaAttributes | None
 
@@ -306,7 +307,7 @@ class FormKitSchemaDOMNode(TextNode):
         allow_population_by_field_name = True
 
 
-class FormKitSchemaComponent(TextNode):
+class FormKitSchemaComponent(FormKitSchemaProps):
     """
     Components can be defined with the $cmp property
     The $cmp property should be a string that references
@@ -314,7 +315,7 @@ class FormKitSchemaComponent(TextNode):
     into FormKitSchema with the library prop.
     """
 
-    node_type: Literal["component"]
+    node_type: Literal["component"] = Field(default="component", exclude=True)
 
     cmp: str = Field(
         ...,
@@ -424,6 +425,7 @@ class Discriminators(TypedDict, total=False):
     node_type: NODE_TYPE
     formkit: FORMKIT_TYPE
 
+
 def get_node_type(obj: dict) -> Discriminators:
     """
     Pydantic requires nodes to be "differentiated" by a field value
@@ -512,7 +514,7 @@ class FormKitNode(BaseModel):
 
         if isinstance(obj, str):
             return obj
-        
+
         # There's a discriminator step which needs assisance: `node_type`
         # must be set on the input object
         node_type = get_node_type(obj)

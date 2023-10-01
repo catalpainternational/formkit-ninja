@@ -49,9 +49,13 @@ class FormComponentsOut(ModelSchema):
 
 
 class NodeChildrenOut(ModelSchema):
+
+    children: list[UUID] = []
+    latest_change: int | None = None
+
     class Config:
         model = models.NodeChildren
-        model_fields = ("parent", "child", "order")
+        model_fields = ("parent",)
 
 
 class Option(ModelSchema):
@@ -91,11 +95,12 @@ def get_formkit_nodes(request):
 
 
 @router.get("list-related-nodes", response=list[NodeChildrenOut], exclude_defaults=True, exclude_none=True)
-def get_related_nodes(request):
+def get_related_nodes(request, latest_change: int | None = None):
     """
     Get all of the FormKit nodes in the database
     """
-    return models.NodeChildren.objects.all()
+    objects: models.NodeChildrenManager = models.NodeChildren.objects
+    return objects.aggregate_changes_table(latest_change=latest_change)
 
 
 @router.get(
