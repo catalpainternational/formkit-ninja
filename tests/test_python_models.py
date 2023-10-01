@@ -43,7 +43,7 @@ def test_create_from_schema(element_schema):
     assert c.nodes.count() == 1
 
     # The node...
-    dictify = c.nodes.first().get_node().dict(exclude_none=True)
+    dictify = c.nodes.first().get_node(recursive=True).dict(exclude_none=True)
 
     # The node looks like this:
     # {'children': [], 'node_type': 'element', 'el': 'div', 'attrs': {'style': {...}, 'data-foo': 'bar'}}
@@ -91,7 +91,7 @@ def test_parse_el_priority(el_priority: dict):
     assert node.node.get("$el") == "span"
     assert node.node["attrs"] == {"class": "ml-1"}
     # With appropriate `by_alias` and `exclude_defaults` we should get an equal output as input
-    assert node.to_pydantic().dict(by_alias=True, exclude_defaults=True)["__root__"] == el_priority["children"][1]
+    assert node.to_pydantic(recursive=True).dict(by_alias=True, exclude_defaults=True)["__root__"] == el_priority["children"][1]
 
 
 @pytest.mark.django_db()
@@ -126,11 +126,15 @@ def test_additional_props(formkit_text_node: dict):
     assert node_in_the_db.node["$formkit"] == "select"
     assert set(node_in_the_db.node.keys()) == {"key", "id", "name", "label", "placeholder", "$formkit"}
     # And out of the database again
-    from_the_db = node_in_the_db.to_pydantic()
+    from_the_db = node_in_the_db.to_pydantic(options=True)
     assert from_the_db.__root__.additional_props == {"class": "red"}
 
     # And back to JSON
-    json_from_the_db = json.loads(from_the_db.json(exclude_none=True, by_alias=True, exclude={"node_type"}))
+    json_from_the_db = json.loads(
+        from_the_db.json(
+            exclude_none=True, by_alias=True, exclude={"node_type"}
+            )
+        )
     assert json_from_the_db["class"] == "red"
 
     # Additional checks that the JSON output is equivalent to the JSON input
@@ -183,10 +187,10 @@ def schema_are_same(in_: dict | str, out_: dict | str):
 
 @pytest.mark.django_db()
 def test_schemas(schema: dict):
-    node: FormKitNode = FormKitNode.parse_obj(schema)
+    node: FormKitNode = FormKitNode.parse_obj(schema, recursive=True)
     parsed_node: formkit_schema.SelectNode = node.__root__
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
 
     # Returning the code
-    schema_out: dict = node_in_the_db.to_pydantic().dict(by_alias=True, exclude_none=True)["__root__"]
+    schema_out: dict = node_in_the_db.to_pydantic(recursive=True, options=True).dict(by_alias=True, exclude_none=True)["__root__"]
     schema_are_same(schema, schema_out)

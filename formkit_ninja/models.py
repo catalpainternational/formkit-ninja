@@ -349,7 +349,7 @@ class FormKitSchemaNode(UuidIdModel):
         # TODO: This is horribly slow
         return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
-    def get_node_values(self, recursive: bool = True) -> dict:
+    def get_node_values(self, recursive: bool = True, options:bool = True) -> dict:
         """
         Reify a 'dict' instance suitable for creating
         a FormKit Schema node from
@@ -363,7 +363,7 @@ class FormKitSchemaNode(UuidIdModel):
 
         # Options may come from a string in the node, or
         # may come from an m2m
-        if self.node_options:
+        if options and self.node_options:
             values["options"] = self.node_options
         if recursive:
             children = [c.get_node_values() for c in self.children.order_by("nodechildren__order")]
@@ -380,14 +380,14 @@ class FormKitSchemaNode(UuidIdModel):
 
         return values
 
-    def get_node(self, recursive=False, **kwargs) -> formkit_schema.Node | str:
+    def get_node(self, recursive=False, options=False, **kwargs) -> formkit_schema.Node | str:
         """
         Return a "decorated" node instance
         with restored options and translated fields
         """
         if text := self.text_content:
             return text
-        node_content = self.get_node_values(**kwargs, recursive=recursive)
+        node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
 
         formkit_node = formkit_schema.FormKitNode.parse_obj(node_content, recursive=recursive)
         return formkit_node.__root__
@@ -476,10 +476,10 @@ class FormKitSchemaNode(UuidIdModel):
         else:
             raise TypeError(f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}")
 
-    def to_pydantic(self, **kwargs):
+    def to_pydantic(self, recursive=False, options=False, **kwargs):
         if self.text_content:
             return self.text_content
-        return formkit_schema.FormKitNode.parse_obj(self.get_node_values(**kwargs))
+        return formkit_schema.FormKitNode.parse_obj(self.get_node_values(recursive=recursive, options=options, **kwargs))
 
     class Meta:
         triggers = [triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID)]
@@ -511,13 +511,13 @@ class FormKitSchema(UuidIdModel):
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
 
-    def get_schema_values(self, **kwargs):
+    def get_schema_values(self, recursive=False, options=False, **kwargs):
         """
         Return a list of "node" dicts
         """
         nodes: Iterable[FormKitSchemaNode] = self.nodes.order_by("formcomponents__order")
         for node in nodes:
-            yield node.get_node_values(**kwargs)
+            yield node.get_node_values(recursive=recursive, options=options, **kwargs)
 
     def to_pydantic(self):
         values = list(self.get_schema_values())
