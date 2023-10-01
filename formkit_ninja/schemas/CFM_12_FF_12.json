@@ -76,7 +76,7 @@
        "value": 1
       },
       {
-       "label": "March",
+       "label": "February",
        "value": 2
       },
       {
@@ -152,15 +152,13 @@
    "children": [
     {
      "$el": "div",
-     "$formkit": "text",
      "attrs": {
       "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
      },
      "children": [
       "A. ",
       "$gettext(\"Operational receipts\")"
-     ],
-     "node_type": "element"
+     ]
     },
     {
      "$formkit": "currency",
@@ -192,15 +190,13 @@
     },
     {
      "$el": "div",
-     "$formkit": "text",
      "attrs": {
       "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
      },
      "children": [
       "B. ",
       "$gettext(\"Operational expenditures\")"
-     ],
-     "node_type": "element"
+     ]
     },
     {
      "$formkit": "currency",
@@ -242,15 +238,13 @@
     },
     {
      "$el": "div",
-     "$formkit": "text",
      "attrs": {
       "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
      },
      "children": [
       "C. ",
       "$gettext(\"Operational funds balances\")"
-     ],
-     "node_type": "element"
+     ]
     },
     {
      "$formkit": "currency",
@@ -276,15 +270,13 @@
    "children": [
     {
      "$el": "div",
-     "$formkit": "text",
      "attrs": {
       "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
      },
      "children": [
       "A. ",
       "$gettext(\"Infrastructure receipts\")"
-     ],
-     "node_type": "element"
+     ]
     },
     {
      "$formkit": "currency",
@@ -316,15 +308,13 @@
     },
     {
      "$el": "div",
-     "$formkit": "text",
      "attrs": {
       "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5 mt-8"
      },
      "children": [
       "B. ",
       "$gettext(\"Infrastructure expenditures\")"
-     ],
-     "node_type": "element"
+     ]
     },
     {
      "$formkit": "repeater",
@@ -332,7 +322,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -340,14 +329,11 @@
         "Project ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         }
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$formkit": "select",
@@ -403,15 +389,13 @@
     },
     {
      "$el": "div",
-     "$formkit": "text",
      "attrs": {
       "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5 mt-8"
      },
      "children": [
       "C. ",
       "$gettext(\"Balances\")"
-     ],
-     "node_type": "element"
+     ]
     },
     {
      "$formkit": "repeater",
@@ -419,7 +403,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -427,15 +410,12 @@
         "$gettext(\"Balance\")",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           " ",
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         }
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$formkit": "select",

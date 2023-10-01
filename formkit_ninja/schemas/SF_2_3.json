@@ -80,7 +80,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -89,17 +88,14 @@
         " ",
         {
          "$el": "span",
-         "$formkit": "text",
          "attrs": {
           "class": "ml-1"
          },
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         }
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$formkit": "select",

@@ -67,7 +67,7 @@
        "value": 1
       },
       {
-       "label": "March",
+       "label": "February",
        "value": 2
       },
       {
@@ -147,7 +147,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -156,14 +155,11 @@
         " ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         }
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$formkit": "select",

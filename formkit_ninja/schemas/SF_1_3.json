@@ -80,7 +80,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -88,15 +87,12 @@
         "Elected Member ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         },
         " Project Implementation Team - EIP"
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$formkit": "dropdown",
@@ -194,7 +190,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -202,15 +197,12 @@
         "Elected Member ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         },
         " Planning and Accountability Commission - KPA"
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$formkit": "dropdown",
@@ -307,7 +299,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -315,15 +306,12 @@
         "Elected Member ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         },
         " Suku facilitator"
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$formkit": "dropdown",
