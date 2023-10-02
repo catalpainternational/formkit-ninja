@@ -178,15 +178,13 @@
        "validation": "shouldNotAcceptNegativeValue"
       },
       {
-       "$formkit": "radio",
-       "classes": {
-        "option": "mr-6",
-        "options": "flex"
-       },
+       "$formkit": "dropdown",
        "key": "women_priority",
        "label": "$pgettext('sf23_priority', 'From priorities identified by women (yes/no)')",
        "name": "women_priority",
-       "options": "$ida(yesno)"
+       "options": "$ida(yesno)",
+       "placeholder": "$gettext(\"Please select\")",
+       "selectIcon": "angleDown"
       },
       {
        "$formkit": "currency",

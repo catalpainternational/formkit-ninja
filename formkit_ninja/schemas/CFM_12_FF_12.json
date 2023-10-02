@@ -176,17 +176,17 @@
     },
     {
      "$formkit": "currency",
-     "id": "other_1002",
-     "label": "$gettext(\"1002 - Others (USD)\")",
+     "id": "interest_1002",
+     "label": "$gettext(\"1002 - Interest (USD)\")",
      "min": "0",
-     "name": "other_1002"
+     "name": "interest_1002"
     },
     {
      "$formkit": "currency",
-     "id": "interest_1003",
-     "label": "$gettext(\"1003 - Interest (USD)\")",
+     "id": "other_1003",
+     "label": "$gettext(\"1003 - Others (USD)\")",
      "min": "0",
-     "name": "interest_1003"
+     "name": "other_1003"
     },
     {
      "$el": "div",
@@ -225,16 +225,6 @@
      "label": "$gettext(\"2003 - Project administration cost (USD)\")",
      "min": "0",
      "name": "project_admin_cost_2003"
-    },
-    {
-     "$formkit": "currency",
-     "attrs": {
-      "class": "hidden"
-     },
-     "id": "assessment_and_design_cost_2004_B",
-     "label": "$gettext(\"2004 - Assessment and design cost (USD)\")",
-     "min": "0",
-     "name": "assessment_and_design_cost_2004_B"
     },
     {
      "$el": "div",
@@ -423,7 +413,7 @@
        "key": "activity",
        "label": "$gettext(\"Activity name\")",
        "name": "activity",
-       "options": "$ida(\"cycle\")",
+       "options": "$ida(cycle)",
        "placeholder": "$gettext(\"Please select\")"
       },
       {

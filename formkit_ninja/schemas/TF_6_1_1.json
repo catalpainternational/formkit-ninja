@@ -174,6 +174,22 @@
      "name": "no_of_men",
      "placeholder": "$gettext(\"Please enter\")",
      "validation": "shouldNotAcceptNegativeValue"
+    },
+    {
+     "$formkit": "number",
+     "label": "$gettext(\"No. of people with disability - male\")",
+     "min": 0,
+     "name": "no_of_pwd_male",
+     "placeholder": "$gettext(\"Please enter\")",
+     "validation": "shouldNotAcceptNegativeValue"
+    },
+    {
+     "$formkit": "number",
+     "label": "$gettext(\"No. of people with disability - female\")",
+     "min": 0,
+     "name": "no_of_pwd_female",
+     "placeholder": "$gettext(\"Please enter\")",
+     "validation": "shouldNotAcceptNegativeValue"
     }
    ],
    "icon": "las la-info-circle",
@@ -240,7 +256,7 @@
       {
        "$formkit": "radio",
        "key": "woman_priority",
-       "label": "$gettext(Is it identified by women?)",
+       "label": "$gettext(\"Is it identified by women?\")",
        "name": "woman_priority",
        "options": "$ida(yesno)"
       }

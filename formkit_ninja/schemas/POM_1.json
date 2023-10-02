@@ -126,7 +126,7 @@
        "key": "activity",
        "label": "$gettext(\"Activity name\")",
        "name": "activity",
-       "options": "$ida(\"cycle\")",
+       "options": "$ida(cycle)",
        "placeholder": "$gettext(\"Please select\")"
       },
       {

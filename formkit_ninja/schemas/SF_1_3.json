@@ -120,20 +120,20 @@
        "placeholder": "$gettext(\"Please enter\")"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "dropdown",
        "label": "$gettext(\"Gender\")",
        "name": "gender",
-       "optionClass": "mr-6",
        "options": "$ida(gender)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")",
+       "selectIcon": "angleDown"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "dropdown",
        "label": "$gettext(\"Person with a disability\")",
        "name": "person_with_disability",
-       "optionClass": "mr-6",
        "options": "$ida(yesno)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")",
+       "selectIcon": "angleDown"
       },
       {
        "$formkit": "tel",
@@ -230,20 +230,20 @@
        "placeholder": "$gettext(\"Please enter\")"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "dropdown",
        "label": "$gettext(\"Gender\")",
        "name": "gender",
-       "optionClass": "mr-6",
        "options": "$ida(gender)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")",
+       "selectIcon": "angleDown"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "dropdown",
        "label": "$gettext(\"Person with a disability\")",
        "name": "person_with_disability",
-       "optionClass": "mr-6",
        "options": "$ida(yesno)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")",
+       "selectIcon": "angleDown"
       },
       {
        "$formkit": "tel",
