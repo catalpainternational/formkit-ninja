@@ -156,6 +156,10 @@ class CurrencyNode(TextNode):
     formkit: Literal["currency"] = Field(default="currency", alias="$formkit")
 
 
+class UuidNode(TextNode):
+    formkit: Literal["uuid"] = Field(default="uuid", alias="$formkit")
+
+
 class DatePickerNode(TextNode):
     formkit: Literal["datepicker"] = Field(default="datepicker", alias="$formkit")
     calendarIcon: str = "calendar"
@@ -249,6 +253,7 @@ FormKitType = (
     | TelNode
     | CurrencyNode
     | HiddenNode
+    | UuidNode
 )
 
 FormKitSchemaFormKit = Annotated[
@@ -269,6 +274,7 @@ FormKitSchemaFormKit = Annotated[
         TelNode,
         CurrencyNode,
         HiddenNode,
+        UuidNode
     ],
     Field(discriminator="formkit"),
 ]
