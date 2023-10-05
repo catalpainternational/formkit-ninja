@@ -40,14 +40,14 @@ def update_group_trigger(order_by_field: str, id_field: str = "id"):
                     set "order" = "order"- 1
                     where "order" <= NEW."order"
                     and "order" > OLD."order"
-                    and "{order_by_field}" = OLD."{order_by_field}"
+                    and "{order_by_field}" = NEW."{order_by_field}"
                     and "{id_field}" <> NEW."{id_field}";
                 else
                     update {{meta.db_table}}
                     set "order" = "order"+ 1
                     where "order" >= NEW."order"
                     and "order" < OLD."order"
-                    and "{order_by_field}" = OLD."{order_by_field}"
+                    and "{order_by_field}" = NEW."{order_by_field}"
                     and "{id_field}" <> NEW."{id_field}";
                 end if;
                 RETURN NEW;

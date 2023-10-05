@@ -4,6 +4,7 @@ import itertools
 import logging
 import uuid
 from typing import Iterable, TypedDict, get_args
+import warnings
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -273,6 +274,25 @@ class NodeChildren(models.Model):
     objects = NodeChildrenManager()
 
 
+class NodeQS(models.QuerySet):
+
+    def from_change(self, track_change: int = -1):
+        return self.filter(track_change__gt=track_change)
+
+    def to_response(self, ignore_errors: bool = True) -> Iterable[tuple[str, int, formkit_schema.Node | str]]:
+        """
+        Return a set of FormKit nodes
+        """
+        node: FormKitSchemaNode
+        for node in self.all():
+            try:
+                yield node.id, node.track_change, node.get_node(recursive=False)
+            except Exception as E:
+                if not ignore_errors:
+                    raise
+                warnings.warn(f"An unparseable FormKit node was hit at {node.pk}")
+                warnings.warn(f"{E}")
+            
 class FormKitSchemaNode(UuidIdModel):
     """
     This represents a single "Node" in a FormKit schema.
@@ -283,6 +303,8 @@ class FormKitSchemaNode(UuidIdModel):
     | FormKitSchemaCondition
     | FormKitSchemaFormKit
     """
+
+    objects = NodeQS.as_manager()
 
     NODE_TYPE_CHOICES = (
         ("$cmp", "Component"),  # Not yet implemented
@@ -349,7 +371,7 @@ class FormKitSchemaNode(UuidIdModel):
         # TODO: This is horribly slow
         return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
-    def get_node_values(self, recursive: bool = True, options:bool = True) -> dict:
+    def get_node_values(self, recursive: bool = True, options:bool = True) -> str | dict:
         """
         Reify a 'dict' instance suitable for creating
         a FormKit Schema node from

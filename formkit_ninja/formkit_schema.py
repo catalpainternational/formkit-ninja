@@ -32,19 +32,6 @@ class FormKitSchemaCondition(BaseModel):
     else_condition: Node | List[Node] | None = Field(None, alias="else")
 
 
-class FormKitSchemaConditionNoCircularRefs(BaseModel):
-    """
-    This class is defined in order to break circular references.
-    Circular references (ie the `Node` in the then_condition) cause
-    django_ninja to crash the server hard
-    """
-
-    node_type: Literal["condition"] = Field(default="condition", exclude=True)
-    if_condition: str = Field(..., alias="if")
-    then_condition: str | list[str] = Field(..., alias="then")
-    else_condition: str | list[str] | None = Field(None, alias="else")
-
-
 class FormKitSchemaMeta(BaseModel):
     __root__: dict[str, str | float | int | bool | None]
 
@@ -89,16 +76,12 @@ class FormKitAttributeValue(BaseModel):
     __root__: str | int | float | bool | None | FormKitSchemaAttributes | FormKitSchemaAttributesCondition
 
 
-# ForwardRef allows for self referencing (recursive) models
-FormKitSchemaAttributes = ForwardRef("FormKitSchemaAttributes")
-
-
 class FormKitSchemaAttributes(BaseModel):
     __root__: dict[
         str,
         FormKitAttributeValue
-        # | FormKitSchemaAttributes  # <-- Causes trouble for Ninja
-        | FormKitSchemaAttributesCondition,
+        | FormKitSchemaAttributes
+        | FormKitSchemaAttributesCondition
     ]
 
 
@@ -112,7 +95,7 @@ class FormKitSchemaProps(BaseModel):
     # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
     #     default_factory=list
     # )
-    children: str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoCircularRefs | None = Field()
+    children: str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None = Field()
     key: str | None
     if_condition: str | None = Field(alias="if")
     for_loop: FormKitListStatement | None = Field(alias="for")
@@ -156,7 +139,7 @@ class FormKitSchemaProps(BaseModel):
 
 
 # We defined this after the model above as it's a circular reference
-ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoCircularRefs | None
+ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None
 
 
 class TextNode(FormKitSchemaProps):

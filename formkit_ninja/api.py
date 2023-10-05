@@ -1,11 +1,12 @@
-import warnings
-from typing import List, Union
+from typing import List
 from uuid import UUID
 
 from django.db.models import F
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.db.models.aggregates import Max
 from ninja import ModelSchema, Router
+from pydantic import BaseModel
 
 from formkit_ninja import formkit_schema, models
 
@@ -58,6 +59,12 @@ class NodeChildrenOut(ModelSchema):
         model_fields = ("parent",)
 
 
+class NodeReturnType(BaseModel):
+    key: UUID
+    last_change: int
+    node: formkit_schema.FormKitNode
+
+
 class Option(ModelSchema):
     group_name: str  # This is annotation of the model `content_type_model`
     value: str
@@ -79,23 +86,27 @@ def get_list_schemas(request):
     return models.FormKitSchema.objects.all()
 
 
-@router.get("list-nodes", response=dict[str, Union[str, formkit_schema.FormKitNode]], by_alias=True, exclude_none=True)
-def get_formkit_nodes(request):
+@router.get("list-nodes", response=list[NodeReturnType], by_alias=True, exclude_none=True)
+def get_formkit_nodes(request: HttpRequest, response: HttpResponse, latest_change: int | None = -1):
     """
     Get all of the FormKit nodes in the database
     """
-    response = {}
-    for node in models.FormKitSchemaNode.objects.all():
-        try:
-            response[f"{str(node.id)[:8]}"] = node.get_node(recursive=False)
-        except Exception as E:
-            warnings.warn(f"An unparseable FormKit node was hit at {node.pk}")
-            warnings.warn(f"{E}")
-    return response
+    objects: models.NodeQS = models.FormKitSchemaNode.objects
+    nodes: models.NodeQS = objects.from_change(latest_change)
+    response['latest_change'] = nodes.aggregate(_ = Max('track_change'))["_"] or latest_change
+    response["Cache-Control"] = "no-store,max-age=0"
+    # This is somewhat hard to handle as a tuple in IDB
+    # so collapse to a dict
+    responses = (NodeReturnType(
+        key = key,
+        last_updated = last_updated,
+        node = node
+    ) for key, last_updated, node in nodes.to_response())
+    return responses
 
 
 @router.get("list-related-nodes", response=list[NodeChildrenOut], exclude_defaults=True, exclude_none=True)
-def get_related_nodes(request, latest_change: int | None = None):
+def get_related_nodes(request, latest_change: int | None = -1):
     """
     Get all of the FormKit nodes in the database
     """
