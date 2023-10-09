@@ -253,6 +253,8 @@ class NodePath:
                 return "DateTimeField"
             case "date":
                 return "DateField"
+            case 'UUID':
+                return 'UUIDField'
         return "TextField"
 
     @property
@@ -278,6 +280,8 @@ class NodePath:
                 return "null=True, blank=True"
             case "date":
                 return "null=True, blank=True"
+            case "UUID":
+                return "editable=False, null=True, blank=True"
 
     @property
     def django_args(self):
