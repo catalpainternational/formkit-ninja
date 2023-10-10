@@ -61,8 +61,8 @@ class NodeChildrenOut(ModelSchema):
 
 class NodeReturnType(BaseModel):
     key: UUID
-    last_change: int
-    node: formkit_schema.FormKitNode
+    last_updated: int
+    node: str | formkit_schema.FormKitNode
 
 
 class Option(ModelSchema):
@@ -101,7 +101,7 @@ def get_formkit_nodes(request: HttpRequest, response: HttpResponse, latest_chang
         key = key,
         last_updated = last_updated,
         node = node
-    ) for key, last_updated, node in nodes.to_response())
+    ) for key, last_updated, node in nodes.to_response(ignore_errors=False))
     return responses
 
 
