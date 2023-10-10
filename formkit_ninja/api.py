@@ -62,7 +62,14 @@ class NodeChildrenOut(ModelSchema):
 class NodeReturnType(BaseModel):
     key: UUID
     last_updated: int
-    node: str | formkit_schema.FormKitNode
+    node: formkit_schema.FormKitNode
+
+
+class NodeStringType(NodeReturnType):
+    """
+    str | formkit_schema.FormKitNode causes openapi generator to fail
+    """
+    node :str
 
 
 class Option(ModelSchema):
@@ -86,7 +93,7 @@ def get_list_schemas(request):
     return models.FormKitSchema.objects.all()
 
 
-@router.get("list-nodes", response=list[NodeReturnType], by_alias=True, exclude_none=True)
+@router.get("list-nodes", response=list[NodeStringType | NodeReturnType], by_alias=True, exclude_none=True)
 def get_formkit_nodes(request: HttpRequest, response: HttpResponse, latest_change: int | None = -1):
     """
     Get all of the FormKit nodes in the database
@@ -97,7 +104,7 @@ def get_formkit_nodes(request: HttpRequest, response: HttpResponse, latest_chang
     response["Cache-Control"] = "no-store,max-age=0"
     # This is somewhat hard to handle as a tuple in IDB
     # so collapse to a dict
-    responses = (NodeReturnType(
+    responses = ((NodeStringType if isinstance(node, str) else NodeReturnType)(
         key = key,
         last_updated = last_updated,
         node = node
