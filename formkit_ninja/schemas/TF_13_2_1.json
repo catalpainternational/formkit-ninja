@@ -146,6 +146,11 @@
      "addLabel": "$gettext(\"Add project\")",
      "children": [
       {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"

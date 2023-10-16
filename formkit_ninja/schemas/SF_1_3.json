@@ -79,6 +79,11 @@
      "addLabel": "$gettext(\"Add another member\")",
      "children": [
       {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
@@ -140,8 +145,25 @@
        "label": "$gettext(\"Phone number\")",
        "maxLength": 8,
        "name": "phone_number",
-       "validation": "contains_numeric|length:8,8",
+       "validation": "number|length:8,8",
        "validation-visibility": "dirty"
+      },
+      {
+       "$formkit": "date",
+       "label": "$gettext(\"Date of exit from the committee\")",
+       "name": "date_exit_committee"
+      },
+      {
+       "$formkit": "text",
+       "label": "$gettext(\"Reason for exit\")",
+       "name": "exit_details"
+      },
+      {
+       "$formkit": "select",
+       "label": "$gettext(\"Is active?\")",
+       "name": "active_status",
+       "options": "$ida(yesno)",
+       "value": "1"
       }
      ],
      "downControl": false,
@@ -188,6 +210,11 @@
      "$formkit": "repeater",
      "addLabel": "$gettext(\"Add another member\")",
      "children": [
+      {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
       {
        "$el": "div",
        "attrs": {
@@ -250,8 +277,25 @@
        "label": "$gettext(\"Phone number\")",
        "maxLength": 8,
        "name": "phone_number",
-       "validation": "contains_numeric|length:8,8",
+       "validation": "number|length:8,8",
        "validation-visibility": "dirty"
+      },
+      {
+       "$formkit": "date",
+       "label": "$gettext(\"Date of exit from the committee\")",
+       "name": "date_exit_committee"
+      },
+      {
+       "$formkit": "text",
+       "label": "$gettext(\"Reason for exit\")",
+       "name": "exit_details"
+      },
+      {
+       "$formkit": "select",
+       "label": "$gettext(\"Is active?\")",
+       "name": "active_status",
+       "options": "$ida(yesno)",
+       "value": "1"
       }
      ],
      "downControl": false,
@@ -298,6 +342,11 @@
      "addLabel": "$gettext(\"Add another member\")",
      "children": [
       {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
@@ -339,28 +388,45 @@
        "placeholder": "$gettext(\"Please enter\")"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "dropdown",
        "label": "$gettext(\"Gender\")",
        "name": "gender",
-       "optionClass": "mr-6",
        "options": "$ida(gender)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")",
+       "selectIcon": "angleDown"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "dropdown",
        "label": "$gettext(\"Person with a disability\")",
        "name": "person_with_disability",
-       "optionClass": "mr-6",
        "options": "$ida(yesno)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")",
+       "selectIcon": "angleDown"
       },
       {
        "$formkit": "tel",
        "label": "$gettext(\"Phone number\")",
        "maxLength": 8,
        "name": "phone_number",
-       "validation": "contains_numeric|length:8,8",
+       "validation": "number|length:8,8",
        "validation-visibility": "dirty"
+      },
+      {
+       "$formkit": "date",
+       "label": "$gettext(\"Date of exit from the committee\")",
+       "name": "date_exit_committee"
+      },
+      {
+       "$formkit": "text",
+       "label": "$gettext(\"Reason for exit\")",
+       "name": "exit_details"
+      },
+      {
+       "$formkit": "select",
+       "label": "$gettext(\"Is active?\")",
+       "name": "active_status",
+       "options": "$ida(yesno)",
+       "value": "1"
       }
      ],
      "downControl": false,

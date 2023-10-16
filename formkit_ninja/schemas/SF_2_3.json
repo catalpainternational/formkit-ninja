@@ -79,6 +79,16 @@
      "addLabel": "$pgettext(\"sf23_priority\", \"Add another priority\")",
      "children": [
       {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
+       "$formkit": "hidden",
+       "name": "submitted_from",
+       "value": "data-collection"
+      },
+      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
@@ -199,6 +209,11 @@
      "name": "priorities",
      "removeAction": "$repeaterRemoveAction",
      "removeLabel": "$gettext(\"Remove\")",
+     "repeaterUniqueIdField": {
+      "$formkit": "uuid",
+      "name": "uuid",
+      "readonly": true
+     },
      "sectionsSchema": {
       "remove": {
        "children": [

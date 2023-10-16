@@ -67,6 +67,15 @@
      "options": "$getLocations($get(district).value, $get(administrative_post).value)"
     },
     {
+     "$formkit": "select",
+     "id": "activity",
+     "key": "activity",
+     "label": "$gettext(\"Activity name\")",
+     "name": "activity",
+     "options": "$ida(cycle)",
+     "placeholder": "$gettext(\"Please select\")"
+    },
+    {
      "$formkit": "dropdown",
      "key": "meeting_objective",
      "label": "$gettext(\"Meeting objective\")",

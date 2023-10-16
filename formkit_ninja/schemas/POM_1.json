@@ -88,9 +88,16 @@
     },
     {
      "$formkit": "hidden",
-     "id": "pom1_status",
-     "key": "pom1_status",
-     "name": "pom1_status",
+     "id": "pom1_infrastructure_status",
+     "key": "pom1_infrastructure_status",
+     "name": "pom1_infrastructure_status",
+     "value": "1"
+    },
+    {
+     "$formkit": "hidden",
+     "id": "pom1_operational_status",
+     "key": "pom1_operational_status",
+     "name": "pom1_operational_status",
      "value": "1"
     }
    ],
@@ -105,6 +112,11 @@
      "$formkit": "repeater",
      "addLabel": "$gettext(\"Add activity\")",
      "children": [
+      {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
       {
        "$el": "div",
        "attrs": {

@@ -311,6 +311,11 @@
      "addLabel": "$gettext(\"Add project\")",
      "children": [
       {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
@@ -392,6 +397,11 @@
      "addLabel": "$gettext(\"Add balance\")",
      "children": [
       {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
@@ -432,7 +442,29 @@
       }
      ],
      "downControl": false,
+     "id": "repeaterBalance",
      "name": "repeaterBalance",
+     "removeAction": "$repeaterRemoveAction",
+     "removeLabel": "$gettext(\"Remove\")",
+     "sectionsSchema": {
+      "remove": {
+       "children": [
+        {
+         "$el": "button",
+         "attrs": {
+          "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
+          "data-index": "$index",
+          "data-repeaterid": "$id",
+          "onClick": "$attrs.removeAction"
+         },
+         "children": [
+          "$attrs.removeLabel"
+         ],
+         "if": "$value.length > 1"
+        }
+       ]
+      }
+     },
      "upControl": false
     },
     {
