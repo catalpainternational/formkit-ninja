@@ -3,9 +3,10 @@ from __future__ import annotations
 import itertools
 import logging
 import uuid
-from typing import Iterable, TypedDict, get_args
 import warnings
+from typing import Iterable, TypedDict, get_args
 
+import pgtrigger
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
@@ -275,24 +276,27 @@ class NodeChildren(models.Model):
 
 
 class NodeQS(models.QuerySet):
-
     def from_change(self, track_change: int = -1):
         return self.filter(track_change__gt=track_change)
 
-    def to_response(self, ignore_errors: bool = True) -> Iterable[tuple[str, int, formkit_schema.Node | str]]:
+    def to_response(self, ignore_errors: bool = True) -> Iterable[tuple[str, int, formkit_schema.Node | str | None]]:
         """
         Return a set of FormKit nodes
         """
         node: FormKitSchemaNode
         for node in self.all():
             try:
-                yield node.id, node.track_change, node.get_node(recursive=False)
+                if node.is_active:
+                    yield node.id, node.track_change, node.get_node(recursive=False)
+                else:
+                    yield node.id, node.track_change, None
             except Exception as E:
                 if not ignore_errors:
                     raise
                 warnings.warn(f"An unparseable FormKit node was hit at {node.pk}")
                 warnings.warn(f"{E}")
-            
+
+
 class FormKitSchemaNode(UuidIdModel):
     """
     This represents a single "Node" in a FormKit schema.
@@ -303,6 +307,12 @@ class FormKitSchemaNode(UuidIdModel):
     | FormKitSchemaCondition
     | FormKitSchemaFormKit
     """
+
+    class Meta:
+        triggers = [
+            pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
+            triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
+        ]
 
     objects = NodeQS.as_manager()
 
@@ -327,6 +337,7 @@ class FormKitSchemaNode(UuidIdModel):
     label = models.CharField(max_length=1024, help_text="Used as a human-readable label", null=True, blank=True)
     option_group = models.ForeignKey(OptionGroup, null=True, blank=True, on_delete=models.PROTECT)
     children = models.ManyToManyField("self", through=NodeChildren, symmetrical=False, blank=True)
+    is_active = models.BooleanField(default=True)
 
     node = models.JSONField(
         null=True,
@@ -371,7 +382,7 @@ class FormKitSchemaNode(UuidIdModel):
         # TODO: This is horribly slow
         return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
-    def get_node_values(self, recursive: bool = True, options:bool = True) -> str | dict:
+    def get_node_values(self, recursive: bool = True, options: bool = True) -> str | dict:
         """
         Reify a 'dict' instance suitable for creating
         a FormKit Schema node from
@@ -501,10 +512,9 @@ class FormKitSchemaNode(UuidIdModel):
     def to_pydantic(self, recursive=False, options=False, **kwargs):
         if self.text_content:
             return self.text_content
-        return formkit_schema.FormKitNode.parse_obj(self.get_node_values(recursive=recursive, options=options, **kwargs))
-
-    class Meta:
-        triggers = [triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID)]
+        return formkit_schema.FormKitNode.parse_obj(
+            self.get_node_values(recursive=recursive, options=options, **kwargs)
+        )
 
 
 class SchemaManager(models.Manager):

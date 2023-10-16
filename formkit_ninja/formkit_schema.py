@@ -77,12 +77,7 @@ class FormKitAttributeValue(BaseModel):
 
 
 class FormKitSchemaAttributes(BaseModel):
-    __root__: dict[
-        str,
-        FormKitAttributeValue
-        | FormKitSchemaAttributes
-        | FormKitSchemaAttributesCondition
-    ]
+    __root__: dict[str, FormKitAttributeValue | FormKitSchemaAttributes | FormKitSchemaAttributesCondition]
 
 
 class FormKitSchemaProps(BaseModel):
@@ -274,7 +269,7 @@ FormKitSchemaFormKit = Annotated[
         TelNode,
         CurrencyNode,
         HiddenNode,
-        UuidNode
+        UuidNode,
     ],
     Field(discriminator="formkit"),
 ]

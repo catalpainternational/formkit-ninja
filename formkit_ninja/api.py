@@ -2,9 +2,9 @@ from typing import List
 from uuid import UUID
 
 from django.db.models import F
+from django.db.models.aggregates import Max
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
-from django.db.models.aggregates import Max
 from ninja import ModelSchema, Router
 from pydantic import BaseModel
 
@@ -65,11 +65,18 @@ class NodeReturnType(BaseModel):
     node: formkit_schema.FormKitNode
 
 
+class NodeInactiveType(BaseModel):
+    key: UUID
+    last_updated: int
+    is_active: bool = False
+
+
 class NodeStringType(NodeReturnType):
     """
     str | formkit_schema.FormKitNode causes openapi generator to fail
     """
-    node :str
+
+    node: str
 
 
 class Option(ModelSchema):
@@ -93,22 +100,28 @@ def get_list_schemas(request):
     return models.FormKitSchema.objects.all()
 
 
-@router.get("list-nodes", response=list[NodeStringType | NodeReturnType], by_alias=True, exclude_none=True)
+@router.get(
+    "list-nodes", response=list[NodeStringType | NodeReturnType | NodeInactiveType], by_alias=True, exclude_none=True
+)
 def get_formkit_nodes(request: HttpRequest, response: HttpResponse, latest_change: int | None = -1):
     """
     Get all of the FormKit nodes in the database
     """
     objects: models.NodeQS = models.FormKitSchemaNode.objects
     nodes: models.NodeQS = objects.from_change(latest_change)
-    response['latest_change'] = nodes.aggregate(_ = Max('track_change'))["_"] or latest_change
+    response["latest_change"] = nodes.aggregate(_=Max("track_change"))["_"] or latest_change
     response["Cache-Control"] = "no-store,max-age=0"
     # This is somewhat hard to handle as a tuple in IDB
     # so collapse to a dict
-    responses = ((NodeStringType if isinstance(node, str) else NodeReturnType)(
-        key = key,
-        last_updated = last_updated,
-        node = node
-    ) for key, last_updated, node in nodes.to_response(ignore_errors=False))
+    responses = []
+    for key, last_updated, node in nodes.to_response(ignore_errors=False):
+        if isinstance(node, str):
+            n = NodeStringType(key=key, last_updated=last_updated, node=node)
+        elif node is None:
+            n = NodeInactiveType(key=key, last_updated=last_updated, is_active=False)
+        else:
+            n = NodeReturnType(key=key, last_updated=last_updated, node=node)
+        responses.append(n)
     return responses
 
 

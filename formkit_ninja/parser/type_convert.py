@@ -253,8 +253,8 @@ class NodePath:
                 return "DateTimeField"
             case "date":
                 return "DateField"
-            case 'UUID':
-                return 'UUIDField'
+            case "UUID":
+                return "UUIDField"
         return "TextField"
 
     @property
