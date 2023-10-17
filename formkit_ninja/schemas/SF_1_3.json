@@ -79,11 +79,6 @@
      "addLabel": "$gettext(\"Add another member\")",
      "children": [
       {
-       "$formkit": "uuid",
-       "name": "uuid",
-       "readonly": true
-      },
-      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
@@ -100,23 +95,26 @@
        ]
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
+       "$formkit": "select",
        "label": "$gettext(\"Round\")",
        "name": "round",
        "options": [
         "1",
         "2"
        ],
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Position\")",
        "name": "position",
-       "options": "$getoptions.common.translatedOptions('Chief EIP', 'Secretary', 'Treasurer')",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "options": "$ida(teamposition, \"group_id=0\")",
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "text",
@@ -125,28 +123,25 @@
        "placeholder": "$gettext(\"Please enter\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Gender\")",
        "name": "gender",
        "options": "$ida(gender)",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Person with a disability\")",
        "name": "person_with_disability",
        "options": "$ida(yesno)",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "tel",
        "label": "$gettext(\"Phone number\")",
        "maxLength": 8,
        "name": "phone_number",
-       "validation": "number|length:8,8",
-       "validation-visibility": "dirty"
+       "validation": "number|length:8,8"
       },
       {
        "$formkit": "date",
@@ -211,11 +206,6 @@
      "addLabel": "$gettext(\"Add another member\")",
      "children": [
       {
-       "$formkit": "uuid",
-       "name": "uuid",
-       "readonly": true
-      },
-      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
@@ -232,23 +222,26 @@
        ]
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
+       "$formkit": "select",
        "label": "$gettext(\"Round\")",
        "name": "round",
        "options": [
         "1",
         "2"
        ],
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Position\")",
        "name": "position",
-       "options": "$getoptions.common.translatedOptions('President', 'Secretary')",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "options": "$ida(teamposition, \"group_id=1\")",
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "text",
@@ -257,28 +250,25 @@
        "placeholder": "$gettext(\"Please enter\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Gender\")",
        "name": "gender",
        "options": "$ida(gender)",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Person with a disability\")",
        "name": "person_with_disability",
        "options": "$ida(yesno)",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "tel",
        "label": "$gettext(\"Phone number\")",
        "maxLength": 8,
        "name": "phone_number",
-       "validation": "number|length:8,8",
-       "validation-visibility": "dirty"
+       "validation": "number|length:8,8"
       },
       {
        "$formkit": "date",
@@ -342,11 +332,6 @@
      "addLabel": "$gettext(\"Add another member\")",
      "children": [
       {
-       "$formkit": "uuid",
-       "name": "uuid",
-       "readonly": true
-      },
-      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
@@ -363,23 +348,26 @@
        ]
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
+       "$formkit": "select",
        "label": "$gettext(\"Round\")",
        "name": "round",
        "options": [
         "1",
         "2"
        ],
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Position\")",
        "name": "position",
-       "options": "$getoptions.common.translatedOptions('Suku Facilitator Male', 'Suku Facilitator Female')",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "options": "$ida(teamposition, \"group_id=2\")",
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "text",
@@ -388,28 +376,25 @@
        "placeholder": "$gettext(\"Please enter\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Gender\")",
        "name": "gender",
        "options": "$ida(gender)",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Person with a disability\")",
        "name": "person_with_disability",
        "options": "$ida(yesno)",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "tel",
        "label": "$gettext(\"Phone number\")",
        "maxLength": 8,
        "name": "phone_number",
-       "validation": "number|length:8,8",
-       "validation-visibility": "dirty"
+       "validation": "number|length:8,8"
       },
       {
        "$formkit": "date",

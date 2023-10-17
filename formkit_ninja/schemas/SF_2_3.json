@@ -79,16 +79,6 @@
      "addLabel": "$pgettext(\"sf23_priority\", \"Add another priority\")",
      "children": [
       {
-       "$formkit": "uuid",
-       "name": "uuid",
-       "readonly": true
-      },
-      {
-       "$formkit": "hidden",
-       "name": "submitted_from",
-       "value": "data-collection"
-      },
-      {
        "$el": "div",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
@@ -106,6 +96,11 @@
          ]
         }
        ]
+      },
+      {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
       },
       {
        "$formkit": "select",
@@ -150,13 +145,12 @@
        "name": "place"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "if": "$get(project_name).value",
        "key": "unit_select",
        "label": "$pgettext('sf23_priority', 'Volume / Unit')",
        "name": "unit",
-       "options": "$ida(unit)",
-       "selectIcon": "angleDown"
+       "options": "$ida(unit)"
       },
       {
        "$formkit": "select",
@@ -188,13 +182,12 @@
        "validation": "shouldNotAcceptNegativeValue"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "key": "women_priority",
        "label": "$pgettext('sf23_priority', 'From priorities identified by women (yes/no)')",
        "name": "women_priority",
        "options": "$ida(yesno)",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "currency",
@@ -234,6 +227,11 @@
       }
      },
      "upControl": false
+    },
+    {
+     "$formkit": "hidden",
+     "name": "submitted_from",
+     "value": "data-collection"
     }
    ],
    "icon": "las la-list-alt",
