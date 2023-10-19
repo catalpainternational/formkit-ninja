@@ -11,7 +11,7 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.db.models.aggregates import Max
 from rich.console import Console
 
@@ -242,7 +242,7 @@ class NodeChildrenManager(models.Manager):
             .annotate(children=ArrayAgg("child", ordering=F("order")), latest_change=Max("track_change"))
         )
         if latest_change:
-            values = values.filter(latest_change__gt=latest_change)
+            values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__latest_change__gt=latest_change))
         return values.values_list("parent_id", "latest_change", "children", named=True)
 
 
@@ -365,6 +365,9 @@ class FormKitSchemaNode(UuidIdModel):
         """
         On save validate the 'node' field matches the 'FormKitNode'
         """
+        # rename `formkit` to `$formkit`
+        if isinstance(self.node, dict) and 'formkit' in self.node:
+            self.node.update({"$formkit": self.node.pop('formkit')})
         return super().save(*args, **kwargs)
 
     @property

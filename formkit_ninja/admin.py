@@ -188,9 +188,12 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
             "name",
             ("formkit", "$formkit"),
             "if_condition",
-        )
+            ("html_id", "id")
+        ),
     }
-
+    html_id = forms.CharField(
+        required=False, help_text="Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"
+    )
     name = forms.CharField(required=False)
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
     if_condition = forms.CharField(
@@ -364,6 +367,17 @@ class NodeChildrenInline(admin.TabularInline):
     fk_name = "parent"
     extra = 0
 
+class NodeParentsInline(admin.TabularInline):
+    """
+    Nested HTML elements
+    """
+
+    model = models.NodeChildren
+    fields = ("parent", "order", "track_change")
+    ordering = ("order",)
+    readonly_fields = ("track_change", "parent")
+    fk_name = "child"
+    extra = 0
 
 class NodeInline(admin.StackedInline):
     """
@@ -409,12 +423,14 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         if obj.node_type == "$el" or (obj.node and obj.node.get("$formkit", None) == "group"):
             return [
                 NodeChildrenInline,
+                NodeParentsInline
             ]
         return []
 
     # # Note that although overridden these are necessary
     inlines = [
         NodeChildrenInline,
+        NodeParentsInline
     ]
 
     def get_fieldsets(self, request: HttpRequest, obj: models.FormKitSchemaNode | None = None):
