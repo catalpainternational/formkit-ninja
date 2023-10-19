@@ -214,25 +214,6 @@ def list_options(request: HttpRequest, response: HttpResponse):
     return models.Option.objects.annotate(group_name=F("group__group"))
 
 
-@router.post(
-    "node/{node_id}",
-    response=formkit_schema.FormKitNode,
-    exclude_none=True,
-    by_alias=True,
-)
-def post_node(request, node_id: UUID, payload: formkit_schema.NodeIn):
-    """
-    Update a Node based on its UUID
-    """
-    from rich.console import Console
-
-    console = Console()
-    console.log(payload)
-    node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
-    instance = node.get_node()
-    return instance
-
-
 # Create a new Group within a Form
 class GroupIn(BaseModel):
     parent_id: UUID
