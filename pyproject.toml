@@ -17,6 +17,7 @@ Django = "^4"
 pydantic = "<2"
 django-stubs = {extras = ["compatible-mypy"], version = "^4.2.3"}
 django-pgtrigger = "^4.7.0"
+rich = "*"
 
 [tool.poetry.group.dev]
 optional = true
@@ -28,7 +29,6 @@ isort = "*"
 black = "*"
 flake8 = "*"
 django-extensions = "*"
-rich = "*"
 sqlparse = "*"
 mypy = "*"
 pre-commit = "*"
