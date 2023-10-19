@@ -1,8 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from formkit_ninja import models
-from formkit_ninja.formkit_schema import FormKitNode
-from formkit_ninja.formkit_schema import GroupNode
+from formkit_ninja.formkit_schema import FormKitNode, GroupNode
 from formkit_ninja.schemas import Schemas
 
 
