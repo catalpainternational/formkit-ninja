@@ -366,8 +366,8 @@ class FormKitSchemaNode(UuidIdModel):
         On save validate the 'node' field matches the 'FormKitNode'
         """
         # rename `formkit` to `$formkit`
-        if isinstance(self.node, dict) and 'formkit' in self.node:
-            self.node.update({"$formkit": self.node.pop('formkit')})
+        if isinstance(self.node, dict) and "formkit" in self.node:
+            self.node.update({"$formkit": self.node.pop("formkit")})
         return super().save(*args, **kwargs)
 
     @property

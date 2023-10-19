@@ -184,12 +184,7 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
         fields = ("label", "description", "additional_props", "is_active")
 
     _json_fields = {
-        "node": (
-            "name",
-            ("formkit", "$formkit"),
-            "if_condition",
-            ("html_id", "id")
-        ),
+        "node": ("name", ("formkit", "$formkit"), "if_condition", ("html_id", "id")),
     }
     html_id = forms.CharField(
         required=False, help_text="Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"
@@ -367,6 +362,7 @@ class NodeChildrenInline(admin.TabularInline):
     fk_name = "parent"
     extra = 0
 
+
 class NodeParentsInline(admin.TabularInline):
     """
     Nested HTML elements
@@ -378,6 +374,7 @@ class NodeParentsInline(admin.TabularInline):
     readonly_fields = ("track_change", "parent")
     fk_name = "child"
     extra = 0
+
 
 class NodeInline(admin.StackedInline):
     """
@@ -421,17 +418,11 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         if not obj:
             return []
         if obj.node_type == "$el" or (obj.node and obj.node.get("$formkit", None) == "group"):
-            return [
-                NodeChildrenInline,
-                NodeParentsInline
-            ]
+            return [NodeChildrenInline, NodeParentsInline]
         return []
 
     # # Note that although overridden these are necessary
-    inlines = [
-        NodeChildrenInline,
-        NodeParentsInline
-    ]
+    inlines = [NodeChildrenInline, NodeParentsInline]
 
     def get_fieldsets(self, request: HttpRequest, obj: models.FormKitSchemaNode | None = None):
         """
