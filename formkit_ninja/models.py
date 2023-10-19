@@ -279,7 +279,7 @@ class NodeQS(models.QuerySet):
     def from_change(self, track_change: int = -1):
         return self.filter(track_change__gt=track_change)
 
-    def to_response(self, ignore_errors: bool = True) -> Iterable[tuple[str, int, formkit_schema.Node | str | None]]:
+    def to_response(self, ignore_errors: bool = True, options: bool=True) -> Iterable[tuple[str, int, formkit_schema.Node | str | None]]:
         """
         Return a set of FormKit nodes
         """
@@ -287,7 +287,7 @@ class NodeQS(models.QuerySet):
         for node in self.all():
             try:
                 if node.is_active:
-                    yield node.id, node.track_change, node.get_node(recursive=False)
+                    yield node.id, node.track_change, node.get_node(recursive=False, options=options)
                 else:
                     yield node.id, node.track_change, None
             except Exception as E:

@@ -61,76 +61,14 @@
      "$formkit": "select",
      "label": "$gettext(\"Month\")",
      "name": "month",
-     "options": [
-      {
-       "label": "January",
-       "value": 1
-      },
-      {
-       "label": "February",
-       "value": 2
-      },
-      {
-       "label": "March",
-       "value": 3
-      },
-      {
-       "label": "April",
-       "value": 4
-      },
-      {
-       "label": "May",
-       "value": 5
-      },
-      {
-       "label": "June",
-       "value": 6
-      },
-      {
-       "label": "July",
-       "value": 7
-      },
-      {
-       "label": "August",
-       "value": 8
-      },
-      {
-       "label": "September",
-       "value": 9
-      },
-      {
-       "label": "October",
-       "value": 10
-      },
-      {
-       "label": "November",
-       "value": 11
-      },
-      {
-       "label": "December",
-       "value": 12
-      }
-     ],
+     "options": "$ida(month)",
      "placeholder": "$gettext(\"Select month\")"
     },
     {
      "$formkit": "select",
      "label": "$gettext(\"Year\")",
      "name": "year",
-     "options": [
-      "2012",
-      "2013",
-      "2014",
-      "2015",
-      "2016",
-      "2017",
-      "2018",
-      "2019",
-      "2020",
-      "2021",
-      "2022",
-      "2023"
-     ],
+     "options": "$ida(year)",
      "placeholder": "$gettext(\"Select year\")"
     }
    ],

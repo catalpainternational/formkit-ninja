@@ -103,10 +103,7 @@
        "$formkit": "select",
        "label": "$gettext(\"Round\")",
        "name": "round",
-       "options": [
-        "1",
-        "2"
-       ],
+       "options": "$ida(electionround)",
        "placeholder": "$gettext(\"Please select\")"
       },
       {
@@ -230,10 +227,7 @@
        "$formkit": "select",
        "label": "$gettext(\"Round\")",
        "name": "round",
-       "options": [
-        "1",
-        "2"
-       ],
+       "options":  "$ida(electionround)",
        "placeholder": "$gettext(\"Please select\")"
       },
       {
@@ -356,10 +350,7 @@
        "$formkit": "select",
        "label": "$gettext(\"Round\")",
        "name": "round",
-       "options": [
-        "1",
-        "2"
-       ],
+       "options":  "$ida(electionround)",
        "placeholder": "$gettext(\"Please select\")"
       },
       {
