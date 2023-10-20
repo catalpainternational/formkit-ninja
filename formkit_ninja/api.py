@@ -6,7 +6,7 @@ from django.db.models import F
 from django.db.models.aggregates import Max
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
-from ninja import ModelSchema, Router, Schema
+from ninja import Field, ModelSchema, Router, Schema
 from pydantic import BaseModel
 
 from formkit_ninja import formkit_schema, models
@@ -290,13 +290,18 @@ class FormKitNodeCreate(FormKitNodeIn):
 
 
 class FormKitNodeUpdate(Schema):
-    formkit: Literal["text", "number"] | None = None
+    formkit: str = Field(default="text", alias="$formkit")
     label: str | None = None
     key: str | None = None
+    name: str | None = None
     node_label: str | None = None
     id: str | None = None
-    node_id: UUID | None = None
+    uuid: UUID | None = None
     placeholder: str | None = None
+
+    # Fields from "groups"
+    icon: str | None = None
+    title: str | None = None
 
 
 @router.post(
@@ -342,16 +347,47 @@ def update_node(request, response: HttpResponse, payload: FormKitNodeUpdate):
     Updates a given FormKit node
     """
     with transaction.atomic():
-        node = dict(formkit=payload.formkit)
-        if payload.id:
-            node["id"] = payload.id
-        node["label"] = payload.node_label
-        if payload.placeholder:
-            node["placeholder"] = payload.placeholder
+        # Get the current node values, if any
+        try:
+            instance = models.FormKitSchemaNode.objects.get(id=payload.uuid)
+            node = instance.node
+        except models.FormKitSchemaNode.DoesNotExist:
+            raise
+
+        # Update the "node" with main values
+        # We do this so that we don't wipe out anything we have already set
+        values = {
+            "$formkit":  payload.formkit,
+            "id": payload.id,
+            "key": payload.key,
+             "name": payload.name,
+            "label": payload.node_label,
+            "placeholder": payload.placeholder,
+            "icon": payload.icon,
+            "title": payload.title
+        }
+        node.update(
+            **{
+                k: v
+                for k, v in values.items()
+                if v is not None
+            }
+        )
+        # If an empty is sent for the key, remove it
+        empty_keys = [k for k, v in node.items() if v == ""]
+        for k in empty_keys:
+            del node[k]
+
+        # Defaults for the database instance
+        defaults = {"node": node}
+        if payload.label:
+            defaults['label'] = payload.label
+            
 
         child, created = models.FormKitSchemaNode.objects.update_or_create(
-            id=payload.node_id, defaults=dict(label=payload.label, node_type="$formkit", node=node)
+            id=payload.uuid,
+            defaults=defaults
         )
         objects: models.NodeQS = models.FormKitSchemaNode.objects
         nodes = objects.filter(pk__in=[child.pk])
-        return node_queryset_response(nodes)
+    return node_queryset_response(nodes)
