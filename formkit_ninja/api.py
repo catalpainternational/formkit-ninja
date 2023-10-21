@@ -278,11 +278,10 @@ class FormKitNodeIn(Schema):
     """
 
     formkit: str = Field(default="text", alias="$formkit")
-    label: str
-    key: str
-    node_label: str
-    name: str
-    parent_id: UUID | None
+    label: str | None = None
+    key: str | None = None
+    node_label: str | None = None
+    name: str | None = None
     id: str | None = None
     placeholder: str | None = None
     # Fields from "groups"
@@ -294,7 +293,7 @@ class FormKitNodeCreate(FormKitNodeIn):
 
 
 class FormKitNodeUpdate(FormKitNodeIn):
-    uuid: UUID | None = None
+    uuid: UUID
 
 
 @router.post(
