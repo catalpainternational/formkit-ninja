@@ -277,32 +277,24 @@ class FormKitNodeIn(Schema):
     Creates a new FormKit text or number node
     """
 
-    formkit: Literal["text", "number"]
+    formkit: str = Field(default="text", alias="$formkit")
     label: str
     key: str
     node_label: str
     name: str
     parent_id: UUID | None
     id: str | None = None
-
+    placeholder: str | None = None
+    # Fields from "groups"
+    icon: str | None = None
+    title: str | None = None
 
 class FormKitNodeCreate(FormKitNodeIn):
     parent_id: UUID
 
 
-class FormKitNodeUpdate(Schema):
-    formkit: str = Field(default="text", alias="$formkit")
-    label: str | None = None
-    key: str | None = None
-    name: str | None = None
-    node_label: str | None = None
-    id: str | None = None
+class FormKitNodeUpdate(FormKitNodeIn):
     uuid: UUID | None = None
-    placeholder: str | None = None
-
-    # Fields from "groups"
-    icon: str | None = None
-    title: str | None = None
 
 
 @router.post(
@@ -325,11 +317,24 @@ def add_node(request, response: HttpResponse, payload: FormKitNodeCreate):
             "child__node__id", flat=True
         ):
             raise KeyError("A node with this ID already exists")
-
-        node = dict(formkit=payload.formkit)
-        if payload.id:
-            node["id"] = payload.id
-        node["label"] = payload.node_label
+        node = {}
+        values = {
+            "$formkit":  payload.formkit,
+            "id": payload.id,
+            "key": payload.key,
+            "name": payload.name,
+            "label": payload.node_label,
+            "placeholder": payload.placeholder,
+            "icon": payload.icon,
+            "title": payload.title,
+        }
+        node.update(
+            **{
+                k: v
+                for k, v in values.items()
+                if v is not None
+            }
+        )
         child = models.FormKitSchemaNode.objects.create(label=payload.label, node_type="$formkit", node=node)
         models.NodeChildren.objects.create(parent=parent, child=child)
         objects: models.NodeQS = models.FormKitSchemaNode.objects
@@ -357,15 +362,18 @@ def update_node(request, response: HttpResponse, payload: FormKitNodeUpdate):
 
         # Update the "node" with main values
         # We do this so that we don't wipe out anything we have already set
+        # NOTE: This should be defined from the fields
+        # rather than one by one. Refactor and test
+        # when we have breathing room.
         values = {
             "$formkit":  payload.formkit,
             "id": payload.id,
             "key": payload.key,
-             "name": payload.name,
+            "name": payload.name,
             "label": payload.node_label,
             "placeholder": payload.placeholder,
             "icon": payload.icon,
-            "title": payload.title
+            "title": payload.title,
         }
         node.update(
             **{
@@ -383,7 +391,6 @@ def update_node(request, response: HttpResponse, payload: FormKitNodeUpdate):
         defaults = {"node": node}
         if payload.label:
             defaults['label'] = payload.label
-            
 
         child, created = models.FormKitSchemaNode.objects.update_or_create(
             id=payload.uuid,
