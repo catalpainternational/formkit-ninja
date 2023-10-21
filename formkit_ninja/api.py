@@ -217,7 +217,7 @@ def list_options(request: HttpRequest, response: HttpResponse):
 # Create a new Group within a Form
 class GroupIn(BaseModel):
     parent_id: UUID
-    id: str = "newsection"
+    id: str | None  = None
     icon: str = "info-circle"
     title: str = "New Section"
 
