@@ -54,6 +54,7 @@ class NodeChildrenOut(ModelSchema):
 
     children: list[UUID] = []
     latest_change: int | None = None
+    parent__latest_change: int | None = None
 
     class Config:
         model = models.NodeChildren
@@ -369,7 +370,7 @@ def update_node(request, response: HttpResponse, payload: FormKitNodeUpdate):
             "id": payload.id,
             "key": payload.key,
             "name": payload.name,
-            "label": payload.node_label,
+            "label": payload.label,
             "placeholder": payload.placeholder,
             "icon": payload.icon,
             "title": payload.title,
