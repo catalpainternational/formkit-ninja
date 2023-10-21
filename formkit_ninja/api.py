@@ -281,6 +281,7 @@ class FormKitNodeIn(Schema):
     label: str
     key: str
     node_label: str
+    name: str
     parent_id: UUID | None
     id: str | None = None
 
