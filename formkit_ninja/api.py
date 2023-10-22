@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import List, Literal
 from uuid import UUID
 
@@ -223,40 +224,54 @@ class GroupIn(BaseModel):
     title: str = "New Section"
 
 
+class FormKitErrors(BaseModel):
+    errors: list[str] = []
+    field_errors: dict[str, str] = {}
+
+
 @router.post(
     "create_group",
-    response=list[NodeStringType | NodeReturnType | NodeInactiveType],
+    response={ HTTPStatus.OK: list[NodeStringType | NodeReturnType | NodeInactiveType], HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors },
     exclude_none=True,
     by_alias=True,
 )
-def create_group(request, response: HttpResponse, payload: GroupIn):
+def create_group(request: HttpRequest, payload: GroupIn):
     """
     Adds a new 'Group' node to a form
     This is a collapsible section with an icon and title
     """
-    with transaction.atomic():
-        parent = get_object_or_404(models.FormKitSchemaNode.objects, id=payload.parent_id)
-        if parent.node_type != "$formkit":
-            raise ValueError("Parent node must be a FormKit node")
-        if not isinstance(parent.node, dict):
-            raise ValueError("Parent node must be a FormKit node")
-        if payload.id in models.NodeChildren.objects.filter(parent=parent).values_list("child__node__id", flat=True):
-            raise KeyError("A node with this ID already exists")
-        child = models.FormKitSchemaNode.objects.create(
-            label=payload.title,
-            node_type="$formkit",
-            additional_props=dict(
-                icon=payload.icon,
-                title=payload.title,
-            ),
-            node=dict(
-                id=payload.id,
-                formkit="group",
-            ),
-        )
-        models.NodeChildren.objects.create(parent=parent, child=child)
-        objects: models.NodeQS = models.FormKitSchemaNode.objects
-        nodes = objects.filter(pk__in=[parent.pk, child.pk])
+    error_response: FormKitErrors | None = FormKitErrors()
+    try:
+        with transaction.atomic():
+            parent = get_object_or_404(models.FormKitSchemaNode.objects, id=payload.parent_id)
+            if parent.node_type != "$formkit":
+                error_response.errors.append("Parent node must be a FormKit node")
+            if not isinstance(parent.node, dict):
+                error_response.errors.append("Parent node must be a FormKit node")
+            if payload.id in models.NodeChildren.objects.filter(parent=parent).values_list("child__node__id", flat=True):
+                error_response.field_errors["id"] = "A node with this ID already exists"
+            child = models.FormKitSchemaNode.objects.create(
+                label=payload.title,
+                node_type="$formkit",
+                additional_props=dict(
+                    icon=payload.icon,
+                    title=payload.title,
+                ),
+                node=dict(
+                    id=payload.id,
+                    formkit="group",
+                ),
+            )
+            models.NodeChildren.objects.create(parent=parent, child=child)
+            objects: models.NodeQS = models.FormKitSchemaNode.objects
+            nodes = objects.filter(pk__in=[parent.pk, child.pk])
+            if error_response.errors or error_response.field_errors:
+                transaction.rollback()
+    except Exception as E:
+        error_response.errors.append(f'{E}')
+    finally:
+        if error_response.errors or error_response.field_errors:
+            return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
         return node_queryset_response(nodes)
 
 
