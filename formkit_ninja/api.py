@@ -287,130 +287,75 @@ def delete_node(request, node_id: UUID):
         objects: models.NodeQS = models.FormKitSchemaNode.objects
         return node_queryset_response(objects.filter(pk=node_id))[0]
 
-
 class FormKitNodeIn(Schema):
     """
     Creates a new FormKit text or number node
+    We'd like to use `formkit_schema.FormKitSchemaFormKit`
+    here but that `discriminated node` stuff makes it hard
     """
 
     formkit: str = Field(default="text", alias="$formkit")
     label: str | None = None
     key: str | None = None
-    node_label: str | None = None
     name: str | None = None
     id: str | None = None
     placeholder: str | None = None
+
     # Fields from "groups"
     icon: str | None = None
     title: str | None = None
 
-class FormKitNodeCreate(FormKitNodeIn):
-    parent_id: UUID
+    # Fields from "number"
+    max: int | None = None
+    min: int | None = None
+    step: str | None = None
 
+    # Field from dropdown/select/autocomplete/radio/checkbox
+    options: str | None = None
 
-class FormKitNodeUpdate(FormKitNodeIn):
-    uuid: UUID
+    # Used for Creates
+    parent_id: UUID | None = None
+
+    # Used for Updates
+    uuid: UUID | None = None
 
 
 @router.post(
-    "add_node",
+    "create_or_update_node",
     response=list[NodeReturnType],
     exclude_none=True,
     by_alias=True,
 )
-def add_node(request, response: HttpResponse, payload: FormKitNodeCreate):
-    """
-    Adds a new child node to an element
-    """
+def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeIn):
+
+    objects: models.NodeQS = models.FormKitSchemaNode.objects
+
     with transaction.atomic():
-        parent = get_object_or_404(models.FormKitSchemaNode.objects, id=payload.parent_id)
-        if parent.node_type != "$formkit":
-            raise ValueError("Parent node must be a FormKit node")
-        if not isinstance(parent.node, dict):
-            raise ValueError("Parent node must be a FormKit node")
+        parent = None
+        if payload.parent_id is not None:
+            parent = get_object_or_404(objects, id=payload.parent_id)
+            if parent.node_type != "$formkit":
+                raise ValueError("Parent node must be a FormKit node")
+            if not isinstance(parent.node, dict):
+                raise ValueError("Parent node must be a FormKit node")
         if payload.id is not None and payload.id in models.NodeChildren.objects.filter(parent=parent).values_list(
             "child__node__id", flat=True
         ):
             raise KeyError("A node with this ID already exists")
-        node = {}
-        values = {
-            "$formkit":  payload.formkit,
-            "id": payload.id,
-            "key": payload.key,
-            "name": payload.name,
-            "label": payload.node_label,
-            "placeholder": payload.placeholder,
-            "icon": payload.icon,
-            "title": payload.title,
-        }
-        node.update(
-            **{
-                k: v
-                for k, v in values.items()
-                if v is not None
-            }
-        )
-        child = models.FormKitSchemaNode.objects.create(label=payload.label, node_type="$formkit", node=node)
-        models.NodeChildren.objects.create(parent=parent, child=child)
-        objects: models.NodeQS = models.FormKitSchemaNode.objects
-        nodes = objects.filter(pk__in=[parent.pk, child.pk])
+        
+        if payload.uuid is None:
+            child = models.FormKitSchemaNode()
+        else:
+            child = models.FormKitSchemaNode.objects.get(id=payload.uuid)
+        child.label=payload.label, 
+        child.node_type = "formkit"
+        child.node = payload.dict(by_alias=True, exclude_none=True, exclude={'parent_id', 'uuid'})
+        child.save()
+
+        if parent:
+            models.NodeChildren.objects.create(parent=parent, child=child)
+            nodes = objects.filter(pk__in=[parent.pk, child.pk])
+        else:
+            nodes = objects.filter(pk__in=[child.pk])
         return node_queryset_response(nodes)
 
-
-@router.put(
-    "update_node",
-    response=list[NodeReturnType],
-    exclude_none=True,
-    by_alias=True,
-)
-def update_node(request, response: HttpResponse, payload: FormKitNodeUpdate):
-    """
-    Updates a given FormKit node
-    """
-    with transaction.atomic():
-        # Get the current node values, if any
-        try:
-            instance = models.FormKitSchemaNode.objects.get(id=payload.uuid)
-            node = instance.node
-        except models.FormKitSchemaNode.DoesNotExist:
-            raise
-
-        # Update the "node" with main values
-        # We do this so that we don't wipe out anything we have already set
-        # NOTE: This should be defined from the fields
-        # rather than one by one. Refactor and test
-        # when we have breathing room.
-        values = {
-            "$formkit":  payload.formkit,
-            "id": payload.id,
-            "key": payload.key,
-            "name": payload.name,
-            "label": payload.label,
-            "placeholder": payload.placeholder,
-            "icon": payload.icon,
-            "title": payload.title,
-        }
-        node.update(
-            **{
-                k: v
-                for k, v in values.items()
-                if v is not None
-            }
-        )
-        # If an empty is sent for the key, remove it
-        empty_keys = [k for k, v in node.items() if v == ""]
-        for k in empty_keys:
-            del node[k]
-
-        # Defaults for the database instance
-        defaults = {"node": node}
-        if payload.label:
-            defaults['label'] = payload.label
-
-        child, created = models.FormKitSchemaNode.objects.update_or_create(
-            id=payload.uuid,
-            defaults=defaults
-        )
-        objects: models.NodeQS = models.FormKitSchemaNode.objects
-        nodes = objects.filter(pk__in=[child.pk])
-    return node_queryset_response(nodes)
