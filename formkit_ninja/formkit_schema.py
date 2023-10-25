@@ -111,7 +111,7 @@ class FormKitSchemaProps(BaseModel):
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
-    classes: dict[str, str] | None = Field(None)
+    classes: str | dict[str, str] | None = Field(None)
 
     # FormKit allows arbitrary values, we do our bset to represent these here
     # Additional Props can be quite a complicated structure
@@ -402,6 +402,7 @@ FORMKIT_TYPE = Literal[
     "repeater",
     "autocomplete",
     "email",
+    "uuid"
 ]
 
 

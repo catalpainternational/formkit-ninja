@@ -103,18 +103,23 @@ class JsonDecoratedFormBase(forms.ModelForm):
                 else:
                     form_field, json_field = key
                 fields_from_json.add(json_field)
-                # Assert that the
                 field = self.fields.get(form_field)
                 if not field:
                     warnings.warn(f"The field {form_field} was not found on the form")
                 else:
                     # The value, extracted from the JSON value in the database
+                    # If there's an underscore do a Django-style "lookup"
+                    # e.g. `formkit__name` -> `formkit["name"]`
+                    if "__" in json_field:
+                        nested_field_name = json_field.split("__")[0]
+                        if nested_field_name in values:
+                            field_value = values[nested_field_name].get(json_field.split("__")[1], None)
                     field_value = values.get(json_field, None)
                     # The initial value of the admin form is set to the value of the JSON attrib
                     field = self.fields.get(form_field).initial = field_value
 
             # Here we can warn if there are any "hidden" JSON fields
-
+            # Todo: Handle 'nested' values such as `attrs__classes` 
             if missing := list(set(values) - fields_from_json - {"node_type"}):
                 warnings.warn(f"Some JSON fields were hidden: {','.join(missing)}")
                 warnings.warn(f"Consider adding fields {missing} to {self.__class__.__name__}")
@@ -144,6 +149,11 @@ class JsonDecoratedFormBase(forms.ModelForm):
                 else:
                     form_field, json_field = key
                 if field_value := self.cleaned_data.get(form_field, None):
+                    if '__' in json_field:
+                        if json_field.split('__')[0] in data:
+                            data[json_field.split('__')[0]][json_field.split('__')[1]] = field_value
+                        else:
+                            data[json_field.split('__')[0]] = {json_field.split('__')[1]: field_value} 
                     data[json_field] = field_value
         setattr(self.instance, field, data)
         return super().save(commit=commit)
@@ -302,13 +312,13 @@ class FormKitElementForm(JsonDecoratedFormBase):
         fields = ("label", "description", "text_content", "is_active")
 
     _skip_translations = {"label", "placeholder"}
-    _json_fields = {"node": (("el", "$el"), "name", "if_condition", "classes")}
+    _json_fields = {"node": (("el", "$el"), "name", "if_condition", "attrs__class")}
 
     el = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES)
     name = forms.CharField(
         required=False,
     )
-    classes = forms.CharField(
+    attrs__class = forms.CharField(
         required=False,
     )
     if_condition = forms.CharField(
@@ -417,9 +427,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
         if not obj:
             return []
-        if obj.node_type == "$el" or (obj.node and obj.node.get("$formkit", None) == "group"):
-            return [NodeChildrenInline, NodeParentsInline]
-        return []
+        return [NodeChildrenInline, NodeParentsInline]
 
     # # Note that although overridden these are necessary
     inlines = [NodeChildrenInline, NodeParentsInline]
@@ -490,6 +498,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         if not obj:
             return NewFormKitForm
         try:
+            get_node = obj.get_node()
             for node_type, form_type in (
                 (str, FormKitTextNode),
                 (formkit_schema.GroupNode, FormKitNodeGroupForm),
@@ -499,7 +508,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                 (formkit_schema.FormKitSchemaCondition, FormKitConditionForm),
                 (formkit_schema.FormKitSchemaProps, FormKitNodeForm),
             ):
-                if isinstance(obj.get_node(), node_type):
+                if isinstance(get_node, node_type):
                     return form_type
 
         except Exception as E:

@@ -359,7 +359,7 @@ class FormKitSchemaNode(UuidIdModel):
     track_change = models.BigIntegerField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.label}" if self.label else f"{self.node_type} {self.id}"
+        return f"Node: {self.label}" if self.label else f"{self.node_type} {self.id}"
 
     def save(self, *args, **kwargs):
         """
@@ -423,8 +423,8 @@ class FormKitSchemaNode(UuidIdModel):
         Return a "decorated" node instance
         with restored options and translated fields
         """
-        if text := self.text_content:
-            return text
+        if self.text_content or self.node_type == 'text':
+            return self.text_content or ''
         node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
 
         formkit_node = formkit_schema.FormKitNode.parse_obj(node_content, recursive=recursive)
