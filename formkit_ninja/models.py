@@ -5,6 +5,7 @@ import logging
 import uuid
 import warnings
 from typing import Iterable, TypedDict, get_args
+import pghistory
 
 import pgtrigger
 from django.conf import settings
@@ -299,6 +300,7 @@ class NodeQS(models.QuerySet):
                 warnings.warn(f"{E}")
 
 
+@pghistory.track()
 class FormKitSchemaNode(UuidIdModel):
     """
     This represents a single "Node" in a FormKit schema.

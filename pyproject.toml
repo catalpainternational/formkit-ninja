@@ -18,6 +18,7 @@ pydantic = "<2"
 django-stubs = {extras = ["compatible-mypy"], version = "^4.2.3"}
 django-pgtrigger = "^4.7.0"
 rich = "*"
+django-pghistory = "^3.0.1"
 
 [tool.poetry.group.dev]
 optional = true

@@ -337,18 +337,33 @@ doc = ["markdown-include", "mkdocs", "mkdocs-material", "mkdocstrings"]
 test = ["black", "django-stubs", "flake8", "isort", "mypy (==0.931)", "psycopg2-binary", "pytest", "pytest-asyncio", "pytest-cov", "pytest-django"]
 
 [[package]]
-name = "django-pgtrigger"
-version = "4.7.0"
-description = "Postgres trigger support integrated with Django models."
+name = "django-pghistory"
+version = "3.0.1"
+description = "History tracking for Django and Postgres"
 optional = false
-python-versions = ">=3.7.0,<4"
+python-versions = ">=3.8.0,<4"
 files = [
-    {file = "django_pgtrigger-4.7.0-py3-none-any.whl", hash = "sha256:978e998f5c7bdfaf3edbb01c2075be329ce679bd87a89c5bfdf95405905885bd"},
-    {file = "django_pgtrigger-4.7.0.tar.gz", hash = "sha256:20a4139cccb17b75d065fbfd2cc8f47e3696379d7be4139ef6a67c8d14897a8d"},
+    {file = "django_pghistory-3.0.1-py3-none-any.whl", hash = "sha256:902bc361cb58d6070bb4a2c52cc72fcd7461e00c3d1188f544534d6b5459d04a"},
+    {file = "django_pghistory-3.0.1.tar.gz", hash = "sha256:83e065b8560634f84b257d272c4d2be70c6739b712de8108bf81e8c04e40c590"},
 ]
 
 [package.dependencies]
-django = ">=2"
+django = ">=3"
+django-pgtrigger = ">=4.9.0"
+
+[[package]]
+name = "django-pgtrigger"
+version = "4.9.0"
+description = "Postgres trigger support integrated with Django models."
+optional = false
+python-versions = ">=3.8.0,<4"
+files = [
+    {file = "django_pgtrigger-4.9.0-py3-none-any.whl", hash = "sha256:d079566bd6d4a2235149754d7b7fb64f880905f54628865ae4ea1eb12d34779c"},
+    {file = "django_pgtrigger-4.9.0.tar.gz", hash = "sha256:45220796e1aae68893df4490c5d5a386dd293254bf619bd51898d26ee13372d3"},
+]
+
+[package.dependencies]
+django = ">=3"
 
 [[package]]
 name = "django-stubs"
@@ -1742,4 +1757,4 @@ watchmedo = ["PyYAML (>=3.10)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "af81737270f120260cd960817a11f71d74a432b76ad277cbc764e5156e49811d"
+content-hash = "bcc37a019eaeba58e5ba6ed2728ac4db7b99c90c948003d94f8299edb0de6ab6"
