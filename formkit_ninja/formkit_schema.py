@@ -423,6 +423,9 @@ def get_node_type(obj: dict) -> Discriminators:
 
     if isinstance(obj, str):
         return "text"
+    
+    if isinstance(obj, dict) and len(obj.keys()) == 0:
+        return "text"
 
     for key, return_value in (
         ("$el", "element"),
@@ -431,15 +434,14 @@ def get_node_type(obj: dict) -> Discriminators:
     ):
         if key in obj:
             return return_value
-
-    raise KeyError("Could not determine node type")
+    raise KeyError(F"Could not determine node type for {obj}")
 
 
 NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
 
 
 class FormKitNode(BaseModel):
-    __root__: Node
+    __root__: str | Node
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":
@@ -502,7 +504,10 @@ class FormKitNode(BaseModel):
 
         # There's a discriminator step which needs assisance: `node_type`
         # must be set on the input object
-        node_type = get_node_type(obj)
+        try:
+            node_type = get_node_type(obj)
+        except Exception as E:
+            raise KeyError(F"Node type couln't be determined: {obj}") from E
 
         try:
             parsed = super().parse_obj({**obj, "node_type": node_type})

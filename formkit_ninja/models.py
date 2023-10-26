@@ -427,7 +427,13 @@ class FormKitSchemaNode(UuidIdModel):
         """
         if self.text_content or self.node_type == 'text':
             return self.text_content or ''
-        node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
+        if self.node == {} or self.node is None:
+            if self.node_type == "$el":
+                node_content = {"$el": "span"}
+            elif self.node_type == "$formkit":
+                node_content = { "$formkit": "text" }
+        else:
+            node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
 
         formkit_node = formkit_schema.FormKitNode.parse_obj(node_content, recursive=recursive)
         return formkit_node.__root__

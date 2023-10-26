@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "formkit_ninja",
     "ninja",
     "pgtrigger",
+    "pghistory"
 ]
 
 MIDDLEWARE = [
