@@ -153,8 +153,9 @@ class JsonDecoratedFormBase(forms.ModelForm):
                         if json_field.split('__')[0] in data:
                             data[json_field.split('__')[0]][json_field.split('__')[1]] = field_value
                         else:
-                            data[json_field.split('__')[0]] = {json_field.split('__')[1]: field_value} 
-                    data[json_field] = field_value
+                            data[json_field.split('__')[0]] = {json_field.split('__')[1]: field_value}
+                    else:
+                        data[json_field] = field_value
         setattr(self.instance, field, data)
         return super().save(commit=commit)
 
