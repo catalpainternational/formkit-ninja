@@ -315,7 +315,13 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
                 child.node["additional_props"] = payload.additional_props
 
             child.label=payload.label
-            child.node_type = "$formkit"
+
+            if isinstance(payload.additional_props, 'dict'):
+                if label := payload.additional_props.get('label'):
+                    # groups require a label
+                    child.label = label
+
+            child.node_type = "formkit"
             child.save()
 
             if parent:
