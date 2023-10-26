@@ -418,6 +418,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     list_display = ("label", "is_active", "id", "node_type", "option_group", "formkit_or_el_type", "track_change")
     list_filter = ("node_type", "is_active")
     readonly_fields = ("track_change",)
+    search_fields = ["label", "description", 'node', "node__el" ]
 
     def formkit_or_el_type(self, obj):
         if obj and obj.node and obj.node_type == "$formkit":

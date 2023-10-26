@@ -350,7 +350,6 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
                 # to check the "node__formkit" property
                 if parent.node.get("$formkit") not in {'group', 'repeater'}:
                     raise TypeError("This caused an error on the server. We're looking into into it")
-                raise TypeError("This caused an error on the server. We're looking into into it")
 
             if payload.id is not None and payload.id in models.NodeChildren.objects.filter(parent=parent).values_list(
                 "child__node__id", flat=True
