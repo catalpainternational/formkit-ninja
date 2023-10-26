@@ -1,4 +1,6 @@
 from http import HTTPStatus
+import importlib
+from importlib.util import find_spec
 from typing import List, Literal
 from uuid import UUID
 
@@ -11,6 +13,15 @@ from ninja import Field, ModelSchema, Router, Schema
 from pydantic import BaseModel
 
 from formkit_ninja import formkit_schema, models
+
+if find_spec("sentry_sdk"):
+    sentry_sdk = importlib.import_module("sentry_sdk")
+else:
+    sentry_sdk = None
+
+def sentry_message(message: str):
+    if sentry_sdk and hasattr(sentry_sdk, 'capture_message'):
+        sentry_sdk.capture_message(f'{message}')
 
 router = Router(tags=["FormKit"])
 
@@ -322,40 +333,51 @@ class FormKitNodeIn(Schema):
 
 @router.post(
     "create_or_update_node",
-    response=list[NodeReturnType],
+    response={ HTTPStatus.OK: list[NodeReturnType], HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors },
     exclude_none=True,
     by_alias=True,
 )
 def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeIn):
 
     objects: models.NodeQS = models.FormKitSchemaNode.objects
+    error_response: FormKitErrors | None = FormKitErrors()
+    try:
+        with transaction.atomic():
+            parent = None
+            if payload.parent_id is not None:
+                parent = get_object_or_404(objects, id=payload.parent_id)
+                # We expect this to be a "group". The best way to check this, is 
+                # to check the "node__formkit" property
+                if parent.node.get("$formkit") not in {'group', 'repeater'}:
+                    raise TypeError("This caused an error on the server. We're looking into into it")
+                raise TypeError("This caused an error on the server. We're looking into into it")
 
-    with transaction.atomic():
-        parent = None
-        if payload.parent_id is not None:
-            parent = get_object_or_404(objects, id=payload.parent_id)
-            if parent.node_type != "$formkit":
-                raise ValueError("Parent node must be a FormKit node")
-            if not isinstance(parent.node, dict):
-                raise ValueError("Parent node must be a FormKit node")
-        if payload.id is not None and payload.id in models.NodeChildren.objects.filter(parent=parent).values_list(
-            "child__node__id", flat=True
-        ):
-            raise KeyError("A node with this ID already exists")
-        
-        if payload.uuid is None:
-            child = models.FormKitSchemaNode()
-        else:
-            child = models.FormKitSchemaNode.objects.get(id=payload.uuid)
-        child.label=payload.label, 
-        child.node_type = "formkit"
-        child.node = payload.dict(by_alias=True, exclude_none=True, exclude={'parent_id', 'uuid'})
-        child.save()
+            if payload.id is not None and payload.id in models.NodeChildren.objects.filter(parent=parent).values_list(
+                "child__node__id", flat=True
+            ):
+                raise KeyError("A node with this ID already exists")
+            
+            if payload.uuid is None:
+                child = models.FormKitSchemaNode()
+            else:
+                child = models.FormKitSchemaNode.objects.get(id=payload.uuid)
+            child.label=payload.label
+            child.node_type = "$formkit"
+            child.node = payload.dict(by_alias=True, exclude_none=True, exclude={'parent_id', 'uuid'})
+            child.save()
 
-        if parent:
-            models.NodeChildren.objects.create(parent=parent, child=child)
-            nodes = objects.filter(pk__in=[parent.pk, child.pk])
-        else:
-            nodes = objects.filter(pk__in=[child.pk])
-        return node_queryset_response(nodes)
+            if parent:
+                models.NodeChildren.objects.create(parent=parent, child=child)
+                nodes = objects.filter(pk__in=[parent.pk, child.pk])
+            else:
+                nodes = objects.filter(pk__in=[child.pk])
+            if error_response.errors or error_response.field_errors:
+                raise Exception("Rolled back")
+            return node_queryset_response(nodes)
+
+    except Exception as E:
+        error_response.errors.append(f'{E}')
+        sentry_message(f'{E}')
+
+    return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
