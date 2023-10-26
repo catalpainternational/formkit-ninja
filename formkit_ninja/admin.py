@@ -119,7 +119,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
                     field = self.fields.get(form_field).initial = field_value
 
             # Here we can warn if there are any "hidden" JSON fields
-            # Todo: Handle 'nested' values such as `attrs__classes` 
+            # Todo: Handle 'nested' values such as `attrs__classes`
             if missing := list(set(values) - fields_from_json - {"node_type"}):
                 warnings.warn(f"Some JSON fields were hidden: {','.join(missing)}")
                 warnings.warn(f"Consider adding fields {missing} to {self.__class__.__name__}")
@@ -149,11 +149,11 @@ class JsonDecoratedFormBase(forms.ModelForm):
                 else:
                     form_field, json_field = key
                 if field_value := self.cleaned_data.get(form_field, None):
-                    if '__' in json_field:
-                        if json_field.split('__')[0] in data:
-                            data[json_field.split('__')[0]][json_field.split('__')[1]] = field_value
+                    if "__" in json_field:
+                        if json_field.split("__")[0] in data:
+                            data[json_field.split("__")[0]][json_field.split("__")[1]] = field_value
                         else:
-                            data[json_field.split('__')[0]] = {json_field.split('__')[1]: field_value}
+                            data[json_field.split("__")[0]] = {json_field.split("__")[1]: field_value}
                     else:
                         data[json_field] = field_value
         setattr(self.instance, field, data)
@@ -418,7 +418,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     list_display = ("label", "is_active", "id", "node_type", "option_group", "formkit_or_el_type", "track_change")
     list_filter = ("node_type", "is_active")
     readonly_fields = ("track_change",)
-    search_fields = ["label", "description", 'node', "node__el" ]
+    search_fields = ["label", "description", "node", "node__el"]
 
     def formkit_or_el_type(self, obj):
         if obj and obj.node and obj.node_type == "$formkit":

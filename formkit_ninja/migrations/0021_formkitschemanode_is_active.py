@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("formkit_ninja", "0020_remove_formcomponents_order_on_update_option_and_more"),
     ]

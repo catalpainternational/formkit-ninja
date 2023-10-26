@@ -6,7 +6,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("formkit_ninja", "0019_formkitschemanode_track_change_and_more"),
     ]

@@ -5,8 +5,8 @@ import logging
 import uuid
 import warnings
 from typing import Iterable, TypedDict, get_args
-import pghistory
 
+import pghistory
 import pgtrigger
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -425,13 +425,13 @@ class FormKitSchemaNode(UuidIdModel):
         Return a "decorated" node instance
         with restored options and translated fields
         """
-        if self.text_content or self.node_type == 'text':
-            return self.text_content or ''
+        if self.text_content or self.node_type == "text":
+            return self.text_content or ""
         if self.node == {} or self.node is None:
             if self.node_type == "$el":
                 node_content = {"$el": "span"}
             elif self.node_type == "$formkit":
-                node_content = { "$formkit": "text" }
+                node_content = {"$formkit": "text"}
         else:
             node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
 

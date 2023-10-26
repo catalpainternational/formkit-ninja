@@ -402,7 +402,7 @@ FORMKIT_TYPE = Literal[
     "repeater",
     "autocomplete",
     "email",
-    "uuid"
+    "uuid",
 ]
 
 
@@ -423,7 +423,7 @@ def get_node_type(obj: dict) -> Discriminators:
 
     if isinstance(obj, str):
         return "text"
-    
+
     if isinstance(obj, dict) and len(obj.keys()) == 0:
         return "text"
 
@@ -434,7 +434,7 @@ def get_node_type(obj: dict) -> Discriminators:
     ):
         if key in obj:
             return return_value
-    raise KeyError(F"Could not determine node type for {obj}")
+    raise KeyError(f"Could not determine node type for {obj}")
 
 
 NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
@@ -507,7 +507,7 @@ class FormKitNode(BaseModel):
         try:
             node_type = get_node_type(obj)
         except Exception as E:
-            raise KeyError(F"Node type couln't be determined: {obj}") from E
+            raise KeyError(f"Node type couln't be determined: {obj}") from E
 
         try:
             parsed = super().parse_obj({**obj, "node_type": node_type})

@@ -1,7 +1,7 @@
-from http import HTTPStatus
 import importlib
+from http import HTTPStatus
 from importlib.util import find_spec
-from typing import List, Literal
+from typing import Sequence
 from uuid import UUID
 
 from django.db import transaction
@@ -19,9 +19,11 @@ if find_spec("sentry_sdk"):
 else:
     sentry_sdk = None
 
+
 def sentry_message(message: str):
-    if sentry_sdk and hasattr(sentry_sdk, 'capture_message'):
-        sentry_sdk.capture_message(f'{message}')
+    if sentry_sdk and hasattr(sentry_sdk, "capture_message"):
+        sentry_sdk.capture_message(f"{message}")
+
 
 router = Router(tags=["FormKit"])
 
@@ -63,7 +65,6 @@ class FormComponentsOut(ModelSchema):
 
 
 class NodeChildrenOut(ModelSchema):
-
     children: list[UUID] = []
     latest_change: int | None = None
     parent__latest_change: int | None = None
@@ -93,7 +94,7 @@ class NodeStringType(NodeReturnType):
     node: str
 
 
-NodeQSResponse = list[NodeStringType | NodeReturnType | NodeInactiveType]
+NodeQSResponse = Sequence[NodeStringType | NodeReturnType | NodeInactiveType]
 
 
 def node_queryset_response(qs: models.NodeQS) -> NodeQSResponse:
@@ -152,7 +153,7 @@ def get_related_nodes(request, latest_change: int | None = -1):
 
 
 @router.get(
-    "list-components", response=List[FormComponentsOut], exclude_defaults=True, exclude_none=True, by_alias=True
+    "list-components", response=list[FormComponentsOut], exclude_defaults=True, exclude_none=True, by_alias=True
 )
 def get_components(request):
     values = models.FormComponents.objects.all()
@@ -244,6 +245,7 @@ def delete_node(request, node_id: UUID):
         objects: models.NodeQS = models.FormKitSchemaNode.objects
         return node_queryset_response(objects.filter(pk=node_id))[0]
 
+
 class FormKitNodeIn(Schema):
     """
     Creates a new FormKit text or number node
@@ -284,40 +286,39 @@ class FormKitNodeIn(Schema):
 
 @router.post(
     "create_or_update_node",
-    response={ HTTPStatus.OK: list[NodeReturnType], HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors },
+    response={HTTPStatus.OK: list[NodeReturnType], HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors},
     exclude_none=True,
     by_alias=True,
 )
 def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeIn):
-
     objects: models.NodeQS = models.FormKitSchemaNode.objects
-    error_response: FormKitErrors | None = FormKitErrors()
+    error_response = FormKitErrors()
     try:
         with transaction.atomic():
             parent = None
             if payload.parent_id is not None:
                 parent = get_object_or_404(objects, id=payload.parent_id)
-                if payload.formkit == 'group':
+                if payload.formkit == "group":
                     ...
-                # We expect this to be a "group". The best way to check this, is 
+                # We expect this to be a "group". The best way to check this, is
                 # to check the "node__formkit" property
-                if parent.node.get("$formkit") not in {'group', 'repeater'}:
+                if parent.node.get("$formkit") not in {"group", "repeater"}:
                     raise TypeError("This caused an error on the server. We're looking into into it")
 
             if payload.uuid is None:
                 child = models.FormKitSchemaNode()
-                child.node = payload.dict(by_alias=True, exclude_none=True, exclude={'parent_id', 'uuid'})
+                child.node = payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"})
             else:
                 child = models.FormKitSchemaNode.objects.get(id=payload.uuid)
-                child.node.update(payload.dict(by_alias=True, exclude_none=True, exclude={'parent_id', 'uuid'}))
+                child.node.update(payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"}))
 
             if payload.additional_props:
                 child.node["additional_props"] = payload.additional_props
 
-            child.label=payload.label
+            child.label = payload.label
 
             if isinstance(payload.additional_props, dict):
-                if label := payload.additional_props.get('label'):
+                if label := payload.additional_props.get("label"):
                     # groups require a label
                     child.label = label
 
@@ -334,8 +335,7 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
             return node_queryset_response(nodes)
 
     except Exception as E:
-        error_response.errors.append(f'{E}')
-        sentry_message(f'{E}')
+        error_response.errors.append(f"{E}")
+        sentry_message(f"{E}")
 
     return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
-

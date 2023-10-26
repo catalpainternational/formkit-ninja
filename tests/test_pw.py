@@ -88,15 +88,15 @@ def test_import_sf11(SF_1_1):  # noqa: F811
 
     # Check that schema sections retained their order
     # There is a top level node
-    assert schema_in_the_db.nodes.first().label == 'SF_1_1'
+    assert schema_in_the_db.nodes.first().label == "SF_1_1"
 
-    # The 'top level' node has the same child nodes as the input schema 
+    # The 'top level' node has the same child nodes as the input schema
     child_nodes = schema_in_the_db.nodes.first().get_node(recursive=True).children
 
-    assert [n["id"] for n in SF_1_1['children']] == [n.id for n in child_nodes]
+    assert [n["id"] for n in SF_1_1["children"]] == [n.id for n in child_nodes]
 
     # The inputs and outputs
-    partA_in = SF_1_1["children"][0]['children']
+    partA_in = SF_1_1["children"][0]["children"]
     partA_schema = child_nodes[0].children
     partA_out = [n.dict() for n in partA_schema]
 
