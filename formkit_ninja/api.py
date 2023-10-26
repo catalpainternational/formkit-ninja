@@ -227,63 +227,9 @@ def list_options(request: HttpRequest, response: HttpResponse):
     return models.Option.objects.annotate(group_name=F("group__group"))
 
 
-# Create a new Group within a Form
-class GroupIn(BaseModel):
-    parent_id: UUID
-    id: str | None  = None
-    icon: str = "info-circle"
-    title: str = "New Section"
-
-
 class FormKitErrors(BaseModel):
     errors: list[str] = []
     field_errors: dict[str, str] = {}
-
-
-@router.post(
-    "create_group",
-    response={ HTTPStatus.OK: list[NodeStringType | NodeReturnType | NodeInactiveType], HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors },
-    exclude_none=True,
-    by_alias=True,
-)
-def create_group(request: HttpRequest, payload: GroupIn):
-    """
-    Adds a new 'Group' node to a form
-    This is a collapsible section with an icon and title
-    """
-    error_response: FormKitErrors | None = FormKitErrors()
-    try:
-        with transaction.atomic():
-            parent = get_object_or_404(models.FormKitSchemaNode.objects, id=payload.parent_id)
-            if parent.node_type != "$formkit":
-                error_response.errors.append("Parent node must be a FormKit node")
-            if not isinstance(parent.node, dict):
-                error_response.errors.append("Parent node must be a FormKit node")
-            if payload.id in models.NodeChildren.objects.filter(parent=parent).values_list("child__node__id", flat=True):
-                error_response.field_errors["id"] = "A node with this ID already exists"
-            child = models.FormKitSchemaNode.objects.create(
-                label=payload.title,
-                node_type="$formkit",
-                additional_props=dict(
-                    icon=payload.icon,
-                    title=payload.title,
-                ),
-                node=dict(
-                    id=payload.id,
-                    formkit="group",
-                ),
-            )
-            models.NodeChildren.objects.create(parent=parent, child=child)
-            objects: models.NodeQS = models.FormKitSchemaNode.objects
-            nodes = objects.filter(pk__in=[parent.pk, child.pk])
-            if error_response.errors or error_response.field_errors:
-                transaction.rollback()
-    except Exception as E:
-        error_response.errors.append(f'{E}')
-    finally:
-        if error_response.errors or error_response.field_errors:
-            return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
-        return node_queryset_response(nodes)
 
 
 @router.delete("delete", response=NodeInactiveType, exclude_none=True, by_alias=True)
@@ -309,7 +255,6 @@ class FormKitNodeIn(Schema):
     label: str | None = None
     key: str | None = None
     name: str | None = None
-    id: str | None = None
     placeholder: str | None = None
 
     # Fields from "groups"
@@ -330,6 +275,13 @@ class FormKitNodeIn(Schema):
     # Used for Updates
     uuid: UUID | None = None
 
+    # Used for "Add Group"
+    icon: str = "info-circle"
+    title: str | None = None
+
+    class Config:
+        allow_population_by_field_name = True
+
 
 @router.post(
     "create_or_update_node",
@@ -346,23 +298,21 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
             parent = None
             if payload.parent_id is not None:
                 parent = get_object_or_404(objects, id=payload.parent_id)
+                if payload.formkit == 'group':
+                    ...
                 # We expect this to be a "group". The best way to check this, is 
                 # to check the "node__formkit" property
                 if parent.node.get("$formkit") not in {'group', 'repeater'}:
                     raise TypeError("This caused an error on the server. We're looking into into it")
 
-            if payload.id is not None and payload.id in models.NodeChildren.objects.filter(parent=parent).values_list(
-                "child__node__id", flat=True
-            ):
-                raise KeyError("A node with this ID already exists")
-            
             if payload.uuid is None:
                 child = models.FormKitSchemaNode()
+                child.node = payload.dict(by_alias=True, exclude_none=True, exclude={'parent_id', 'uuid'})
             else:
                 child = models.FormKitSchemaNode.objects.get(id=payload.uuid)
+                child.node.update(payload.dict(by_alias=True, exclude_none=True, exclude={'parent_id', 'uuid'}))
             child.label=payload.label
             child.node_type = "$formkit"
-            child.node = payload.dict(by_alias=True, exclude_none=True, exclude={'parent_id', 'uuid'})
             child.save()
 
             if parent:
