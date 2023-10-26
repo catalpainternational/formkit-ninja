@@ -316,7 +316,7 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
 
             child.label=payload.label
 
-            if isinstance(payload.additional_props, 'dict'):
+            if isinstance(payload.additional_props, dict):
                 if label := payload.additional_props.get('label'):
                     # groups require a label
                     child.label = label
