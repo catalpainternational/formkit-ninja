@@ -276,8 +276,7 @@ class FormKitNodeIn(Schema):
     uuid: UUID | None = None
 
     # Used for "Add Group"
-    icon: str = "info-circle"
-    title: str | None = None
+    additional_props: dict | None = None
 
     class Config:
         allow_population_by_field_name = True
@@ -311,6 +310,10 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
             else:
                 child = models.FormKitSchemaNode.objects.get(id=payload.uuid)
                 child.node.update(payload.dict(by_alias=True, exclude_none=True, exclude={'parent_id', 'uuid'}))
+
+            if payload.additional_props:
+                child.node["additional_props"] = payload.additional_props
+
             child.label=payload.label
             child.node_type = "$formkit"
             child.save()
