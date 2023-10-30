@@ -113,7 +113,7 @@ class FormKitSchemaProps(BaseModel):
     prefixIcon: str | None = Field(None, alias="prefix-icon")
     classes: str | dict[str, str] | None = Field(None)
 
-    # FormKit allows arbitrary values, we do our bset to represent these here
+    # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
     additional_props: None | dict[str, str | dict[str, Any]] = Field(None)
 

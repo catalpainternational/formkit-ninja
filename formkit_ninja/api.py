@@ -258,10 +258,7 @@ class FormKitNodeIn(Schema):
     key: str | None = None
     name: str | None = None
     placeholder: str | None = None
-
-    # Fields from "groups"
-    icon: str | None = None
-    title: str | None = None
+    help_text: str | None = None
 
     # Fields from "number"
     max: int | None = None
@@ -278,6 +275,7 @@ class FormKitNodeIn(Schema):
     uuid: UUID | None = None
 
     # Used for "Add Group"
+    # This should include an `icon`, `title` and `id` for the second level group
     additional_props: dict | None = None
 
     class Config:
@@ -309,11 +307,14 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
                 child = models.FormKitSchemaNode()
                 child.node = payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"})
             else:
-                child = models.FormKitSchemaNode.objects.get(id=payload.uuid)
+                child = models.FormKitSchemaNode.objects.get_or_create(id=payload.uuid)[0]
+                if child.is_active is False:
+                    error_response.errors.append("This node has already been deleted and cannot be edited")
+                    raise Exception("Rolled back")
                 child.node.update(payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"}))
 
-            if payload.additional_props:
-                child.node["additional_props"] = payload.additional_props
+            if payload.additional_props is not None:
+                child.node.update(payload.additional_props)
 
             child.label = payload.label
 
