@@ -276,7 +276,7 @@ class FormKitNodeIn(Schema):
 
     # Used for "Add Group"
     # This should include an `icon`, `title` and `id` for the second level group
-    additional_props: dict | None = None
+    additional_props: dict[str, str | int] | None = None
 
     class Config:
         allow_population_by_field_name = True
