@@ -14,6 +14,7 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import models, transaction
 from django.db.models import F, Q
 from django.db.models.aggregates import Max
+from django.db.models.functions import Greatest
 from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
@@ -240,11 +241,15 @@ class NodeChildrenManager(models.Manager):
         values = (
             self.get_queryset()
             .values("parent_id")
-            .annotate(children=ArrayAgg("child", ordering=F("order")), latest_change=Max("track_change"))
+            .annotate(
+                children=ArrayAgg("child", ordering=F("order")),
+            )
+            .annotate(Max("child__track_change"))
+            .annotate(latest_change=Greatest("child__track_change__max", "parent__track_change"))
         )
         if latest_change:
             values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__latest_change__gt=latest_change))
-        return values.values_list("parent_id", "parent__latest_change", "latest_change", "children", named=True)
+        return values.values_list("parent_id", "latest_change", "children", named=True)
 
 
 class NodeChildren(models.Model):

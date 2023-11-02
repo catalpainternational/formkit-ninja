@@ -9,6 +9,7 @@ from django.db.models import F
 from django.db.models.aggregates import Max
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils.cache import add_never_cache_headers
 from ninja import Field, ModelSchema, Router, Schema
 from pydantic import BaseModel
 
@@ -67,7 +68,7 @@ class FormComponentsOut(ModelSchema):
 class NodeChildrenOut(ModelSchema):
     children: list[UUID] = []
     latest_change: int | None = None
-    parent__latest_change: int | None = None
+    # parent__latest_change: int | None = None
 
     class Config:
         model = models.NodeChildren
@@ -139,15 +140,16 @@ def get_formkit_nodes(request: HttpRequest, response: HttpResponse, latest_chang
     objects: models.NodeQS = models.FormKitSchemaNode.objects
     nodes = objects.from_change(latest_change)
     response["latest_change"] = nodes.aggregate(_=Max("track_change"))["_"] or latest_change
-    response["Cache-Control"] = "no-store,max-age=0"
+    add_never_cache_headers(response)
     return node_queryset_response(nodes)
 
 
 @router.get("list-related-nodes", response=list[NodeChildrenOut], exclude_defaults=True, exclude_none=True)
-def get_related_nodes(request, latest_change: int | None = -1):
+def get_related_nodes(request, response: HttpResponse, latest_change: int | None = -1):
     """
-    Get all of the FormKit nodes in the database
+    Get all of the FormKit node relationships in the database
     """
+    add_never_cache_headers(response)
     objects: models.NodeChildrenManager = models.NodeChildren.objects
     return objects.aggregate_changes_table(latest_change=latest_change)
 
@@ -291,27 +293,30 @@ class FormKitNodeIn(Schema):
 def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeIn):
     objects: models.NodeQS = models.FormKitSchemaNode.objects
     error_response = FormKitErrors()
+    payload_values = payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"})
+
+    # Fetch parent node, if it exists and check that it is a group or repeater
+    parent: models.FormKitSchemaNode | None = None
+    if payload.parent_id is not None:
+        try:
+            parent = objects.get(id=payload.parent_id)
+        except models.FormKitSchemaNode.DoesNotExist:
+            error_response.errors = ["The parent node given is not valid"]
+        if parent.node.get("$formkit") not in {"group", "repeater"}:
+            error_response.errors = ["The parent node given is not a group or repeater"]
+    if error_response.errors or error_response.field_errors:
+        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+
     try:
         with transaction.atomic():
-            parent = None
-            if payload.parent_id is not None:
-                parent = get_object_or_404(objects, id=payload.parent_id)
-                if payload.formkit == "group":
-                    ...
-                # We expect this to be a "group". The best way to check this, is
-                # to check the "node__formkit" property
-                if parent.node.get("$formkit") not in {"group", "repeater"}:
-                    raise TypeError("This caused an error on the server. We're looking into into it")
-
             if payload.uuid is None:
                 child = models.FormKitSchemaNode()
-                child.node = payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"})
+                child.node = payload_values
             else:
                 child = models.FormKitSchemaNode.objects.get_or_create(id=payload.uuid)[0]
                 if child.is_active is False:
                     error_response.errors.append("This node has already been deleted and cannot be edited")
-                    raise Exception("Rolled back")
-                child.node.update(payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"}))
+                child.node.update(payload_values)
 
             if payload.additional_props is not None:
                 child.node.update(payload.additional_props)
@@ -328,15 +333,15 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
 
             if parent:
                 models.NodeChildren.objects.create(parent=parent, child=child)
-                nodes = objects.filter(pk__in=[parent.pk, child.pk])
-            else:
-                nodes = objects.filter(pk__in=[child.pk])
-            if error_response.errors or error_response.field_errors:
-                raise Exception("Rolled back")
-            return node_queryset_response(nodes)
+
+        if parent:
+            nodes = objects.filter(pk__in=[parent.pk, child.pk])
+        else:
+            nodes = objects.filter(pk__in=[child.pk])
 
     except Exception as E:
         error_response.errors.append(f"{E}")
-        sentry_message(f"{E}")
 
-    return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+    if error_response.errors or error_response.field_errors:
+        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+    return node_queryset_response(nodes)
