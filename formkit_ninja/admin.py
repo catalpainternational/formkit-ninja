@@ -415,10 +415,31 @@ class FormKitSchemaForm(forms.ModelForm):
 
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(admin.ModelAdmin):
-    list_display = ("label", "is_active", "id", "node_type", "option_group", "formkit_or_el_type", "track_change")
+    list_display = ("label", "is_active", "id", "node_type", "option_group", "formkit_or_el_type", "track_change", "key_is_valid")
     list_filter = ("node_type", "is_active")
     readonly_fields = ("track_change",)
     search_fields = ["label", "description", "node", "node__el"]
+
+    @admin.display(boolean=True)
+    def key_is_valid(self, obj) -> bool:
+        """
+        If it's a Formkit type, check that its
+        key is suitable for python + django
+        """
+        if not obj.node:
+            return True
+        if not isinstance(obj.node, dict):
+            return True
+        if 'name' not in obj.node:
+            return True
+        try:
+            key = obj.node.get('name')
+            if not isinstance(key, str):
+                raise TypeError
+            models.check_valid_django_id(key)
+        except TypeError:
+            return False
+        return True
 
     def formkit_or_el_type(self, obj):
         if obj and obj.node and obj.node_type == "$formkit":

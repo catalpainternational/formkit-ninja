@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+from keyword import iskeyword, issoftkeyword
 import logging
 import uuid
 import warnings
@@ -23,6 +24,14 @@ console = Console()
 log = console.log
 
 logger = logging.getLogger()
+
+def check_valid_django_id(key: str):
+    if not key.isidentifier() or iskeyword(key) or issoftkeyword(key):
+        raise TypeError(f"{key} cannot be used as a keyword. Should be a valid python identifier")
+    if key[0].isdigit():
+        raise TypeError(f"{key} is not valid, it cannot start with a digit")
+    if key[-1] == '_':
+        raise TypeError(f"{key} is not valid, it cannot end with an underscore")
 
 
 class UuidIdModel(models.Model):
@@ -375,6 +384,12 @@ class FormKitSchemaNode(UuidIdModel):
         # rename `formkit` to `$formkit`
         if isinstance(self.node, dict) and "formkit" in self.node:
             self.node.update({"$formkit": self.node.pop("formkit")})
+        # We're also going to verify that the 'key' is a valid identifier
+        # Keep in mind that the `key` may be used as part of a model so
+        # should be valid Django fieldname too
+        if isinstance(self.node, dict) and 'name' in self.node:
+            key: str = self.node.get('name', None)
+            check_valid_django_id(key)
         return super().save(*args, **kwargs)
 
     @property

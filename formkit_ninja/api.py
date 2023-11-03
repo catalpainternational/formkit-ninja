@@ -11,7 +11,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.cache import add_never_cache_headers
 from ninja import Field, ModelSchema, Router, Schema
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 from formkit_ninja import formkit_schema, models
 
@@ -279,6 +279,14 @@ class FormKitNodeIn(Schema):
     # Used for "Add Group"
     # This should include an `icon`, `title` and `id` for the second level group
     additional_props: dict[str, str | int] | None = None
+
+    @validator('name')
+    def name_must_be_a_python_identifier(cls, v: str):
+        if not isinstance(v, str):
+            raise TypeError(f"{v} is not a string")
+        if v is not None and not v.isidentifier():
+            raise ValueError(f"{v} is not a valid Python identifier")
+        return v
 
     class Config:
         allow_population_by_field_name = True
