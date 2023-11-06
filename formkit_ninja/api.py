@@ -292,6 +292,48 @@ class FormKitNodeIn(Schema):
         allow_population_by_field_name = True
 
 
+def get_parent_node(payload: FormKitNodeIn):
+    parent = None
+    if payload.parent_id is not None:
+        try:
+            parent = models.FormKitSchemaNode.objects.get(id=payload.parent_id)
+        except models.FormKitSchemaNode.DoesNotExist:
+            return None, ["The parent node given does not exist"]
+        if parent.node.get("$formkit") not in {"group", "repeater"}:
+            return None, ["The parent node given is not a group or repeater"]
+    if parent is None:
+        return None, ["The parent node given does not exist"]
+    return parent, None
+
+def create_or_update_child_node(payload: FormKitNodeIn, parent: models.FormKitSchemaNode):
+    payload_values = payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"})
+    if payload.uuid is None:
+        child = models.FormKitSchemaNode()
+        child.node = payload_values
+    else:
+        child = models.FormKitSchemaNode.objects.get_or_create(id=payload.uuid)[0]
+        if child.is_active is False:
+            return None, ["This node has already been deleted and cannot be edited"]
+        child.node.update(payload_values)
+
+    if payload.additional_props is not None:
+        child.node.update(payload.additional_props)
+
+    child.label = payload.label
+
+    if isinstance(payload.additional_props, dict):
+        if label := payload.additional_props.get("label"):
+            # groups require a label
+            child.label = label
+
+    child.node_type = "formkit"
+    child.save()
+
+    if parent:
+        models.NodeChildren.objects.create(parent=parent, child=child)
+
+    return child, []
+
 @router.post(
     "create_or_update_node",
     response={HTTPStatus.OK: list[NodeReturnType], HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors},
@@ -299,53 +341,41 @@ class FormKitNodeIn(Schema):
     by_alias=True,
 )
 def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeIn):
-    objects: models.NodeQS = models.FormKitSchemaNode.objects
-    error_response = FormKitErrors()
-    payload_values = payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"})
+    """
+    Creates or updates a node in the FormKitSchemaNode model.
 
-    # Fetch parent node, if it exists and check that it is a group or repeater
-    parent: models.FormKitSchemaNode | None = None
-    if payload.parent_id is not None:
-        try:
-            parent = objects.get(id=payload.parent_id)
-        except models.FormKitSchemaNode.DoesNotExist:
-            error_response.errors = ["The parent node given is not valid"]
-        if parent.node.get("$formkit") not in {"group", "repeater"}:
-            error_response.errors = ["The parent node given is not a group or repeater"]
-    if error_response.errors or error_response.field_errors:
+    This function takes payload of type FormKitNodeIn.
+    It fetches the parent node if it exists and checks if it is a group or repeater.
+    If the parent node is not valid or is not a group or repeater, it returns an error response.
+    Otherwise, it proceeds to create or update the node.
+
+    Args:
+        request: The request object.
+        response (HttpResponse): The HttpResponse object.
+        payload (FormKitNodeIn): The payload containing the data for the node to be created or updated.
+
+    Returns:
+        HTTPStatus: The status of the HTTP response.
+        FormKitErrors: The errors encountered during the process, if any.
+    """
+
+    error_response = FormKitErrors()
+
+    # Fetch parent node, if it exists, and check that it is a group or repeater
+    parent, errors = get_parent_node(payload)
+    if errors:
+        error_response.errors = errors
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
     try:
         with transaction.atomic():
-            if payload.uuid is None:
-                child = models.FormKitSchemaNode()
-                child.node = payload_values
+            child, errors = create_or_update_child_node(payload, parent)
+            if errors:
+                error_response.errors = errors
+            elif parent:
+                nodes = models.FormKitSchemaNode.objects.filter(pk__in=[parent.pk, child.pk])
             else:
-                child = models.FormKitSchemaNode.objects.get_or_create(id=payload.uuid)[0]
-                if child.is_active is False:
-                    error_response.errors.append("This node has already been deleted and cannot be edited")
-                child.node.update(payload_values)
-
-            if payload.additional_props is not None:
-                child.node.update(payload.additional_props)
-
-            child.label = payload.label
-
-            if isinstance(payload.additional_props, dict):
-                if label := payload.additional_props.get("label"):
-                    # groups require a label
-                    child.label = label
-
-            child.node_type = "formkit"
-            child.save()
-
-            if parent:
-                models.NodeChildren.objects.create(parent=parent, child=child)
-
-        if parent:
-            nodes = objects.filter(pk__in=[parent.pk, child.pk])
-        else:
-            nodes = objects.filter(pk__in=[child.pk])
+                nodes = models.FormKitSchemaNode.objects.filter(pk__in=[child.pk])
 
     except Exception as E:
         error_response.errors.append(f"{E}")

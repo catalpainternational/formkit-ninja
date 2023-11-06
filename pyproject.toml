@@ -33,12 +33,13 @@ django-extensions = "*"
 sqlparse = "*"
 mypy = "*"
 pre-commit = "*"
-playwright = "*"
+playwright = "^1.39.0"
 pytest-playwright = "*"
 mkdocs-material = "*"
 mkdocstrings = {extras = ["python"], version = "*"}
 pytest-cov = "^4.1.0"
 psycopg2-binary = "^2.9.7"
+factory-boy = "^3.3.0"
 
 [build-system]
 requires = ["poetry-core"]
