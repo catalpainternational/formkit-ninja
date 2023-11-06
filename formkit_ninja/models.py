@@ -296,7 +296,7 @@ class NodeQS(models.QuerySet):
 
     def to_response(
         self, ignore_errors: bool = True, options: bool = True
-    ) -> Iterable[tuple[str, int, formkit_schema.Node | str | None]]:
+    ) -> Iterable[tuple[uuid.UUID, int, formkit_schema.Node | str | None]]:
         """
         Return a set of FormKit nodes
         """
@@ -393,7 +393,7 @@ class FormKitSchemaNode(UuidIdModel):
         return super().save(*args, **kwargs)
 
     @property
-    def node_options(self) -> str | list[dict]:
+    def node_options(self) -> str | list[dict] | None:
         """
         Because "options" are translated and
         separately stored, this step is necessary to

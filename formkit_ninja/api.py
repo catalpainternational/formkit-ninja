@@ -68,7 +68,6 @@ class FormComponentsOut(ModelSchema):
 class NodeChildrenOut(ModelSchema):
     children: list[UUID] = []
     latest_change: int | None = None
-    # parent__latest_change: int | None = None
 
     class Config:
         model = models.NodeChildren
@@ -100,6 +99,7 @@ NodeQSResponse = Sequence[NodeStringType | NodeReturnType | NodeInactiveType]
 
 def node_queryset_response(qs: models.NodeQS) -> NodeQSResponse:
     responses = []
+    n: NodeStringType | NodeInactiveType | NodeReturnType
     for key, last_updated, node in qs.to_response(ignore_errors=False):
         if isinstance(node, str):
             n = NodeStringType(key=key, last_updated=last_updated, node=node)
@@ -260,7 +260,7 @@ class FormKitNodeIn(Schema):
     key: str | None = None
     name: str | None = None
     placeholder: str | None = None
-    help_text: str | None = None
+    help: str | None = None
 
     # Fields from "number"
     max: int | None = None
@@ -301,11 +301,11 @@ def get_parent_node(payload: FormKitNodeIn):
             return None, ["The parent node given does not exist"]
         if parent.node.get("$formkit") not in {"group", "repeater"}:
             return None, ["The parent node given is not a group or repeater"]
-    if parent is None:
-        return None, ["The parent node given does not exist"]
+        if parent is None:
+            return None, ["The parent node given does not exist"]
     return parent, None
 
-def create_or_update_child_node(payload: FormKitNodeIn, parent: models.FormKitSchemaNode):
+def create_or_update_child_node(payload: FormKitNodeIn, parent: models.FormKitSchemaNode | None):
     payload_values = payload.dict(by_alias=True, exclude_none=True, exclude={"parent_id", "uuid"})
     if payload.uuid is None:
         child = models.FormKitSchemaNode()
@@ -362,10 +362,13 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     error_response = FormKitErrors()
 
     # Fetch parent node, if it exists, and check that it is a group or repeater
-    parent, errors = get_parent_node(payload)
-    if errors:
-        error_response.errors = errors
-        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+    if payload.parent_id:
+        parent, errors = get_parent_node(payload)
+        if errors:
+            error_response.errors = errors
+            return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+    else:
+        parent = None
 
     try:
         with transaction.atomic():
