@@ -1,5 +1,5 @@
 import pytest
-from formkit_ninja.models import check_valid_django_id  # replace 'your_module' with the actual module name
+from formkit_ninja.models import check_valid_django_id
 
 def test_valid_id():
     assert check_valid_django_id("valid_id") is None

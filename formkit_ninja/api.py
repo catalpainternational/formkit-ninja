@@ -413,7 +413,7 @@ def make_name_valid_id(in_: str):
     Take a string. Replace any python-invalid characters with '_'
     """
     subbed = re.sub(r"\W|^(?=\d)", "_", in_)
-    if subbed[-1] == "_":
+    while subbed[-1] == "_":
         subbed = subbed[:-1]
     return subbed.lower()
 
