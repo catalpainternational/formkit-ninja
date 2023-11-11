@@ -40,6 +40,7 @@ mkdocstrings = {extras = ["python"], version = "*"}
 pytest-cov = "^4.1.0"
 psycopg2-binary = "^2.9.7"
 factory-boy = "^3.3.0"
+django-stubs = "^4.2.6"
 
 [build-system]
 requires = ["poetry-core"]
@@ -57,3 +58,12 @@ include_trailing_comma = true
 [tool.black]
 line-length = 119
 target-version = ['py310']
+
+[tool.mypy]
+python_version = 3.8
+plugins = [
+    'mypy_django_plugin.main'
+    ]
+
+[tool.django-stubs]
+django_settings_module = "formkit_ninja.settings"
