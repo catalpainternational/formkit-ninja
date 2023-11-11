@@ -192,7 +192,7 @@ class FormKitSchemaComponentInline(admin.TabularInline):
 class FormKitNodeGroupForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "additional_props", "is_active")
+        fields = ("label", "description", "additional_props", "is_active", "protected")
 
     _json_fields = {
         "node": ("name", ("formkit", "$formkit"), "if_condition", ("html_id", "id")),
@@ -215,7 +215,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
 
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "additional_props", "option_group", "is_active")
+        fields = ("label", "description", "additional_props", "option_group", "is_active", "protected")
 
     # The `_json_fields["node"]` item affects the admin form,
     # adding the fields included in the `FormKitSchemaProps.__fields__.items` dict
@@ -304,13 +304,13 @@ class FormKitNodeRepeaterForm(FormKitNodeForm):
 class FormKitTextNode(forms.ModelForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "text_content", "is_active")
+        fields = ("label", "description", "text_content", "is_active", "protected")
 
 
 class FormKitElementForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "text_content", "is_active")
+        fields = ("label", "description", "text_content", "is_active", "protected")
 
     _skip_translations = {"label", "placeholder"}
     _json_fields = {"node": (("el", "$el"), "name", "if_condition", "attrs__class")}
@@ -356,7 +356,7 @@ class FormKitConditionForm(JsonDecoratedFormBase):
 class FormKitComponentForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "is_active")
+        fields = ("label", "description", "is_active", "protected")
 
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
@@ -415,8 +415,8 @@ class FormKitSchemaForm(forms.ModelForm):
 
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(admin.ModelAdmin):
-    list_display = ("label", "is_active", "id", "node_type", "option_group", "formkit_or_el_type", "track_change", "key_is_valid")
-    list_filter = ("node_type", "is_active")
+    list_display = ("label", "is_active", "id", "node_type", "option_group", "formkit_or_el_type", "track_change", "key_is_valid", "protected")
+    list_filter = ("node_type", "is_active", "protected")
     readonly_fields = ("track_change",)
     search_fields = ["label", "description", "node", "node__el"]
 

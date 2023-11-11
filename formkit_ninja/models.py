@@ -317,8 +317,8 @@ class NodeQS(models.QuerySet):
 @pghistory.track()
 @pgtrigger.register(
     pgtrigger.Protect(
-        name='protect_deletes',
-        operation=pgtrigger.Delete,
+        name='protect_node_deletes_and_updates',
+        operation=pgtrigger.Delete | pgtrigger.Update,
         condition=pgtrigger.Q(old__protected=True)
     )
 )
