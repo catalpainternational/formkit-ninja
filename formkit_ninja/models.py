@@ -317,10 +317,19 @@ class NodeQS(models.QuerySet):
 @pghistory.track()
 @pgtrigger.register(
     pgtrigger.Protect(
+        # If the node is protected, delete is not allowed
         name='protect_node_deletes_and_updates',
-        operation=pgtrigger.Delete | pgtrigger.Update,
+        operation=pgtrigger.Delete,
         condition=pgtrigger.Q(old__protected=True)
-    )
+    ),
+    pgtrigger.Protect(
+        # If both new and old values are "protected", updates are not allowed
+        name='protect_node_updates',
+        operation=pgtrigger.Update,
+        condition=pgtrigger.Q(old__protected=True) & pgtrigger.Q(new__protected=True)
+    ),
+    pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
+    triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
 )
 class FormKitSchemaNode(UuidIdModel):
     """
@@ -332,12 +341,6 @@ class FormKitSchemaNode(UuidIdModel):
     | FormKitSchemaCondition
     | FormKitSchemaFormKit
     """
-
-    class Meta:
-        triggers = [
-            pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
-            triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
-        ]
 
     objects = NodeQS.as_manager()
 
