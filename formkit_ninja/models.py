@@ -296,7 +296,7 @@ class NodeQS(models.QuerySet):
 
     def to_response(
         self, ignore_errors: bool = True, options: bool = True
-    ) -> Iterable[tuple[uuid.UUID, int, formkit_schema.Node | str | None]]:
+    ) -> Iterable[tuple[uuid.UUID, int, formkit_schema.Node | str | None, bool]]:
         """
         Return a set of FormKit nodes
         """
@@ -304,9 +304,9 @@ class NodeQS(models.QuerySet):
         for node in self.all():
             try:
                 if node.is_active:
-                    yield node.id, node.track_change, node.get_node(recursive=False, options=options)
+                    yield node.id, node.track_change, node.get_node(recursive=False, options=options), node.protected
                 else:
-                    yield node.id, node.track_change, None
+                    yield node.id, node.track_change, None, node.protected
             except Exception as E:
                 if not ignore_errors:
                     raise
@@ -315,6 +315,22 @@ class NodeQS(models.QuerySet):
 
 
 @pghistory.track()
+@pgtrigger.register(
+    pgtrigger.Protect(
+        # If the node is protected, delete is not allowed
+        name='protect_node_deletes_and_updates',
+        operation=pgtrigger.Delete,
+        condition=pgtrigger.Q(old__protected=True)
+    ),
+    pgtrigger.Protect(
+        # If both new and old values are "protected", updates are not allowed
+        name='protect_node_updates',
+        operation=pgtrigger.Update,
+        condition=pgtrigger.Q(old__protected=True) & pgtrigger.Q(new__protected=True)
+    ),
+    pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
+    triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
+)
 class FormKitSchemaNode(UuidIdModel):
     """
     This represents a single "Node" in a FormKit schema.
@@ -325,12 +341,6 @@ class FormKitSchemaNode(UuidIdModel):
     | FormKitSchemaCondition
     | FormKitSchemaFormKit
     """
-
-    class Meta:
-        triggers = [
-            pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
-            triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
-        ]
 
     objects = NodeQS.as_manager()
 
@@ -356,6 +366,7 @@ class FormKitSchemaNode(UuidIdModel):
     option_group = models.ForeignKey(OptionGroup, null=True, blank=True, on_delete=models.PROTECT)
     children = models.ManyToManyField("self", through=NodeChildren, symmetrical=False, blank=True)
     is_active = models.BooleanField(default=True)
+    protected = models.BooleanField(default=False)
 
     node = models.JSONField(
         null=True,

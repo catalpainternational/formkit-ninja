@@ -81,12 +81,14 @@ class NodeReturnType(BaseModel):
     key: UUID
     last_updated: int
     node: formkit_schema.FormKitNode
+    protected: bool
 
 
 class NodeInactiveType(BaseModel):
     key: UUID
     last_updated: int
     is_active: bool = False
+    protected: bool
 
 
 class NodeStringType(NodeReturnType):
@@ -103,13 +105,13 @@ NodeQSResponse = Sequence[NodeStringType | NodeReturnType | NodeInactiveType]
 def node_queryset_response(qs: models.NodeQS) -> NodeQSResponse:
     responses = []
     n: NodeStringType | NodeInactiveType | NodeReturnType
-    for key, last_updated, node in qs.to_response(ignore_errors=False):
+    for key, last_updated, node, protected in qs.to_response(ignore_errors=False):
         if isinstance(node, str):
-            n = NodeStringType(key=key, last_updated=last_updated, node=node)
+            n = NodeStringType(key=key, last_updated=last_updated, protected=protected, node=node)
         elif node is None:
-            n = NodeInactiveType(key=key, last_updated=last_updated, is_active=False)
+            n = NodeInactiveType(key=key, last_updated=last_updated, protected=protected, is_active=False)
         else:
-            n = NodeReturnType(key=key, last_updated=last_updated, node=node)
+            n = NodeReturnType(key=key, last_updated=last_updated, protected=protected, node=node)
         responses.append(n)
     return responses
 
