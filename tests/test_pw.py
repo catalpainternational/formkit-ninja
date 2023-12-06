@@ -1,3 +1,6 @@
+# ruff: noqa: F401 F811
+# flake8: noqa: F401 F811
+
 import os
 from typing import Type
 
@@ -5,8 +8,8 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from playwright.sync_api import Browser, Page
-from pytest_django.fixtures import live_server, live_server_helper  # noqa: F401
-from pytest_playwright.pytest_playwright import page  # noqa: F401
+from pytest_django.fixtures import live_server, live_server_helper
+from pytest_playwright.pytest_playwright import page
 
 from formkit_ninja import models
 from tests.fixtures import (
@@ -36,7 +39,7 @@ def admin_user():
 
 
 @pytest.fixture()
-def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_user: User):  # noqa: F811
+def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_user: User):
     page.goto(f"{live_server.url}/admin", timeout=1000)
     page.get_by_label("Username:").fill(admin_user.username)
     page.get_by_label("Password:").fill("12341234")
@@ -45,7 +48,7 @@ def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_use
     yield page
 
 
-def test_home_page(admin_page: Page):  # noqa: F811
+def test_home_page(admin_page: Page):
     admin_page.get_by_role("link", name="Form kit schema nodes").click()
     admin_page.get_by_role("link", name="Add form kit schema node").click()
     # There was a bug identified by this test where "label" in JSON
@@ -77,7 +80,7 @@ def test_home_page(admin_page: Page):  # noqa: F811
 
 
 @pytest.mark.django_db()
-def test_import_sf11(SF_1_1):  # noqa: F811
+def test_import_sf11(SF_1_1):
     """
     This tests that we can successfully import the 'SF11' form from Partisipa
     """
@@ -118,7 +121,7 @@ def test_import_sf11(SF_1_1):  # noqa: F811
 
 
 @pytest.mark.django_db()
-def test_admin_actions_sf11(SF_1_1, admin_page: Page):  # noqa: F811
+def test_admin_actions_sf11(SF_1_1, admin_page: Page):
     """
     This tests that we can successfully import the 'SF11' form from Partisipa
     """

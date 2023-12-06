@@ -1,14 +1,17 @@
+# ruff: noqa: F401 F811
+# flake8: noqa: F401 F811
+
 from django.test import Client
 from django.urls import reverse
 import pytest
 from http import HTTPStatus
 
 from formkit_ninja.api import FormKitNodeIn
-from pytest_django.fixtures import admin_client  # noqa: F401
+from pytest_django.fixtures import admin_client
 
 
 @pytest.mark.django_db
-def test_node_create(admin_client: Client):  # noqa: F811
+def test_node_create(admin_client: Client):
     """
     Test creation of Formkit components through the API
     """
