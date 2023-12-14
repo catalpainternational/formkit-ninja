@@ -239,6 +239,8 @@ class FormKitNodeForm(JsonDecoratedFormBase):
             "min",
             "max",
             "step",
+            ("html_id", "id"),
+            ("onchange", "onChange")
         )
     }
 
@@ -252,6 +254,9 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     help = forms.CharField(required=False)
     html_id = forms.CharField(
         required=False, help_text="Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"
+    )
+    onchange = forms.CharField(
+        required=False, help_text="Use this to trigger a function when the value of the field changes"
     )
     options = forms.CharField(
         required=False, help_text="Use this if adding Options using a JS function (hint: $get(my_field).value )"
