@@ -111,9 +111,9 @@ class FormKitSchemaProps(BaseModel):
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
-    classes: dict[str, str] | None = Field(None)
+    classes: str | dict[str, str] | None = Field(None)
 
-    # FormKit allows arbitrary values, we do our bset to represent these here
+    # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
     additional_props: None | dict[str, str | dict[str, Any]] = Field(None)
 
@@ -402,6 +402,7 @@ FORMKIT_TYPE = Literal[
     "repeater",
     "autocomplete",
     "email",
+    "uuid",
 ]
 
 
@@ -423,6 +424,9 @@ def get_node_type(obj: dict) -> Discriminators:
     if isinstance(obj, str):
         return "text"
 
+    if isinstance(obj, dict) and len(obj.keys()) == 0:
+        return "text"
+
     for key, return_value in (
         ("$el", "element"),
         ("$formkit", "formkit"),
@@ -430,15 +434,14 @@ def get_node_type(obj: dict) -> Discriminators:
     ):
         if key in obj:
             return return_value
-
-    raise KeyError("Could not determine node type")
+    raise KeyError(f"Could not determine node type for {obj}")
 
 
 NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
 
 
 class FormKitNode(BaseModel):
-    __root__: Node
+    __root__: str | Node
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":
@@ -501,7 +504,10 @@ class FormKitNode(BaseModel):
 
         # There's a discriminator step which needs assisance: `node_type`
         # must be set on the input object
-        node_type = get_node_type(obj)
+        try:
+            node_type = get_node_type(obj)
+        except Exception as E:
+            raise KeyError(f"Node type couln't be determined: {obj}") from E
 
         try:
             parsed = super().parse_obj({**obj, "node_type": node_type})

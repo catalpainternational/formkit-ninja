@@ -38,3 +38,13 @@ Pull the repo:
 `poetry run black --check .`
 `poetry run isort --check .`
 `poetry run flake8 .`
+
+# Updating 'Protected' Nodes
+
+If a node's been protected you cannot change or delete it. To do so, you'll need to temporarily disable the trigger which is on it.
+
+`./manage.py pytrigger disable protect_node_deletes_and_updates`
+Make changes
+`./manage.py pgtrigger enable protect_node_deletes_and_updates`
+
+See the documentation for more details: https://django-pgtrigger.readthedocs.io/en/2.3.0/commands.html?highlight=disable

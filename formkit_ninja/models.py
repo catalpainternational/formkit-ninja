@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import itertools
+from keyword import iskeyword, issoftkeyword
 import logging
 import uuid
 import warnings
 from typing import Iterable, TypedDict, get_args
 
+import pghistory
 import pgtrigger
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.db.models.aggregates import Max
+from django.db.models.functions import Greatest
 from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
@@ -21,6 +24,14 @@ console = Console()
 log = console.log
 
 logger = logging.getLogger()
+
+def check_valid_django_id(key: str):
+    if not key.isidentifier() or iskeyword(key) or issoftkeyword(key):
+        raise TypeError(f"{key} cannot be used as a keyword. Should be a valid python identifier")
+    if key[0].isdigit():
+        raise TypeError(f"{key} is not valid, it cannot start with a digit")
+    if key[-1] == '_':
+        raise TypeError(f"{key} is not valid, it cannot end with an underscore")
 
 
 class UuidIdModel(models.Model):
@@ -239,10 +250,14 @@ class NodeChildrenManager(models.Manager):
         values = (
             self.get_queryset()
             .values("parent_id")
-            .annotate(children=ArrayAgg("child", ordering=F("order")), latest_change=Max("track_change"))
+            .annotate(
+                children=ArrayAgg("child", ordering=F("order")),
+            )
+            .annotate(Max("child__track_change"))
+            .annotate(latest_change=Greatest("child__track_change__max", "parent__track_change"))
         )
         if latest_change:
-            values = values.filter(latest_change__gt=latest_change)
+            values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__latest_change__gt=latest_change))
         return values.values_list("parent_id", "latest_change", "children", named=True)
 
 
@@ -281,7 +296,7 @@ class NodeQS(models.QuerySet):
 
     def to_response(
         self, ignore_errors: bool = True, options: bool = True
-    ) -> Iterable[tuple[str, int, formkit_schema.Node | str | None]]:
+    ) -> Iterable[tuple[uuid.UUID, int, formkit_schema.Node | str | None, bool]]:
         """
         Return a set of FormKit nodes
         """
@@ -289,9 +304,9 @@ class NodeQS(models.QuerySet):
         for node in self.all():
             try:
                 if node.is_active:
-                    yield node.id, node.track_change, node.get_node(recursive=False, options=options)
+                    yield node.id, node.track_change, node.get_node(recursive=False, options=options), node.protected
                 else:
-                    yield node.id, node.track_change, None
+                    yield node.id, node.track_change, None, node.protected
             except Exception as E:
                 if not ignore_errors:
                     raise
@@ -299,6 +314,23 @@ class NodeQS(models.QuerySet):
                 warnings.warn(f"{E}")
 
 
+@pghistory.track()
+@pgtrigger.register(
+    pgtrigger.Protect(
+        # If the node is protected, delete is not allowed
+        name='protect_node_deletes_and_updates',
+        operation=pgtrigger.Delete,
+        condition=pgtrigger.Q(old__protected=True)
+    ),
+    pgtrigger.Protect(
+        # If both new and old values are "protected", updates are not allowed
+        name='protect_node_updates',
+        operation=pgtrigger.Update,
+        condition=pgtrigger.Q(old__protected=True) & pgtrigger.Q(new__protected=True)
+    ),
+    pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
+    triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
+)
 class FormKitSchemaNode(UuidIdModel):
     """
     This represents a single "Node" in a FormKit schema.
@@ -309,12 +341,6 @@ class FormKitSchemaNode(UuidIdModel):
     | FormKitSchemaCondition
     | FormKitSchemaFormKit
     """
-
-    class Meta:
-        triggers = [
-            pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
-            triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
-        ]
 
     objects = NodeQS.as_manager()
 
@@ -340,6 +366,7 @@ class FormKitSchemaNode(UuidIdModel):
     option_group = models.ForeignKey(OptionGroup, null=True, blank=True, on_delete=models.PROTECT)
     children = models.ManyToManyField("self", through=NodeChildren, symmetrical=False, blank=True)
     is_active = models.BooleanField(default=True)
+    protected = models.BooleanField(default=False)
 
     node = models.JSONField(
         null=True,
@@ -359,16 +386,25 @@ class FormKitSchemaNode(UuidIdModel):
     track_change = models.BigIntegerField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.label}" if self.label else f"{self.node_type} {self.id}"
+        return f"Node: {self.label}" if self.label else f"{self.node_type} {self.id}"
 
     def save(self, *args, **kwargs):
         """
         On save validate the 'node' field matches the 'FormKitNode'
         """
+        # rename `formkit` to `$formkit`
+        if isinstance(self.node, dict) and "formkit" in self.node:
+            self.node.update({"$formkit": self.node.pop("formkit")})
+        # We're also going to verify that the 'key' is a valid identifier
+        # Keep in mind that the `key` may be used as part of a model so
+        # should be valid Django fieldname too
+        if isinstance(self.node, dict) and 'name' in self.node:
+            key: str = self.node.get('name', None)
+            check_valid_django_id(key)
         return super().save(*args, **kwargs)
 
     @property
-    def node_options(self) -> str | list[dict]:
+    def node_options(self) -> str | list[dict] | None:
         """
         Because "options" are translated and
         separately stored, this step is necessary to
@@ -420,9 +456,15 @@ class FormKitSchemaNode(UuidIdModel):
         Return a "decorated" node instance
         with restored options and translated fields
         """
-        if text := self.text_content:
-            return text
-        node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
+        if self.text_content or self.node_type == "text":
+            return self.text_content or ""
+        if self.node == {} or self.node is None:
+            if self.node_type == "$el":
+                node_content = {"$el": "span"}
+            elif self.node_type == "$formkit":
+                node_content = {"$formkit": "text"}
+        else:
+            node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
 
         formkit_node = formkit_schema.FormKitNode.parse_obj(node_content, recursive=recursive)
         return formkit_node.__root__

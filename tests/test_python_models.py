@@ -195,3 +195,20 @@ def test_schemas(schema: dict):
         "__root__"
     ]
     schema_are_same(schema, schema_out)
+
+
+@pytest.mark.django_db()
+def test_protected_model(formkit_text_node: dict):
+    """
+    A 'protected' node cannot be deleted
+    This works right at the database level, not through the API
+    We can test directly with a call to `.delete`
+    """
+    node: FormKitNode = FormKitNode.parse_obj(formkit_text_node)
+    parsed_node: formkit_schema.SelectNode = node.__root__
+    node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
+    node_in_the_db.protected = True
+    node_in_the_db.save()
+    from django.db.utils import InternalError
+    with pytest.raises(InternalError):
+        node_in_the_db.delete()

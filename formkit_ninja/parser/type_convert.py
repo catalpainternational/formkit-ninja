@@ -2,12 +2,38 @@ from __future__ import annotations
 
 from keyword import iskeyword
 from typing import Iterable, Literal
+import warnings
 
 from formkit_ninja import formkit_schema
 from formkit_ninja.formkit_schema import FormKitNode, GroupNode, RepeaterNode
 
 FormKitType = formkit_schema.FormKitType
 
+def make_valid_identifier(input_string: str):
+    """
+    Replace invalid characters with underscores
+    Remove trailing / leading digits
+    Remove trailing/leading underscores
+    Lowercase
+    """
+    try:
+        output = "".join(ch if ch.isalnum() else "_" for ch in input_string)
+
+        while output[-1].isdigit():
+            output = output[:-1]
+
+        while output[0].isdigit():
+            output = output[1:]
+
+        while output[-1] == '_':
+            output = output[:-1]
+
+        while output[0] == '_':
+            output = output[1:]
+    except IndexError:
+        raise TypeError(f"The name {input_string} couldn't be used as an identifier")
+
+    return output.lower()
 
 class NodePath:
     """
@@ -77,11 +103,20 @@ class NodePath:
         return f"{self.classname}Schema"
 
     @staticmethod
-    def safe_name(name: str) -> str:
+    def safe_name(name: str, fix: bool = True) -> str:
+        """
+        Ensure that the "name" provided is a valid
+        python identifier, correct if necessary
+        """
         if name is None:
             raise TypeError
         if not name.isidentifier() or iskeyword(name):
-            raise KeyError(f"The name:  '''{name}''' is not a valid identifier")
+            if fix:
+                warnings.warn(f"The name:  '''{name}''' is not a valid identifier")
+                # Run again to check that it's not a keyword
+                return NodePath.safe_name(make_valid_identifier(name), fix=False)
+            else:
+                raise KeyError(f"The name:  '''{name}''' is not a valid identifier")
         return name
 
     def safe_node_name(self, node: FormKitType) -> str:
