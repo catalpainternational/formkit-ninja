@@ -8,7 +8,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from playwright.sync_api import Browser, Page
-from pytest_django.fixtures import live_server, live_server_helper
+from pytest_django.fixtures import live_server, live_server_helper, admin_user
 from pytest_playwright.pytest_playwright import page
 
 from formkit_ninja import models
@@ -31,18 +31,12 @@ from tests.fixtures import (
 os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
 
-@pytest.fixture()
-def admin_user():
-    UserModel: Type[User] = get_user_model()
-    user = UserModel.objects.create_superuser(username="admin", email="admin@catalpa.io", password="12341234")
-    return user
-
 
 @pytest.fixture()
 def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_user: User):
     page.goto(f"{live_server.url}/admin", timeout=1000)
     page.get_by_label("Username:").fill(admin_user.username)
-    page.get_by_label("Password:").fill("12341234")
+    page.get_by_label("Password:").fill("password")
     page.get_by_role("button", name="Log in").click()
     page.context.set_default_timeout(5000)
     yield page

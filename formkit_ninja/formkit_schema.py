@@ -143,6 +143,11 @@ class TextNode(FormKitSchemaProps):
     text: str | None
 
 
+class TextAreaNode(TextNode):
+    formkit: Literal["textarea"] = Field(default="textarea", alias="$formkit")
+    text: str | None
+
+
 class DateNode(TextNode):
     formkit: Literal["date"] = Field(default="date", alias="$formkit")
 
@@ -233,6 +238,7 @@ class GroupNode(TextNode):
 # which do not work with "Annotated" below
 FormKitType = (
     TextNode
+    | TextAreaNode
     | CheckBoxNode
     | PasswordNode
     | SelectNode
@@ -254,6 +260,7 @@ FormKitType = (
 FormKitSchemaFormKit = Annotated[
     Union[
         TextNode,
+        TextAreaNode,
         CheckBoxNode,
         PasswordNode,
         SelectNode,
