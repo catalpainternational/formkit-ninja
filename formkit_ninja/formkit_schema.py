@@ -392,6 +392,7 @@ Node = Annotated[
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
     "text",
+    "textarea",
     "tel",
     "currency",
     "select",
