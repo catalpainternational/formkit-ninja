@@ -359,8 +359,7 @@ class FormKitNodeIn(Schema):
             return disambiguate_name(make_name_valid_id(self.name), self.parent_names)
         elif self.label is not None:
             return disambiguate_name(make_name_valid_id(self.label), self.parent_names)
-        else:
-            return f"{uuid4().hex[:8]}_unnamed"
+        return make_name_valid_id(f"{uuid4().hex[:8]}_unnamed")
 
     class Config:
         allow_population_by_field_name = True

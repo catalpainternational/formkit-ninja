@@ -89,3 +89,25 @@ def test_node_create(admin_client: Client):
         content_type="application/json",
     )
     assert node_post_4.json()["node"]["name"] == "name_of_my_input"
+
+
+@pytest.mark.django_db
+def test_textarea_create(admin_client: Client):
+    """
+    Test creation of a Formkit TextArea node through the API
+    """
+    path = reverse("api-1.0.0:create_or_update_node")
+    # Add a group node
+    # This is a 'partisipa' type group node with
+    # an icon and a label
+    group = FormKitNodeIn(
+        **{"$formkit": "textarea"}
+    )
+    data = group.json(exclude_none=True)
+
+    response = admin_client.post(
+        path=path,
+        data=data,
+        content_type="application/json",
+    )
+    assert response.status_code == HTTPStatus.OK
