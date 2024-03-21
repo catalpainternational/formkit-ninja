@@ -26,23 +26,10 @@ OptionsType = str | list[dict[str, Any]] | list[str] | dict[str, str] | None
 
 
 class FormKitSchemaCondition(BaseModel):
-    node_type: Literal["condition"]
+    node_type: Literal["condition"] = Field(default="condition", exclude=True)
     if_condition: str = Field(..., alias="if")
     then_condition: Node | List[Node] = Field(..., alias="then")
     else_condition: Node | List[Node] | None = Field(None, alias="else")
-
-
-class FormKitSchemaConditionNoCircularRefs(BaseModel):
-    """
-    This class is defined in order to break circular references.
-    Circular references (ie the `Node` in the then_condition) cause
-    django_ninja to crash the server hard
-    """
-
-    node_type: Literal["condition"]
-    if_condition: str = Field(..., alias="if")
-    then_condition: str | list[str] = Field(..., alias="then")
-    else_condition: str | list[str] | None = Field(None, alias="else")
 
 
 class FormKitSchemaMeta(BaseModel):
@@ -89,17 +76,8 @@ class FormKitAttributeValue(BaseModel):
     __root__: str | int | float | bool | None | FormKitSchemaAttributes | FormKitSchemaAttributesCondition
 
 
-# ForwardRef allows for self referencing (recursive) models
-FormKitSchemaAttributes = ForwardRef("FormKitSchemaAttributes")
-
-
 class FormKitSchemaAttributes(BaseModel):
-    __root__: dict[
-        str,
-        FormKitAttributeValue
-        # | FormKitSchemaAttributes  # <-- Causes trouble for Ninja
-        | FormKitSchemaAttributesCondition,
-    ]
+    __root__: dict[str, FormKitAttributeValue | FormKitSchemaAttributes | FormKitSchemaAttributesCondition]
 
 
 class FormKitSchemaProps(BaseModel):
@@ -112,7 +90,7 @@ class FormKitSchemaProps(BaseModel):
     # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
     #     default_factory=list
     # )
-    children: str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoCircularRefs | None = Field()
+    children: str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None = Field()
     key: str | None
     if_condition: str | None = Field(alias="if")
     for_loop: FormKitListStatement | None = Field(alias="for")
@@ -133,9 +111,9 @@ class FormKitSchemaProps(BaseModel):
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
-    classes: dict[str, str] | None = Field(None)
+    classes: str | dict[str, str] | None = Field(None)
 
-    # FormKit allows arbitrary values, we do our bset to represent these here
+    # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
     additional_props: None | dict[str, str | dict[str, Any]] = Field(None)
 
@@ -149,19 +127,24 @@ class FormKitSchemaProps(BaseModel):
         if "exclude_none" not in kwargs:
             kwargs["exclude_none"] = True
         _ = super().dict(*args, **kwargs)
-        if 'additional_props' in _:
-            _.update(_['additional_props'])
-            del _['additional_props']
+        if "additional_props" in _:
+            _.update(_["additional_props"])
+            del _["additional_props"]
         return _
 
 
 # We defined this after the model above as it's a circular reference
-ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaConditionNoCircularRefs | None
+ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None
 
 
 class TextNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["text"] = Field(default="text", alias="$formkit")
+    text: str | None
+
+
+class TextAreaNode(TextNode):
+    formkit: Literal["textarea"] = Field(default="textarea", alias="$formkit")
     text: str | None
 
 
@@ -171,6 +154,10 @@ class DateNode(TextNode):
 
 class CurrencyNode(TextNode):
     formkit: Literal["currency"] = Field(default="currency", alias="$formkit")
+
+
+class UuidNode(TextNode):
+    formkit: Literal["uuid"] = Field(default="uuid", alias="$formkit")
 
 
 class DatePickerNode(TextNode):
@@ -212,6 +199,7 @@ class SelectNode(TextNode):
     formkit: Literal["select"] = Field(default="select", alias="$formkit")
     options: OptionsType = Field(None)
 
+
 class AutocompleteNode(TextNode):
     formkit: Literal["autocomplete"] = Field(default="autocomplete", alias="$formkit")
     options: OptionsType = Field(None)
@@ -250,6 +238,7 @@ class GroupNode(TextNode):
 # which do not work with "Annotated" below
 FormKitType = (
     TextNode
+    | TextAreaNode
     | CheckBoxNode
     | PasswordNode
     | SelectNode
@@ -265,11 +254,13 @@ FormKitType = (
     | TelNode
     | CurrencyNode
     | HiddenNode
+    | UuidNode
 )
 
 FormKitSchemaFormKit = Annotated[
     Union[
         TextNode,
+        TextAreaNode,
         CheckBoxNode,
         PasswordNode,
         SelectNode,
@@ -285,12 +276,13 @@ FormKitSchemaFormKit = Annotated[
         TelNode,
         CurrencyNode,
         HiddenNode,
+        UuidNode,
     ],
     Field(discriminator="formkit"),
 ]
 
 
-class FormKitSchemaDOMNode(TextNode):
+class FormKitSchemaDOMNode(FormKitSchemaProps):
     """
     HTML elements are defined using the $el property.
     You can use $el to render any HTML element.
@@ -298,7 +290,7 @@ class FormKitSchemaDOMNode(TextNode):
     and content is assigned with the children property
     """
 
-    node_type: Literal["element"] = "element"
+    node_type: Literal["element"] = Field(default="element", exclude=True)
     el: str = Field(alias="$el")
     attrs: FormKitSchemaAttributes | None
 
@@ -306,7 +298,7 @@ class FormKitSchemaDOMNode(TextNode):
         allow_population_by_field_name = True
 
 
-class FormKitSchemaComponent(TextNode):
+class FormKitSchemaComponent(FormKitSchemaProps):
     """
     Components can be defined with the $cmp property
     The $cmp property should be a string that references
@@ -314,7 +306,7 @@ class FormKitSchemaComponent(TextNode):
     into FormKitSchema with the library prop.
     """
 
-    node_type: Literal["component"]
+    node_type: Literal["component"] = Field(default="component", exclude=True)
 
     cmp: str = Field(
         ...,
@@ -400,6 +392,7 @@ Node = Annotated[
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
     "text",
+    "textarea",
     "tel",
     "currency",
     "select",
@@ -417,12 +410,14 @@ FORMKIT_TYPE = Literal[
     "repeater",
     "autocomplete",
     "email",
+    "uuid",
 ]
 
 
 class Discriminators(TypedDict, total=False):
     node_type: NODE_TYPE
     formkit: FORMKIT_TYPE
+
 
 def get_node_type(obj: dict) -> Discriminators:
     """
@@ -437,6 +432,9 @@ def get_node_type(obj: dict) -> Discriminators:
     if isinstance(obj, str):
         return "text"
 
+    if isinstance(obj, dict) and len(obj.keys()) == 0:
+        return "text"
+
     for key, return_value in (
         ("$el", "element"),
         ("$formkit", "formkit"),
@@ -444,15 +442,14 @@ def get_node_type(obj: dict) -> Discriminators:
     ):
         if key in obj:
             return return_value
-
-    raise KeyError("Could not determine node type")
+    raise KeyError(f"Could not determine node type for {obj}")
 
 
 NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
 
 
 class FormKitNode(BaseModel):
-    __root__: Node
+    __root__: str | Node
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":
@@ -512,10 +509,13 @@ class FormKitNode(BaseModel):
 
         if isinstance(obj, str):
             return obj
-        
+
         # There's a discriminator step which needs assisance: `node_type`
         # must be set on the input object
-        node_type = get_node_type(obj)
+        try:
+            node_type = get_node_type(obj)
+        except Exception as E:
+            raise KeyError(f"Node type couln't be determined: {obj}") from E
 
         try:
             parsed = super().parse_obj({**obj, "node_type": node_type})

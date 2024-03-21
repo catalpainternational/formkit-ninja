@@ -18,7 +18,7 @@ class {{this.classname}}Admin(admin.ModelAdmin):
     {% if this.formkits_not_repeaters %}
     list_display = [
     {% for attrib in this.formkits_not_repeaters %}
-        "{{attrib.node.name}}",
+        "{{attrib.django_attrib_name}}",
     {% endfor %}
     ]
     {% if this.repeaters %}
@@ -30,7 +30,7 @@ class {{this.classname}}Admin(admin.ModelAdmin):
     {% endif%}
     readonly_fields = [
     {% for attrib in this.formkits_not_repeaters %}
-        "{{attrib.node.name}}",
+        "{{attrib.django_attrib_name}}",
     {% endfor %}
     ]
     {% endif %}

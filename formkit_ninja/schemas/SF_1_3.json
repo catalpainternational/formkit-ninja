@@ -80,7 +80,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -88,34 +87,31 @@
         "Elected Member ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         },
         " Project Implementation Team - EIP"
-       ],
-       "node_type": "element"
+       ]
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
+       "$formkit": "select",
        "label": "$gettext(\"Round\")",
        "name": "round",
-       "options": [
-        "1",
-        "2"
-       ],
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "options": "$ida(electionround)",
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Position\")",
        "name": "position",
-       "options": "$getoptions.common.translatedOptions('Chief EIP', 'Secretary', 'Treasurer')",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "options": "$ida(teamposition, \"group_id=0\")",
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "text",
@@ -124,28 +120,42 @@
        "placeholder": "$gettext(\"Please enter\")"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "select",
        "label": "$gettext(\"Gender\")",
        "name": "gender",
-       "optionClass": "mr-6",
        "options": "$ida(gender)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "select",
        "label": "$gettext(\"Person with a disability\")",
        "name": "person_with_disability",
-       "optionClass": "mr-6",
        "options": "$ida(yesno)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "tel",
        "label": "$gettext(\"Phone number\")",
        "maxLength": 8,
        "name": "phone_number",
-       "validation": "contains_numeric|length:8,8",
-       "validation-visibility": "dirty"
+       "validation": "number|length:8,8"
+      },
+      {
+       "$formkit": "date",
+       "label": "$gettext(\"Date of exit from the committee\")",
+       "name": "date_exit_committee"
+      },
+      {
+       "$formkit": "text",
+       "label": "$gettext(\"Reason for exit\")",
+       "name": "exit_details"
+      },
+      {
+       "$formkit": "select",
+       "label": "$gettext(\"Is active?\")",
+       "name": "active_status",
+       "options": "$ida(yesno)",
+       "value": "1"
       }
      ],
      "downControl": false,
@@ -194,7 +204,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -202,34 +211,31 @@
         "Elected Member ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         },
         " Planning and Accountability Commission - KPA"
-       ],
-       "node_type": "element"
+       ]
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
+       "$formkit": "select",
        "label": "$gettext(\"Round\")",
        "name": "round",
-       "options": [
-        "1",
-        "2"
-       ],
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "options":  "$ida(electionround)",
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Position\")",
        "name": "position",
-       "options": "$getoptions.common.translatedOptions('President', 'Secretary')",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "options": "$ida(teamposition, \"group_id=1\")",
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "text",
@@ -238,28 +244,42 @@
        "placeholder": "$gettext(\"Please enter\")"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "select",
        "label": "$gettext(\"Gender\")",
        "name": "gender",
-       "optionClass": "mr-6",
        "options": "$ida(gender)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "select",
        "label": "$gettext(\"Person with a disability\")",
        "name": "person_with_disability",
-       "optionClass": "mr-6",
        "options": "$ida(yesno)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "tel",
        "label": "$gettext(\"Phone number\")",
        "maxLength": 8,
        "name": "phone_number",
-       "validation": "contains_numeric|length:8,8",
-       "validation-visibility": "dirty"
+       "validation": "number|length:8,8"
+      },
+      {
+       "$formkit": "date",
+       "label": "$gettext(\"Date of exit from the committee\")",
+       "name": "date_exit_committee"
+      },
+      {
+       "$formkit": "text",
+       "label": "$gettext(\"Reason for exit\")",
+       "name": "exit_details"
+      },
+      {
+       "$formkit": "select",
+       "label": "$gettext(\"Is active?\")",
+       "name": "active_status",
+       "options": "$ida(yesno)",
+       "value": "1"
       }
      ],
      "downControl": false,
@@ -307,7 +327,6 @@
      "children": [
       {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -315,34 +334,31 @@
         "Elected Member ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         },
         " Suku facilitator"
-       ],
-       "node_type": "element"
+       ]
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
+       "$formkit": "select",
        "label": "$gettext(\"Round\")",
        "name": "round",
-       "options": [
-        "1",
-        "2"
-       ],
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "options":  "$ida(electionround)",
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "dropdown",
+       "$formkit": "select",
        "label": "$gettext(\"Position\")",
        "name": "position",
-       "options": "$getoptions.common.translatedOptions('Suku Facilitator Male', 'Suku Facilitator Female')",
-       "placeholder": "$gettext(\"Please select\")",
-       "selectIcon": "angleDown"
+       "options": "$ida(teamposition, \"group_id=2\")",
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "text",
@@ -351,28 +367,42 @@
        "placeholder": "$gettext(\"Please enter\")"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "select",
        "label": "$gettext(\"Gender\")",
        "name": "gender",
-       "optionClass": "mr-6",
        "options": "$ida(gender)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
-       "$formkit": "radio",
+       "$formkit": "select",
        "label": "$gettext(\"Person with a disability\")",
        "name": "person_with_disability",
-       "optionClass": "mr-6",
        "options": "$ida(yesno)",
-       "optionsClass": "flex flex-wrap"
+       "placeholder": "$gettext(\"Please select\")"
       },
       {
        "$formkit": "tel",
        "label": "$gettext(\"Phone number\")",
        "maxLength": 8,
        "name": "phone_number",
-       "validation": "contains_numeric|length:8,8",
-       "validation-visibility": "dirty"
+       "validation": "number|length:8,8"
+      },
+      {
+       "$formkit": "date",
+       "label": "$gettext(\"Date of exit from the committee\")",
+       "name": "date_exit_committee"
+      },
+      {
+       "$formkit": "text",
+       "label": "$gettext(\"Reason for exit\")",
+       "name": "exit_details"
+      },
+      {
+       "$formkit": "select",
+       "label": "$gettext(\"Is active?\")",
+       "name": "active_status",
+       "options": "$ida(yesno)",
+       "value": "1"
       }
      ],
      "downControl": false,

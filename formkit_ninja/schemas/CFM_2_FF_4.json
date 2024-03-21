@@ -70,20 +70,7 @@
      "$formkit": "select",
      "label": "$gettext(\"Fiscal Year\")",
      "name": "year",
-     "options": [
-      "2012",
-      "2013",
-      "2014",
-      "2015",
-      "2016",
-      "2017",
-      "2018",
-      "2019",
-      "2020",
-      "2021",
-      "2022",
-      "2023"
-     ],
+     "options": "$ida(year)",
      "placeholder": "$gettext(\"Select year\")"
     }
    ],
@@ -152,8 +139,12 @@
      "addLabel": "$gettext(\"Add project\")",
      "children": [
       {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -161,14 +152,11 @@
         "Output ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         }
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$formkit": "select",
@@ -176,7 +164,7 @@
        "key": "activity",
        "label": "$gettext(\"Activity name\")",
        "name": "activity",
-       "options": "$ida(\"cycle\")",
+       "options": "$ida(cycle)",
        "placeholder": "$gettext(\"Please select\")"
       },
       {

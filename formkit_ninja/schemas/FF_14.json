@@ -70,76 +70,14 @@
      "$formkit": "select",
      "label": "$gettext(\"Month\")",
      "name": "month",
-     "options": [
-      {
-       "label": "January",
-       "value": 1
-      },
-      {
-       "label": "March",
-       "value": 2
-      },
-      {
-       "label": "March",
-       "value": 3
-      },
-      {
-       "label": "April",
-       "value": 4
-      },
-      {
-       "label": "May",
-       "value": 5
-      },
-      {
-       "label": "June",
-       "value": 6
-      },
-      {
-       "label": "July",
-       "value": 7
-      },
-      {
-       "label": "August",
-       "value": 8
-      },
-      {
-       "label": "September",
-       "value": 9
-      },
-      {
-       "label": "October",
-       "value": 10
-      },
-      {
-       "label": "November",
-       "value": 11
-      },
-      {
-       "label": "December",
-       "value": 12
-      }
-     ],
+     "options": "$ida(month)",
      "placeholder": "$gettext(\"Select month\")"
     },
     {
      "$formkit": "select",
      "label": "$gettext(\"Year\")",
      "name": "year",
-     "options": [
-      "2012",
-      "2013",
-      "2014",
-      "2015",
-      "2016",
-      "2017",
-      "2018",
-      "2019",
-      "2020",
-      "2021",
-      "2022",
-      "2023"
-     ],
+     "options": "$ida(year)",
      "placeholder": "$gettext(\"Select year\")"
     }
    ],
@@ -296,37 +234,29 @@
    "children": [
     {
      "$el": "p",
-     "$formkit": "text",
      "children": [
       "$gettext(\"Each YES is equal to 1 point and each NO is equal to 0 point\")"
-     ],
-     "node_type": "element"
+     ]
     },
     {
      "$el": "div",
-     "$formkit": "text",
      "attrs": {
       "class": "w-full flex items-center justify-between bg-zinc-400 rounded-[5px] px-4.5 py-[15px] text-2base font-bold mt-4"
      },
      "children": [
       {
        "$el": "p",
-       "$formkit": "text",
        "children": [
         "$interpolate.ff14($formula.ff14().total)"
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$el": "p",
-       "$formkit": "text",
        "children": [
         "$formula.ff14().status"
-       ],
-       "node_type": "element"
+       ]
       }
-     ],
-     "node_type": "element"
+     ]
     }
    ],
    "icon": "las la-clipboard-check",

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "formkit-ninja"
-version = "0.6.1"
+version = "0.7.4"
 description = "A Django-Ninja backend to specify FormKit schemas"
 authors = ["Josh Brooks <josh@catalpa.io>"]
 license = "GPLv3"
@@ -17,6 +17,9 @@ Django = "^4"
 pydantic = "<2"
 django-stubs = {extras = ["compatible-mypy"], version = "^4.2.3"}
 django-pgtrigger = "^4.7.0"
+rich = "*"
+django-pghistory = "^3.0.1"
+pytest-cov = "^4.1.0"
 
 [tool.poetry.group.dev]
 optional = true
@@ -28,16 +31,17 @@ isort = "*"
 black = "*"
 flake8 = "*"
 django-extensions = "*"
-rich = "*"
 sqlparse = "*"
 mypy = "*"
 pre-commit = "*"
-playwright = "*"
+playwright = "^1.39.0"
 pytest-playwright = "*"
 mkdocs-material = "*"
 mkdocstrings = {extras = ["python"], version = "*"}
 pytest-cov = "^4.1.0"
 psycopg2-binary = "^2.9.7"
+factory-boy = "^3.3.0"
+django-stubs = "^4.2.6"
 
 [build-system]
 requires = ["poetry-core"]
@@ -55,3 +59,12 @@ include_trailing_comma = true
 [tool.black]
 line-length = 119
 target-version = ['py310']
+
+[tool.mypy]
+python_version = 3.8
+plugins = [
+    'mypy_django_plugin.main'
+    ]
+
+[tool.django-stubs]
+django_settings_module = "formkit_ninja.settings"
