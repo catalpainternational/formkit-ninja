@@ -48,3 +48,9 @@ Make changes
 `./manage.py pgtrigger enable protect_node_deletes_and_updates`
 
 See the documentation for more details: https://django-pgtrigger.readthedocs.io/en/2.3.0/commands.html?highlight=disable
+
+## Development
+
+For development, this branch is using `rye` and `uv`
+
+ - Add new dependencies to `pyproject.toml`
