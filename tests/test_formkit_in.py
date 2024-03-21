@@ -100,9 +100,7 @@ def test_textarea_create(admin_client: Client):
     # Add a group node
     # This is a 'partisipa' type group node with
     # an icon and a label
-    group = FormKitNodeIn(
-        **{"$formkit": "textarea"}
-    )
+    group = FormKitNodeIn(**{"$formkit": "textarea"})
     data = group.json(exclude_none=True)
 
     response = admin_client.post(

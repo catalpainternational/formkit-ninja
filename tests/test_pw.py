@@ -31,9 +31,10 @@ from tests.fixtures import (
 os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
 
-
 @pytest.fixture()
-def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_user: User):
+def admin_page(
+    page: Page, live_server: live_server_helper.LiveServer, admin_user: User
+):
     page.goto(f"{live_server.url}/admin", timeout=1000)
     page.get_by_label("Username:").fill(admin_user.username)
     page.get_by_label("Password:").fill("password")
@@ -98,8 +99,16 @@ def test_import_sf11(SF_1_1):
     partA_out = [n.dict() for n in partA_schema]
 
     # Nested (children) should retain their order
-    assert [n["key"] for n in partA_in] == [n.key for n in partA_schema] == [n["key"] for n in partA_out]
-    assert [n["label"] for n in partA_in] == [n.label for n in partA_schema] == [n["label"] for n in partA_out]
+    assert (
+        [n["key"] for n in partA_in]
+        == [n.key for n in partA_schema]
+        == [n["key"] for n in partA_out]
+    )
+    assert (
+        [n["label"] for n in partA_in]
+        == [n.label for n in partA_schema]
+        == [n["label"] for n in partA_out]
+    )
 
     assert partA_in[0]["key"] == partA_schema[0].key
     assert partA_in[0]["name"] == partA_schema[0].name

@@ -6,7 +6,10 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("formkit_ninja", "0012_remove_formkitschemanode_group_remove_option_field_and_more"),
+        (
+            "formkit_ninja",
+            "0012_remove_formkitschemanode_group_remove_option_field_and_more",
+        ),
     ]
 
     operations = [
@@ -14,7 +17,10 @@ class Migration(migrations.Migration):
             model_name="formkitschemanode",
             name="option_group",
             field=models.ForeignKey(
-                blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, to="formkit_ninja.optiongroup"
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="formkit_ninja.optiongroup",
             ),
         ),
     ]

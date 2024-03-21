@@ -158,7 +158,9 @@ def test_pd_group_node_field(pydantic_class_template: Template, group_node: Node
     assert text.strip() == dedent(expect).strip()
 
 
-def test_pd_nested_group_node_field(pydantic_class_template: Template, nested_group_node: NodePath):
+def test_pd_nested_group_node_field(
+    pydantic_class_template: Template, nested_group_node: NodePath
+):
     text = pydantic_class_template.render(this=nested_group_node)
     expect = """
         class BarFoo(BaseModel):
@@ -175,7 +177,9 @@ def test_group_node_field(django_class_template: Template, group_node: NodePath)
     assert text.strip() == dedent(expect).strip()
 
 
-def test_nested_group_node_field(django_class_template: Template, nested_group_node: NodePath):
+def test_nested_group_node_field(
+    django_class_template: Template, nested_group_node: NodePath
+):
     text = django_class_template.render(this=nested_group_node)
     expect = """
         class BarFoo(models.Model):
@@ -232,7 +236,9 @@ class FooAdmin(admin.ModelAdmin):
     assert text.strip() == dedent(expect).strip()
 
 
-def test_admin_nested_group_node_field(admin_template: Template, nested_group_node: NodePath):
+def test_admin_nested_group_node_field(
+    admin_template: Template, nested_group_node: NodePath
+):
     text = admin_template.render(this=nested_group_node)
     expect = """
         @admin.register(models.BarFoo)
@@ -255,7 +261,9 @@ def test_admin_nested_group_node_field(admin_template: Template, nested_group_no
     assert text.strip() == dedent(expect).strip()
 
 
-def test_api_nested_group_node_field(api_template: Template, nested_group_node: NodePath):
+def test_api_nested_group_node_field(
+    api_template: Template, nested_group_node: NodePath
+):
     text = api_template.render(this=nested_group_node)
     expect = """
         @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
@@ -273,7 +281,9 @@ def test_api_nested_group_node_field(api_template: Template, nested_group_node: 
     assert text.strip() == dedent(expect).strip()
 
 
-def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_node: NodePath):
+def test_api_nested_repeater_node_field(
+    api_template: Template, nested_repeater_node: NodePath
+):
     text = api_template.render(this=nested_repeater_node)
     expect = """
         @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
@@ -291,7 +301,9 @@ def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_
     assert text.strip() == dedent(expect).strip()
 
 
-def test_schema_out_nested_group_node_field(schema_out_template: Template, nested_group_node: NodePath):
+def test_schema_out_nested_group_node_field(
+    schema_out_template: Template, nested_group_node: NodePath
+):
     text = schema_out_template.render(this=nested_group_node)
     expect = """
         class BarFooSchema(Schema):

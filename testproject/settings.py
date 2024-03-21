@@ -166,7 +166,9 @@ LOGGING = {
     "handlers": {
         "console": {
             "level": "DEBUG",
-            "class": "rich.logging.RichHandler" if importlib.util.find_spec("rich") else "logging.StreamHandler",
+            "class": "rich.logging.RichHandler"
+            if importlib.util.find_spec("rich")
+            else "logging.StreamHandler",
         }
     },
     "loggers": {

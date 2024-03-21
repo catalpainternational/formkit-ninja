@@ -52,7 +52,9 @@ class WhitelistedKeysDict(dict):
         if isinstance(dict_, str):
             if self.default_key:
                 return self.__init__({self.default_key: dict_})
-            warnings.warn("No default key was set. You must have a default_key to initialize with a string.")
+            warnings.warn(
+                "No default key was set. You must have a default_key to initialize with a string."
+            )
             return super().__init__()
         return super().__init__(dict_ or {})
 
@@ -87,7 +89,9 @@ class TranslatedValues(WhitelistedKeysDict):
     def __init__(self, dict_, /, **kwargs):
         return super().__init__(
             dict_,
-            permitted_keys=set((lang[0] for lang in getattr(settings, "LANGUAGES", ()))),
+            permitted_keys=set(
+                (lang[0] for lang in getattr(settings, "LANGUAGES", ()))
+            ),
             default_key=translation.get_language(),
             **kwargs,
         )

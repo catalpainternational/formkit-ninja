@@ -94,7 +94,14 @@ def el_priority():
     """
     return {
         "$el": "div",
-        "children": ["Priority ", {"$el": "span", "attrs": {"class": "ml-1"}, "children": ["$: ($index + 1)"]}],
+        "children": [
+            "Priority ",
+            {
+                "$el": "span",
+                "attrs": {"class": "ml-1"},
+                "children": ["$: ($index + 1)"],
+            },
+        ],
         "attrs": {"class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"},
     }
 
@@ -114,5 +121,8 @@ def formkit_text_node():
         "$formkit": "select",
         "placeholder": '$gettext("Please select")',
         "class": "red",
-        "options": [{"value": "1", "label": "Training"}, {"value": "2", "label": "Meeting"}],
+        "options": [
+            {"value": "1", "label": "Training"},
+            {"value": "2", "label": "Meeting"},
+        ],
     }

@@ -24,34 +24,67 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="formcomponents",
             name="id",
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(
+                default=uuid.uuid4,
+                editable=False,
+                primary_key=True,
+                serialize=False,
+                unique=True,
+            ),
         ),
         migrations.AlterField(
             model_name="formkitschema",
             name="id",
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(
+                default=uuid.uuid4,
+                editable=False,
+                primary_key=True,
+                serialize=False,
+                unique=True,
+            ),
         ),
         migrations.AlterField(
             model_name="formkitschemanode",
             name="id",
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(
+                default=uuid.uuid4,
+                editable=False,
+                primary_key=True,
+                serialize=False,
+                unique=True,
+            ),
         ),
         migrations.AlterField(
             model_name="membership",
             name="id",
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(
+                default=uuid.uuid4,
+                editable=False,
+                primary_key=True,
+                serialize=False,
+                unique=True,
+            ),
         ),
         migrations.AlterField(
             model_name="option",
             name="group",
             field=models.ForeignKey(
-                blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.optiongroup"
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                to="formkit_ninja.optiongroup",
             ),
         ),
         migrations.AlterField(
             model_name="option",
             name="id",
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, unique=True),
+            field=models.UUIDField(
+                default=uuid.uuid4,
+                editable=False,
+                primary_key=True,
+                serialize=False,
+                unique=True,
+            ),
         ),
         migrations.AlterField(
             model_name="optiongroup",

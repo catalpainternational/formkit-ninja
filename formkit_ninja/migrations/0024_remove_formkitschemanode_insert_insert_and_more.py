@@ -6,7 +6,6 @@ import pgtrigger.migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("formkit_ninja", "0023_formkitschemanodeevent_and_more"),
     ]

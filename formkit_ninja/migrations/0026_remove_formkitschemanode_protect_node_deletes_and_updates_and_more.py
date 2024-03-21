@@ -6,7 +6,6 @@ import pgtrigger.migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("formkit_ninja", "0025_remove_formkitschemanode_protect_deletes_and_more"),
     ]

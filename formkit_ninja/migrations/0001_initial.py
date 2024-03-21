@@ -18,14 +18,27 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="FormComponents",
             fields=[
-                ("order", models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order")),
-                ("id", models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
+                (
+                    "order",
+                    models.PositiveIntegerField(
+                        db_index=True, editable=False, verbose_name="order"
+                    ),
+                ),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 (
                     "label",
                     models.CharField(
-                        default=uuid.uuid4, help_text="Used as a human-readable label", max_length=1024, unique=True
+                        default=uuid.uuid4,
+                        help_text="Used as a human-readable label",
+                        max_length=1024,
+                        unique=True,
                     ),
                 ),
                 (
@@ -46,7 +59,12 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="FormKitSchemaNode",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 (
@@ -73,16 +91,29 @@ class Migration(migrations.Migration):
                         null=True,
                     ),
                 ),
-                ("label", models.CharField(help_text="Used as a human-readable label", max_length=1024, unique=True)),
+                (
+                    "label",
+                    models.CharField(
+                        help_text="Used as a human-readable label",
+                        max_length=1024,
+                        unique=True,
+                    ),
+                ),
                 (
                     "node",
                     models.JSONField(
-                        blank=True, help_text="A JSON representation of select parts of the FormKit schema", null=True
+                        blank=True,
+                        help_text="A JSON representation of select parts of the FormKit schema",
+                        null=True,
                     ),
                 ),
                 (
                     "additional_props",
-                    models.JSONField(blank=True, help_text="User space for additional, less used props", null=True),
+                    models.JSONField(
+                        blank=True,
+                        help_text="User space for additional, less used props",
+                        null=True,
+                    ),
                 ),
                 (
                     "translation_context",
@@ -101,24 +132,42 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Translatable",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 (
                     "object_id",
                     models.UUIDField(
-                        editable=False, help_text="The UUID of the model which this translation relates to"
+                        editable=False,
+                        help_text="The UUID of the model which this translation relates to",
                     ),
                 ),
                 ("language_code", models.CharField(editable=False, max_length=3)),
                 (
                     "field",
                     models.CharField(
-                        editable=False, help_text="The field on the generic model to translate", max_length=100
+                        editable=False,
+                        help_text="The field on the generic model to translate",
+                        max_length=100,
                     ),
                 ),
-                ("value", models.CharField(blank=True, editable=False, max_length=5000, null=True)),
-                ("context", models.CharField(blank=True, editable=False, max_length=1024, null=True)),
+                (
+                    "value",
+                    models.CharField(
+                        blank=True, editable=False, max_length=5000, null=True
+                    ),
+                ),
+                (
+                    "context",
+                    models.CharField(
+                        blank=True, editable=False, max_length=1024, null=True
+                    ),
+                ),
                 ("msgstr", models.CharField(help_text="The string", max_length=5000)),
                 (
                     "created_by",
@@ -148,8 +197,18 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Option",
             fields=[
-                ("order", models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order")),
-                ("id", models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
+                (
+                    "order",
+                    models.PositiveIntegerField(
+                        db_index=True, editable=False, verbose_name="order"
+                    ),
+                ),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 ("value", models.CharField(max_length=1024)),
@@ -191,8 +250,18 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="NodeChildren",
             fields=[
-                ("order", models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order")),
-                ("id", models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
+                (
+                    "order",
+                    models.PositiveIntegerField(
+                        db_index=True, editable=False, verbose_name="order"
+                    ),
+                ),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 (
@@ -239,8 +308,18 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Membership",
             fields=[
-                ("order", models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order")),
-                ("id", models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
+                (
+                    "order",
+                    models.PositiveIntegerField(
+                        db_index=True, editable=False, verbose_name="order"
+                    ),
+                ),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 (
@@ -289,7 +368,9 @@ class Migration(migrations.Migration):
             model_name="formkitschemanode",
             name="children",
             field=models.ManyToManyField(
-                blank=True, through="formkit_ninja.NodeChildren", to="formkit_ninja.formkitschemanode"
+                blank=True,
+                through="formkit_ninja.NodeChildren",
+                to="formkit_ninja.formkitschemanode",
             ),
         ),
         migrations.AddField(
@@ -307,7 +388,9 @@ class Migration(migrations.Migration):
             model_name="formkitschemanode",
             name="group",
             field=models.ManyToManyField(
-                blank=True, through="formkit_ninja.Membership", to="formkit_ninja.formkitschemanode"
+                blank=True,
+                through="formkit_ninja.Membership",
+                to="formkit_ninja.formkitschemanode",
             ),
         ),
         migrations.AddField(
@@ -324,7 +407,12 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="FormKitSchema",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, primary_key=True, serialize=False
+                    ),
+                ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 ("key", models.SlugField(max_length=1024, unique=True)),
@@ -341,7 +429,8 @@ class Migration(migrations.Migration):
                 (
                     "nodes",
                     models.ManyToManyField(
-                        through="formkit_ninja.FormComponents", to="formkit_ninja.formkitschemanode"
+                        through="formkit_ninja.FormComponents",
+                        to="formkit_ninja.formkitschemanode",
                     ),
                 ),
                 (
@@ -362,12 +451,18 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formcomponents",
             name="node",
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.formkitschemanode"),
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                to="formkit_ninja.formkitschemanode",
+            ),
         ),
         migrations.AddField(
             model_name="formcomponents",
             name="schema",
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.formkitschema"),
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                to="formkit_ninja.formkitschema",
+            ),
         ),
         migrations.AddField(
             model_name="formcomponents",

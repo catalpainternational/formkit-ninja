@@ -21,12 +21,20 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="formkitschema",
             name="label",
-            field=models.CharField(blank=True, help_text="Used as a human-readable label", max_length=1024, null=True),
+            field=models.CharField(
+                blank=True,
+                help_text="Used as a human-readable label",
+                max_length=1024,
+                null=True,
+            ),
         ),
         migrations.AlterField(
             model_name="nodechildren",
             name="child",
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.formkitschemanode"),
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                to="formkit_ninja.formkitschemanode",
+            ),
         ),
         migrations.AlterField(
             model_name="nodechildren",
