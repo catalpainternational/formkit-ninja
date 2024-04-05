@@ -103,18 +103,23 @@ class JsonDecoratedFormBase(forms.ModelForm):
                 else:
                     form_field, json_field = key
                 fields_from_json.add(json_field)
-                # Assert that the
                 field = self.fields.get(form_field)
                 if not field:
                     warnings.warn(f"The field {form_field} was not found on the form")
                 else:
                     # The value, extracted from the JSON value in the database
+                    # If there's an underscore do a Django-style "lookup"
+                    # e.g. `formkit__name` -> `formkit["name"]`
+                    if "__" in json_field:
+                        nested_field_name = json_field.split("__")[0]
+                        if nested_field_name in values:
+                            field_value = values[nested_field_name].get(json_field.split("__")[1], None)
                     field_value = values.get(json_field, None)
                     # The initial value of the admin form is set to the value of the JSON attrib
                     field = self.fields.get(form_field).initial = field_value
 
             # Here we can warn if there are any "hidden" JSON fields
-
+            # Todo: Handle 'nested' values such as `attrs__classes`
             if missing := list(set(values) - fields_from_json - {"node_type"}):
                 warnings.warn(f"Some JSON fields were hidden: {','.join(missing)}")
                 warnings.warn(f"Consider adding fields {missing} to {self.__class__.__name__}")
@@ -144,7 +149,13 @@ class JsonDecoratedFormBase(forms.ModelForm):
                 else:
                     form_field, json_field = key
                 if field_value := self.cleaned_data.get(form_field, None):
-                    data[json_field] = field_value
+                    if "__" in json_field:
+                        if json_field.split("__")[0] in data:
+                            data[json_field.split("__")[0]][json_field.split("__")[1]] = field_value
+                        else:
+                            data[json_field.split("__")[0]] = {json_field.split("__")[1]: field_value}
+                    else:
+                        data[json_field] = field_value
         setattr(self.instance, field, data)
         return super().save(commit=commit)
 
@@ -181,16 +192,14 @@ class FormKitSchemaComponentInline(admin.TabularInline):
 class FormKitNodeGroupForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "additional_props")
+        fields = ("label", "description", "additional_props", "is_active", "protected")
 
     _json_fields = {
-        "node": (
-            "name",
-            ("formkit", "$formkit"),
-            "if_condition",
-        )
+        "node": ("name", ("formkit", "$formkit"), "if_condition", ("html_id", "id")),
     }
-
+    html_id = forms.CharField(
+        required=False, help_text="Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"
+    )
     name = forms.CharField(required=False)
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
     if_condition = forms.CharField(
@@ -206,7 +215,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
 
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "additional_props", "option_group")
+        fields = ("label", "description", "additional_props", "option_group", "is_active", "protected")
 
     # The `_json_fields["node"]` item affects the admin form,
     # adding the fields included in the `FormKitSchemaProps.__fields__.items` dict
@@ -230,6 +239,8 @@ class FormKitNodeForm(JsonDecoratedFormBase):
             "min",
             "max",
             "step",
+            ("html_id", "id"),
+            ("onchange", "onChange")
         )
     }
 
@@ -243,6 +254,9 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     help = forms.CharField(required=False)
     html_id = forms.CharField(
         required=False, help_text="Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"
+    )
+    onchange = forms.CharField(
+        required=False, help_text="Use this to trigger a function when the value of the field changes"
     )
     options = forms.CharField(
         required=False, help_text="Use this if adding Options using a JS function (hint: $get(my_field).value )"
@@ -295,22 +309,22 @@ class FormKitNodeRepeaterForm(FormKitNodeForm):
 class FormKitTextNode(forms.ModelForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "text_content")
+        fields = ("label", "description", "text_content", "is_active", "protected")
 
 
 class FormKitElementForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "text_content")
+        fields = ("label", "description", "text_content", "is_active", "protected")
 
     _skip_translations = {"label", "placeholder"}
-    _json_fields = {"node": ("el", "name", "if_condition", "classes")}
+    _json_fields = {"node": (("el", "$el"), "name", "if_condition", "attrs__class")}
 
     el = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES)
     name = forms.CharField(
         required=False,
     )
-    classes = forms.CharField(
+    attrs__class = forms.CharField(
         required=False,
     )
     if_condition = forms.CharField(
@@ -347,10 +361,7 @@ class FormKitConditionForm(JsonDecoratedFormBase):
 class FormKitComponentForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = (
-            "label",
-            "description",
-        )
+        fields = ("label", "description", "is_active", "protected")
 
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
@@ -361,12 +372,23 @@ class NodeChildrenInline(admin.TabularInline):
     """
 
     model = models.NodeChildren
-    fields = (
-        "child",
-        "order",
-    )
+    fields = ("child", "order", "track_change")
     ordering = ("order",)
+    readonly_fields = ("track_change", "child")
     fk_name = "parent"
+    extra = 0
+
+
+class NodeParentsInline(admin.TabularInline):
+    """
+    Nested HTML elements
+    """
+
+    model = models.NodeChildren
+    fields = ("parent", "order", "track_change")
+    ordering = ("order",)
+    readonly_fields = ("track_change", "parent")
+    fk_name = "child"
     extra = 0
 
 
@@ -398,28 +420,45 @@ class FormKitSchemaForm(forms.ModelForm):
 
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(admin.ModelAdmin):
-    list_display = ("label", "id", "node_type", "option_group", "formkit_or_el_type")
-    list_filter = ("node_type",)
+    list_display = ("label", "is_active", "id", "node_type", "option_group", "formkit_or_el_type", "track_change", "key_is_valid", "protected")
+    list_filter = ("node_type", "is_active", "protected")
+    readonly_fields = ("track_change",)
+    search_fields = ["label", "description", "node", "node__el"]
+
+    @admin.display(boolean=True)
+    def key_is_valid(self, obj) -> bool:
+        """
+        If it's a Formkit type, check that its
+        key is suitable for python + django
+        """
+        if not obj.node:
+            return True
+        if not isinstance(obj.node, dict):
+            return True
+        if 'name' not in obj.node:
+            return True
+        try:
+            key = obj.node.get('name')
+            if not isinstance(key, str):
+                raise TypeError
+            models.check_valid_django_id(key)
+        except TypeError:
+            return False
+        return True
 
     def formkit_or_el_type(self, obj):
-        if obj and obj.node and obj.node_type == '$formkit':
+        if obj and obj.node and obj.node_type == "$formkit":
             return obj.node.get("$formkit", None)
-        if obj and obj.node and obj.node_type == '$el':
+        if obj and obj.node and obj.node_type == "$el":
             return obj.node.get("$el", None)
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
         if not obj:
             return []
-        if obj.node_type == "$el" or (obj.node and obj.node.get("$formkit", None) == "group"):
-            return [
-                NodeChildrenInline,
-            ]
-        return []
+        return [NodeChildrenInline, NodeParentsInline]
 
     # # Note that although overridden these are necessary
-    inlines = [
-        NodeChildrenInline,
-    ]
+    inlines = [NodeChildrenInline, NodeParentsInline]
 
     def get_fieldsets(self, request: HttpRequest, obj: models.FormKitSchemaNode | None = None):
         """
@@ -487,6 +526,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         if not obj:
             return NewFormKitForm
         try:
+            get_node = obj.get_node()
             for node_type, form_type in (
                 (str, FormKitTextNode),
                 (formkit_schema.GroupNode, FormKitNodeGroupForm),
@@ -496,7 +536,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                 (formkit_schema.FormKitSchemaCondition, FormKitConditionForm),
                 (formkit_schema.FormKitSchemaProps, FormKitNodeForm),
             ):
-                if isinstance(obj.get_node(), node_type):
+                if isinstance(get_node, node_type):
                     return form_type
 
         except Exception as E:

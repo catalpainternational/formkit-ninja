@@ -1,3 +1,6 @@
+# ruff: noqa: F401 F811
+# flake8: noqa: F401 F811
+
 import os
 from typing import Type
 
@@ -5,8 +8,8 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from playwright.sync_api import Browser, Page
-from pytest_django.fixtures import live_server, live_server_helper  # noqa: F401
-from pytest_playwright.pytest_playwright import page  # noqa: F401
+from pytest_django.fixtures import live_server, live_server_helper, admin_user
+from pytest_playwright.pytest_playwright import page
 
 from formkit_ninja import models
 from tests.fixtures import (
@@ -28,24 +31,18 @@ from tests.fixtures import (
 os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
 
-@pytest.fixture()
-def admin_user():
-    UserModel: Type[User] = get_user_model()
-    user = UserModel.objects.create_superuser(username="admin", email="admin@catalpa.io", password="12341234")
-    return user
-
 
 @pytest.fixture()
-def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_user: User):  # noqa: F811
+def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_user: User):
     page.goto(f"{live_server.url}/admin", timeout=1000)
     page.get_by_label("Username:").fill(admin_user.username)
-    page.get_by_label("Password:").fill("12341234")
+    page.get_by_label("Password:").fill("password")
     page.get_by_role("button", name="Log in").click()
+    page.context.set_default_timeout(5000)
     yield page
 
 
-# @pytest.mark.browser_context_args(headless=False)
-def test_home_page(admin_page: Page):  # noqa: F811
+def test_home_page(admin_page: Page):
     admin_page.get_by_role("link", name="Form kit schema nodes").click()
     admin_page.get_by_role("link", name="Add form kit schema node").click()
     # There was a bug identified by this test where "label" in JSON
@@ -77,7 +74,7 @@ def test_home_page(admin_page: Page):  # noqa: F811
 
 
 @pytest.mark.django_db()
-def test_import_sf11(SF_1_1):  # noqa: F811
+def test_import_sf11(SF_1_1):
     """
     This tests that we can successfully import the 'SF11' form from Partisipa
     """
@@ -85,32 +82,24 @@ def test_import_sf11(SF_1_1):  # noqa: F811
 
     schema = BaseModel.parse_obj(SF_1_1)
     schema_in_the_db = models.FormKitSchema.from_pydantic(schema)
-    schema_back_from_db = schema_in_the_db.to_pydantic()
 
     # Check that schema sections retained their order
-    assert [n["id"] for n in SF_1_1] == [n.html_id for n in schema_back_from_db.__root__]
+    # There is a top level node
+    assert schema_in_the_db.nodes.first().label == "SF_1_1"
 
-    # The input dict and output dict should be equal
-    sf11_out = schema_back_from_db.dict()["__root__"]
+    # The 'top level' node has the same child nodes as the input schema
+    child_nodes = schema_in_the_db.nodes.first().get_node(recursive=True).children
+
+    assert [n["id"] for n in SF_1_1["children"]] == [n.id for n in child_nodes]
 
     # The inputs and outputs
-    partA_in = SF_1_1[0]["children"]
-    partA_schema = schema_back_from_db.__root__[0].children
-    partA_out = sf11_out[0]["children"]
+    partA_in = SF_1_1["children"][0]["children"]
+    partA_schema = child_nodes[0].children
+    partA_out = [n.dict() for n in partA_schema]
 
     # Nested (children) should retain their order
     assert [n["key"] for n in partA_in] == [n.key for n in partA_schema] == [n["key"] for n in partA_out]
     assert [n["label"] for n in partA_in] == [n.label for n in partA_schema] == [n["label"] for n in partA_out]
-
-    # Options are maintained
-    first_schema = schema_in_the_db.nodes.order_by("formcomponents__order").first()
-    first_schema_first_node = first_schema.children.order_by("nodechildren__order").first()
-
-    assert partA_in[0]["key"] == first_schema_first_node.node["key"]
-    assert partA_in[0]["name"] == first_schema_first_node.node["name"]
-    assert partA_in[0]["label"] == first_schema_first_node.node["label"]
-    assert partA_in[0]["placeholder"] == first_schema_first_node.node["placeholder"]
-    assert partA_in[0]["options"] == first_schema_first_node.node_options
 
     assert partA_in[0]["key"] == partA_schema[0].key
     assert partA_in[0]["name"] == partA_schema[0].name
@@ -126,7 +115,7 @@ def test_import_sf11(SF_1_1):  # noqa: F811
 
 
 @pytest.mark.django_db()
-def test_admin_actions_sf11(SF_1_1, admin_page: Page):  # noqa: F811
+def test_admin_actions_sf11(SF_1_1, admin_page: Page):
     """
     This tests that we can successfully import the 'SF11' form from Partisipa
     """

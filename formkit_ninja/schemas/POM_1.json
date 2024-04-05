@@ -70,27 +70,21 @@
      "$formkit": "select",
      "label": "$gettext(\"Fiscal year\")",
      "name": "year",
-     "options": [
-      "2012",
-      "2013",
-      "2014",
-      "2015",
-      "2016",
-      "2017",
-      "2018",
-      "2019",
-      "2020",
-      "2021",
-      "2022",
-      "2023"
-     ],
+     "options": "$ida(year)",
      "placeholder": "$gettext(\"Select year\")"
     },
     {
      "$formkit": "hidden",
-     "id": "pom1_status",
-     "key": "pom1_status",
-     "name": "pom1_status",
+     "id": "pom1_infrastructure_status",
+     "key": "pom1_infrastructure_status",
+     "name": "pom1_infrastructure_status",
+     "value": "1"
+    },
+    {
+     "$formkit": "hidden",
+     "id": "pom1_operational_status",
+     "key": "pom1_operational_status",
+     "name": "pom1_operational_status",
      "value": "1"
     }
    ],
@@ -106,8 +100,12 @@
      "addLabel": "$gettext(\"Add activity\")",
      "children": [
       {
+       "$formkit": "uuid",
+       "name": "uuid",
+       "readonly": true
+      },
+      {
        "$el": "div",
-       "$formkit": "text",
        "attrs": {
         "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
        },
@@ -115,14 +113,11 @@
         "Activity ",
         {
          "$el": "span",
-         "$formkit": "text",
          "children": [
           "$: ($index + 1)"
-         ],
-         "node_type": "element"
+         ]
         }
-       ],
-       "node_type": "element"
+       ]
       },
       {
        "$formkit": "select",
@@ -130,7 +125,7 @@
        "key": "activity",
        "label": "$gettext(\"Activity name\")",
        "name": "activity",
-       "options": "$ida(\"cycle\")",
+       "options": "$ida(cycle)",
        "placeholder": "$gettext(\"Please select\")"
       },
       {
