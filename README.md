@@ -71,3 +71,13 @@ Make changes
 `./manage.py pgtrigger enable protect_node_deletes_and_updates`
 
 See the documentation for more details: https://django-pgtrigger.readthedocs.io/en/2.3.0/commands.html?highlight=disable
+
+## Publishing
+
+
+Get a Token for the repo over at pypi, set it as an env var. publish
+
+```py
+uv build
+UV_PUBLISH_TOKEN=pypi-... uv publish
+```
