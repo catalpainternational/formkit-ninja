@@ -30,6 +30,8 @@ dev = [
     "psycopg2-binary>=2.9.10",
     "pytest-cov>=6.0.0",
     "pytest-django>=4.9.0",
+    "ruff>=0.8.0",
+]
+playwright = [
     "pytest-playwright>=0.6.1",
-    "testcontainers[postgres]>=4.8.2",
 ]

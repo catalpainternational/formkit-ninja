@@ -24,6 +24,31 @@ INSTALLED_APPS = [
 ]
 ```
 
+## Dev
+
+In a dev container, you're set up to share `Playwright` runtimes with other containers, so that we don't need to install the Playwright runtimes (they can be quite huge). That involves 3 steps required to run tests:
+
+  1) Create the volume 
+  2) Chown the volume
+  3) Install playwright
+  4) Install playwright dependencies
+
+Here's the volume config
+
+```
+    volumes:
+      - ../..:/workspaces:cached
+      - ms-playwright:/home/vscode/.cache/ms-playwright
+
+volumes:
+  ms-playwright:
+    external: true
+```
+
+ - On host, before running `docker compose up`, run `docker volume create ms-playwright`.
+ - In dev container, run `sudo chown vscode:vscode /home/vscode/.cache/ms-playwright`
+ - In dev container, run `playwright install chromium`
+
 ## Test
 
 Pull the repo:

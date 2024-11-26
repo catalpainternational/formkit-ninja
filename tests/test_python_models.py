@@ -6,7 +6,8 @@ import pytest
 from formkit_ninja import formkit_schema, models, samples
 from formkit_ninja.formkit_schema import FormKitNode, FormKitSchemaDOMNode
 from formkit_ninja.schemas import Schemas
-from tests.fixtures import SF_1_1, el_priority, formkit_text_node, simple_text_node
+
+schemas = Schemas()
 
 
 def _read_file(filename: str):
@@ -17,9 +18,9 @@ def _parse_file(filename: str):
     return formkit_schema.FormKitSchema.parse_obj(_read_file(filename))
 
 
-@pytest.fixture
-def element_schema():
-    return _parse_file("element")
+@pytest.fixture(params=list(schemas))
+def schema(request):
+    return s.as_json(request.param)
 
 
 def test_node_parse():
@@ -34,10 +35,11 @@ def test_create_schema():
 
 
 @pytest.mark.django_db()
-def test_create_from_schema(element_schema):
+def test_create_from_schema():
     """
     Create a database entry from a FormKit schema
     """
+    element_schema = _parse_file("element")
     c = models.FormKitSchema.from_pydantic(element_schema)
     # This test schema has one node
     assert c.nodes.count() == 1
@@ -77,7 +79,9 @@ def test_parse_el_priority(el_priority: dict):
     assert node_in_the_db.node_type == "$el"
 
     el_priority["children"][0] == "Priority "
-    children: list[models.FormKitSchemaNode] = list(node_in_the_db.children.all().order_by("nodechildren__order"))
+    children: list[models.FormKitSchemaNode] = list(
+        node_in_the_db.children.all().order_by("nodechildren__order")
+    )
 
     # The first child is an 'text'
     node = children[0]
@@ -92,7 +96,9 @@ def test_parse_el_priority(el_priority: dict):
     assert node.node["attrs"] == {"class": "ml-1"}
     # With appropriate `by_alias` and `exclude_defaults` we should get an equal output as input
     assert (
-        node.to_pydantic(recursive=True).dict(by_alias=True, exclude_defaults=True)["__root__"]
+        node.to_pydantic(recursive=True).dict(by_alias=True, exclude_defaults=True)[
+            "__root__"
+        ]
         == el_priority["children"][1]
     )
 
@@ -127,19 +133,35 @@ def test_additional_props(formkit_text_node: dict):
 
     # The 'discriminator' fields should not be stored in the db
     assert node_in_the_db.node["$formkit"] == "select"
-    assert set(node_in_the_db.node.keys()) == {"key", "id", "name", "label", "placeholder", "$formkit"}
+    assert set(node_in_the_db.node.keys()) == {
+        "key",
+        "id",
+        "name",
+        "label",
+        "placeholder",
+        "$formkit",
+    }
     # And out of the database again
     from_the_db = node_in_the_db.to_pydantic(options=True)
     assert from_the_db.__root__.additional_props == {"class": "red"}
 
     # And back to JSON
-    json_from_the_db = json.loads(from_the_db.json(exclude_none=True, by_alias=True, exclude={"node_type"}))
+    json_from_the_db = json.loads(
+        from_the_db.json(exclude_none=True, by_alias=True, exclude={"node_type"})
+    )
     assert json_from_the_db["class"] == "red"
 
     # Additional checks that the JSON output is equivalent to the JSON input
     # Note that json from the db has additional Python 'discriminator' fields 'node_type' and 'formkit'
 
-    assert set(node_in_the_db.node.keys()) == {"key", "id", "name", "label", "placeholder", "$formkit"}
+    assert set(node_in_the_db.node.keys()) == {
+        "key",
+        "id",
+        "name",
+        "label",
+        "placeholder",
+        "$formkit",
+    }
 
     assert node_in_the_db.node.get("key") == formkit_text_node["key"]
     assert node_in_the_db.node.get("id") == formkit_text_node["id"]
@@ -164,11 +186,6 @@ s = Schemas()
 schemas = s.list_schemas()
 
 
-@pytest.fixture(params=list(schemas))
-def schema(request):
-    return s.as_json(request.param)
-
-
 def schema_are_same(in_: dict | str, out_: dict | str):
     if isinstance(in_, str):
         assert in_ == out_, f"{in_=} != {out_=}"
@@ -191,9 +208,9 @@ def test_schemas(schema: dict):
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
 
     # Returning the code
-    schema_out: dict = node_in_the_db.to_pydantic(recursive=True, options=True).dict(by_alias=True, exclude_none=True)[
-        "__root__"
-    ]
+    schema_out: dict = node_in_the_db.to_pydantic(recursive=True, options=True).dict(
+        by_alias=True, exclude_none=True
+    )["__root__"]
     schema_are_same(schema, schema_out)
 
 
@@ -210,5 +227,6 @@ def test_protected_model(formkit_text_node: dict):
     node_in_the_db.protected = True
     node_in_the_db.save()
     from django.db.utils import InternalError
+
     with pytest.raises(InternalError):
         node_in_the_db.delete()

@@ -11,7 +11,9 @@ def test_node_parse():
 
 
 def test_login_form():
-    schema = json.loads(files(samples).joinpath("form_generation_example.json").read_text())
+    schema = json.loads(
+        files(samples).joinpath("form_generation_example.json").read_text()
+    )
     formkit_schema.FormKitNode.parse_obj(schema[0])
     formkit_schema.FormKitSchema.parse_obj(schema)
 

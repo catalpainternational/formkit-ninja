@@ -1,48 +1,25 @@
 # ruff: noqa: F401 F811
 # flake8: noqa: F401 F811
 
+from importlib.util import find_spec
 import os
 from typing import Type
 
 import pytest
-from django.contrib.auth import get_user_model
-from django.contrib.auth.models import User
-from playwright.sync_api import Browser, Page
-from pytest_django.fixtures import live_server, live_server_helper, admin_user
-from pytest_playwright.pytest_playwright import page
 
 from formkit_ninja import models
-from tests.fixtures import (
-    CFM_2_FF_4,
-    CFM_12_FF_12,
-    FF_14,
-    POM_1,
-    SF_1_1,
-    SF_1_2,
-    SF_1_3,
-    SF_2_3,
-    SF_4_1,
-    SF_4_2,
-    SF_6_2,
-    TF_6_1_1,
-    TF_13_2_1,
-)
 
 os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
+playwright = pytest.mark.skipif(
+    # 'playwright' is not installed
+    find_spec("playwright") is None or find_spec("pytest_playwright") is None,
+    reason="playwright is not installed",
+)
 
 
-@pytest.fixture()
-def admin_page(page: Page, live_server: live_server_helper.LiveServer, admin_user: User):
-    page.goto(f"{live_server.url}/admin", timeout=1000)
-    page.get_by_label("Username:").fill(admin_user.username)
-    page.get_by_label("Password:").fill("password")
-    page.get_by_role("button", name="Log in").click()
-    page.context.set_default_timeout(5000)
-    yield page
-
-
-def test_home_page(admin_page: Page):
+@playwright
+def test_home_page(admin_page):
     admin_page.get_by_role("link", name="Form kit schema nodes").click()
     admin_page.get_by_role("link", name="Add form kit schema node").click()
     # There was a bug identified by this test where "label" in JSON
@@ -98,8 +75,16 @@ def test_import_sf11(SF_1_1):
     partA_out = [n.dict() for n in partA_schema]
 
     # Nested (children) should retain their order
-    assert [n["key"] for n in partA_in] == [n.key for n in partA_schema] == [n["key"] for n in partA_out]
-    assert [n["label"] for n in partA_in] == [n.label for n in partA_schema] == [n["label"] for n in partA_out]
+    assert (
+        [n["key"] for n in partA_in]
+        == [n.key for n in partA_schema]
+        == [n["key"] for n in partA_out]
+    )
+    assert (
+        [n["label"] for n in partA_in]
+        == [n.label for n in partA_schema]
+        == [n["label"] for n in partA_out]
+    )
 
     assert partA_in[0]["key"] == partA_schema[0].key
     assert partA_in[0]["name"] == partA_schema[0].name
@@ -114,8 +99,9 @@ def test_import_sf11(SF_1_1):
     assert partA_in[0]["options"] == partA_out[0]["options"]
 
 
+@playwright
 @pytest.mark.django_db()
-def test_admin_actions_sf11(SF_1_1, admin_page: Page):
+def test_admin_actions_sf11(SF_1_1, admin_page):
     """
     This tests that we can successfully import the 'SF11' form from Partisipa
     """
@@ -127,8 +113,9 @@ def test_admin_actions_sf11(SF_1_1, admin_page: Page):
     ...
 
 
+@playwright
 @pytest.mark.django_db()
-def test_import_1321(TF_13_2_1, admin_page: Page):
+def test_import_1321(TF_13_2_1, admin_page):
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
 
     models.FormKitSchema.from_pydantic(BaseModel.parse_obj(TF_13_2_1))
@@ -138,6 +125,7 @@ def test_import_1321(TF_13_2_1, admin_page: Page):
     ...
 
 
+@playwright
 @pytest.mark.django_db()
 def test_admin_all_forms(
     CFM_12_FF_12,
@@ -153,7 +141,7 @@ def test_admin_all_forms(
     SF_6_2,
     TF_13_2_1,
     TF_6_1_1,
-    admin_page: Page,
+    admin_page,
 ):
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
 

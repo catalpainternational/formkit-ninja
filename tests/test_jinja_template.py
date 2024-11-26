@@ -20,119 +20,6 @@ def get_env():
     )
 
 
-@pytest.fixture()
-def number_node():
-    return NodePath.from_obj(
-        {
-            "$formkit": "number",
-            "name": "foonum",
-        }
-    )
-
-
-@pytest.fixture()
-def group_node():
-    return NodePath.from_obj(
-        {
-            "$formkit": "group",
-            "name": "foo",
-            "children": [
-                {
-                    "$formkit": "number",
-                    "name": "foonum",
-                }
-            ],
-        }
-    )
-
-
-@pytest.fixture()
-def nested_group_node():
-    return NodePath.from_obj(
-        {
-            "$formkit": "group",
-            "name": "bar",
-            "children": [
-                {
-                    "$formkit": "group",
-                    "name": "foo",
-                    "children": [
-                        {
-                            "$formkit": "number",
-                            "name": "foonum",
-                        }
-                    ],
-                }
-            ],
-        }
-    )
-
-
-@pytest.fixture()
-def nested_repeater_node():
-    return NodePath.from_obj(
-        {
-            "$formkit": "group",
-            "name": "bar",
-            "children": [
-                {
-                    "$formkit": "repeater",
-                    "name": "foo",
-                    "children": [
-                        {
-                            "$formkit": "number",
-                            "name": "foonum",
-                        }
-                    ],
-                }
-            ],
-        }
-    )
-
-
-@pytest.fixture()
-def django_class_template():
-    env = get_env()
-    template = env.get_template("model.jinja2")
-    return template
-
-
-@pytest.fixture()
-def admin_template():
-    env = get_env()
-    template = env.get_template("admin.jinja2")
-    return template
-
-
-@pytest.fixture()
-def admin_py_template():
-    """Test the entire admin file including import header"""
-    env = get_env()
-    template = env.get_template("admin.py.jinja2")
-    return template
-
-
-@pytest.fixture()
-def api_template():
-    env = get_env()
-    template = env.get_template("api.jinja2")
-    return template
-
-
-@pytest.fixture()
-def schema_out_template():
-    env = get_env()
-    template = env.get_template("schema.jinja2")
-    return template
-
-
-@pytest.fixture()
-def pydantic_class_template():
-    env = get_env()
-    template = env.get_template("basemodel.jinja2")
-    return template
-
-
 def test_nested_group_node(nested_group_node: NodePath):
     assert nested_group_node.is_repeater is False
     assert nested_group_node.classname == "Bar"
@@ -158,7 +45,9 @@ def test_pd_group_node_field(pydantic_class_template: Template, group_node: Node
     assert text.strip() == dedent(expect).strip()
 
 
-def test_pd_nested_group_node_field(pydantic_class_template: Template, nested_group_node: NodePath):
+def test_pd_nested_group_node_field(
+    pydantic_class_template: Template, nested_group_node: NodePath
+):
     text = pydantic_class_template.render(this=nested_group_node)
     expect = """
         class BarFoo(BaseModel):
@@ -175,7 +64,9 @@ def test_group_node_field(django_class_template: Template, group_node: NodePath)
     assert text.strip() == dedent(expect).strip()
 
 
-def test_nested_group_node_field(django_class_template: Template, nested_group_node: NodePath):
+def test_nested_group_node_field(
+    django_class_template: Template, nested_group_node: NodePath
+):
     text = django_class_template.render(this=nested_group_node)
     expect = """
         class BarFoo(models.Model):
@@ -232,7 +123,9 @@ class FooAdmin(admin.ModelAdmin):
     assert text.strip() == dedent(expect).strip()
 
 
-def test_admin_nested_group_node_field(admin_template: Template, nested_group_node: NodePath):
+def test_admin_nested_group_node_field(
+    admin_template: Template, nested_group_node: NodePath
+):
     text = admin_template.render(this=nested_group_node)
     expect = """
         @admin.register(models.BarFoo)
@@ -255,7 +148,9 @@ def test_admin_nested_group_node_field(admin_template: Template, nested_group_no
     assert text.strip() == dedent(expect).strip()
 
 
-def test_api_nested_group_node_field(api_template: Template, nested_group_node: NodePath):
+def test_api_nested_group_node_field(
+    api_template: Template, nested_group_node: NodePath
+):
     text = api_template.render(this=nested_group_node)
     expect = """
         @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
@@ -273,7 +168,9 @@ def test_api_nested_group_node_field(api_template: Template, nested_group_node: 
     assert text.strip() == dedent(expect).strip()
 
 
-def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_node: NodePath):
+def test_api_nested_repeater_node_field(
+    api_template: Template, nested_repeater_node: NodePath
+):
     text = api_template.render(this=nested_repeater_node)
     expect = """
         @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
@@ -291,7 +188,9 @@ def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_
     assert text.strip() == dedent(expect).strip()
 
 
-def test_schema_out_nested_group_node_field(schema_out_template: Template, nested_group_node: NodePath):
+def test_schema_out_nested_group_node_field(
+    schema_out_template: Template, nested_group_node: NodePath
+):
     text = schema_out_template.render(this=nested_group_node)
     expect = """
         class BarFooSchema(Schema):
