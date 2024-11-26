@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import itertools
-from keyword import iskeyword, issoftkeyword
 import logging
 import uuid
 import warnings
+from keyword import iskeyword, issoftkeyword
 from typing import Iterable, TypedDict, get_args
 
 import pghistory
@@ -25,12 +25,15 @@ log = console.log
 
 logger = logging.getLogger()
 
+
 def check_valid_django_id(key: str):
     if not key.isidentifier() or iskeyword(key) or issoftkeyword(key):
-        raise TypeError(f"{key} cannot be used as a keyword. Should be a valid python identifier")
+        raise TypeError(
+            f"{key} cannot be used as a keyword. Should be a valid python identifier"
+        )
     if key[0].isdigit():
         raise TypeError(f"{key} is not valid, it cannot start with a digit")
-    if key[-1] == '_':
+    if key[-1] == "_":
         raise TypeError(f"{key} is not valid, it cannot end with an underscore")
 
 
@@ -48,14 +51,24 @@ class UuidIdModel(models.Model):
     class Meta:
         abstract = True
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="+",
+        blank=True,
+        null=True,
     )
     updated_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="+",
+        blank=True,
+        null=True,
     )
 
 
@@ -72,7 +85,11 @@ class OptionGroup(models.Model):
     for idb and formkit to recognize
     """
 
-    group = models.CharField(max_length=1024, primary_key=True, help_text="The label to use for these options")
+    group = models.CharField(
+        max_length=1024,
+        primary_key=True,
+        help_text="The label to use for these options",
+    )
     content_type = models.ForeignKey(
         ContentType,
         on_delete=models.PROTECT,
@@ -88,17 +105,29 @@ class OptionGroup(models.Model):
         if self.content_type:
             klass = self.content_type.model_class()
             try:
-                if klass._meta.get_field("value") is None or not hasattr(klass, "label_set"):
-                    raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute")
+                if klass._meta.get_field("value") is None or not hasattr(
+                    klass, "label_set"
+                ):
+                    raise ValueError(
+                        f"Expected {klass} to have a 'value' field and a 'label_set' attribute"
+                    )
             except Exception as E:
-                raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute") from E
+                raise ValueError(
+                    f"Expected {klass} to have a 'value' field and a 'label_set' attribute"
+                ) from E
         return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.group}"
 
     @classmethod
-    def copy_table(cls, model: models.Model, field: str, language: str | None = "en", group: str | None = None):
+    def copy_table(
+        cls,
+        model: models.Model,
+        field: str,
+        language: str | None = "en",
+        group: str | None = None,
+    ):
         """
         Copy an existing table of options into this OptionGroup
         """
@@ -115,7 +144,9 @@ class OptionGroup(models.Model):
                     group=group,
                     value=obj["pk"],
                 )
-                OptionLabel.objects.get_or_create(option=option, label=obj[field] or "", lang=language)
+                OptionLabel.objects.get_or_create(
+                    option=option, label=obj[field] or "", lang=language
+                )
 
 
 class OptionQuerySet(models.Manager):
@@ -131,10 +162,15 @@ class OptionQuerySet(models.Manager):
 
         label_model = OptionLabel
         annotated_fields = {
-            f"label_{lang}": label_model.objects.filter(lang=lang, option=models.OuterRef("pk")) for lang in lang_codes
+            f"label_{lang}": label_model.objects.filter(
+                lang=lang, option=models.OuterRef("pk")
+            )
+            for lang in lang_codes
         }
         annotated_fields_subquery = {
-            field: models.Subquery(query.values("label")[:1], output_field=models.CharField())
+            field: models.Subquery(
+                query.values("label")[:1], output_field=models.CharField()
+            )
             for field, query in annotated_fields.items()
         }
         return super().get_queryset().annotate(**annotated_fields_subquery)
@@ -152,13 +188,19 @@ class Option(UuidIdModel):
         help_text="This is a reference to the primary key of the original source object (typically a PNDS ztable ID) or a user-specified ID for a new group",
     )
     last_updated = models.DateTimeField(auto_now=True)
-    group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE, null=True, blank=True)
+    group = models.ForeignKey(
+        OptionGroup, on_delete=models.CASCADE, null=True, blank=True
+    )
     # is_active = models.BooleanField(default=True)
     order = models.IntegerField(null=True, blank=True)
 
     class Meta:
         triggers = triggers.update_or_insert_group_trigger("group_id")
-        constraints = [models.UniqueConstraint(fields=["group", "object_id"], name="unique_option_id")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["group", "object_id"], name="unique_option_id"
+            )
+        ]
         ordering = (
             "group",
             "order",
@@ -205,7 +247,9 @@ class OptionLabel(models.Model):
     option = models.ForeignKey("Option", on_delete=models.CASCADE)
     label = models.CharField(max_length=1024)
     lang = models.CharField(
-        max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
+        max_length=4,
+        default="en",
+        choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")),
     )
 
     def save(self, *args, **kwargs):
@@ -217,7 +261,11 @@ class OptionLabel(models.Model):
         return super().save(*args, **kwargs)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["option", "lang"], name="unique_option_label")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["option", "lang"], name="unique_option_label"
+            )
+        ]
 
 
 class FormComponents(UuidIdModel):
@@ -227,8 +275,15 @@ class FormComponents(UuidIdModel):
 
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     # This is null=True so that a new FormComponent can be added from the admin inline
-    node = models.ForeignKey("FormKitSchemaNode", on_delete=models.CASCADE, null=True, blank=True)
-    label = models.CharField(max_length=1024, help_text="Used as a human-readable label", null=True, blank=True)
+    node = models.ForeignKey(
+        "FormKitSchemaNode", on_delete=models.CASCADE, null=True, blank=True
+    )
+    label = models.CharField(
+        max_length=1024,
+        help_text="Used as a human-readable label",
+        null=True,
+        blank=True,
+    )
     order = models.IntegerField(null=True, blank=True)
     order_with_respect_to = "schema"
 
@@ -254,10 +309,17 @@ class NodeChildrenManager(models.Manager):
                 children=ArrayAgg("child", ordering=F("order")),
             )
             .annotate(Max("child__track_change"))
-            .annotate(latest_change=Greatest("child__track_change__max", "parent__track_change"))
+            .annotate(
+                latest_change=Greatest(
+                    "child__track_change__max", "parent__track_change"
+                )
+            )
         )
         if latest_change:
-            values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__latest_change__gt=latest_change))
+            values = values.filter(
+                Q(latest_change__gt=latest_change)
+                | Q(parent__latest_change__gt=latest_change)
+            )
         return values.values_list("parent_id", "latest_change", "children", named=True)
 
 
@@ -280,7 +342,9 @@ class NodeChildren(models.Model):
     class Meta:
         triggers = [
             *triggers.update_or_insert_group_trigger("parent_id"),
-            triggers.bump_sequence_value(sequence_name=triggers.NODE_CHILDREN_CHANGE_ID),
+            triggers.bump_sequence_value(
+                sequence_name=triggers.NODE_CHILDREN_CHANGE_ID
+            ),
         ]
         ordering = (
             "parent_id",
@@ -304,7 +368,12 @@ class NodeQS(models.QuerySet):
         for node in self.all():
             try:
                 if node.is_active:
-                    yield node.id, node.track_change, node.get_node(recursive=False, options=options), node.protected
+                    yield (
+                        node.id,
+                        node.track_change,
+                        node.get_node(recursive=False, options=options),
+                        node.protected,
+                    )
                 else:
                     yield node.id, node.track_change, None, node.protected
             except Exception as E:
@@ -318,15 +387,15 @@ class NodeQS(models.QuerySet):
 @pgtrigger.register(
     pgtrigger.Protect(
         # If the node is protected, delete is not allowed
-        name='protect_node_deletes_and_updates',
+        name="protect_node_deletes_and_updates",
         operation=pgtrigger.Delete,
-        condition=pgtrigger.Q(old__protected=True)
+        condition=pgtrigger.Q(old__protected=True),
     ),
     pgtrigger.Protect(
         # If both new and old values are "protected", updates are not allowed
-        name='protect_node_updates',
+        name="protect_node_updates",
         operation=pgtrigger.Update,
-        condition=pgtrigger.Q(old__protected=True) & pgtrigger.Q(new__protected=True)
+        condition=pgtrigger.Q(old__protected=True) & pgtrigger.Q(new__protected=True),
     ),
     pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
     triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
@@ -355,16 +424,27 @@ class FormKitSchemaNode(UuidIdModel):
     FORMKIT_CHOICES = [(t, t) for t in get_args(formkit_schema.FORMKIT_TYPE)]
 
     ELEMENT_TYPE_CHOICES = [("p", "p"), ("h1", "h1"), ("h2", "h2"), ("span", "span")]
-    node_type = models.CharField(max_length=256, choices=NODE_TYPE_CHOICES, blank=True, help_text="")
+    node_type = models.CharField(
+        max_length=256, choices=NODE_TYPE_CHOICES, blank=True, help_text=""
+    )
     description = models.CharField(
         max_length=4000,
         null=True,
         blank=True,
         help_text="Decribe the type of data / reason for this component",
     )
-    label = models.CharField(max_length=1024, help_text="Used as a human-readable label", null=True, blank=True)
-    option_group = models.ForeignKey(OptionGroup, null=True, blank=True, on_delete=models.PROTECT)
-    children = models.ManyToManyField("self", through=NodeChildren, symmetrical=False, blank=True)
+    label = models.CharField(
+        max_length=1024,
+        help_text="Used as a human-readable label",
+        null=True,
+        blank=True,
+    )
+    option_group = models.ForeignKey(
+        OptionGroup, null=True, blank=True, on_delete=models.PROTECT
+    )
+    children = models.ManyToManyField(
+        "self", through=NodeChildren, symmetrical=False, blank=True
+    )
     is_active = models.BooleanField(default=True)
     protected = models.BooleanField(default=False)
 
@@ -381,7 +461,9 @@ class FormKitSchemaNode(UuidIdModel):
     )
 
     text_content = models.TextField(
-        null=True, blank=True, help_text="Content for a text element, for children of an $el type component"
+        null=True,
+        blank=True,
+        help_text="Content for a text element, for children of an $el type component",
     )
     track_change = models.BigIntegerField(null=True, blank=True)
 
@@ -398,8 +480,8 @@ class FormKitSchemaNode(UuidIdModel):
         # We're also going to verify that the 'key' is a valid identifier
         # Keep in mind that the `key` may be used as part of a model so
         # should be valid Django fieldname too
-        if isinstance(self.node, dict) and 'name' in self.node:
-            key: str = self.node.get('name', None)
+        if isinstance(self.node, dict) and "name" in self.node:
+            key: str = self.node.get("name", None)
             check_valid_django_id(key)
         return super().save(*args, **kwargs)
 
@@ -418,9 +500,14 @@ class FormKitSchemaNode(UuidIdModel):
         options = self.option_group.option_set.all().prefetch_related("optionlabel_set")
         # options: Iterable[Option] = self.option_set.all().prefetch_related("optionlabel_set")
         # TODO: This is horribly slow
-        return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
+        return [
+            {"value": option.value, "label": f"{option.optionlabel_set.first().label}"}
+            for option in options
+        ]
 
-    def get_node_values(self, recursive: bool = True, options: bool = True) -> str | dict:
+    def get_node_values(
+        self, recursive: bool = True, options: bool = True
+    ) -> str | dict:
         """
         Reify a 'dict' instance suitable for creating
         a FormKit Schema node from
@@ -437,7 +524,10 @@ class FormKitSchemaNode(UuidIdModel):
         if options and self.node_options:
             values["options"] = self.node_options
         if recursive:
-            children = [c.get_node_values() for c in self.children.order_by("nodechildren__order")]
+            children = [
+                c.get_node_values()
+                for c in self.children.order_by("nodechildren__order")
+            ]
             if children:
                 values["children"] = children
         if self.additional_props and len(self.additional_props) > 0:
@@ -451,7 +541,9 @@ class FormKitSchemaNode(UuidIdModel):
 
         return values
 
-    def get_node(self, recursive=False, options=False, **kwargs) -> formkit_schema.Node | str:
+    def get_node(
+        self, recursive=False, options=False, **kwargs
+    ) -> formkit_schema.Node | str:
         """
         Return a "decorated" node instance
         with restored options and translated fields
@@ -464,19 +556,29 @@ class FormKitSchemaNode(UuidIdModel):
             elif self.node_type == "$formkit":
                 node_content = {"$formkit": "text"}
         else:
-            node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
+            node_content = self.get_node_values(
+                **kwargs, recursive=recursive, options=options
+            )
 
-        formkit_node = formkit_schema.FormKitNode.parse_obj(node_content, recursive=recursive)
+        formkit_node = formkit_schema.FormKitNode.parse_obj(
+            node_content, recursive=recursive
+        )
         return formkit_node.__root__
 
     @classmethod
     def from_pydantic(
-        cls, input_models: formkit_schema.FormKitSchemaProps | Iterable[formkit_schema.FormKitSchemaProps]
+        cls,
+        input_models: formkit_schema.FormKitSchemaProps
+        | Iterable[formkit_schema.FormKitSchemaProps],
     ) -> Iterable["FormKitSchemaNode"]:
         if isinstance(input_models, str):
-            yield cls.objects.create(node_type="text", label=input_models, text_content=input_models)
+            yield cls.objects.create(
+                node_type="text", label=input_models, text_content=input_models
+            )
 
-        elif isinstance(input_models, Iterable) and not isinstance(input_models, formkit_schema.FormKitSchemaProps):
+        elif isinstance(input_models, Iterable) and not isinstance(
+            input_models, formkit_schema.FormKitSchemaProps
+        ):
             yield from (cls.from_pydantic(n) for n in input_models)
 
         elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
@@ -539,7 +641,9 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.option_group = OptionGroup.objects.create(
                     group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}"
                 )
-                for option in Option.from_pydantic(options, group=instance.option_group):
+                for option in Option.from_pydantic(
+                    options, group=instance.option_group
+                ):
                     pass
                 instance.save()
 
@@ -551,7 +655,9 @@ class FormKitSchemaNode(UuidIdModel):
             yield instance
 
         else:
-            raise TypeError(f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}")
+            raise TypeError(
+                f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}"
+            )
 
     def to_pydantic(self, recursive=False, options=False, **kwargs):
         if self.text_content:
@@ -591,7 +697,9 @@ class FormKitSchema(UuidIdModel):
         """
         Return a list of "node" dicts
         """
-        nodes: Iterable[FormKitSchemaNode] = self.nodes.order_by("formcomponents__order")
+        nodes: Iterable[FormKitSchemaNode] = self.nodes.order_by(
+            "formcomponents__order"
+        )
         for node in nodes:
             yield node.get_node_values(recursive=recursive, options=options, **kwargs)
 
@@ -606,16 +714,22 @@ class FormKitSchema(UuidIdModel):
         super().save(*args, **kwargs)
 
     @classmethod
-    def from_pydantic(cls, input_model: formkit_schema.FormKitSchema, label: str | None = None) -> "FormKitSchema":
+    def from_pydantic(
+        cls, input_model: formkit_schema.FormKitSchema, label: str | None = None
+    ) -> "FormKitSchema":
         """
         Converts a given Pydantic representation of a Schema
         to Django database fields
         """
         instance = cls.objects.create(label=label)
-        for node in itertools.chain.from_iterable(FormKitSchemaNode.from_pydantic(input_model.__root__)):
+        for node in itertools.chain.from_iterable(
+            FormKitSchemaNode.from_pydantic(input_model.__root__)
+        ):
             log(f"[yellow]Saving {node}")
             node.save()
-            FormComponents.objects.create(schema=instance, node=node, label=str(f"{str(instance)} {str(node)}"))
+            FormComponents.objects.create(
+                schema=instance, node=node, label=str(f"{str(instance)} {str(node)}")
+            )
         logger.info("Schema load from JSON done")
         return instance
 
@@ -638,7 +752,9 @@ class SchemaLabel(models.Model):
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     label = models.CharField(max_length=1024)
     lang = models.CharField(
-        max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
+        max_length=4,
+        default="en",
+        choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")),
     )
 
 
@@ -651,5 +767,7 @@ class SchemaDescription(models.Model):
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     label = models.CharField(max_length=1024)
     lang = models.CharField(
-        max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
+        max_length=4,
+        default="en",
+        choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")),
     )

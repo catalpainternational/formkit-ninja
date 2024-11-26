@@ -6,7 +6,10 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("formkit_ninja", "0005_option_last_updated_option_object_id_optionlabel_and_more"),
+        (
+            "formkit_ninja",
+            "0005_option_last_updated_option_object_id_optionlabel_and_more",
+        ),
     ]
 
     operations = [
@@ -24,6 +27,8 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name="option",
-            constraint=models.UniqueConstraint(fields=("group", "object_id"), name="unique_option_id"),
+            constraint=models.UniqueConstraint(
+                fields=("group", "object_id"), name="unique_option_id"
+            ),
         ),
     ]

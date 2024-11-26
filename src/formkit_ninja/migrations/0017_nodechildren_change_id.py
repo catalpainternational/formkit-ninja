@@ -12,5 +12,7 @@ class Migration(migrations.Migration):
 
     operations = [
         # Create the SQL sequence we'll use for nodechildren
-        migrations.RunSQL(*triggers.create_sequence_migration(triggers.NODE_CHILDREN_CHANGE_ID)),
+        migrations.RunSQL(
+            *triggers.create_sequence_migration(triggers.NODE_CHILDREN_CHANGE_ID)
+        ),
     ]

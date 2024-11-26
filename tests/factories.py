@@ -1,5 +1,6 @@
-from factory.django import DjangoModelFactory
 from factory import Faker
+from factory.django import DjangoModelFactory
+
 from formkit_ninja import models
 
 

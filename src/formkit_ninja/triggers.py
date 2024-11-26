@@ -53,7 +53,9 @@ def update_group_trigger(order_by_field: str, id_field: str = "id"):
                 RETURN NEW;
         """
         ),
-        condition=pgtrigger.Condition("pg_trigger_depth() = 0"),  # Prevents infinite recursion
+        condition=pgtrigger.Condition(
+            "pg_trigger_depth() = 0"
+        ),  # Prevents infinite recursion
     )
 
 
@@ -69,10 +71,15 @@ def insert_group_trigger(order_by_field: str):
 
 
 def update_or_insert_group_trigger(order_by_field: str, id_field: str = "id"):
-    return [update_group_trigger(order_by_field, id_field), insert_group_trigger(order_by_field)]
+    return [
+        update_group_trigger(order_by_field, id_field),
+        insert_group_trigger(order_by_field),
+    ]
 
 
-def bump_sequence_value(value_field: str = "track_change", sequence_name: str = NODE_CHANGE_ID):
+def bump_sequence_value(
+    value_field: str = "track_change", sequence_name: str = NODE_CHANGE_ID
+):
     """
     Increment a sequence value and set the field referred to to that value.
     Intended to track latest changes across a model / multiple models

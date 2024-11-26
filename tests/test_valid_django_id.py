@@ -1,4 +1,5 @@
 import pytest
+
 from formkit_ninja.models import check_valid_django_id
 
 

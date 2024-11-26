@@ -13,8 +13,21 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="NodeChildren",
             fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("order", models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order")),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "order",
+                    models.PositiveIntegerField(
+                        db_index=True, editable=False, verbose_name="order"
+                    ),
+                ),
                 (
                     "child",
                     models.ForeignKey(
@@ -26,7 +39,8 @@ class Migration(migrations.Migration):
                 (
                     "parent",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.formkitschemanode"
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="formkit_ninja.formkitschemanode",
                     ),
                 ),
             ],
@@ -38,7 +52,9 @@ class Migration(migrations.Migration):
             model_name="formkitschemanode",
             name="children",
             field=models.ManyToManyField(
-                blank=True, through="formkit_ninja.NodeChildren", to="formkit_ninja.formkitschemanode"
+                blank=True,
+                through="formkit_ninja.NodeChildren",
+                to="formkit_ninja.formkitschemanode",
             ),
         ),
     ]

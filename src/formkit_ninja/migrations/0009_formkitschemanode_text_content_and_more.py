@@ -14,12 +14,17 @@ class Migration(migrations.Migration):
             model_name="formkitschemanode",
             name="text_content",
             field=models.TextField(
-                blank=True, help_text="Content for a text element, for children of an $el type component", null=True
+                blank=True,
+                help_text="Content for a text element, for children of an $el type component",
+                null=True,
             ),
         ),
         migrations.AlterField(
             model_name="nodechildren",
             name="parent",
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.formkitschemanode"),
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                to="formkit_ninja.formkitschemanode",
+            ),
         ),
     ]

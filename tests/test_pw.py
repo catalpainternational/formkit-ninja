@@ -1,8 +1,8 @@
 # ruff: noqa: F401 F811
 # flake8: noqa: F401 F811
 
-from importlib.util import find_spec
 import os
+from importlib.util import find_spec
 from typing import Type
 
 import pytest

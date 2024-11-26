@@ -28,15 +28,35 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="OptionLabel",
             fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
                 ("label", models.CharField(max_length=1024)),
                 (
                     "lang",
                     models.CharField(
-                        choices=[("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")], default="en", max_length=4
+                        choices=[
+                            ("en", "English"),
+                            ("tet", "Tetum"),
+                            ("pt", "Portugese"),
+                        ],
+                        default="en",
+                        max_length=4,
                     ),
                 ),
-                ("option", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.option")),
+                (
+                    "option",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="formkit_ninja.option",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
@@ -65,6 +85,8 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name="optionlabel",
-            constraint=models.UniqueConstraint(fields=("option", "lang"), name="unique_option_label"),
+            constraint=models.UniqueConstraint(
+                fields=("option", "lang"), name="unique_option_label"
+            ),
         ),
     ]

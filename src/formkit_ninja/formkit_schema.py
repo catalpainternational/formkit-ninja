@@ -3,7 +3,17 @@ from __future__ import annotations
 import logging
 import warnings
 from html.parser import HTMLParser
-from typing import Annotated, Any, ForwardRef, List, Literal, Type, TypedDict, TypeVar, Union
+from typing import (
+    Annotated,
+    Any,
+    ForwardRef,
+    List,
+    Literal,
+    Type,
+    TypedDict,
+    TypeVar,
+    Union,
+)
 
 from pydantic import BaseModel, Field
 
@@ -36,8 +46,7 @@ class FormKitSchemaMeta(BaseModel):
     __root__: dict[str, str | float | int | bool | None]
 
 
-class FormKitTypeDefinition(BaseModel):
-    ...
+class FormKitTypeDefinition(BaseModel): ...
 
 
 class FormKitContextShape(BaseModel):
@@ -73,11 +82,24 @@ class FormKitAttributeValue(BaseModel):
     The possible value types of attributes (in the schema)
     """
 
-    __root__: str | int | float | bool | None | FormKitSchemaAttributes | FormKitSchemaAttributesCondition
+    __root__: (
+        str
+        | int
+        | float
+        | bool
+        | None
+        | FormKitSchemaAttributes
+        | FormKitSchemaAttributesCondition
+    )
 
 
 class FormKitSchemaAttributes(BaseModel):
-    __root__: dict[str, FormKitAttributeValue | FormKitSchemaAttributes | FormKitSchemaAttributesCondition]
+    __root__: dict[
+        str,
+        FormKitAttributeValue
+        | FormKitSchemaAttributes
+        | FormKitSchemaAttributesCondition,
+    ]
 
 
 class FormKitSchemaProps(BaseModel):
@@ -90,7 +112,9 @@ class FormKitSchemaProps(BaseModel):
     # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
     #     default_factory=list
     # )
-    children: str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None = Field()
+    children: str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None = (
+        Field()
+    )
     key: str | None
     if_condition: str | None = Field(alias="if")
     for_loop: FormKitListStatement | None = Field(alias="for")
@@ -445,14 +469,18 @@ def get_node_type(obj: dict) -> Discriminators:
     raise KeyError(f"Could not determine node type for {obj}")
 
 
-NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
+NodeTypes = (
+    FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
+)
 
 
 class FormKitNode(BaseModel):
     __root__: str | Node
 
     @classmethod
-    def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":
+    def parse_obj(
+        cls: Type["Model"], obj: str | dict, recursive: bool = True
+    ) -> "Model":
         """
         This classmethod differentiates between the different "Node" types
         when deserializing
@@ -486,7 +514,9 @@ class FormKitNode(BaseModel):
             # Merge "additional props" from the input object
             # with any "unknown" params we received
             props: dict[str, Any] = object_in.get("additional_props", {})
-            props.update({k: obj[k] for k in object_in.keys() - exclude - set_handled_keys})
+            props.update(
+                {k: obj[k] for k in object_in.keys() - exclude - set_handled_keys}
+            )
             return props
 
         def get_children(object_in: dict):

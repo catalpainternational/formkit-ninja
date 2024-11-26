@@ -1,8 +1,8 @@
-from functools import cached_property
 import importlib
+import re
+from functools import cached_property
 from http import HTTPStatus
 from importlib.util import find_spec
-import re
 from types import ModuleType
 from typing import Sequence
 from uuid import UUID, uuid4
@@ -107,11 +107,17 @@ def node_queryset_response(qs: models.NodeQS) -> NodeQSResponse:
     n: NodeStringType | NodeInactiveType | NodeReturnType
     for key, last_updated, node, protected in qs.to_response(ignore_errors=False):
         if isinstance(node, str):
-            n = NodeStringType(key=key, last_updated=last_updated, protected=protected, node=node)
+            n = NodeStringType(
+                key=key, last_updated=last_updated, protected=protected, node=node
+            )
         elif node is None:
-            n = NodeInactiveType(key=key, last_updated=last_updated, protected=protected, is_active=False)
+            n = NodeInactiveType(
+                key=key, last_updated=last_updated, protected=protected, is_active=False
+            )
         else:
-            n = NodeReturnType(key=key, last_updated=last_updated, protected=protected, node=node)
+            n = NodeReturnType(
+                key=key, last_updated=last_updated, protected=protected, node=node
+            )
         responses.append(n)
     return responses
 

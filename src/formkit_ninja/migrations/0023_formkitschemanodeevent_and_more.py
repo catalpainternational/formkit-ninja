@@ -23,7 +23,12 @@ class Migration(migrations.Migration):
                 ("pgh_id", models.AutoField(primary_key=True, serialize=False)),
                 ("pgh_created_at", models.DateTimeField(auto_now_add=True)),
                 ("pgh_label", models.TextField(help_text="The event label.")),
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, serialize=False
+                    ),
+                ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 (
@@ -53,19 +58,28 @@ class Migration(migrations.Migration):
                 (
                     "label",
                     models.CharField(
-                        blank=True, help_text="Used as a human-readable label", max_length=1024, null=True
+                        blank=True,
+                        help_text="Used as a human-readable label",
+                        max_length=1024,
+                        null=True,
                     ),
                 ),
                 ("is_active", models.BooleanField(default=True)),
                 (
                     "node",
                     models.JSONField(
-                        blank=True, help_text="A JSON representation of select parts of the FormKit schema", null=True
+                        blank=True,
+                        help_text="A JSON representation of select parts of the FormKit schema",
+                        null=True,
                     ),
                 ),
                 (
                     "additional_props",
-                    models.JSONField(blank=True, help_text="User space for additional, less used props", null=True),
+                    models.JSONField(
+                        blank=True,
+                        help_text="User space for additional, less used props",
+                        null=True,
+                    ),
                 ),
                 (
                     "text_content",

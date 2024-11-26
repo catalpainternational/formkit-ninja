@@ -1,12 +1,12 @@
+from importlib.util import find_spec
+
 import pytest
+from django.contrib.auth.models import User
+from pytest_django.fixtures import live_server_helper
 
 from formkit_ninja.parser.type_convert import NodePath
 from formkit_ninja.schemas import Schemas
-from pytest_django.fixtures import live_server_helper
-from django.contrib.auth.models import User
-
 from tests.test_jinja_template import get_env
-from importlib.util import find_spec
 
 if find_spec("playwright") and find_spec("pytest_playwright"):
     from pytest_playwright.pytest_playwright import page  # type: ignore

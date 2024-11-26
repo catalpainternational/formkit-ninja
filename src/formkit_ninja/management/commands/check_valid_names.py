@@ -8,10 +8,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         for node in FormKitSchemaNode.objects.all():
-            if node.node and 'name' in node.node:
-                name = node.node['name']
+            if node.node and "name" in node.node:
+                name = node.node["name"]
                 try:
                     check_valid_django_id(name)
                     # self.stdout.write(self.style.SUCCESS(name))
                 except TypeError:
-                    self.stdout.write(self.style.WARNING(f'{node.pk}: {name}'))
+                    self.stdout.write(self.style.WARNING(f"{node.pk}: {name}"))

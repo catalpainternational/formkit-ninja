@@ -1,13 +1,14 @@
 # ruff: noqa: F401 F811
 # flake8: noqa: F401 F811
 
-from django.test import Client
-from django.urls import reverse
-import pytest
 from http import HTTPStatus
 
-from formkit_ninja.api import FormKitNodeIn
+import pytest
+from django.test import Client
+from django.urls import reverse
 from pytest_django.fixtures import admin_client
+
+from formkit_ninja.api import FormKitNodeIn
 
 
 @pytest.mark.django_db

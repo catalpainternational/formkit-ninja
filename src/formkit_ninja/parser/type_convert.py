@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import warnings
 from keyword import iskeyword
 from typing import Iterable, Literal
-import warnings
 
 from formkit_ninja import formkit_schema
 from formkit_ninja.formkit_schema import FormKitNode, GroupNode, RepeaterNode
 
 FormKitType = formkit_schema.FormKitType
+
 
 def make_valid_identifier(input_string: str):
     """
@@ -25,15 +26,16 @@ def make_valid_identifier(input_string: str):
         while output[0].isdigit():
             output = output[1:]
 
-        while output[-1] == '_':
+        while output[-1] == "_":
             output = output[:-1]
 
-        while output[0] == '_':
+        while output[0] == "_":
             output = output[1:]
     except IndexError:
         raise TypeError(f"The name {input_string} couldn't be used as an identifier")
 
     return output.lower()
+
 
 class NodePath:
     """
@@ -64,7 +66,9 @@ class NodePath:
         return model_name
 
     def suggest_class_name(self):
-        model_name = "".join(map(lambda n: n.capitalize(), map(self.safe_node_name, self.nodes)))
+        model_name = "".join(
+            map(lambda n: n.capitalize(), map(self.safe_node_name, self.nodes))
+        )
         return model_name
 
     def suggest_field_name(self):
@@ -214,7 +218,9 @@ class NodePath:
     def parent_class_name(self):
         return (self / "..").classname
 
-    def to_pydantic_type(self) -> Literal["str", "int", "bool", "Decimal", "float", "date"] | str:
+    def to_pydantic_type(
+        self,
+    ) -> Literal["str", "int", "bool", "Decimal", "float", "date"] | str:
         """
         Usually, this should return a well known Python type as a string
         """
