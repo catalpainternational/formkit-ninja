@@ -59,10 +59,8 @@ Pull the repo:
 `poetry run pytest`
 
 ## Lint
-
-`poetry run black --check .`
-`poetry run isort --check .`
-`poetry run flake8 .`
+`uv tool run ruff check --select I --fix`
+`uv tool run ruff format`
 
 # Updating 'Protected' Nodes
 
