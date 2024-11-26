@@ -1,70 +1,35 @@
-[tool.poetry]
+[project]
 name = "formkit-ninja"
-version = "0.7.4"
-description = "A Django-Ninja backend to specify FormKit schemas"
-authors = ["Josh Brooks <josh@catalpa.io>"]
-license = "GPLv3"
+version = "0.1.0"
+description = "Add your description here"
 readme = "README.md"
-homepage = "https://github.com/catalpainternational/formkit-ninja"
-repository = "https://github.com/catalpainternational/formkit-ninja"
-packages = [{include = "formkit_ninja"}]
-exclude = ["tests", "formkit_ninja/samples"]
+authors = [
+    { name = "Josh Brooks", email = "josh@catalpa.io" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "django-ninja<1",
+    "django-pghistory>=3.5.0",
+    "django-pgtrigger>=4.13.2",
+    "jinja2>=3.1.4",
+    "pydantic<2",
+    "rich>=13.9.4",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-django-ninja = "^0.21"
-Django = "^4"
-pydantic = "<2"
-django-stubs = {extras = ["compatible-mypy"], version = "^4.2.3"}
-django-pgtrigger = "^4.7.0"
-rich = "*"
-django-pghistory = "^3.0.1"
-pytest-cov = "^4.1.0"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-pytest-django = "*"
-isort = "*"
-black = "*"
-flake8 = "*"
-django-extensions = "*"
-sqlparse = "*"
-mypy = "*"
-pre-commit = "*"
-playwright = "^1.39.0"
-pytest-playwright = "*"
-mkdocs-material = "*"
-mkdocstrings = {extras = ["python"], version = "*"}
-pytest-cov = "^4.1.0"
-psycopg2-binary = "^2.9.7"
-factory-boy = "^3.3.0"
-django-stubs = "^4.2.6"
+[project.scripts]
+formkit-ninja = "formkit_ninja:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.pylint.format]
-max-line-length = "119"
-
-[tool.isort]
-profile = 'black'
-line_length = 119
-multi_line_output = 3
-include_trailing_comma = true
-
-[tool.black]
-line-length = 119
-target-version = ['py310']
-
-[tool.mypy]
-python_version = 3.8
-plugins = [
-    'mypy_django_plugin.main'
-    ]
-
-[tool.django-stubs]
-django_settings_module = "formkit_ninja.settings"
+[dependency-groups]
+dev = [
+    "django-stubs>=5.1.1",
+    "mypy>=1.13.0",
+    "psycopg2-binary>=2.9.10",
+    "pytest-cov>=6.0.0",
+    "pytest-django>=4.9.0",
+    "pytest-playwright>=0.6.1",
+    "testcontainers[postgres]>=4.8.2",
+]
