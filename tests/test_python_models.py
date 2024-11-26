@@ -31,7 +31,7 @@ def test_node_parse():
 
 @pytest.mark.django_db()
 def test_create_schema():
-    c = models.FormKitSchema.objects.create()
+    c = models.FormKitSchema.objects.create()  # noqa: F841
 
 
 @pytest.mark.django_db()

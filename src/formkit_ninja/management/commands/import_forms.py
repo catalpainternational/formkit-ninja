@@ -21,4 +21,4 @@ class Command(BaseCommand):
             schema = schemas.as_json(schema_name)
             node: FormKitNode = FormKitNode.parse_obj(schema)
             parsed_node: GroupNode = node.__root__
-            node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
+            node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]  # noqa: F841

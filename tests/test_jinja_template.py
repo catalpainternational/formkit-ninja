@@ -1,7 +1,6 @@
 import os
 from textwrap import dedent
 
-import pytest
 from jinja2 import Environment, PackageLoader, Template, select_autoescape
 
 from formkit_ninja.parser.type_convert import NodePath
