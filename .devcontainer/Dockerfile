@@ -1,25 +1,26 @@
-ARG BASE_IMAGE=python:3.13
+ARG BASE_IMAGE=python:3.13-slim
 ARG NO_DEV_OPTION="--no-dev"
 # For a development container build,
 # set BASE_IMAGE to mcr.microsoft.com/devcontainers/python:1-3-bookworm
 
+FROM ghcr.io/astral-sh/uv:0.5 as uv
 FROM ${BASE_IMAGE} AS builder
 
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt \
+    apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends \
     clang python3-dev libpq-dev \
     && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
-ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+ENV VIRTUAL_ENV=/opt/venv \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_PYTHON=/usr/local/bin/python \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never
-ENV PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
-
-COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /usr/local/bin/uv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # For requirements compilation (Prod image)
 # Copy app files and run `uv sync`
@@ -27,7 +28,8 @@ FROM builder AS sync
 WORKDIR /app
 COPY pyproject.toml uv.lock /app/
 RUN --mount=type=cache,sharing=locked,target=/root/.cache/ \
-    uv sync ${NO_DEV_OPTION} --no-install-workspace
+    --mount=from=uv,source=/uv,target=./uv \
+    ./uv sync ${NO_DEV_OPTION} --no-install-workspace
 
 # For a "production" build, the application code is copied into the container
 # and the dependencies are installed.
@@ -44,4 +46,7 @@ COPY manage.py /app/
 # are installed.
 # To do this, set `BASE_IMAGE` to `mcr.microsoft.com/devcontainers/python:1-3-bookworm`
 # and the `NO_DEV_OPTION` to `--dev`.
-FROM sync_prod AS final_dev
+FROM sync AS final_dev
+# We currently do nothing with the dev image, 
+# but you could add additional
+# imports / uv sync groups here!
