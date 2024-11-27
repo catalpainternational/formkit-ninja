@@ -7,7 +7,7 @@ from formkit_ninja import formkit_schema, models, samples
 from formkit_ninja.formkit_schema import FormKitNode, FormKitSchemaDOMNode
 from formkit_ninja.schemas import Schemas
 
-schemas = Schemas()
+schemas = Schemas().schemas
 
 
 def _read_file(filename: str):
