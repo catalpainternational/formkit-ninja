@@ -35,3 +35,7 @@ dev = [
 playwright = [
     "pytest-playwright>=0.6.1",
 ]
+docs = [
+    "mkdocs-material>=9.5.46",
+    "mkdocstrings[python]>=0.27.0",
+]
