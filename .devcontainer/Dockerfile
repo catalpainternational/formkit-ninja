@@ -1,6 +1,11 @@
-FROM mcr.microsoft.com/devcontainers/python:1-3-bookworm AS builder
+ARG BASE_IMAGE=python:3.13
+ARG NO_DEV_OPTION="--no-dev"
+# For a development container build,
+# set BASE_IMAGE to mcr.microsoft.com/devcontainers/python:1-3-bookworm
 
-ENV PYTHONUNBUFFERED 1
+FROM ${BASE_IMAGE} AS builder
+
+ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends \
@@ -16,12 +21,27 @@ ENV PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
 
 COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /usr/local/bin/uv
 
-# For requirements compilation
+# For requirements compilation (Prod image)
+# Copy app files and run `uv sync`
 FROM builder AS sync
 WORKDIR /app
-ADD . /app
+COPY pyproject.toml uv.lock /app/
 RUN --mount=type=cache,sharing=locked,target=/root/.cache/ \
-    uv sync --no-install-workspace 
+    uv sync ${NO_DEV_OPTION} --no-install-workspace
 
-FROM builder AS final
-COPY --from=sync --chown=vscode:vscode /opt/venv /opt/venv
+# For a "production" build, the application code is copied into the container
+# and the dependencies are installed.
+# For this build, remember to set BASE_IMAGE to `python:3.13`
+# rather than the Microsoft dev container, and the NO_DEV_OPTION to `--no-dev`.
+FROM sync AS final_prod
+WORKDIR /app
+COPY src/formkit_ninja /app/formkit_ninja
+COPY testproject /app/testproject
+COPY manage.py /app/
+
+
+# For a "development" build, application code is a mount and the dev dependencies
+# are installed.
+# To do this, set `BASE_IMAGE` to `mcr.microsoft.com/devcontainers/python:1-3-bookworm`
+# and the `NO_DEV_OPTION` to `--dev`.
+FROM sync_prod AS final_dev
