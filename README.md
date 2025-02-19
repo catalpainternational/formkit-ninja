@@ -55,8 +55,13 @@ Pull the repo:
 
 `gh repo clone catalpainternational/formkit-ninja`
 `cd formkit-ninja`
-`poetry install`
-`poetry run pytest`
+`uv sync`
+`uv run pytest`
+
+## Test Requirements
+
+For testing you need a postgres up.
+The easiest way is to `docker run -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres`
 
 ## Lint
 `uv tool run ruff check --select I --fix`
