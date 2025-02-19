@@ -31,5 +31,5 @@ class Schemas:
 
         for schema in self.schemas.keys():
             node: FormKitNode = FormKitNode.parse_obj(self.as_json(schema))
-            parsed_node = node.__root__
+            parsed_node = node.root
             list(FormKitSchemaNode.from_pydantic(parsed_node))[0]

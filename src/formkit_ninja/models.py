@@ -563,7 +563,7 @@ class FormKitSchemaNode(UuidIdModel):
         formkit_node = formkit_schema.FormKitNode.parse_obj(
             node_content, recursive=recursive
         )
-        return formkit_node.__root__
+        return formkit_node.root
 
     @classmethod
     def from_pydantic(
@@ -723,7 +723,7 @@ class FormKitSchema(UuidIdModel):
         """
         instance = cls.objects.create(label=label)
         for node in itertools.chain.from_iterable(
-            FormKitSchemaNode.from_pydantic(input_model.__root__)
+            FormKitSchemaNode.from_pydantic(input_model.root)
         ):
             log(f"[yellow]Saving {node}")
             node.save()

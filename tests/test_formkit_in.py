@@ -23,7 +23,7 @@ def test_node_create(admin_client: Client):
     group = FormKitNodeIn(
         **{"$formkit": "group", "icon": "fa fa-user", "label": "Partisipa"}
     )
-    data = group.json(exclude_none=True)
+    data = group.model_dump_json(exclude_none=True)
 
     response = admin_client.post(
         path=path,
@@ -39,7 +39,7 @@ def test_node_create(admin_client: Client):
 
     node_post = admin_client.post(
         path=path,
-        data=field.json(),
+        data=field.model_dump_json(),
         content_type="application/json",
     )
     assert node_post.status_code == HTTPStatus.OK
@@ -58,7 +58,7 @@ def test_node_create(admin_client: Client):
 
     node_post_2 = admin_client.post(
         path=path,
-        data=field_2.json(exclude_none=True),
+        data=field_2.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     assert node_post_2.json()["node"]["name"] == "name_of_my_input_1"
@@ -72,7 +72,7 @@ def test_node_create(admin_client: Client):
     )
     node_post_3 = admin_client.post(
         path=path,
-        data=field_3.json(exclude_none=True),
+        data=field_3.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     assert node_post_3.json()["node"]["name"] == "name_of_my_input"
@@ -86,7 +86,7 @@ def test_node_create(admin_client: Client):
     )
     node_post_4 = admin_client.post(
         path=path,
-        data=field_4.json(exclude_none=True),
+        data=field_4.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     assert node_post_4.json()["node"]["name"] == "name_of_my_input"
@@ -102,7 +102,7 @@ def test_textarea_create(admin_client: Client):
     # This is a 'partisipa' type group node with
     # an icon and a label
     group = FormKitNodeIn(**{"$formkit": "textarea"})
-    data = group.json(exclude_none=True)
+    data = group.model_dump_json(exclude_none=True)
 
     response = admin_client.post(
         path=path,

@@ -72,7 +72,7 @@ def test_import_sf11(SF_1_1):
     # The inputs and outputs
     partA_in = SF_1_1["children"][0]["children"]
     partA_schema = child_nodes[0].children
-    partA_out = [n.dict() for n in partA_schema]
+    partA_out = [n.model_dump() for n in partA_schema]
 
     # Nested (children) should retain their order
     assert (

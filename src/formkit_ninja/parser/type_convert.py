@@ -48,7 +48,7 @@ class NodePath:
 
     @classmethod
     def from_obj(cls, obj: dict):
-        return cls(FormKitNode.parse_obj(obj).__root__)
+        return cls(FormKitNode.parse_obj(obj).root)
 
     def __truediv__(self, node: Literal[".."] | FormKitType):
         """

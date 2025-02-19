@@ -14,7 +14,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.cache import add_never_cache_headers
 from ninja import Field, ModelSchema, Router, Schema
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from formkit_ninja import formkit_schema, models
 
@@ -33,48 +33,43 @@ router = Router(tags=["FormKit"])
 
 
 class FormKitSchemaIn(ModelSchema):
-    class Config:
+    class Meta:
         model = models.FormKitSchema
-        model_fields = "__all__"
+        fields = "__all__"
 
 
 class SchemaLabel(ModelSchema):
-    class Config:
+    class Meta:
         model = models.SchemaLabel
-        model_fields = ("lang", "label")
+        fields = ["lang", "label"]
 
 
 class SchemaDescription(ModelSchema):
-    class Config:
-        model = models.SchemaLabel
-        model_fields = ("lang", "label")
-
+    class Meta:
+        model = models.SchemaDescription
+        fields = ["lang", "label"]
 
 class FormKitSchemaListOut(ModelSchema):
     schemalabel_set: list[SchemaLabel]
     schemadescription_set: list[SchemaDescription]
-
-    class Config:
+    class Meta:
         model = models.FormKitSchema
-        model_fields = ("id", "label")
-
+        fields = ["id", "label"]
 
 class FormComponentsOut(ModelSchema):
     node_id: UUID
     schema_id: UUID
-
-    class Config:
+    class Meta:
         model = models.FormComponents
-        model_fields = ("label",)
+        fields = ["label"]
 
 
 class NodeChildrenOut(ModelSchema):
     children: list[UUID] = []
     latest_change: int | None = None
-
-    class Config:
+    class Meta:
         model = models.NodeChildren
-        model_fields = ("parent",)
+        fields = ["parent"]
 
 
 class NodeReturnType(BaseModel):
@@ -95,7 +90,6 @@ class NodeStringType(NodeReturnType):
     """
     str | formkit_schema.FormKitNode causes openapi generator to fail
     """
-
     node: str
 
 
@@ -132,10 +126,9 @@ class Option(ModelSchema):
     # This is an optional field used to indicate the last update
     # It's linked to a Django pg trigger instance in Partisipa
     change_id: int | None = None
-
-    class Config:
+    class Meta:
         model = models.Option
-        model_fields = ("value",)
+        fields = ["value"]
 
 
 @router.get("list-schemas", response=list[FormKitSchemaListOut])
@@ -366,10 +359,7 @@ class FormKitNodeIn(Schema):
         elif self.label is not None:
             return disambiguate_name(make_name_valid_id(self.label), self.parent_names)
         return make_name_valid_id(f"{uuid4().hex[:8]}_unnamed")
-
-    class Config:
-        allow_population_by_field_name = True
-        keep_untouched = (cached_property,)
+    model_config = ConfigDict(populate_by_name=True, ignored_types=(cached_property,))
 
 
 def create_or_update_child_node(payload: FormKitNodeIn):

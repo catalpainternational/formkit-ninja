@@ -6,7 +6,7 @@ from html.parser import HTMLParser
 from typing import (
     Annotated,
     Any,
-    ForwardRef,
+    Dict,
     List,
     Literal,
     Type,
@@ -15,7 +15,7 @@ from typing import (
     Union,
 )
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, BaseModel, Field, RootModel, model_serializer
 
 """
 This is a port of selected parts of the FormKit schema
@@ -25,14 +25,12 @@ to Pydantic models.
 
 logger = logging.getLogger(__name__)
 
-HtmlAttrs = dict[str, str | dict[str, str]]
+HtmlAttrs = Dict[str, str | Dict[str, str]]
 
-
-Node = ForwardRef("Node")
 
 # Radio, Select, Autocomplete and Dropdown nodes have
 # these options
-OptionsType = str | list[dict[str, Any]] | list[str] | dict[str, str] | None
+OptionsType = str | list[dict[str, Any]] | list[str] | Dict[str, str] | None
 
 
 class FormKitSchemaCondition(BaseModel):
@@ -42,8 +40,8 @@ class FormKitSchemaCondition(BaseModel):
     else_condition: Node | List[Node] | None = Field(None, alias="else")
 
 
-class FormKitSchemaMeta(BaseModel):
-    __root__: dict[str, str | float | int | bool | None]
+class FormKitSchemaMeta(RootModel):
+    root: dict[str, str | float | int | bool | None]
 
 
 class FormKitTypeDefinition(BaseModel): ...
@@ -51,38 +49,36 @@ class FormKitTypeDefinition(BaseModel): ...
 
 class FormKitContextShape(BaseModel):
     type: Literal["input", "list", "group"]
-    value: Any
-    _value: Any
+    value: Any = None
+    _value: Any = None
 
 
-class FormKitListValue(BaseModel):
-    __root__: str | list[str] | list[dict[str, str]]
+class FormKitListValue(RootModel):
+    root: str | list[str] | list[dict[str, str]]
 
 
-class FormKitListStatement(BaseModel):
+class FormKitListStatement(RootModel):
     """
     A full loop statement in tuple syntax. Can be read like "foreach value, key? in list"
     A 2 or 2 element tuple of value, key, and list or value, list
     """
 
-    __root__: tuple[str, float | int | str, list[FormKitListValue]]
+    root: tuple[str, float | int | str, list[FormKitListValue]]
 
 
 class FormKitSchemaAttributesCondition(BaseModel):
     if_: str = Field(alias="if")
     then_: FormKitAttributeValue = Field(alias="then")
-    else_: FormKitAttributeValue | None = Field(alias="else")
-
-    class Config:
-        allow_population_by_field_name = True
+    else_: FormKitAttributeValue | None = Field(None, alias="else")
+    model_config = ConfigDict(populate_by_name=True)
 
 
-class FormKitAttributeValue(BaseModel):
+class FormKitAttributeValue(RootModel):
     """
     The possible value types of attributes (in the schema)
     """
 
-    __root__: (
+    root: (
         str
         | int
         | float
@@ -93,8 +89,8 @@ class FormKitAttributeValue(BaseModel):
     )
 
 
-class FormKitSchemaAttributes(BaseModel):
-    __root__: dict[
+class FormKitSchemaAttributes(RootModel):
+    root: dict[
         str,
         FormKitAttributeValue
         | FormKitSchemaAttributes
@@ -113,44 +109,55 @@ class FormKitSchemaProps(BaseModel):
     #     default_factory=list
     # )
     children: str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None = (
-        Field()
+        Field(None)
     )
-    key: str | None
-    if_condition: str | None = Field(alias="if")
-    for_loop: FormKitListStatement | None = Field(alias="for")
-    bind: str | None
-    meta: FormKitSchemaMeta | None
+    key: str | None = None
+    if_condition: str | None = Field(None, alias="if")
+    for_loop: FormKitListStatement | None = Field(None, alias="for")
+    bind: str | None = None
+    meta: FormKitSchemaMeta | None = None
 
     # These are not formal parts of spec, but
     # are attributes defined in ts as Record<string, any>
     # id: str | uuid.UUID | None = Field(None)
-    id: str = Field(None)
+    id: str | None = Field(None)
     name: str | None = Field(None)
     label: str | None = Field(None)
     help: str | None = Field(None)
     validation: str | None = Field(None)
     validationLabel: str | None = Field(None, alias="validation-label")
     validationVisibility: str | None = Field(None, alias="validation-visibility")
-    validationMessages: str | dict[str, str] = Field(None, alias="validation-messages")
+    validationMessages: Annotated[str | Dict[str, str] | None,  Field(None, alias="validation-messages")]
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
-    classes: str | dict[str, str] | None = Field(None)
+    classes: Annotated[str | Dict[str, str] | None, Field(None)]
 
     # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
-    additional_props: None | dict[str, str | dict[str, Any]] = Field(None)
+    additional_props: None | Dict[str, str | Dict[str, Any]] = Field(None)
+    model_config = ConfigDict(populate_by_name=True)
 
-    class Config:
-        allow_population_by_field_name = True
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler) -> dict[str, Any]:
+        result = handler(self)
+        if "additional_props" in result:
+            if isinstance(result["additional_props"], dict):
+                result.update(result["additional_props"])
+            elif result["additional_props"] is None:
+                pass
+            else:
+                warnings.warn("Unexpected additional props type was ignored")
+            del result["additional_props"]
+        return result
 
-    def dict(self, *args, **kwargs):
+    def model_dump(self, *args, **kwargs):
         # Set some sensible defaults for "to_dict"
         if "by_alias" not in kwargs:
             kwargs["by_alias"] = True
         if "exclude_none" not in kwargs:
             kwargs["exclude_none"] = True
-        _ = super().dict(*args, **kwargs)
+        _ = super().model_dump(*args, **kwargs)
         if "additional_props" in _:
             _.update(_["additional_props"])
             del _["additional_props"]
@@ -161,30 +168,45 @@ class FormKitSchemaProps(BaseModel):
 ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None
 
 
-class TextNode(FormKitSchemaProps):
+class NodeType(FormKitSchemaProps, BaseModel):
+    """
+    Abstract for "node" types
+    """
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler) -> dict[str, Any]:
+        data: dict = handler(self)
+        # Conversion from ".formkit" as it is in python to "[$formkit]"
+        # in json / js realm
+        if formkit := data.pop("formkit", None):
+            data["$formkit"] = formkit
+        return data
+
+class TextNode(NodeType):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["text"] = Field(default="text", alias="$formkit")
-    text: str | None
+    text: str | None = None
 
 
-class TextAreaNode(TextNode):
-    formkit: Literal["textarea"] = Field(default="textarea", alias="$formkit")
-    text: str | None
+class TextAreaNode(NodeType):
+    formkit: Annotated[Literal["textarea"],  Field(alias="$formkit")]
+    text: str | None = None
 
 
-class DateNode(TextNode):
+class DateNode(NodeType):
     formkit: Literal["date"] = Field(default="date", alias="$formkit")
 
 
-class CurrencyNode(TextNode):
+class CurrencyNode(NodeType):
     formkit: Literal["currency"] = Field(default="currency", alias="$formkit")
 
 
-class UuidNode(TextNode):
+class UuidNode(NodeType):
     formkit: Literal["uuid"] = Field(default="uuid", alias="$formkit")
 
 
-class DatePickerNode(TextNode):
+class DatePickerNode(NodeType):
     formkit: Literal["datepicker"] = Field(default="datepicker", alias="$formkit")
     calendarIcon: str = "calendar"
     format: str = "DD/MM/YY"
@@ -192,60 +214,60 @@ class DatePickerNode(TextNode):
     prevIcon: str = "angleLeft"
 
 
-class CheckBoxNode(TextNode):
+class CheckBoxNode(NodeType):
     formkit: Literal["checkbox"] = Field(default="checkbox", alias="$formkit")
 
 
-class NumberNode(TextNode):
+class NumberNode(NodeType):
     formkit: Literal["number"] = Field(default="number", alias="$formkit")
-    text: str | None
+    text: str | None = None
     max: int | None = None
     min: int | None = None
     step: str | None = None
 
 
-class PasswordNode(TextNode):
+class PasswordNode(NodeType):
     formkit: Literal["password"] = Field(default="password", alias="$formkit")
-    name: str | None
+    name: str | None = None
 
 
-class HiddenNode(TextNode):
+class HiddenNode(NodeType):
     formkit: Literal["hidden"] = Field(default="hidden", alias="$formkit")
 
 
-class RadioNode(TextNode):
+class RadioNode(NodeType):
     formkit: Literal["radio"] = Field(default="radio", alias="$formkit")
-    name: str | None
+    name: str | None = None
     options: OptionsType = Field(None)
 
 
-class SelectNode(TextNode):
+class SelectNode(NodeType):
     formkit: Literal["select"] = Field(default="select", alias="$formkit")
     options: OptionsType = Field(None)
 
 
-class AutocompleteNode(TextNode):
+class AutocompleteNode(NodeType):
     formkit: Literal["autocomplete"] = Field(default="autocomplete", alias="$formkit")
     options: OptionsType = Field(None)
 
 
-class EmailNode(TextNode):
+class EmailNode(NodeType):
     formkit: Literal["email"] = Field(default="email", alias="$formkit")
 
 
-class TelNode(TextNode):
+class TelNode(NodeType):
     formkit: Literal["tel"] = Field(default="tel", alias="$formkit")
 
 
-class DropDownNode(TextNode):
+class DropDownNode(NodeType):
     formkit: Literal["dropdown"] = Field(default="dropdown", alias="$formkit")
     options: OptionsType = Field(None)
     empty_message: str | None = Field(None, alias="empty-message")
     select_icon: str | None = Field(None, alias="selectIcon")
-    placeholder: str | None
+    placeholder: str | None = None
 
 
-class RepeaterNode(TextNode):
+class RepeaterNode(NodeType):
     formkit: Literal["repeater"] = Field(default="repeater", alias="$formkit")
     up_control: bool | None = Field(default=True, alias="upControl")
     down_control: bool | None = Field(default=True, alias="downControl")
@@ -253,15 +275,15 @@ class RepeaterNode(TextNode):
     name: str | None = None
 
 
-class GroupNode(TextNode):
+class GroupNode(NodeType):
     formkit: Literal["group"] = Field(default="group", alias="$formkit")
-    text: str | None
+    text: str | None = None
 
 
 # This is useful for "isinstance" checks
 # which do not work with "Annotated" below
 FormKitType = (
-    TextNode
+    NodeType
     | TextAreaNode
     | CheckBoxNode
     | PasswordNode
@@ -283,7 +305,7 @@ FormKitType = (
 
 FormKitSchemaFormKit = Annotated[
     Union[
-        TextNode,
+        NodeType,
         TextAreaNode,
         CheckBoxNode,
         PasswordNode,
@@ -316,10 +338,8 @@ class FormKitSchemaDOMNode(FormKitSchemaProps):
 
     node_type: Literal["element"] = Field(default="element", exclude=True)
     el: str = Field(alias="$el")
-    attrs: FormKitSchemaAttributes | None
-
-    class Config:
-        allow_population_by_field_name = True
+    attrs: FormKitSchemaAttributes | None = None
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class FormKitSchemaComponent(FormKitSchemaProps):
@@ -337,18 +357,26 @@ class FormKitSchemaComponent(FormKitSchemaProps):
         alias="$cmp",
         description="The $cmp property should be a string that references a globally defined component or a component passed into FormKitSchema with the library prop.",  # noqa: E501
     )
-    props: dict[str, str | Any] | None
+    props: dict[str, str | Any] | None = None
+    model_config = ConfigDict(populate_by_name=True)
 
-    class Config:
-        allow_population_by_field_name = True
 
+Node = Annotated[
+    Union[
+        FormKitSchemaFormKit,
+        FormKitSchemaDOMNode,
+        FormKitSchemaComponent,
+        FormKitSchemaCondition,
+    ],
+    Field(discriminator="node_type"),
+]
 
 # This necessary to properly "populate" some more complicated models
-FormKitSchemaAttributesCondition.update_forward_refs()
-FormKitAttributeValue.update_forward_refs()
-FormKitSchemaDOMNode.update_forward_refs()
-FormKitSchemaCondition.update_forward_refs()
-FormKitSchemaComponent.update_forward_refs()
+FormKitSchemaAttributesCondition.model_rebuild()
+FormKitAttributeValue.model_rebuild()
+FormKitSchemaDOMNode.model_rebuild()
+FormKitSchemaCondition.model_rebuild()
+FormKitSchemaComponent.model_rebuild()
 
 
 class FormKitTagParser(HTMLParser):
@@ -398,20 +426,12 @@ class FormKitTagParser(HTMLParser):
             self.current_tag.__fields_set__.add("children")
 
 
-FormKitSchemaDOMNode.update_forward_refs()
+FormKitSchemaDOMNode.model_rebuild()
 
 Model = TypeVar("Model", bound="BaseModel")
 StrBytes = str | bytes
 
-Node = Annotated[
-    Union[
-        FormKitSchemaFormKit,
-        FormKitSchemaDOMNode,
-        FormKitSchemaComponent,
-        FormKitSchemaCondition,
-    ],
-    Field(discriminator="node_type"),
-]
+
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
@@ -443,15 +463,15 @@ class Discriminators(TypedDict, total=False):
     formkit: FORMKIT_TYPE
 
 
-def get_node_type(obj: dict) -> Discriminators:
+def get_node_type(obj: dict) -> str:
     """
     Pydantic requires nodes to be "differentiated" by a field value
     when used in a Union type situation.
     This function should return the 'node_type' values and if present 'Formkit' value
     which corresponds to the object being inspected.
     """
-    if "__root__" in obj:
-        return get_node_type(obj["__root__"])
+    if "root" in obj:
+        return get_node_type(obj["root"])
 
     if isinstance(obj, str):
         return "text"
@@ -474,13 +494,23 @@ NodeTypes = (
 )
 
 
-class FormKitNode(BaseModel):
-    __root__: str | Node
+class FormKitNode(RootModel):
+    root: str | Node
 
     @classmethod
     def parse_obj(
-        cls: Type["Model"], obj: str | dict, recursive: bool = True
-    ) -> "Model":
+        cls, obj: str | Dict, recursive: bool = True
+    ):
+        warnings.warn("This method is deprecated, use 'model_validate' instead")
+        return cls.model_validate(obj, recursive=recursive)
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler) -> dict[str, Any]:
+        data = handler(self)
+        return data
+
+    @classmethod
+    def model_validate(cls, obj, *, recursive: bool=True, strict = None, from_attributes = None, context = None):
         """
         This classmethod differentiates between the different "Node" types
         when deserializing
@@ -530,7 +560,7 @@ class FormKitNode(BaseModel):
                         children_out.append(n)
                     else:
                         try:
-                            children_out.append(cls.parse_obj(n).__root__)
+                            children_out.append(cls.model_validate(n).root)
                         except Exception as E:
                             warnings.warn(f"{E}")
                 return children_out
@@ -548,11 +578,11 @@ class FormKitNode(BaseModel):
             raise KeyError(f"Node type couln't be determined: {obj}") from E
 
         try:
-            parsed = super().parse_obj({**obj, "node_type": node_type})
-            node: NodeTypes = parsed.__root__
+            parsed = super().model_validate({**obj, "node_type": node_type})
+            node: NodeTypes = parsed.root
         except KeyError as E:
             raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
-        if additional_props := get_additional_props(obj, exclude=set(node.__fields__)):
+        if additional_props := get_additional_props(obj, exclude=set(node.model_fields)):
             node.additional_props = additional_props
         # Recursively parse 'child' nodes back to Pydantic models for 'children'
         if recursive:
@@ -562,8 +592,8 @@ class FormKitNode(BaseModel):
         return parsed
 
 
-class FormKitSchema(BaseModel):
-    __root__: list[Node]
+class FormKitSchema(RootModel):
+    root: list[Node]
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
@@ -573,15 +603,15 @@ class FormKitSchema(BaseModel):
         """
         # If we're parsing a single node, wrap it in a list
         if isinstance(obj, dict):
-            return cls.parse_obj([obj])
+            return cls(root=[FormKitNode.model_validate(obj).root])
         try:
-            return cls(__root__=[FormKitNode.parse_obj(_).__root__ for _ in obj])
+            return cls(root=[FormKitNode.model_validate(_).root for _ in obj])
         except TypeError:
             raise
 
 
-FormKitSchema.update_forward_refs()
-FormKitSchemaCondition.update_forward_refs()
-PasswordNode.update_forward_refs()
+FormKitSchema.model_rebuild()
+FormKitSchemaCondition.model_rebuild()
+PasswordNode.model_rebuild()
 
 FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition
