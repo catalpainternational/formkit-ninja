@@ -5,6 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug Unit Test",
+            "type": "python",
+            "request": "test",
+            "justMyCode": false,
+        },
+        {
             "name": "Python: Django",
             "type": "python",
             "request": "launch",
