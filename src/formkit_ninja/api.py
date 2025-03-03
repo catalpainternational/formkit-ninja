@@ -49,16 +49,20 @@ class SchemaDescription(ModelSchema):
         model = models.SchemaDescription
         fields = ["lang", "label"]
 
+
 class FormKitSchemaListOut(ModelSchema):
     schemalabel_set: list[SchemaLabel]
     schemadescription_set: list[SchemaDescription]
+
     class Meta:
         model = models.FormKitSchema
         fields = ["id", "label"]
 
+
 class FormComponentsOut(ModelSchema):
     node_id: UUID
     schema_id: UUID
+
     class Meta:
         model = models.FormComponents
         fields = ["label"]
@@ -67,6 +71,7 @@ class FormComponentsOut(ModelSchema):
 class NodeChildrenOut(ModelSchema):
     children: list[UUID] = []
     latest_change: int | None = None
+
     class Meta:
         model = models.NodeChildren
         fields = ["parent"]
@@ -90,6 +95,7 @@ class NodeStringType(NodeReturnType):
     """
     str | formkit_schema.FormKitNode causes openapi generator to fail
     """
+
     node: str
 
 
@@ -126,6 +132,7 @@ class Option(ModelSchema):
     # This is an optional field used to indicate the last update
     # It's linked to a Django pg trigger instance in Partisipa
     change_id: int | None = None
+
     class Meta:
         model = models.Option
         fields = ["value"]
@@ -359,6 +366,7 @@ class FormKitNodeIn(Schema):
         elif self.label is not None:
             return disambiguate_name(make_name_valid_id(self.label), self.parent_names)
         return make_name_valid_id(f"{uuid4().hex[:8]}_unnamed")
+
     model_config = ConfigDict(populate_by_name=True, ignored_types=(cached_property,))
 
 

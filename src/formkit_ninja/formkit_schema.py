@@ -1,26 +1,69 @@
 from __future__ import annotations
 
 import logging
-import warnings
 from html.parser import HTMLParser
-from typing import (
-    Annotated,
-    Any,
-    Dict,
-    List,
-    Literal,
-    Type,
-    TypedDict,
-    TypeVar,
-    Union,
-)
+from typing import (Annotated, Any, Dict, List, Literal, TypedDict, TypeVar,
+                    Union)
 
-from pydantic import ConfigDict, BaseModel, Field, RootModel, model_serializer
+from pydantic import (BaseModel, ConfigDict, Discriminator, Field,
+                      PlainValidator, RootModel, Tag,
+                      ValidatorFunctionWrapHandler, field_validator,
+                      model_serializer, model_validator)
 
 """
 This is a port of selected parts of the FormKit schema
 to Pydantic models.
 """
+
+
+def get_discriminator_value(v: Any):
+    """
+    Return "node_type" value
+    """
+    if isinstance(v, dict):
+        if "$formkit" in v or "formkit" in v:
+            return "formkit"
+        elif "$el" in v:
+            return "el"
+        elif "$cmp" in v:
+            return "component"
+
+
+def get_additional_props(
+    object_in: dict[str, Any], exclude: set[str] = set()
+) -> dict[str, Any] | None:
+    """
+    Parse the object or database return (dict)
+    to break out fields we handle in JSON
+
+    A FormKit node can have 'arbitrary' additional properties
+    For instance classes to apply to child nodes
+    here we can't realistically cover every scenario so
+    fall back to JSON storage for thes
+
+    However: if we're coming from the database we already store these in a separate field
+    """
+    # Things which are not "other attributes"
+    set_handled_keys = {
+        "$formkit",
+        "$el",
+        "if",
+        "if_condition",
+        "for",
+        "then",
+        "else",
+        "children",
+        "node_type",
+        "formkit",
+        "id",
+    }
+    # Merge "additional props" from the input object
+    # with any "unknown" params we received
+    props: dict[str, Any] = {**object_in.get("additional_props", {})}
+    props.update(
+        {k: object_in[k] for k in object_in.keys() - exclude - set_handled_keys}
+    )
+    return props if props else None
 
 
 logger = logging.getLogger(__name__)
@@ -98,6 +141,31 @@ class FormKitSchemaAttributes(RootModel):
     ]
 
 
+def child_validate(value: Any):
+    if isinstance(value, list):
+        models = [DiscriminatedNodeType.model_validate(x).root for x in value]
+        return models
+    return value
+
+
+# def child_validate(
+#     value: Any, handler: ValidatorFunctionWrapHandler, _info: ValidationInfo
+# ) -> Any:
+#     """Simplify the error message to avoid a gross error stemming
+#     from exhaustive checking of all union options.
+#     """
+#     try:
+#         value = handler(value)
+#         print(value)
+#         return value
+
+#     except ValidationError:
+#         raise PydanticCustomError(
+#             'invalid_json',
+#             'Input is not valid json',
+#         )
+
+
 class FormKitSchemaProps(BaseModel):
     """
     Properties available in all schema nodes.
@@ -108,9 +176,10 @@ class FormKitSchemaProps(BaseModel):
     # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
     #     default_factory=list
     # )
-    children: str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None = (
-        Field(None)
-    )
+    children: Annotated[
+        str | list[FormKitSchemaProps] | None, PlainValidator(child_validate)
+    ] = Field(None)
+    # children: Annotated[str | list[ FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition | FormKitSchemaProps | str] | FormKitSchemaCondition | None, PlainValidator(child_validate)] = Field(None)
     key: str | None = None
     if_condition: str | None = Field(None, alias="if")
     for_loop: FormKitListStatement | None = Field(None, alias="for")
@@ -127,7 +196,9 @@ class FormKitSchemaProps(BaseModel):
     validation: str | None = Field(None)
     validationLabel: str | None = Field(None, alias="validation-label")
     validationVisibility: str | None = Field(None, alias="validation-visibility")
-    validationMessages: Annotated[str | Dict[str, str] | None,  Field(None, alias="validation-messages")]
+    validationMessages: Annotated[
+        str | Dict[str, str] | None, Field(None, alias="validation-messages")
+    ]
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
@@ -135,53 +206,94 @@ class FormKitSchemaProps(BaseModel):
 
     # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
-    additional_props: None | Dict[str, str | Dict[str, Any]] = Field(None)
+    additional_props: None | Dict[str, str | int | Dict[str, Any]] = Field(
+        None, validate_default=True
+    )
     model_config = ConfigDict(populate_by_name=True)
 
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler) -> dict[str, Any]:
-        result = handler(self)
-        if "additional_props" in result:
-            if isinstance(result["additional_props"], dict):
-                result.update(result["additional_props"])
-            elif result["additional_props"] is None:
-                pass
+    @classmethod
+    def exclude_fields(cls) -> set[str]:
+        # We want to exclude from "additional_props" any real fields on the model.
+        # We do this by "annotation" as we're expecting to have this by alias
+        exclude: set[str] = set()
+        for field_name, field_obj in cls.model_fields.items():
+            if field_obj.alias:
+                exclude.add(field_obj.alias)
             else:
-                warnings.warn("Unexpected additional props type was ignored")
+                exclude.add(field_name)
+        return exclude
+
+    # @model_validator(mode='wrap')
+    # @classmethod
+    # def log_failed_validation(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+    #     try:
+    #         validated = handler(data)
+    #     except ValidationError:
+    #         logging.error('Model %s failed to validate with data %s', cls, data)
+    #         raise
+    #     return validated
+
+    @model_validator(mode="before")
+    @classmethod
+    def pre_validate_run(cls, data: Any) -> Any:
+        """
+        Before we "validate", we're going to
+        apply some transforms to the data
+        """
+
+        if not isinstance(data, dict):
+            # This should only apply on inputs of this type
+            return data
+
+        node_type = get_node_type(data)
+
+        if node_type == "formkit":
+            additional_props = get_additional_props(data, exclude=cls.exclude_fields())
+            return {
+                **data,
+                "additional_props": additional_props,
+                "node_type": node_type,
+            }
+
+        return {**data, "node_type": node_type}
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        result = handler(self)
+        # return result
+        if "additional_props" in result:
+            if result["additional_props"] is not None:
+                result.update(result["additional_props"])
             del result["additional_props"]
+        if result.get("id", None) == "subsector_id":
+            ...
         return result
 
-    def model_dump(self, *args, **kwargs):
-        # Set some sensible defaults for "to_dict"
-        if "by_alias" not in kwargs:
-            kwargs["by_alias"] = True
-        if "exclude_none" not in kwargs:
-            kwargs["exclude_none"] = True
-        _ = super().model_dump(*args, **kwargs)
-        if "additional_props" in _:
-            _.update(_["additional_props"])
-            del _["additional_props"]
-        return _
+    # def model_dump(self, *args, **kwargs):
+    #     # Set some sensible defaults for "to_dict"
+    #     if "by_alias" not in kwargs:
+    #         kwargs["by_alias"] = True
+    #     if "exclude_none" not in kwargs:
+    #         kwargs["exclude_none"] = True
+    #     try:
+    #         _ = super().model_dump(*args, **kwargs)
+    #     except Exception as E:
+    #         raise E
+    #     return _
 
 
 # We defined this after the model above as it's a circular reference
 ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None
 
 
-class NodeType(FormKitSchemaProps, BaseModel):
+class NodeType(FormKitSchemaProps):
     """
     Abstract for "node" types
     """
-    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
 
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler) -> dict[str, Any]:
-        data: dict = handler(self)
-        # Conversion from ".formkit" as it is in python to "[$formkit]"
-        # in json / js realm
-        if formkit := data.pop("formkit", None):
-            data["$formkit"] = formkit
-        return data
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
+    readonly: bool | None = None
+
 
 class TextNode(NodeType):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
@@ -190,23 +302,28 @@ class TextNode(NodeType):
 
 
 class TextAreaNode(NodeType):
-    formkit: Annotated[Literal["textarea"],  Field(alias="$formkit")]
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
+    formkit: Annotated[Literal["textarea"], Field(alias="$formkit")]
     text: str | None = None
 
 
 class DateNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["date"] = Field(default="date", alias="$formkit")
 
 
 class CurrencyNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["currency"] = Field(default="currency", alias="$formkit")
 
 
 class UuidNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["uuid"] = Field(default="uuid", alias="$formkit")
 
 
 class DatePickerNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["datepicker"] = Field(default="datepicker", alias="$formkit")
     calendarIcon: str = "calendar"
     format: str = "DD/MM/YY"
@@ -215,10 +332,12 @@ class DatePickerNode(NodeType):
 
 
 class CheckBoxNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["checkbox"] = Field(default="checkbox", alias="$formkit")
 
 
 class NumberNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["number"] = Field(default="number", alias="$formkit")
     text: str | None = None
     max: int | None = None
@@ -227,39 +346,57 @@ class NumberNode(NodeType):
 
 
 class PasswordNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["password"] = Field(default="password", alias="$formkit")
     name: str | None = None
 
 
 class HiddenNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["hidden"] = Field(default="hidden", alias="$formkit")
 
 
 class RadioNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["radio"] = Field(default="radio", alias="$formkit")
     name: str | None = None
     options: OptionsType = Field(None)
 
 
 class SelectNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["select"] = Field(default="select", alias="$formkit")
     options: OptionsType = Field(None)
 
+    @field_validator("for_loop", mode="wrap")
+    @classmethod
+    def for_loop_validate(
+        cls, value: Any, handler: ValidatorFunctionWrapHandler
+    ) -> str:
+        try:
+            return handler(value)
+        except:
+            raise
+
 
 class AutocompleteNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["autocomplete"] = Field(default="autocomplete", alias="$formkit")
     options: OptionsType = Field(None)
 
 
 class EmailNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["email"] = Field(default="email", alias="$formkit")
 
 
 class TelNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["tel"] = Field(default="tel", alias="$formkit")
 
 
 class DropDownNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["dropdown"] = Field(default="dropdown", alias="$formkit")
     options: OptionsType = Field(None)
     empty_message: str | None = Field(None, alias="empty-message")
@@ -268,14 +405,18 @@ class DropDownNode(NodeType):
 
 
 class RepeaterNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["repeater"] = Field(default="repeater", alias="$formkit")
-    up_control: bool | None = Field(default=True, alias="upControl")
-    down_control: bool | None = Field(default=True, alias="downControl")
-    add_label: str | None = Field(default="Add another", alias="addLabel")
+    up_control: bool | None = Field(default=None, alias="upControl")
+    down_control: bool | None = Field(default=None, alias="downControl")
+    add_label: str | None = Field(default=None, alias="addLabel")
     name: str | None = None
+    min: int | None = None
+    max: int | None = None
 
 
 class GroupNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["group"] = Field(default="group", alias="$formkit")
     text: str | None = None
 
@@ -283,7 +424,7 @@ class GroupNode(NodeType):
 # This is useful for "isinstance" checks
 # which do not work with "Annotated" below
 FormKitType = (
-    NodeType
+    TextNode
     | TextAreaNode
     | CheckBoxNode
     | PasswordNode
@@ -305,7 +446,7 @@ FormKitType = (
 
 FormKitSchemaFormKit = Annotated[
     Union[
-        NodeType,
+        TextNode,
         TextAreaNode,
         CheckBoxNode,
         PasswordNode,
@@ -318,11 +459,11 @@ FormKitSchemaFormKit = Annotated[
         DateNode,
         DatePickerNode,
         DropDownNode,
-        RepeaterNode,
         TelNode,
         CurrencyNode,
         HiddenNode,
         UuidNode,
+        RepeaterNode,
     ],
     Field(discriminator="formkit"),
 ]
@@ -432,7 +573,6 @@ Model = TypeVar("Model", bound="BaseModel")
 StrBytes = str | bytes
 
 
-
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
     "text",
@@ -463,7 +603,7 @@ class Discriminators(TypedDict, total=False):
     formkit: FORMKIT_TYPE
 
 
-def get_node_type(obj: dict) -> str:
+def get_node_type(obj: dict) -> Literal["text", "element", "formkit", "component"]:
     """
     Pydantic requires nodes to be "differentiated" by a field value
     when used in a Union type situation.
@@ -495,123 +635,81 @@ NodeTypes = (
 
 
 class FormKitNode(RootModel):
-    root: str | Node
 
-    @classmethod
-    def parse_obj(
-        cls, obj: str | Dict, recursive: bool = True
-    ):
-        warnings.warn("This method is deprecated, use 'model_validate' instead")
-        return cls.model_validate(obj, recursive=recursive)
+    root: NodeTypes
 
-    @model_serializer(mode="wrap")
-    def serialize_model(self, handler) -> dict[str, Any]:
-        data = handler(self)
-        return data
-
-    @classmethod
-    def model_validate(cls, obj, *, recursive: bool=True, strict = None, from_attributes = None, context = None):
-        """
-        This classmethod differentiates between the different "Node" types
-        when deserializing
-        """
-
-        def get_additional_props(object_in: dict[str, Any], exclude: set[str] = set()):
-            """
-            Parse the object or database return (dict)
-            to break out fields we handle in JSON
-
-            A FormKit node can have 'arbitrary' additional properties
-            For instance classes to apply to child nodes
-            here we can't realistically cover every scenario so
-            fall back to JSON storage for thes
-
-            However: if we're coming from the database we already store these in a separate field
-            """
-            # Things which are not "other attributes"
-            set_handled_keys = {
-                "$formkit",
-                "$el",
-                "if",
-                "for",
-                "then",
-                "else",
-                "children",
-                "node_type",
-                "formkit",
-                "id",
-            }
-            # Merge "additional props" from the input object
-            # with any "unknown" params we received
-            props: dict[str, Any] = object_in.get("additional_props", {})
-            props.update(
-                {k: obj[k] for k in object_in.keys() - exclude - set_handled_keys}
-            )
-            return props
-
-        def get_children(object_in: dict):
-            if children_in := object_in.get("children", None):
-                if isinstance(children_in, str):
-                    children_in = [children_in]
-
-                children_out = []
-                for n in children_in:
-                    if isinstance(n, str):
-                        children_out.append(n)
-                    else:
-                        try:
-                            children_out.append(cls.model_validate(n).root)
-                        except Exception as E:
-                            warnings.warn(f"{E}")
-                return children_out
-            else:
-                return None
-
-        if isinstance(obj, str):
-            return obj
-
-        # There's a discriminator step which needs assisance: `node_type`
-        # must be set on the input object
-        try:
-            node_type = get_node_type(obj)
-        except Exception as E:
-            raise KeyError(f"Node type couln't be determined: {obj}") from E
-
-        try:
-            parsed = super().model_validate({**obj, "node_type": node_type})
-            node: NodeTypes = parsed.root
-        except KeyError as E:
-            raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
-        if additional_props := get_additional_props(obj, exclude=set(node.model_fields)):
-            node.additional_props = additional_props
-        # Recursively parse 'child' nodes back to Pydantic models for 'children'
-        if recursive:
-            node.children = get_children(obj)
-        else:
-            node.children = None
-        return parsed
+    def model_dump(self, *args, **kwargs):
+        # Set some sensible defaults for "to_dict"
+        if "by_alias" not in kwargs:
+            kwargs["by_alias"] = True
+        if "exclude_none" not in kwargs:
+            kwargs["exclude_none"] = True
+        _ = super().model_dump(*args, **kwargs)
+        if "additional_props" in _:
+            _.update(_["additional_props"])
+            del _["additional_props"]
+        return _
 
 
 class FormKitSchema(RootModel):
-    root: list[Node]
+    root: list[NodeTypes]
 
-    @classmethod
-    def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
-        """
-        Parse a set of FormKit nodes or a single 'GroupNode' to
-        a 'schema'
-        """
-        # If we're parsing a single node, wrap it in a list
-        if isinstance(obj, dict):
-            return cls(root=[FormKitNode.model_validate(obj).root])
-        try:
-            return cls(root=[FormKitNode.model_validate(_).root for _ in obj])
-        except TypeError:
-            raise
+
+FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition
+
+
+def get_discriminator_v(v: Any) -> str:
+    if isinstance(v, str):
+        return "string"
+    if isinstance(v, dict):
+        if "$formkit" in v:
+            return f'{v.get("$formkit")}'
+        elif "$el" in v:
+            return "element"
+        elif "if" in v:
+            return "condition"
+
+    if hasattr(v, "formkit"):
+        return f"{v.formkit}"
+    elif hasattr(v, "el"):
+        return "element"
+    elif hasattr(v, "if_condition"):
+        return "condition"
+
+    raise AssertionError("Could not determine node type")
+
+
+class DiscriminatedNodeType(RootModel):
+    root: Annotated[
+        (
+            Annotated[TextNode, Tag("text")]
+            | Annotated[TextAreaNode, Tag("textarea")]
+            | Annotated[CheckBoxNode, Tag("checkbox")]
+            | Annotated[PasswordNode, Tag("password")]
+            | Annotated[SelectNode, Tag("select")]
+            | Annotated[AutocompleteNode, Tag("autocomplete")]
+            | Annotated[EmailNode, Tag("email")]
+            | Annotated[NumberNode, Tag("number")]
+            | Annotated[RadioNode, Tag("radio")]
+            | Annotated[GroupNode, Tag("group")]
+            | Annotated[DateNode, Tag("date")]
+            | Annotated[DatePickerNode, Tag("datepicker")]
+            | Annotated[DropDownNode, Tag("dropdown")]
+            | Annotated[RepeaterNode, Tag("repeater")]
+            | Annotated[TelNode, Tag("tel")]
+            | Annotated[CurrencyNode, Tag("currency")]
+            | Annotated[HiddenNode, Tag("hidden")]
+            | Annotated[UuidNode, Tag("uuid")]
+            | Annotated[FormKitSchemaAttributesCondition, Tag("condition")]
+            | Annotated[FormKitSchemaDOMNode, Tag("element")]
+            | Annotated[FormKitSchemaCondition, Tag("condition")]
+            | Annotated[str, Tag("string")]
+        ),
+        Discriminator(get_discriminator_v),
+    ]
 
 
 FormKitSchema.model_rebuild()
 FormKitSchemaCondition.model_rebuild()
 PasswordNode.model_rebuild()
-
-FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition
+RepeaterNode.model_rebuild()

@@ -57,7 +57,7 @@ def test_import_sf11(SF_1_1):
     """
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
 
-    schema = BaseModel.parse_obj(SF_1_1)
+    schema = BaseModel.model_validate([SF_1_1])
     schema_in_the_db = models.FormKitSchema.from_pydantic(schema)
 
     # Check that schema sections retained their order

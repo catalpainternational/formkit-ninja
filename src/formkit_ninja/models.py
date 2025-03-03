@@ -560,16 +560,17 @@ class FormKitSchemaNode(UuidIdModel):
                 **kwargs, recursive=recursive, options=options
             )
 
-        formkit_node = formkit_schema.FormKitNode.parse_obj(
-            node_content, recursive=recursive
-        )
+        formkit_node = formkit_schema.FormKitNode.model_validate(node_content)
         return formkit_node.root
 
     @classmethod
     def from_pydantic(
         cls,
-        input_models: formkit_schema.FormKitSchemaProps
-        | Iterable[formkit_schema.FormKitSchemaProps],
+        input_models: (
+            formkit_schema.FormKitSchemaProps
+            | Iterable[formkit_schema.FormKitSchemaProps]
+            | str
+        ),
     ) -> Iterable["FormKitSchemaNode"]:
         if isinstance(input_models, str):
             yield cls.objects.create(
@@ -609,7 +610,7 @@ class FormKitSchemaNode(UuidIdModel):
             log(f"[green]Yielding: {instance}")
 
             # Must save the instance before  adding "options" or "children"
-            instance.node = input_model.dict(
+            instance.node = input_model.model_dump(
                 exclude={
                     "options",
                     "children",
@@ -646,11 +647,17 @@ class FormKitSchemaNode(UuidIdModel):
                 ):
                     pass
                 instance.save()
-
-            for c_n in getattr(input_model, "children", []) or []:
-                child_node = next(iter(cls.from_pydantic(c_n)))
+            # Retain input strings without splitting to a list
+            children = getattr(input_model, "children", []) or []
+            if isinstance(children, str):
+                child_node = next(iter(cls.from_pydantic(children)))
                 console.log(f"    {child_node}")
                 instance.children.add(child_node)
+            elif isinstance(children, Iterable):
+                for c_n in children:
+                    child_node = next(iter(cls.from_pydantic(c_n)))
+                    console.log(f"    {child_node}")
+                    instance.children.add(child_node)
 
             yield instance
 
@@ -662,7 +669,7 @@ class FormKitSchemaNode(UuidIdModel):
     def to_pydantic(self, recursive=False, options=False, **kwargs):
         if self.text_content:
             return self.text_content
-        return formkit_schema.FormKitNode.parse_obj(
+        return formkit_schema.FormKitNode.model_validate(
             self.get_node_values(recursive=recursive, options=options, **kwargs)
         )
 

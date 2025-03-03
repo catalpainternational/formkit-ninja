@@ -144,6 +144,28 @@ def formkit_text_node():
     }
 
 
+@pytest.fixture
+def nested_formkit_text_node():
+    return {
+        "$formkit": "group",
+        "children": [
+            {
+                "key": "activity_type",
+                "id": "activity_type",
+                "name": "activity_type",
+                "label": "$pgettext('activity_type', 'Meeting or Training')",
+                "$formkit": "select",
+                "placeholder": '$gettext("Please select")',
+                "class": "red",
+                "options": [
+                    {"value": "1", "label": "Training"},
+                    {"value": "2", "label": "Meeting"},
+                ],
+            }
+        ],
+    }
+
+
 @pytest.fixture()
 def admin_page(page, live_server: live_server_helper.LiveServer, admin_user: User):
     if page is None:
