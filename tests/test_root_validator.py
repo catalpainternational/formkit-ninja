@@ -1,20 +1,15 @@
 from typing import Any
 
-from pydantic import (BaseModel, RootModel, ValidatorFunctionWrapHandler,
-                      field_validator)
+from pydantic import BaseModel, RootModel, ValidatorFunctionWrapHandler, field_validator
 
 
 class MyModel(BaseModel):
-
     value: str
 
     @field_validator("value", mode="wrap")
     @classmethod
     def translate(cls, value: Any, handler: ValidatorFunctionWrapHandler) -> str:
         return handler(value)[::-1]
-
-    def model_validate(thing):
-        raise AssertionError
 
 
 def test_mymodel():

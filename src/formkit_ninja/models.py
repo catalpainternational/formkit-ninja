@@ -560,7 +560,7 @@ class FormKitSchemaNode(UuidIdModel):
                 **kwargs, recursive=recursive, options=options
             )
 
-        formkit_node = formkit_schema.FormKitNode.model_validate(node_content)
+        formkit_node = formkit_schema.DiscriminatedNodeType.model_validate(node_content)
         return formkit_node.root
 
     @classmethod
@@ -619,6 +619,7 @@ class FormKitSchemaNode(UuidIdModel):
                 },
                 exclude_none=True,
                 exclude_unset=True,
+                by_alias=True,
             )
             # Where an alias is used ("el", ) restore it to the expected value
             # of a FormKit schema node
@@ -669,7 +670,7 @@ class FormKitSchemaNode(UuidIdModel):
     def to_pydantic(self, recursive=False, options=False, **kwargs):
         if self.text_content:
             return self.text_content
-        return formkit_schema.FormKitNode.model_validate(
+        return formkit_schema.DiscriminatedNodeType.model_validate(
             self.get_node_values(recursive=recursive, options=options, **kwargs)
         )
 

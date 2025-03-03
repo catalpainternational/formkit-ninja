@@ -4,8 +4,12 @@ from importlib.resources import files
 import pytest
 
 from formkit_ninja import formkit_schema, models, samples
-from formkit_ninja.formkit_schema import (DiscriminatedNodeType, FormKitNode,
-                                          FormKitSchemaDOMNode, SelectNode)
+from formkit_ninja.formkit_schema import (
+    DiscriminatedNodeType,
+    FormKitNode,
+    FormKitSchemaDOMNode,
+    SelectNode,
+)
 from formkit_ninja.schemas import Schemas
 
 schemas = Schemas().schemas
@@ -40,7 +44,16 @@ def test_create_from_schema():
     """
     Create a database entry from a FormKit schema
     """
-    element_schema = _parse_file("element")
+    element_schema = formkit_schema.FormKitSchema.model_validate(
+        [
+            {
+                "$el": "div",
+                "attrs": {"style": {"color": "red"}, "data-foo": "bar"},
+                "children": "Hello world",
+            }
+        ]
+    )
+    assert element_schema.root[0].node_type == "element"
     c = models.FormKitSchema.from_pydantic(element_schema)
     # This test schema has one node
     assert c.nodes.count() == 1
@@ -80,7 +93,7 @@ def test_parse_el_priority(el_priority: dict):
         "attrs": {"class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"},
     }
     """
-    parsed_node = FormKitNode.model_validate(el_priority).root
+    parsed_node = DiscriminatedNodeType.model_validate(el_priority).root
     assert isinstance(parsed_node, FormKitSchemaDOMNode)
     # Load it into the database
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
@@ -275,7 +288,6 @@ def schema_are_same(in_: dict | str, out_: dict | str):
 
 @pytest.mark.django_db()
 def test_schemas(schema: dict):
-
     m = DiscriminatedNodeType.model_validate(schema)
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(m.root))[0]
     schema_from_db: FormKitNode = node_in_the_db.to_pydantic(
@@ -316,7 +328,6 @@ def test_schemas(schema: dict):
 
 
 def test_if_condition():
-
     schema = {
         "$formkit": "radio",
         "id": "subsector_id",
@@ -337,7 +348,6 @@ def test_if_condition():
 
 
 def test_if_group_condition():
-
     schema = {
         "$formkit": "group",
         "children": [

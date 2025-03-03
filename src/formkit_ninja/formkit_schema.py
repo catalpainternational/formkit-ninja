@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import logging
 from html.parser import HTMLParser
-from typing import (Annotated, Any, Dict, List, Literal, TypedDict, TypeVar,
-                    Union)
+from typing import Annotated, Any, Dict, List, Literal, TypedDict, TypeVar, Union
 
-from pydantic import (BaseModel, ConfigDict, Discriminator, Field,
-                      PlainValidator, RootModel, Tag,
-                      ValidatorFunctionWrapHandler, field_validator,
-                      model_serializer, model_validator)
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Discriminator,
+    Field,
+    PlainValidator,
+    RootModel,
+    Tag,
+    model_serializer,
+    model_validator,
+)
 
 """
 This is a port of selected parts of the FormKit schema
@@ -171,13 +177,16 @@ class FormKitSchemaProps(BaseModel):
     Properties available in all schema nodes.
     """
 
-    # "ForwardRefs" do not work well with django-ninja.
-    # This would ideally be:
-    # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
-    #     default_factory=list
-    # )
     children: Annotated[
-        str | list[FormKitSchemaProps] | None, PlainValidator(child_validate)
+        str
+        | list[
+            FormKitType
+            | FormKitSchemaDOMNode
+            | FormKitSchemaComponent
+            | FormKitSchemaCondition
+        ]
+        | None,
+        PlainValidator(child_validate),
     ] = Field(None)
     # children: Annotated[str | list[ FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition | FormKitSchemaProps | str] | FormKitSchemaCondition | None, PlainValidator(child_validate)] = Field(None)
     key: str | None = None
@@ -265,21 +274,7 @@ class FormKitSchemaProps(BaseModel):
             if result["additional_props"] is not None:
                 result.update(result["additional_props"])
             del result["additional_props"]
-        if result.get("id", None) == "subsector_id":
-            ...
         return result
-
-    # def model_dump(self, *args, **kwargs):
-    #     # Set some sensible defaults for "to_dict"
-    #     if "by_alias" not in kwargs:
-    #         kwargs["by_alias"] = True
-    #     if "exclude_none" not in kwargs:
-    #         kwargs["exclude_none"] = True
-    #     try:
-    #         _ = super().model_dump(*args, **kwargs)
-    #     except Exception as E:
-    #         raise E
-    #     return _
 
 
 # We defined this after the model above as it's a circular reference
@@ -293,6 +288,41 @@ class NodeType(FormKitSchemaProps):
 
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     readonly: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def pre_validate_run(cls, data: Any) -> Any:
+        """
+        Before we "validate", we're going to
+        apply some transforms to the data
+        """
+
+        if not isinstance(data, dict):
+            # This should only apply on inputs of this type
+            return data
+
+        if issubclass(cls, NodeType) and ("$formkit" in data or data == {}):
+            node_type = "formkit"
+        elif "$el" in data:
+            node_type = "element"
+        elif "$cmp" in data:
+            node_type = "component"
+        elif "$formkit" in data:
+            node_type = "formkit"
+        elif "if" in data:
+            node_type = "condition"
+        else:
+            # Fallback: assume it is a NodeType
+            # We need a better way to handle this
+            node_type = "formkit"
+
+        additional_props = get_additional_props(data, exclude=cls.exclude_fields())
+        return {
+            **data,
+            "additional_props": additional_props,
+            "node_type": node_type,
+            "formkit": cls.model_fields["formkit"].default,
+        }
 
 
 class TextNode(NodeType):
@@ -367,16 +397,6 @@ class SelectNode(NodeType):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["select"] = Field(default="select", alias="$formkit")
     options: OptionsType = Field(None)
-
-    @field_validator("for_loop", mode="wrap")
-    @classmethod
-    def for_loop_validate(
-        cls, value: Any, handler: ValidatorFunctionWrapHandler
-    ) -> str:
-        try:
-            return handler(value)
-        except:
-            raise
 
 
 class AutocompleteNode(NodeType):
@@ -619,13 +639,13 @@ def get_node_type(obj: dict) -> Literal["text", "element", "formkit", "component
     if isinstance(obj, dict) and len(obj.keys()) == 0:
         return "text"
 
-    for key, return_value in (
-        ("$el", "element"),
-        ("$formkit", "formkit"),
-        ("$cmp", "component"),
-    ):
-        if key in obj:
-            return return_value
+    if "$el" in obj:
+        return "element"
+    if "$formkit" in obj:
+        return "formkit"
+    if "$cmp" in obj:
+        return "component"
+
     raise KeyError(f"Could not determine node type for {obj}")
 
 
@@ -635,7 +655,6 @@ NodeTypes = (
 
 
 class FormKitNode(RootModel):
-
     root: NodeTypes
 
     def model_dump(self, *args, **kwargs):
@@ -644,7 +663,9 @@ class FormKitNode(RootModel):
             kwargs["by_alias"] = True
         if "exclude_none" not in kwargs:
             kwargs["exclude_none"] = True
-        _ = super().model_dump(*args, **kwargs)
+        # self.model_dump(*args, **kwargs) fails on some instances (maybe
+        # a pydantic bug?)
+        _ = self.root.model_dump(*args, **kwargs)
         if "additional_props" in _:
             _.update(_["additional_props"])
             del _["additional_props"]
@@ -663,11 +684,13 @@ def get_discriminator_v(v: Any) -> str:
         return "string"
     if isinstance(v, dict):
         if "$formkit" in v:
-            return f'{v.get("$formkit")}'
+            return f"{v.get('$formkit')}"
         elif "$el" in v:
             return "element"
         elif "if" in v:
             return "condition"
+        elif "$cmp" in v:
+            return "component"
 
     if hasattr(v, "formkit"):
         return f"{v.formkit}"
@@ -675,11 +698,18 @@ def get_discriminator_v(v: Any) -> str:
         return "element"
     elif hasattr(v, "if_condition"):
         return "condition"
+    elif hasattr(v, "cmp"):
+        return "element"
 
     raise AssertionError("Could not determine node type")
 
 
 class DiscriminatedNodeType(RootModel):
+    """
+    This is intended to replace "FormKitNode"
+    with a more efficient tagged discriminator
+    """
+
     root: Annotated[
         (
             Annotated[TextNode, Tag("text")]
@@ -700,9 +730,11 @@ class DiscriminatedNodeType(RootModel):
             | Annotated[CurrencyNode, Tag("currency")]
             | Annotated[HiddenNode, Tag("hidden")]
             | Annotated[UuidNode, Tag("uuid")]
+            # Additional types
             | Annotated[FormKitSchemaAttributesCondition, Tag("condition")]
             | Annotated[FormKitSchemaDOMNode, Tag("element")]
             | Annotated[FormKitSchemaCondition, Tag("condition")]
+            | Annotated[FormKitSchemaComponent, Tag("component")]
             | Annotated[str, Tag("string")]
         ),
         Discriminator(get_discriminator_v),

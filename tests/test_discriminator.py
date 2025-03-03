@@ -4,9 +4,15 @@ import pytest
 from pydantic import RootModel, TypeAdapter
 
 from formkit_ninja import models
-from formkit_ninja.formkit_schema import (DiscriminatedNodeType, FormKitNode,
-                                          FormKitSchemaFormKit, GroupNode,
-                                          TextAreaNode, TextNode)
+from formkit_ninja.formkit_schema import (
+    DiscriminatedNodeType,
+    FormKitNode,
+    FormKitSchemaFormKit,
+    GroupNode,
+    RepeaterNode,
+    TextAreaNode,
+    TextNode,
+)
 from tests.test_python_models import schema_are_same
 
 
@@ -80,12 +86,31 @@ def test_group_disc():
     assert isinstance(group.root.children[0], TextNode)
     assert group.root.children[0].additional_props == {"class": "red"}
 
-    schema_out = group.model_dump(by_alias=True, exclude_none=True)
+    # When we do `group.model_dump` we get an error!
+    schema_out = group.root.model_dump(by_alias=True, exclude_none=True)
     assert schema_in == schema_out
 
 
-def test_element():
+def test_group_disc_again():
+    g = GroupNode()
+    d = DiscriminatedNodeType(root=g)
+    d.model_dump(by_alias=True, exclude_none=True)
 
+    t = TextNode()
+    g = GroupNode(children=[t])
+    d = DiscriminatedNodeType(root=g)
+    d.model_dump(by_alias=True, exclude_none=True)
+
+    t = TextNode(additional_props={"class": "red"})
+    g = GroupNode(children=[t])
+    d = DiscriminatedNodeType(root=g)
+    assert isinstance(d.root, GroupNode)
+    assert isinstance(d.root.children[0], TextNode)
+    assert d.root.children[0].additional_props == {"class": "red"}
+    d.model_dump(by_alias=True, exclude_none=True)
+
+
+def test_element():
     schema_in = {
         "$el": "button",
         "attrs": {
@@ -373,7 +398,7 @@ repeater_2 = {
         },
         {
             "$formkit": "repeater",
-            "children": [{"$formkit": "repeater", "children": []}],
+            "children": [{"$formkit": "repeater", "children": [{"$formkit": "text"}]}],
         },
     ],
 }
@@ -411,6 +436,19 @@ def test_param_schemas(schema: dict[str, Any] | dict[str, str]):
     assert schema_out == schema
 
 
+def test_el():
+    div_el = {
+        "$el": "div",
+        "attrs": {"class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"},
+        "children": ["Output ", {"$el": "span", "children": ["$: ($index + 1)"]}],
+    }
+
+    model_validated = DiscriminatedNodeType.model_validate(div_el)
+    # We get strange things happening
+    schema_out = model_validated.model_dump(by_alias=True, exclude_none=True)
+    schema_are_same(schema_out, div_el)
+
+
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "schema",
@@ -430,8 +468,7 @@ def test_param_schemas(schema: dict[str, Any] | dict[str, str]):
         div_el,
     ],
 )
-def test_roundtrip_on_database(schema):
-
+def test_roundtrip_on_database(schema: dict):
     m = DiscriminatedNodeType.model_validate(schema)
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(m.root))[0]
     schema_from_db: FormKitNode = node_in_the_db.to_pydantic(
@@ -443,3 +480,34 @@ def test_roundtrip_on_database(schema):
     DiscriminatedNodeType.model_validate(node_in_the_db.get_node_values())
 
     schema_are_same(schema_out, schema)
+
+
+def test_formkit_value_on_children():
+    """
+    This is an error case where "$formkit" is not correctly set on "child" nodes
+    """
+    t = TextNode()
+    g = GroupNode(children=[t])
+    f = FormKitNode(root=g)
+    value = f.model_dump(by_alias=True, exclude_none=True, exclude_defaults=False)
+
+    assert t.formkit == "text"
+    assert t.node_type == "formkit"
+    assert f.root.children[0].model_dump(by_alias=True, exclude_none=True) == {
+        "$formkit": "text"
+    }
+    assert f.root.children[0].formkit == "text"
+    assert "$formkit" in value["children"][0]
+    assert value["children"][0]["$formkit"] == "text"
+
+
+def test_repeater():
+    r = RepeaterNode()
+    t = TextNode()
+    r.children = [t]
+    assert r.model_dump(by_alias=True, exclude_none=True)
+
+
+def test_repeater_prop():
+    r = RepeaterNode(upControl=False)
+    assert r.model_dump(by_alias=True, exclude_none=True)

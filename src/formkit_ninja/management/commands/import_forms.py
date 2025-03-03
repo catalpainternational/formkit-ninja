@@ -23,6 +23,4 @@ class Command(BaseCommand):
             parsed_node: GroupNode = node.root
             node_in_the_db = list(  # noqa: F841
                 models.FormKitSchemaNode.from_pydantic(parsed_node)
-            )[
-                0
-            ]  # noqa: F841
+            )[0]  # noqa: F841
