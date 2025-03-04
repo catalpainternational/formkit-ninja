@@ -492,8 +492,9 @@ class FormKitSchemaNode(UuidIdModel):
         separately stored, this step is necessary to
         reinstate them
         """
-        if opts := self.node.get("options"):
-            return opts
+        if isinstance(self.node, dict) and "options" in self.node:
+            if opts := self.node.get("options"):
+                return opts
 
         if not self.option_group:
             return None
@@ -571,7 +572,7 @@ class FormKitSchemaNode(UuidIdModel):
             | Iterable[formkit_schema.FormKitSchemaProps]
             | str
         ),
-    ) -> Iterable["FormKitSchemaNode"]:
+    ):
         if isinstance(input_models, str):
             yield cls.objects.create(
                 node_type="text", label=input_models, text_content=input_models

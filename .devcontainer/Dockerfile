@@ -47,6 +47,7 @@ COPY manage.py /app/
 # To do this, set `BASE_IMAGE` to `mcr.microsoft.com/devcontainers/python:1-3-bookworm`
 # and the `NO_DEV_OPTION` to `--dev`.
 FROM sync AS final_dev
+COPY --from=ghcr.io/astral-sh/uv:0.6 /uv /uvx /bin/
 # We currently do nothing with the dev image, 
 # but you could add additional
 # imports / uv sync groups here!

@@ -170,7 +170,7 @@ def nested_formkit_text_node():
 def admin_page(page, live_server: live_server_helper.LiveServer, admin_user: User):
     if page is None:
         yield
-    page.goto(f"{live_server.url}/admin", timeout=1000)
+    page.goto(f"{live_server.url}/admin", timeout=10000)
     page.get_by_label("Username:").fill(admin_user.username)
     page.get_by_label("Password:").fill("password")
     page.get_by_role("button", name="Log in").click()

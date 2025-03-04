@@ -151,8 +151,8 @@ class NodePath:
                 yield self / n
 
     @property
-    def formkits_not_repeaters(self) -> Iterable["NodePath"]:
-        def _get() -> NodePath:
+    def formkits_not_repeaters(self) -> tuple["NodePath"]:
+        def _get():
             for n in self.children:
                 if hasattr(n, "formkit") and not isinstance(n, RepeaterNode):
                     yield self / n
@@ -323,6 +323,7 @@ class NodePath:
                 return "null=True, blank=True"
             case "UUID":
                 return "editable=False, null=True, blank=True"
+        raise TypeError("Undetermined Django field type")
 
     @property
     def django_args(self):

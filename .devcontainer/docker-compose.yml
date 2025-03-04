@@ -10,7 +10,7 @@ services:
 
     volumes:
       - ../..:/workspaces:cached
-      - ms-playwright:/home/vscode/.cache/ms-playwright
+      - ms-playwright:/home/root/.cache/ms-playwright
 
     # Overrides default command so things don't shut down after the process ends.
     command: sleep infinity

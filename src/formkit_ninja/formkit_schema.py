@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from html.parser import HTMLParser
-from typing import Annotated, Any, Dict, List, Literal, TypedDict, TypeVar, Union
+from typing import Annotated, Any, Dict, List, Literal, Self, TypedDict, TypeVar, Union
 
 from pydantic import (
     BaseModel,
@@ -93,7 +93,8 @@ class FormKitSchemaMeta(RootModel):
     root: dict[str, str | float | int | bool | None]
 
 
-class FormKitTypeDefinition(BaseModel): ...
+class FormKitTypeDefinition(BaseModel):
+    ...
 
 
 class FormKitContextShape(BaseModel):
@@ -188,7 +189,6 @@ class FormKitSchemaProps(BaseModel):
         | None,
         PlainValidator(child_validate),
     ] = Field(None)
-    # children: Annotated[str | list[ FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition | FormKitSchemaProps | str] | FormKitSchemaCondition | None, PlainValidator(child_validate)] = Field(None)
     key: str | None = None
     if_condition: str | None = Field(None, alias="if")
     for_loop: FormKitListStatement | None = Field(None, alias="for")
@@ -546,7 +546,7 @@ class FormKitTagParser(HTMLParser):
     This is for lazy copy-pasting from the formkit website :)
     """
 
-    def __init__(self, html_content, *args, **kwargs):
+    def __init__(self, html_content: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data: str | None = None
 
@@ -675,11 +675,22 @@ class FormKitNode(RootModel):
 class FormKitSchema(RootModel):
     root: list[NodeTypes]
 
+    @classmethod
+    def model_validate(
+        cls,
+        obj: Any,
+        *args, **kwargs
+    ) -> Self:
+        if isinstance(obj, dict):
+            obj = [obj]
+        return super().model_validate(obj, *args, **kwargs)
+
 
 FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition
 
 
 def get_discriminator_v(v: Any) -> str:
+
     if isinstance(v, str):
         return "string"
     if isinstance(v, dict):

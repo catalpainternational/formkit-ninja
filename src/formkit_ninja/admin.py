@@ -5,7 +5,6 @@ import operator
 import warnings
 from collections import Counter
 from functools import reduce
-from typing import Any
 
 import django.core.exceptions
 from django import forms
@@ -308,13 +307,6 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     min = forms.IntegerField(required=False)
     step = forms.IntegerField(required=False)
 
-    def get_fields(self, request, obj: models.FormKitSchemaNode):
-        """
-        Customise the returned fields based on the type
-        of formkit node
-        """
-        return super().get_fields(request, obj)
-
 
 class FormKitNodeRepeaterForm(FormKitNodeForm):
     def get_json_fields(self) -> JsonFieldDefn:
@@ -593,7 +585,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         obj: models.FormKitSchemaNode | None,
         change: bool | None = None,
         **kwargs,
-    ) -> type[forms.ModelForm[Any]]:
+    ):
         if not obj:
             return NewFormKitForm
         try:

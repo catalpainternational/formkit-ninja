@@ -3,8 +3,7 @@
 
 import os
 from importlib.util import find_spec
-from typing import Type
-
+from playwright.sync_api import Page
 import pytest
 
 from formkit_ninja import models
@@ -101,69 +100,59 @@ def test_import_sf11(SF_1_1):
 
 @playwright
 @pytest.mark.django_db()
-def test_admin_actions_sf11(SF_1_1, admin_page):
+def test_admin_actions_sf11(SF_1_1, admin_page: Page):
     """
     This tests that we can successfully import the 'SF11' form from Partisipa
     """
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
-
-    schema = BaseModel.parse_obj(SF_1_1)
+    schema_json = [SF_1_1]
+    schema = BaseModel.model_validate(schema_json)
     models.FormKitSchema.from_pydantic(schema)
     admin_page.get_by_role("link", name="Form kit schema nodes").click()
-    ...
 
 
 @playwright
 @pytest.mark.django_db()
 def test_import_1321(TF_13_2_1, admin_page):
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
-
-    models.FormKitSchema.from_pydantic(BaseModel.parse_obj(TF_13_2_1))
+    schema_json = [TF_13_2_1]
+    models.FormKitSchema.from_pydantic(BaseModel.model_validate(schema_json))
     admin_page.get_by_role("link", name="Form kit schema nodes").click()
     admin_page.get_by_role("link", name="repeaterProjectProgress").click()
-    admin_page.pause()
-    ...
+
 
 
 @playwright
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "schema",
+    [
+        "CFM_12_FF_12",
+        "CFM_2_FF_4",
+        "FF_14",
+        "POM_1",
+        "SF_1_1",
+        "SF_1_2",
+        "SF_1_3",
+        "SF_2_3",
+        "SF_4_1",
+        "SF_4_2",
+        "SF_6_2",
+        "TF_13_2_1",
+        "TF_6_1_1",
+    ],
+)
 @pytest.mark.django_db()
 def test_admin_all_forms(
-    CFM_12_FF_12,
-    CFM_2_FF_4,
-    FF_14,
-    POM_1,
-    SF_1_1,
-    SF_1_2,
-    SF_1_3,
-    SF_2_3,
-    SF_4_1,
-    SF_4_2,
-    SF_6_2,
-    TF_13_2_1,
-    TF_6_1_1,
     admin_page,
+    schema
 ):
+    from formkit_ninja.schemas import Schemas
+    schemas = Schemas()
+    schema_json = schemas.as_json(schema)
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
 
-    _ = list(
-        (
-            models.FormKitSchema.from_pydantic(BaseModel.parse_obj(n))
-            for n in (
-                CFM_12_FF_12,
-                CFM_2_FF_4,
-                FF_14,
-                POM_1,
-                SF_1_1,
-                SF_1_2,
-                SF_1_3,
-                SF_2_3,
-                SF_4_1,
-                SF_4_2,
-                SF_6_2,
-                TF_13_2_1,
-                TF_6_1_1,
-            )
-        )
-    )
+    schema_as_pydantic = BaseModel.model_validate(schema_json)
 
+    _ = models.FormKitSchema.from_pydantic(BaseModel.model_validate(schema_as_pydantic))
     admin_page.pause()
