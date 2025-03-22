@@ -3,13 +3,12 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-      target: final_dev
       args:
         BASE_IMAGE: mcr.microsoft.com/devcontainers/python:1-3-bookworm
         NO_DEV_OPTION: ""
 
     volumes:
-      - ../..:/workspaces:cached
+      - ..:/app
       - ms-playwright:/home/root/.cache/ms-playwright
 
     # Overrides default command so things don't shut down after the process ends.
