@@ -4,12 +4,8 @@ from importlib.resources import files
 import pytest
 
 from formkit_ninja import formkit_schema, models, samples
-from formkit_ninja.formkit_schema import (
-    DiscriminatedNodeType,
-    FormKitNode,
-    FormKitSchemaDOMNode,
-    SelectNode,
-)
+from formkit_ninja.formkit_schema import (DiscriminatedNodeType, FormKitNode,
+                                          FormKitSchemaDOMNode, SelectNode)
 from formkit_ninja.schemas import Schemas
 
 schemas = Schemas().schemas

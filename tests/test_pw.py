@@ -3,8 +3,9 @@
 
 import os
 from importlib.util import find_spec
-from playwright.sync_api import Page
+
 import pytest
+from playwright.sync_api import Page
 
 from formkit_ninja import models
 
@@ -105,6 +106,7 @@ def test_admin_actions_sf11(SF_1_1, admin_page: Page):
     This tests that we can successfully import the 'SF11' form from Partisipa
     """
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
+
     schema_json = [SF_1_1]
     schema = BaseModel.model_validate(schema_json)
     models.FormKitSchema.from_pydantic(schema)
@@ -115,11 +117,11 @@ def test_admin_actions_sf11(SF_1_1, admin_page: Page):
 @pytest.mark.django_db()
 def test_import_1321(TF_13_2_1, admin_page):
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
+
     schema_json = [TF_13_2_1]
     models.FormKitSchema.from_pydantic(BaseModel.model_validate(schema_json))
     admin_page.get_by_role("link", name="Form kit schema nodes").click()
     admin_page.get_by_role("link", name="repeaterProjectProgress").click()
-
 
 
 @playwright
@@ -143,11 +145,9 @@ def test_import_1321(TF_13_2_1, admin_page):
     ],
 )
 @pytest.mark.django_db()
-def test_admin_all_forms(
-    admin_page,
-    schema
-):
+def test_admin_all_forms(admin_page, schema):
     from formkit_ninja.schemas import Schemas
+
     schemas = Schemas()
     schema_json = schemas.as_json(schema)
     from formkit_ninja.formkit_schema import FormKitSchema as BaseModel
