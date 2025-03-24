@@ -84,3 +84,16 @@ def test_formkit_element():
     assert isinstance(validated.root.children[0], formkit_schema.GroupNode)
     assert object.keys() == schema.keys()
     assert schema == object
+
+
+def test_by_alias():
+    """
+    Some fields have an alias.
+    Generally where html attributes are hyphenated, such as `validation-label`
+    which is aliased to `validationLabel`
+    """
+    PasswordNode = formkit_schema.PasswordNode
+    passnode = PasswordNode(**{"validation-label": "Password"})
+    passnode_upper = PasswordNode(**{"validationLabel": "Password"})
+    assert passnode.validationLabel == "Password"
+    assert passnode.validationLabel == passnode_upper.validationLabel

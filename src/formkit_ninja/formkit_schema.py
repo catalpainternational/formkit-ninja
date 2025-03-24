@@ -1,20 +1,16 @@
 from __future__ import annotations
 
 import logging
-from html.parser import HTMLParser
-from typing import Annotated, Any, Dict, List, Literal, Self, TypedDict, TypeVar, Union
+from typing import (Annotated, Any, Dict, List, Literal, Self, TypedDict,
+                    TypeVar, Union)
+import warnings
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Discriminator,
-    Field,
-    PlainValidator,
-    RootModel,
-    Tag,
-    model_serializer,
-    model_validator,
-)
+from pydantic import (BaseModel, ConfigDict, Discriminator, Field,
+                      PlainValidator, RootModel, Tag, field_serializer, model_serializer,
+                      model_validator)
+from pydantic_core import PydanticSerializationUnexpectedValue
+from pydantic.functional_validators import field_validator
+from json5 import loads as js_load
 
 """
 This is a port of selected parts of the FormKit schema
@@ -22,18 +18,23 @@ to Pydantic models.
 """
 
 
-def get_discriminator_value(v: Any):
+def parse_vue_syntax(key: str, value: str) -> tuple[str, Any] | tuple[None, None]:
     """
-    Return "node_type" value
+    Try to convert a Vue key,value to valid JSON
     """
-    if isinstance(v, dict):
-        if "$formkit" in v or "formkit" in v:
-            return "formkit"
-        elif "$el" in v:
-            return "el"
-        elif "$cmp" in v:
-            return "component"
 
+    def try_convert(v):
+        try:
+            return js_load(v)
+        except ValueError:
+            pass
+        return v
+
+    if key.startswith("v-bind"):
+        return parse_vue_syntax(key.replace("v-bind", ":"), value)
+    if key.startswith(":"):
+        return key[1:], try_convert(value)
+    return None, None
 
 def get_additional_props(
     object_in: dict[str, Any], exclude: set[str] = set()
@@ -49,26 +50,8 @@ def get_additional_props(
 
     However: if we're coming from the database we already store these in a separate field
     """
-    # Things which are not "other attributes"
-    set_handled_keys = {
-        "$formkit",
-        "$el",
-        "if",
-        "if_condition",
-        "for",
-        "then",
-        "else",
-        "children",
-        "node_type",
-        "formkit",
-        "id",
-    }
-    # Merge "additional props" from the input object
-    # with any "unknown" params we received
     props: dict[str, Any] = {**object_in.get("additional_props", {})}
-    props.update(
-        {k: object_in[k] for k in object_in.keys() - exclude - set_handled_keys}
-    )
+    props.update({k: object_in[k] for k in object_in.keys() - exclude})
     return props if props else None
 
 
@@ -84,6 +67,7 @@ OptionsType = str | list[dict[str, Any]] | list[str] | Dict[str, str] | None
 
 class FormKitSchemaCondition(BaseModel):
     node_type: Literal["condition"] = Field(default="condition", exclude=True)
+    # If, Then, Else are aliases bacause they're reserved words
     if_condition: str = Field(..., alias="if")
     then_condition: Node | List[Node] = Field(..., alias="then")
     else_condition: Node | List[Node] | None = Field(None, alias="else")
@@ -93,8 +77,7 @@ class FormKitSchemaMeta(RootModel):
     root: dict[str, str | float | int | bool | None]
 
 
-class FormKitTypeDefinition(BaseModel):
-    ...
+class FormKitTypeDefinition(BaseModel): ...
 
 
 class FormKitContextShape(BaseModel):
@@ -206,7 +189,7 @@ class FormKitSchemaProps(BaseModel):
     validationLabel: str | None = Field(None, alias="validation-label")
     validationVisibility: str | None = Field(None, alias="validation-visibility")
     validationMessages: Annotated[
-        str | Dict[str, str] | None, Field(None, alias="validation-messages")
+        Dict[str, str] | str | None, Field(None, alias="validation-messages")
     ]
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
@@ -222,14 +205,15 @@ class FormKitSchemaProps(BaseModel):
 
     @classmethod
     def exclude_fields(cls) -> set[str]:
-        # We want to exclude from "additional_props" any real fields on the model.
-        # We do this by "annotation" as we're expecting to have this by alias
+        """
+        We want to exclude from "additional_props" any real fields on the model.
+        We do this by "annotation" as we're expecting to have this by alias
+        """
         exclude: set[str] = set()
         for field_name, field_obj in cls.model_fields.items():
+            exclude.add(field_name)
             if field_obj.alias:
                 exclude.add(field_obj.alias)
-            else:
-                exclude.add(field_name)
         return exclude
 
     # @model_validator(mode='wrap')
@@ -268,13 +252,52 @@ class FormKitSchemaProps(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        result = handler(self)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # We get a storm of "UnexpectedValueWarnings"
+            result = handler(self)
         # return result
         if "additional_props" in result:
             if result["additional_props"] is not None:
                 result.update(result["additional_props"])
             del result["additional_props"]
+
+        # HTML attribute handling
+        # When an input HTML has an attribute beginning with a colon (:)
+        # This is a `v-bind` attribute
+        # This can be a variable, Javascript expression, or function.
+        # We can't support all of this (nor do we want to probably)
+        # but we can support the basic variable binding
+        renamed: dict[str, Any] = {}
+        renamed_fields: set[str] = set()
+        if isinstance(result, dict):
+            k: str
+            for k, v in result.items():
+                _k, _v = parse_vue_syntax(k, v)
+                if _k:
+                    renamed[_k] = _v
+                    renamed_fields.add(k)
+            result.update(renamed)
+        for k in renamed_fields:
+            result.pop(k)
+
+        # "@submit" or "@click" cannot be serialized well, they're probably best
+        # handled client side, at least for now
+        for unparseable in [k for k in result.keys() if k.startswith("@")]:
+            result.pop(unparseable)
+
         return result
+
+    @field_validator("validationMessages")
+    @classmethod
+    def validation_messages(cls, value, _info):
+        """
+        When we import from HTML we may have a string
+        However this may be JSON so coerce to a JSON object
+        if it smells like JSON
+        """
+        return value    
 
 
 # We defined this after the model above as it's a circular reference
@@ -323,6 +346,11 @@ class NodeType(FormKitSchemaProps):
             "node_type": node_type,
             "formkit": cls.model_fields["formkit"].default,
         }
+
+
+class FormNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
+    formkit: Literal["form"] = Field(default="form", alias="$formkit")
 
 
 class TextNode(NodeType):
@@ -444,7 +472,8 @@ class GroupNode(NodeType):
 # This is useful for "isinstance" checks
 # which do not work with "Annotated" below
 FormKitType = (
-    TextNode
+    FormNode
+    | TextNode
     | TextAreaNode
     | CheckBoxNode
     | PasswordNode
@@ -466,6 +495,7 @@ FormKitType = (
 
 FormKitSchemaFormKit = Annotated[
     Union[
+        FormNode,
         TextNode,
         TextAreaNode,
         CheckBoxNode,
@@ -539,54 +569,6 @@ FormKitSchemaDOMNode.model_rebuild()
 FormKitSchemaCondition.model_rebuild()
 FormKitSchemaComponent.model_rebuild()
 
-
-class FormKitTagParser(HTMLParser):
-    """
-    Reverse an HTML example to schema
-    This is for lazy copy-pasting from the formkit website :)
-    """
-
-    def __init__(self, html_content: str, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data: str | None = None
-
-        self.current_tag: FormKitSchemaFormKit | None = None
-        self.tags: list[FormKitSchemaFormKit] = []
-        self.parents: list[FormKitSchemaFormKit] = []
-        self.feed(html_content)
-
-    def handle_starttag(self, tag, attrs):
-        """
-        Read anything that's a "formtag" type
-        """
-        if tag != "formkit":
-            return
-        props = dict(attrs)
-        props["formkit"] = props.pop("type")
-
-        tag = FormKitSchemaFormKit(**props)
-        self.current_tag = tag
-
-        if self.parents:
-            self.parents[-1].children.append(tag)
-        else:
-            self.tags.append(tag)
-            self.parents.append(tag)
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag != "formkit":
-            return
-        if self.parents:
-            self.parents.pop()
-
-    def handle_data(self, data):
-        if self.current_tag and data.strip():
-            self.current_tag.children.append(data.strip())
-            # Ensure that children is included even when "exclude_unset" is True
-            # since we populated this after the initial tag build
-            self.current_tag.__fields_set__.add("children")
-
-
 FormKitSchemaDOMNode.model_rebuild()
 
 Model = TypeVar("Model", bound="BaseModel")
@@ -595,6 +577,7 @@ StrBytes = str | bytes
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
+    "form",
     "text",
     "textarea",
     "tel",
@@ -676,11 +659,7 @@ class FormKitSchema(RootModel):
     root: list[NodeTypes]
 
     @classmethod
-    def model_validate(
-        cls,
-        obj: Any,
-        *args, **kwargs
-    ) -> Self:
+    def model_validate(cls, obj: Any, *args, **kwargs) -> Self:
         if isinstance(obj, dict):
             obj = [obj]
         return super().model_validate(obj, *args, **kwargs)
@@ -723,7 +702,8 @@ class DiscriminatedNodeType(RootModel):
 
     root: Annotated[
         (
-            Annotated[TextNode, Tag("text")]
+            Annotated[FormNode, Tag("form")]
+            | Annotated[TextNode, Tag("text")]
             | Annotated[TextAreaNode, Tag("textarea")]
             | Annotated[CheckBoxNode, Tag("checkbox")]
             | Annotated[PasswordNode, Tag("password")]
@@ -750,6 +730,10 @@ class DiscriminatedNodeType(RootModel):
         ),
         Discriminator(get_discriminator_v),
     ]
+
+
+class DiscriminatedNodeTypeSchema(RootModel):
+    root: list[DiscriminatedNodeType]
 
 
 FormKitSchema.model_rebuild()

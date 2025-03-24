@@ -565,6 +565,84 @@ class FormKitSchemaNode(UuidIdModel):
         return formkit_node.root
 
     @classmethod
+    def _from_props_instance(cls, input_model: formkit_schema.FormKitSchemaProps):
+        instance = cls()
+        log(f"[green]Creating {instance}")
+        for label_field in ("name", "id", "key", "label"):
+            if label := getattr(input_model, label_field, None):
+                instance.label = label
+                break
+
+        # Node types
+        if props := getattr(input_model, "additional_props", None):
+            instance.additional_props = props
+        try:
+            node_type = getattr(input_model, "node_type")
+        except Exception as E:
+            raise E
+        if node_type == "condition":
+            instance.node_type = "condition"
+        elif node_type == "formkit":
+            instance.node_type = "$formkit"
+        elif node_type == "element":
+            instance.node_type = "$el"
+        elif node_type == "component":
+            instance.node_type = "$cmp"
+
+        log(f"[green]Yielding: {instance}")
+
+        # Must save the instance before  adding "options" or "children"
+        instance.node = input_model.model_dump(
+            exclude={
+                "options",
+                "children",
+                "additional_props",
+                "node_type",
+            },
+            exclude_none=True,
+            exclude_unset=True,
+            by_alias=True,
+        )
+        # Where an alias is used ("el", ) restore it to the expected value
+        # of a FormKit schema node
+        for pydantic_key, db_key in (("el", "$el"), ("formkit", "$formkit")):
+            if db_value := instance.node.pop(pydantic_key, None):
+                instance.node[db_key] = db_value
+
+        instance.save()
+        # Add the "options" if it is a 'text' type getter
+        options: formkit_schema.OptionsType = getattr(input_model, "options", None)
+
+        if isinstance(options, str):
+            # Maintain this as it is probably a `$get...` options call
+            # to a Javascript function
+            instance.node["options"] = options
+            instance.save()
+
+        elif isinstance(options, Iterable):
+            # Create a new "group" to assign these options to
+            # Here we use a random UUID as the group name
+            instance.option_group = OptionGroup.objects.create(
+                group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}"
+            )
+            for option in Option.from_pydantic(options, group=instance.option_group):
+                pass
+            instance.save()
+        # Retain input strings without splitting to a list
+        children = getattr(input_model, "children", []) or []
+        if isinstance(children, str):
+            child_node = next(iter(cls.from_pydantic(children)))
+            console.log(f"    {child_node}")
+            instance.children.add(child_node)
+        elif isinstance(children, Iterable):
+            for c_n in children:
+                child_node = next(iter(cls.from_pydantic(c_n)))
+                console.log(f"    {child_node}")
+                instance.children.add(child_node)
+
+        yield instance
+
+    @classmethod
     def from_pydantic(
         cls,
         input_models: (
@@ -578,90 +656,20 @@ class FormKitSchemaNode(UuidIdModel):
                 node_type="text", label=input_models, text_content=input_models
             )
 
+        if isinstance(input_models, formkit_schema.DiscriminatedNodeType):
+            yield from cls.from_pydantic(input_models.root)
+
+        elif isinstance(input_models, formkit_schema.DiscriminatedNodeTypeSchema):
+            for node in input_models.root:
+                yield from cls.from_pydantic(node)
+
         elif isinstance(input_models, Iterable) and not isinstance(
             input_models, formkit_schema.FormKitSchemaProps
         ):
             yield from (cls.from_pydantic(n) for n in input_models)
 
         elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
-            input_model = input_models
-            instance = cls()
-            log(f"[green]Creating {instance}")
-            for label_field in ("name", "id", "key", "label"):
-                if label := getattr(input_model, label_field, None):
-                    instance.label = label
-                    break
-
-            # Node types
-            if props := getattr(input_model, "additional_props", None):
-                instance.additional_props = props
-            try:
-                node_type = getattr(input_model, "node_type")
-            except Exception as E:
-                raise E
-            if node_type == "condition":
-                instance.node_type = "condition"
-            elif node_type == "formkit":
-                instance.node_type = "$formkit"
-            elif node_type == "element":
-                instance.node_type = "$el"
-            elif node_type == "component":
-                instance.node_type = "$cmp"
-
-            log(f"[green]Yielding: {instance}")
-
-            # Must save the instance before  adding "options" or "children"
-            instance.node = input_model.model_dump(
-                exclude={
-                    "options",
-                    "children",
-                    "additional_props",
-                    "node_type",
-                },
-                exclude_none=True,
-                exclude_unset=True,
-                by_alias=True,
-            )
-            # Where an alias is used ("el", ) restore it to the expected value
-            # of a FormKit schema node
-            for pydantic_key, db_key in (("el", "$el"), ("formkit", "$formkit")):
-                if db_value := instance.node.pop(pydantic_key, None):
-                    instance.node[db_key] = db_value
-
-            instance.save()
-            # Add the "options" if it is a 'text' type getter
-            options: formkit_schema.OptionsType = getattr(input_model, "options", None)
-
-            if isinstance(options, str):
-                # Maintain this as it is probably a `$get...` options call
-                # to a Javascript function
-                instance.node["options"] = options
-                instance.save()
-
-            elif isinstance(options, Iterable):
-                # Create a new "group" to assign these options to
-                # Here we use a random UUID as the group name
-                instance.option_group = OptionGroup.objects.create(
-                    group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}"
-                )
-                for option in Option.from_pydantic(
-                    options, group=instance.option_group
-                ):
-                    pass
-                instance.save()
-            # Retain input strings without splitting to a list
-            children = getattr(input_model, "children", []) or []
-            if isinstance(children, str):
-                child_node = next(iter(cls.from_pydantic(children)))
-                console.log(f"    {child_node}")
-                instance.children.add(child_node)
-            elif isinstance(children, Iterable):
-                for c_n in children:
-                    child_node = next(iter(cls.from_pydantic(c_n)))
-                    console.log(f"    {child_node}")
-                    instance.children.add(child_node)
-
-            yield instance
+            yield from cls._from_props_instance(input_models)
 
         else:
             raise TypeError(

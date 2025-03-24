@@ -4,15 +4,9 @@ import pytest
 from pydantic import RootModel, TypeAdapter
 
 from formkit_ninja import models
-from formkit_ninja.formkit_schema import (
-    DiscriminatedNodeType,
-    FormKitNode,
-    FormKitSchemaFormKit,
-    GroupNode,
-    RepeaterNode,
-    TextAreaNode,
-    TextNode,
-)
+from formkit_ninja.formkit_schema import (DiscriminatedNodeType, FormKitNode,
+                                          FormKitSchemaFormKit, GroupNode,
+                                          RepeaterNode, TextAreaNode, TextNode)
 from tests.test_python_models import schema_are_same
 
 
@@ -52,18 +46,6 @@ def test_nested_group():
 def test_nested_group_adapter():
     n = GroupNode.model_validate({"$formkit": "group", "randomprop": "random"})
     print(n)
-
-
-def get_discriminator_value(v: Any) -> str:
-    if isinstance(v, dict):
-        match v.get("$formkit", None):
-            case "text":
-                return "text"
-            case "textarea":
-                return "textarea"
-            case "group":
-                return "group"
-    return "text"
 
 
 def test_node_type():

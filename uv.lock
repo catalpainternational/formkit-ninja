@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.11"
 
 [[package]]
@@ -96,7 +97,7 @@ name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/96/d3/f04c7bfcf5c1862a2a5b845c6b2b360488cf47af55dfa79c98f6a6bf98b5/click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de", size = 336121 }
 wheels = [
@@ -255,6 +256,7 @@ dependencies = [
     { name = "django-pghistory" },
     { name = "django-pgtrigger" },
     { name = "jinja2" },
+    { name = "json5" },
     { name = "pydantic" },
     { name = "rich" },
 ]
@@ -272,6 +274,9 @@ docs = [
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
 ]
+jupyter = [
+    { name = "rich" },
+]
 playwright = [
     { name = "playwright" },
     { name = "pytest-playwright" },
@@ -283,6 +288,7 @@ requires-dist = [
     { name = "django-pghistory", specifier = ">=3.5.0" },
     { name = "django-pgtrigger", specifier = ">=4.13.2" },
     { name = "jinja2", specifier = ">=3.1.4" },
+    { name = "json5", specifier = ">=0.10.0" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "rich", specifier = ">=13.9.4" },
 ]
@@ -300,6 +306,7 @@ docs = [
     { name = "mkdocs-material", specifier = ">=9.5.46" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27.0" },
 ]
+jupyter = [{ name = "rich", specifier = ">=13.9.4" }]
 playwright = [
     { name = "playwright", specifier = ">=1.49.0" },
     { name = "pytest-playwright", specifier = ">=0.6.1" },
@@ -402,6 +409,15 @@ wheels = [
 ]
 
 [[package]]
+name = "json5"
+version = "0.10.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/85/3d/bbe62f3d0c05a689c711cff57b2e3ac3d3e526380adb7c781989f075115c/json5-0.10.0.tar.gz", hash = "sha256:e66941c8f0a02026943c52c2eb34ebeb2a6f819a0be05920a6f5243cd30fd559", size = 48202 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/aa/42/797895b952b682c3dafe23b1834507ee7f02f4d6299b65aaa61425763278/json5-0.10.0-py3-none-any.whl", hash = "sha256:19b23410220a7271e8377f81ba8aacba2fdd56947fbb137ee5977cbe1f5e8dfa", size = 34049 },
+]
+
+[[package]]
 name = "markdown"
 version = "3.7"
 source = { registry = "https://pypi.org/simple" }
@@ -494,7 +510,7 @@ version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "ghp-import" },
     { name = "jinja2" },
     { name = "markdown" },

@@ -1,10 +1,7 @@
 import pytest
 
-from formkit_ninja.formkit_schema import (
-    DiscriminatedNodeType,
-    FormKitSchemaDOMNode,
-    TextNode,
-)
+from formkit_ninja.formkit_schema import (DiscriminatedNodeType,
+                                          FormKitSchemaDOMNode, TextNode)
 from formkit_ninja.models import FormKitSchemaNode
 
 
