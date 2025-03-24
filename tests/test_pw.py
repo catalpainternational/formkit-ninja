@@ -1,11 +1,11 @@
 # ruff: noqa: F401 F811
 # flake8: noqa: F401 F811
-
 import os
 from importlib.util import find_spec
-
+from typing import TYPE_CHECKING
 import pytest
-from playwright.sync_api import Page
+if TYPE_CHECKING:
+    from playwright.sync_api import Page  # noqa
 
 from formkit_ninja import models
 

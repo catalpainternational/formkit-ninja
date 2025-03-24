@@ -695,8 +695,9 @@ class SchemaManager(models.Manager):
 
 class FormKitSchema(UuidIdModel):
     """
-    This represents a "FormKitSchema" which is an heterogenous
-    collection of items.
+    A schema is an array of objects or strings (called "schema nodes"), 
+    where each array item defines a single schema node
+    See: [docs](https://formkit.com/essentials/schema
     """
 
     label = models.CharField(
@@ -727,11 +728,25 @@ class FormKitSchema(UuidIdModel):
     def __str__(self):
         return f"{self.label}" or f"{str(self.id)[:8]}"
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
 
     @classmethod
-    def from_pydantic(
+    def from_pydantic(cls, input_model: formkit_schema.DiscriminatedNodeTypeSchema | formkit_schema.FormKitSchema):
+        if isinstance(input_model, formkit_schema.FormKitSchema):
+            return cls.from_formkitschema(input_model)
+        elif isinstance(input_model, formkit_schema.DiscriminatedNodeTypeSchema):
+            with transaction.atomic():
+                schema = cls.objects.create()
+                for node in itertools.chain.from_iterable(
+                    FormKitSchemaNode.from_pydantic(input_model.root)
+                ):
+                    log(f"[yellow]Saving {node}")
+                    FormComponents.objects.create(
+                        schema=schema, node=node, label=str(f"{str(schema)} {str(node)}")
+                    )
+            return schema
+
+    @classmethod
+    def from_formkitschema(
         cls, input_model: formkit_schema.FormKitSchema, label: str | None = None
     ) -> "FormKitSchema":
         """
@@ -759,6 +774,47 @@ class FormKitSchema(UuidIdModel):
         schema_instance = formkit_schema.FormKitSchema.parse_obj(input_file)
         return cls.from_pydantic(schema_instance)
 
+    def publish(self):
+        """
+        Publish this schema
+        """
+        return PublishedForm.objects.create(schema=self)
+
+    def get_published(self):
+        """
+        Get the published schema
+        """
+        return PublishedForm.objects.get(schema=self, is_active=True)
+
+class PublishedForm(models.Model):
+    """
+    A published form is a schema which is "live" and
+    can be used to create forms
+    """
+
+    schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
+    published = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    published_schema = models.JSONField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["schema", "is_active"], name="unique_active_schema"
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        """
+        Ensure that only one schema is active at a time
+        """
+        if self.is_active:
+            self.__class__.objects.filter(schema=self.schema, is_active=True).update(is_active=False)
+        self.published_schema = list(self.schema.get_schema_values(recursive=True, options=True))
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.schema.label}"
 
 class SchemaLabel(models.Model):
     """

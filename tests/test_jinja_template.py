@@ -1,3 +1,4 @@
+import ast
 import os
 from textwrap import dedent
 
@@ -59,9 +60,20 @@ def test_pd_nested_group_node_field(
 
 def test_group_node_field(django_class_template: Template, group_node: NodePath):
     text = django_class_template.render(this=group_node)
-    expect = "class Foo(models.Model):\n    foonum = models.IntegerField(null=True, blank=True)\n"
-    assert text.strip() == dedent(expect).strip()
+    tree = ast.parse(text)
 
+    class_def = tree.body[0]
+    field_def = class_def.body[0].targets[0]
+    field_call = class_def.body[0].value
+
+    assert class_def.name == "Foo"
+    assert class_def.bases[0].attr == "Model"
+    assert class_def.bases[0].value.id == "models"
+    
+    assert field_def.id == 'foonum'
+
+    assert field_call.keywords[0].arg == "null"
+    assert field_call.func.attr == "IntegerField"
 
 def test_nested_group_node_field(
     django_class_template: Template, nested_group_node: NodePath

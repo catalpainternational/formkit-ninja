@@ -6,11 +6,11 @@ from typing import (Annotated, Any, Dict, List, Literal, Self, TypedDict,
 import warnings
 
 from pydantic import (BaseModel, ConfigDict, Discriminator, Field,
-                      PlainValidator, RootModel, Tag, field_serializer, model_serializer,
+                      PlainValidator, RootModel, Tag, model_serializer,
                       model_validator)
-from pydantic_core import PydanticSerializationUnexpectedValue
 from pydantic.functional_validators import field_validator
 from json5 import loads as js_load
+from typing_extensions import deprecated
 
 """
 This is a port of selected parts of the FormKit schema
@@ -655,6 +655,7 @@ class FormKitNode(RootModel):
         return _
 
 
+@deprecated("This model should be migrated to DiscriminatedNodeType")
 class FormKitSchema(RootModel):
     root: list[NodeTypes]
 
@@ -663,7 +664,6 @@ class FormKitSchema(RootModel):
         if isinstance(obj, dict):
             obj = [obj]
         return super().model_validate(obj, *args, **kwargs)
-
 
 FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition
 

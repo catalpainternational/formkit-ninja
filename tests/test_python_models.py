@@ -36,9 +36,10 @@ def test_create_schema():
 
 
 @pytest.mark.django_db()
-def test_create_from_schema():
+def test_create_from_old_schema():
     """
     Create a database entry from a FormKit schema
+    This is deprecated since Pydantic v2 models
     """
     element_schema = formkit_schema.FormKitSchema.model_validate(
         [
@@ -49,6 +50,7 @@ def test_create_from_schema():
             }
         ]
     )
+    element_schema.model_dump(exclude_none=True, by_alias=True)
     assert element_schema.root[0].node_type == "element"
     c = models.FormKitSchema.from_pydantic(element_schema)
     # This test schema has one node
@@ -77,6 +79,49 @@ def test_create_from_schema():
         exclude_none=True, by_alias=True, exclude={"children"}
     )
 
+
+@pytest.mark.django_db()
+def test_create_from_schema():
+    """
+    Create a database entry from a FormKit schema
+    This is deprecated since Pydantic v2 models
+    """
+    element_schema = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(
+        [
+            {
+                "$el": "div",
+                "attrs": {"style": {"color": "red"}, "data-foo": "bar"},
+                "children": "Hello world",
+            }
+        ]
+    )
+    element_schema.model_dump(exclude_none=True, by_alias=True)
+    c = models.FormKitSchema.from_pydantic(element_schema)
+    # This test schema has one node
+    assert c.nodes.count() == 1
+    # The "Hello world" is one node
+    hello_world_text = c.nodes.first().children.first()
+    assert hello_world_text.text_content == "Hello world"
+
+    # The node...
+    first_node = c.nodes.first()
+    dictify = first_node.get_node(recursive=True).model_dump(
+        exclude_none=True, by_alias=True
+    )
+
+    # The node looks like this:
+    # {'children': [], 'node_type': 'element', 'el': 'div', 'attrs': {'style': {...}, 'data-foo': 'bar'}}
+
+    assert set(dictify.keys()) == {"children", "$el", "attrs"}
+    assert dictify["children"] == ["Hello world"]
+    assert dictify["$el"] == "div"
+    assert set(dictify["attrs"].keys()) == {"style", "data-foo"}
+
+    # A 'group' node
+    first_node = c.nodes.first()
+    first_node.get_node().model_dump(
+        exclude_none=True, by_alias=True, exclude={"children"}
+    )
 
 @pytest.mark.django_db()
 def test_parse_el_priority(el_priority: dict):
