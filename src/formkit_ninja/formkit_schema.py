@@ -1,38 +1,17 @@
 from __future__ import annotations
 
 import logging
-from html.parser import HTMLParser
-from typing import Annotated, Any, Dict, List, Literal, Self, TypedDict, TypeVar, Union
+from typing import (Annotated, Any, Dict, List, Literal, Self, TypedDict,
+                    TypeVar, Union)
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Discriminator,
-    Field,
-    PlainValidator,
-    RootModel,
-    Tag,
-    model_serializer,
-    model_validator,
-)
+from pydantic import (BaseModel, ConfigDict, Discriminator, Field,
+                      PlainValidator, RootModel, Tag, model_serializer,
+                      model_validator)
 
 """
 This is a port of selected parts of the FormKit schema
 to Pydantic models.
 """
-
-
-def get_discriminator_value(v: Any):
-    """
-    Return "node_type" value
-    """
-    if isinstance(v, dict):
-        if "$formkit" in v or "formkit" in v:
-            return "formkit"
-        elif "$el" in v:
-            return "el"
-        elif "$cmp" in v:
-            return "component"
 
 
 def get_additional_props(
@@ -49,26 +28,8 @@ def get_additional_props(
 
     However: if we're coming from the database we already store these in a separate field
     """
-    # Things which are not "other attributes"
-    set_handled_keys = {
-        "$formkit",
-        "$el",
-        "if",
-        "if_condition",
-        "for",
-        "then",
-        "else",
-        "children",
-        "node_type",
-        "formkit",
-        "id",
-    }
-    # Merge "additional props" from the input object
-    # with any "unknown" params we received
     props: dict[str, Any] = {**object_in.get("additional_props", {})}
-    props.update(
-        {k: object_in[k] for k in object_in.keys() - exclude - set_handled_keys}
-    )
+    props.update({k: object_in[k] for k in object_in.keys() - exclude})
     return props if props else None
 
 
@@ -84,6 +45,7 @@ OptionsType = str | list[dict[str, Any]] | list[str] | Dict[str, str] | None
 
 class FormKitSchemaCondition(BaseModel):
     node_type: Literal["condition"] = Field(default="condition", exclude=True)
+    # If, Then, Else are aliases bacause they're reserved words
     if_condition: str = Field(..., alias="if")
     then_condition: Node | List[Node] = Field(..., alias="then")
     else_condition: Node | List[Node] | None = Field(None, alias="else")
@@ -93,8 +55,7 @@ class FormKitSchemaMeta(RootModel):
     root: dict[str, str | float | int | bool | None]
 
 
-class FormKitTypeDefinition(BaseModel):
-    ...
+class FormKitTypeDefinition(BaseModel): ...
 
 
 class FormKitContextShape(BaseModel):
@@ -222,14 +183,15 @@ class FormKitSchemaProps(BaseModel):
 
     @classmethod
     def exclude_fields(cls) -> set[str]:
-        # We want to exclude from "additional_props" any real fields on the model.
-        # We do this by "annotation" as we're expecting to have this by alias
+        """
+        We want to exclude from "additional_props" any real fields on the model.
+        We do this by "annotation" as we're expecting to have this by alias
+        """
         exclude: set[str] = set()
         for field_name, field_obj in cls.model_fields.items():
+            exclude.add(field_name)
             if field_obj.alias:
                 exclude.add(field_obj.alias)
-            else:
-                exclude.add(field_name)
         return exclude
 
     # @model_validator(mode='wrap')
@@ -539,54 +501,6 @@ FormKitSchemaDOMNode.model_rebuild()
 FormKitSchemaCondition.model_rebuild()
 FormKitSchemaComponent.model_rebuild()
 
-
-class FormKitTagParser(HTMLParser):
-    """
-    Reverse an HTML example to schema
-    This is for lazy copy-pasting from the formkit website :)
-    """
-
-    def __init__(self, html_content: str, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data: str | None = None
-
-        self.current_tag: FormKitSchemaFormKit | None = None
-        self.tags: list[FormKitSchemaFormKit] = []
-        self.parents: list[FormKitSchemaFormKit] = []
-        self.feed(html_content)
-
-    def handle_starttag(self, tag, attrs):
-        """
-        Read anything that's a "formtag" type
-        """
-        if tag != "formkit":
-            return
-        props = dict(attrs)
-        props["formkit"] = props.pop("type")
-
-        tag = FormKitSchemaFormKit(**props)
-        self.current_tag = tag
-
-        if self.parents:
-            self.parents[-1].children.append(tag)
-        else:
-            self.tags.append(tag)
-            self.parents.append(tag)
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag != "formkit":
-            return
-        if self.parents:
-            self.parents.pop()
-
-    def handle_data(self, data):
-        if self.current_tag and data.strip():
-            self.current_tag.children.append(data.strip())
-            # Ensure that children is included even when "exclude_unset" is True
-            # since we populated this after the initial tag build
-            self.current_tag.__fields_set__.add("children")
-
-
 FormKitSchemaDOMNode.model_rebuild()
 
 Model = TypeVar("Model", bound="BaseModel")
@@ -676,11 +590,7 @@ class FormKitSchema(RootModel):
     root: list[NodeTypes]
 
     @classmethod
-    def model_validate(
-        cls,
-        obj: Any,
-        *args, **kwargs
-    ) -> Self:
+    def model_validate(cls, obj: Any, *args, **kwargs) -> Self:
         if isinstance(obj, dict):
             obj = [obj]
         return super().model_validate(obj, *args, **kwargs)
@@ -750,6 +660,10 @@ class DiscriminatedNodeType(RootModel):
         ),
         Discriminator(get_discriminator_v),
     ]
+
+
+class DiscriminatedNodeTypeSchema(RootModel):
+    root: list[DiscriminatedNodeType]
 
 
 FormKitSchema.model_rebuild()
