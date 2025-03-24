@@ -3,16 +3,38 @@ from __future__ import annotations
 import logging
 from typing import (Annotated, Any, Dict, List, Literal, Self, TypedDict,
                     TypeVar, Union)
+import warnings
 
 from pydantic import (BaseModel, ConfigDict, Discriminator, Field,
-                      PlainValidator, RootModel, Tag, model_serializer,
+                      PlainValidator, RootModel, Tag, field_serializer, model_serializer,
                       model_validator)
+from pydantic_core import PydanticSerializationUnexpectedValue
+from pydantic.functional_validators import field_validator
+from json5 import loads as js_load
 
 """
 This is a port of selected parts of the FormKit schema
 to Pydantic models.
 """
 
+
+def parse_vue_syntax(key: str, value: str) -> tuple[str, Any] | tuple[None, None]:
+    """
+    Try to convert a Vue key,value to valid JSON
+    """
+
+    def try_convert(v):
+        try:
+            return js_load(v)
+        except ValueError:
+            pass
+        return v
+
+    if key.startswith("v-bind"):
+        return parse_vue_syntax(key.replace("v-bind", ":"), value)
+    if key.startswith(":"):
+        return key[1:], try_convert(value)
+    return None, None
 
 def get_additional_props(
     object_in: dict[str, Any], exclude: set[str] = set()
@@ -167,7 +189,7 @@ class FormKitSchemaProps(BaseModel):
     validationLabel: str | None = Field(None, alias="validation-label")
     validationVisibility: str | None = Field(None, alias="validation-visibility")
     validationMessages: Annotated[
-        str | Dict[str, str] | None, Field(None, alias="validation-messages")
+        Dict[str, str] | str | None, Field(None, alias="validation-messages")
     ]
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
@@ -230,13 +252,52 @@ class FormKitSchemaProps(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        result = handler(self)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # We get a storm of "UnexpectedValueWarnings"
+            result = handler(self)
         # return result
         if "additional_props" in result:
             if result["additional_props"] is not None:
                 result.update(result["additional_props"])
             del result["additional_props"]
+
+        # HTML attribute handling
+        # When an input HTML has an attribute beginning with a colon (:)
+        # This is a `v-bind` attribute
+        # This can be a variable, Javascript expression, or function.
+        # We can't support all of this (nor do we want to probably)
+        # but we can support the basic variable binding
+        renamed: dict[str, Any] = {}
+        renamed_fields: set[str] = set()
+        if isinstance(result, dict):
+            k: str
+            for k, v in result.items():
+                _k, _v = parse_vue_syntax(k, v)
+                if _k:
+                    renamed[_k] = _v
+                    renamed_fields.add(k)
+            result.update(renamed)
+        for k in renamed_fields:
+            result.pop(k)
+
+        # "@submit" or "@click" cannot be serialized well, they're probably best
+        # handled client side, at least for now
+        for unparseable in [k for k in result.keys() if k.startswith("@")]:
+            result.pop(unparseable)
+
         return result
+
+    @field_validator("validationMessages")
+    @classmethod
+    def validation_messages(cls, value, _info):
+        """
+        When we import from HTML we may have a string
+        However this may be JSON so coerce to a JSON object
+        if it smells like JSON
+        """
+        return value    
 
 
 # We defined this after the model above as it's a circular reference
@@ -285,6 +346,11 @@ class NodeType(FormKitSchemaProps):
             "node_type": node_type,
             "formkit": cls.model_fields["formkit"].default,
         }
+
+
+class FormNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
+    formkit: Literal["form"] = Field(default="form", alias="$formkit")
 
 
 class TextNode(NodeType):
@@ -406,7 +472,8 @@ class GroupNode(NodeType):
 # This is useful for "isinstance" checks
 # which do not work with "Annotated" below
 FormKitType = (
-    TextNode
+    FormNode
+    | TextNode
     | TextAreaNode
     | CheckBoxNode
     | PasswordNode
@@ -428,6 +495,7 @@ FormKitType = (
 
 FormKitSchemaFormKit = Annotated[
     Union[
+        FormNode,
         TextNode,
         TextAreaNode,
         CheckBoxNode,
@@ -509,6 +577,7 @@ StrBytes = str | bytes
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
 FORMKIT_TYPE = Literal[
+    "form",
     "text",
     "textarea",
     "tel",
@@ -633,7 +702,8 @@ class DiscriminatedNodeType(RootModel):
 
     root: Annotated[
         (
-            Annotated[TextNode, Tag("text")]
+            Annotated[FormNode, Tag("form")]
+            | Annotated[TextNode, Tag("text")]
             | Annotated[TextAreaNode, Tag("textarea")]
             | Annotated[CheckBoxNode, Tag("checkbox")]
             | Annotated[PasswordNode, Tag("password")]

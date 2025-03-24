@@ -28,6 +28,8 @@ class FormKitTagParser(HTMLParser):
         props["$formkit"] = props.pop("type")
 
         tag = DiscriminatedNodeType(**props)
+        if isinstance(tag, DiscriminatedNodeType):
+            tag = tag.root
         self.current_tag = tag
 
         if self.parents:
@@ -44,7 +46,10 @@ class FormKitTagParser(HTMLParser):
 
     def handle_data(self, data):
         if self.current_tag and data.strip():
-            self.current_tag.root.children.append(data.strip())
+            if self.current_tag.children is None:
+                self.current_tag.children = [data.strip()]
+            else:
+                self.current_tag.children.append(data.strip())
             # Ensure that children is included even when "exclude_unset" is True
             # since we populated this after the initial tag build
             self.current_tag.model_fields_set.add("children")
