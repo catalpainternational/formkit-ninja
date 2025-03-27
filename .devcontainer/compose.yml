@@ -33,6 +33,17 @@ services:
     # Add "forwardPorts": ["5432"] to **devcontainer.json** to forward PostgreSQL locally.
     # (Adding the "ports" property to this file will not forward from a Codespace.)
 
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    profiles:
+      - db
+    environment:
+      PGADMIN_DEFAULT_EMAIL: josh@catalpa.io
+      PGADMIN_DEFAULT_PASSWORD: postgres
+    ports:
+      - "80"
+
 volumes:
   postgres-data:
   ms-playwright:

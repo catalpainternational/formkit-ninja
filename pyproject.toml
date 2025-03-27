@@ -27,6 +27,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "django-stubs>=5.1.1",
+    "isort>=6.0.1",
     "mypy>=1.13.0",
     "psycopg2-binary>=2.9.10",
     "pytest-cov>=6.0.0",
