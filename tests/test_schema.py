@@ -1,6 +1,8 @@
 from typing import Any
+
 import json5
 import pytest
+
 from formkit_ninja import formkit_schema
 from formkit_ninja.models import FormKitSchema
 

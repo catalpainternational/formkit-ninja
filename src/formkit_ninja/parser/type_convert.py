@@ -5,7 +5,7 @@ from keyword import iskeyword
 from typing import Iterable, Literal
 
 from formkit_ninja import formkit_schema
-from formkit_ninja.formkit_schema import FormKitNode, GroupNode, RepeaterNode
+from formkit_ninja.formkit_schema import FormKitNode, GroupNode, NodeTypes, RepeaterNode
 
 FormKitType = formkit_schema.FormKitType
 
@@ -43,7 +43,7 @@ class NodePath:
     for naming
     """
 
-    def __init__(self, *nodes: FormKitType):
+    def __init__(self, *nodes: NodeTypes):
         self.nodes = nodes
 
     @classmethod

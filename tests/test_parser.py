@@ -30,8 +30,8 @@ def test_meeting_type_node():
     are the same as entered values
     """
     schema = json.loads(files(samples).joinpath("meeting_type_node.json").read_text())
-    formkit_schema.FormKitNode.parse_obj(schema[0])
-    meeting_type_schema = formkit_schema.FormKitSchema.parse_obj(schema)
+    formkit_schema.FormKitNode.model_validate(schema[0])
+    meeting_type_schema = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(schema)
     reloaded = json.loads(
         meeting_type_schema.model_dump_json(by_alias=True, exclude_none=True)
     )

@@ -2,6 +2,7 @@
 # flake8: noqa: F401 F811
 
 from http import HTTPStatus
+from typing import Mapping
 
 import pytest
 from django.test import Client
@@ -20,9 +21,10 @@ def test_node_create(admin_client: Client):
     # Add a group node
     # This is a 'partisipa' type group node with
     # an icon and a label
-    group = FormKitNodeIn(
+    group_in: Mapping[str, str] = dict(
         **{"$formkit": "group", "icon": "fa fa-user", "label": "Partisipa"}
     )
+    group = FormKitNodeIn(**group_in)
     data = group.model_dump_json(exclude_none=True)
 
     response = admin_client.post(
@@ -32,9 +34,12 @@ def test_node_create(admin_client: Client):
     )
     assert response.status_code == HTTPStatus.OK
     parent_reponse_json = response.json()
-    field = FormKitNodeIn(
+    field_in = dict(
         parent_id=parent_reponse_json["key"],
         **{"$formkit": "text", "label": "Name of my Input"},
+    )
+    field = FormKitNodeIn(
+        **field_in,
     )
 
     node_post = admin_client.post(
@@ -52,8 +57,7 @@ def test_node_create(admin_client: Client):
 
     # If we post this again, we should have another input with a deconflicted name
     field_2 = FormKitNodeIn(
-        parent_id=parent_reponse_json["key"],
-        **{"$formkit": "text", "label": "Name of my Input"},
+        **{"parent_id": parent_reponse_json["key"], "$formkit": "text", "label": "Name of my Input"},
     )
 
     node_post_2 = admin_client.post(
@@ -66,9 +70,8 @@ def test_node_create(admin_client: Client):
     # If we post this with its ID it should be recognized as an update
     # and the name should not change
     field_3 = FormKitNodeIn(
-        parent_id=parent_reponse_json["key"],
         uuid=node_uuid,
-        **{"$formkit": "text", "label": "Name of my Input"},
+        **{"parent_id": parent_reponse_json["key"], "$formkit": "text", "label": "Name of my Input"},
     )
     node_post_3 = admin_client.post(
         path=path,
@@ -78,12 +81,13 @@ def test_node_create(admin_client: Client):
     assert node_post_3.json()["node"]["name"] == "name_of_my_input"
 
     # If the name already exists and the label changes the name should not change
-    field_4 = FormKitNodeIn(
+    field_4_in = dict(
         parent_id=parent_reponse_json["key"],
         uuid=node_uuid,
         label="New Label",
         **{"$formkit": "text"},
     )
+    field_4 = FormKitNodeIn(**field_4_in)
     node_post_4 = admin_client.post(
         path=path,
         data=field_4.model_dump_json(exclude_none=True),

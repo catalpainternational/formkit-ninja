@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import logging
-from typing import (Annotated, Any, Dict, List, Literal, Self, TypedDict,
-                    TypeVar, Union)
 import warnings
+from typing import (Annotated, Any, Callable, Dict, List, Literal, Self, TypedDict,
+                    TypeVar, Union)
 
+from json5 import loads as js_load
 from pydantic import (BaseModel, ConfigDict, Discriminator, Field,
                       PlainValidator, RootModel, Tag, model_serializer,
                       model_validator)
 from pydantic.functional_validators import field_validator
-from json5 import loads as js_load
 from typing_extensions import deprecated
 
 """
@@ -251,7 +251,7 @@ class FormKitSchemaProps(BaseModel):
         return {**data, "node_type": node_type}
 
     @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
+    def serialize_model(self, handler: Callable[[Self], Any]):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

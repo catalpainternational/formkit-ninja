@@ -10,7 +10,7 @@ import django.core.exceptions
 from django import forms
 from django.contrib import admin
 from django.db.models import JSONField
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponseRedirect
 
 from formkit_ninja import formkit_schema, models
 
@@ -612,7 +612,27 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
 
 @admin.register(models.FormKitSchema)
 class FormKitSchemaAdmin(admin.ModelAdmin):
+
+    change_form_template = "formkit_ninja/schema_changeform.html"
+
     form = FormKitSchemaForm
+    
+    
+    def change_view(self, request, object_id: str, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        object: models.FormKitSchema = self.get_object(request, object_id)
+        extra_context['schema_json'] = list(object.get_schema_values(recursive=True, options=True))
+        return super(FormKitSchemaAdmin, self).change_view(
+            request, object_id, form_url, extra_context=extra_context,
+        )
+
+    def response_change(self, request, obj: models.FormKitSchema):
+        if "_publish" in request.POST:
+            obj.publish()
+            self.message_user(request, "Form has been published")
+            return HttpResponseRedirect(".")
+        return super().response_change(request, obj)
+
 
     def get_inlines(self, request, obj: models.FormKitSchema | None):
         """
@@ -686,3 +706,19 @@ class OptionLabelAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("option",)
     search_fields = ("label",)
+
+@admin.register(models.PublishedForm)
+class PublishedFormAdmin(admin.ModelAdmin):
+
+
+    list_display = (
+        "schema",
+        "published",
+        "is_active"
+    )
+    readonly_fields=(
+        "schema",
+        "published",
+        "is_active",
+        "published_schema"
+    )

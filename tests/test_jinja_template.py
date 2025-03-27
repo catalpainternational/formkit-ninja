@@ -62,13 +62,17 @@ def test_group_node_field(django_class_template: Template, group_node: NodePath)
     text = django_class_template.render(this=group_node)
     tree = ast.parse(text)
 
-    class_def = tree.body[0]
-    field_def = class_def.body[0].targets[0]
-    field_call = class_def.body[0].value
+    class_def: ast.ClassDef = tree.body[0]
+    body: ast.Assign = class_def.body[0]
+    
+    field_def: ast.Name = body.targets[0]
+    field_call: ast.Call = body.value
 
     assert class_def.name == "Foo"
-    assert class_def.bases[0].attr == "Model"
-    assert class_def.bases[0].value.id == "models"
+    attribute: ast.Attribute = class_def.bases[0]
+    assert attribute.attr == "Model"
+    attribute_value: ast.Name = attribute.value
+    assert attribute_value.id == "models"
     
     assert field_def.id == 'foonum'
 

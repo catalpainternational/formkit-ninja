@@ -711,19 +711,41 @@ class FormKitSchema(UuidIdModel):
     nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
 
+    def ordered_nodes(self):
+        return self.nodes.order_by("formcomponents__order")
+
+    def tabular(self):
+        """
+        Create a "table view" of a schema
+        """
+        data = [n.get_node().model_dump(by_alias=True, exclude_none=True) for n in self.ordered_nodes()]
+
+        # Get intersection of keys
+        keys: set[str] = set()
+        for n in data:
+            keys.update(n.keys())
+
+        keys = sorted(keys)
+        sorted_data = []
+        for col, data in enumerate(data):
+            sorted_data.append([])
+            for row, keyval in enumerate(keys):
+                sorted_data[col].append(data.get(keyval, None))
+
+        return sorted_data
+        
+
+
     def get_schema_values(self, recursive=False, options=False, **kwargs):
         """
         Return a list of "node" dicts
         """
-        nodes: Iterable[FormKitSchemaNode] = self.nodes.order_by(
-            "formcomponents__order"
-        )
-        for node in nodes:
+        for node in self.ordered_nodes():
             yield node.get_node_values(recursive=recursive, options=options, **kwargs)
 
     def to_pydantic(self):
         values = list(self.get_schema_values())
-        return formkit_schema.FormKitSchema.parse_obj(values)
+        return formkit_schema.DiscriminatedNodeTypeSchema.model_valdate(values)
 
     def __str__(self):
         return f"{self.label}" or f"{str(self.id)[:8]}"
@@ -753,6 +775,7 @@ class FormKitSchema(UuidIdModel):
         Converts a given Pydantic representation of a Schema
         to Django database fields
         """
+        warnings.warn("FormKitSchema should be replaced by DiscriminatedNodeTypeSchema", DeprecationWarning)
         instance = cls.objects.create(label=label)
         for node in itertools.chain.from_iterable(
             FormKitSchemaNode.from_pydantic(input_model.root)
@@ -795,21 +818,14 @@ class PublishedForm(models.Model):
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     published = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     is_active = models.BooleanField(default=True)
-    published_schema = models.JSONField()
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["schema", "is_active"], name="unique_active_schema"
-            )
-        ]
+    published_schema = models.JSONField(editable=False)
 
     def save(self, *args, **kwargs):
         """
         Ensure that only one schema is active at a time
         """
         if self.is_active:
-            self.__class__.objects.filter(schema=self.schema, is_active=True).update(is_active=False)
+            self.__class__.objects.filter(schema=self.schema, is_active=True).exclude(pk=self.pk).update(is_active=False)
         self.published_schema = list(self.schema.get_schema_values(recursive=True, options=True))
         return super().save(*args, **kwargs)
 

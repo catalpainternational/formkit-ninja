@@ -16,7 +16,7 @@ def _read_file(filename: str):
 
 
 def _parse_file(filename: str):
-    return formkit_schema.FormKitSchema.model_validate(_read_file(filename))
+    return formkit_schema.DiscriminatedNodeTypeSchema.model_validate(_read_file(filename))
 
 
 @pytest.fixture(params=list(schemas))
@@ -339,28 +339,13 @@ def test_schemas(schema: dict):
 
     schema_are_same(schema_out, schema)
 
-    return
-
-    import pyinstrument
-
-    profiler = pyinstrument.Profiler()
-    profiler.start()
-
     node: FormKitNode = FormKitNode.model_validate(schema)
-    profiler.stop()
-    profiler.print()
 
     parsed_node: formkit_schema.SelectNode = node.root
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
-
-    # Returning the code
-    # Database model to pydantic
     schema_from_db: FormKitNode = node_in_the_db.to_pydantic(
         recursive=True, options=True
     )
-
-    # assert schema_from_db.root.children[0].model_dump()["$formkit"] == "group"
-    # assert schema_from_db.root.children[1].children[1].if_condition == "$get(sector_id_dropdown).value"
 
     schema_out: dict = schema_from_db.model_dump(by_alias=True, exclude_none=True)
 
