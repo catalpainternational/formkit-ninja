@@ -297,7 +297,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "django-stubs", specifier = ">=5.1.1" },
-    { name = "isort", specifier = ">=6.0.1" },
+    { name = "isort" },
     { name = "mypy", specifier = ">=1.13.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "pytest-cov", specifier = ">=6.0.0" },

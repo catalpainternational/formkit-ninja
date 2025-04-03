@@ -637,6 +637,7 @@ NodeTypes = (
 )
 
 
+@deprecated("This model should be migrated to DiscriminatedNodeType")
 class FormKitNode(RootModel):
     root: NodeTypes
 
@@ -655,7 +656,7 @@ class FormKitNode(RootModel):
         return _
 
 
-@deprecated("This model should be migrated to DiscriminatedNodeType")
+@deprecated("This model should be migrated to DiscriminatedNodeTypeSchema")
 class FormKitSchema(RootModel):
     root: list[NodeTypes]
 

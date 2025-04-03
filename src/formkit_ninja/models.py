@@ -17,6 +17,7 @@ from django.db.models import F, Q
 from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
 from rich.console import Console
+from django.utils import timezone
 
 from formkit_ninja import formkit_schema, triggers
 
@@ -819,18 +820,41 @@ class PublishedForm(models.Model):
     published = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     published_schema = models.JSONField(editable=False)
+    replaced = models.DateTimeField(null=True, blank=True, help_text="When this form version was replaced by a newer version")
 
     def save(self, *args, **kwargs):
         """
-        Ensure that only one schema is active at a time
+        Ensure that only one schema is active at a time and track when forms are replaced
         """
         if self.is_active:
-            self.__class__.objects.filter(schema=self.schema, is_active=True).exclude(pk=self.pk).update(is_active=False)
+            # Get currently active forms that will be deactivated
+            to_deactivate = self.__class__.objects.filter(
+                schema=self.schema, 
+                is_active=True
+            ).exclude(pk=self.pk)
+            
+            # Set replaced timestamp on forms being deactivated
+            to_deactivate.update(
+                is_active=False,
+                replaced=timezone.now()
+            )
+
         self.published_schema = list(self.schema.get_schema_values(recursive=True, options=True))
         return super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.schema.label}"
+        base = f"{self.schema.label}"
+        if self.published:
+            base += f" (published: {self.published.strftime('%Y-%m-%d')}"
+            if self.replaced:
+                base += f" to {self.replaced.strftime('%Y-%m-%d')}"
+            elif self.is_active:
+                base += " - current"
+            base += ")"
+        return base
+
+    # TODO: Create methods to extract data from this PublishedForm.
+    # We want a JSONTable function to fetch data from a Submission.
 
 class SchemaLabel(models.Model):
     """
@@ -860,3 +884,15 @@ class SchemaDescription(models.Model):
         default="en",
         choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")),
     )
+
+class Submission(models.Model):
+    """
+    This abstract model may be adapted to suit your own model
+    """
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    form = models.ForeignKey(PublishedForm, on_delete=models.PROTECT)
+    data = models.JSONField()
+
+    class Meta:
+        abstract = True
