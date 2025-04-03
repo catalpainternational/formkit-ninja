@@ -289,3 +289,83 @@ def pydantic_class_template():
     env = get_env()
     template = env.get_template("basemodel.jinja2")
     return template
+
+
+@pytest.fixture()
+def checkbox_node():
+    return NodePath.from_obj(
+        {
+            "$formkit": "checkbox",
+            "name": "is_active",
+        }
+    )
+
+
+@pytest.fixture()
+def currency_node():
+    return NodePath.from_obj(
+        {
+            "$formkit": "currency",
+            "name": "amount",
+        }
+    )
+
+
+@pytest.fixture()
+def uuid_node():
+    return NodePath.from_obj(
+        {
+            "$formkit": "uuid",
+            "name": "id",
+        }
+    )
+
+
+@pytest.fixture()
+def date_node():
+    return NodePath.from_obj(
+        {
+            "$formkit": "date",
+            "name": "birth_date",
+        }
+    )
+
+
+@pytest.fixture()
+def datepicker_node():
+    return NodePath.from_obj(
+        {
+            "$formkit": "datepicker",
+            "name": "meeting_time",
+        }
+    )
+
+
+@pytest.fixture()
+def tel_node():
+    return NodePath.from_obj(
+        {
+            "$formkit": "tel",
+            "name": "phone",
+        }
+    )
+
+
+@pytest.fixture()
+def select_node():
+    return NodePath.from_obj(
+        {
+            "$formkit": "select",
+            "name": "country",
+        }
+    )
+
+
+@pytest.fixture()
+def hidden_node():
+    return NodePath.from_obj(
+        {
+            "$formkit": "hidden",
+            "name": "token",
+        }
+    )

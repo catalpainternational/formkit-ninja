@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "formkit_ninja",
+    "submissionsdemo",
     "ninja",
     "pgtrigger",
     "pghistory",

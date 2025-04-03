@@ -26,7 +26,7 @@ def schema(request):
 
 def test_node_parse():
     schema = json.loads(files(samples).joinpath("element.json").read_text())
-    formkit_schema.FormKitNode.model_validate(schema[0])
+    formkit_schema.DiscriminatedNodeType.model_validate(schema[0])
     _parse_file("element")
 
 
@@ -171,7 +171,7 @@ def test_children_string():
     """
     Test that a node with children as a string is parsed correctly
     """
-    node = FormKitNode.model_validate(
+    node = DiscriminatedNodeType.model_validate(
         {
             "$el": "div",
             "children": "Hello world",
@@ -185,7 +185,7 @@ def test_children_string():
 
 @pytest.mark.django_db()
 def test_parse_simple_text_node(simple_text_node: dict):
-    node: FormKitNode = FormKitNode.model_validate(simple_text_node)
+    node: FormKitNode = DiscriminatedNodeType.model_validate(simple_text_node)
     parsed_node: FormKitSchemaDOMNode = node.root
     # Before the fix, this was breaking into individual letters
     assert parsed_node.children == simple_text_node["children"] == "Priority"
@@ -219,7 +219,7 @@ def test_additional_props(formkit_text_node: dict):
     and from Pydantic to JSON.
     """
     assert formkit_text_node["class"] == "red"
-    node: FormKitNode = FormKitNode.model_validate(formkit_text_node)
+    node: FormKitNode = DiscriminatedNodeType.model_validate(formkit_text_node)
 
     # From JSON to a Pydantic class...
     # Because "class" is not a standard attribute, it is stored in the
@@ -244,7 +244,7 @@ def test_additional_props(formkit_text_node: dict):
     }
     # And out of the database again
 
-    select_node = FormKitNode.model_validate(node_in_the_db.node).root
+    select_node = DiscriminatedNodeType.model_validate(node_in_the_db.node).root
     assert node_in_the_db.additional_props == {"class": "red"}
 
     assert isinstance(select_node, SelectNode)
@@ -255,7 +255,7 @@ def test_additional_props(formkit_text_node: dict):
     assert select_node.name == "activity_type"
 
     # Now we'll do the same but we include "additional_props"
-    select_node = FormKitNode.model_validate(
+    select_node = DiscriminatedNodeType.model_validate(
         {
             **node_in_the_db.node,
             "additional_props": node_in_the_db.additional_props,
@@ -339,7 +339,7 @@ def test_schemas(schema: dict):
 
     schema_are_same(schema_out, schema)
 
-    node: FormKitNode = FormKitNode.model_validate(schema)
+    node: FormKitNode = DiscriminatedNodeType.model_validate(schema)
 
     parsed_node: formkit_schema.SelectNode = node.root
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
@@ -364,13 +364,13 @@ def test_if_condition():
         "options": '$ida(subsector, "sector_id="+$get(sector_id).value)',
     }
 
-    node: FormKitNode = FormKitNode.model_validate(schema)
-
-    assert node.model_dump(by_alias=True, exclude_none=True) == schema
+    node = DiscriminatedNodeType.model_validate(schema)
+    model_dump = node.root.model_dump(by_alias=True, exclude_none=True)
+    assert model_dump== schema
 
     assert node.root.if_condition == "$get(sector_id).value"
-    assert "if_condition" not in node.model_dump()
-    assert node.model_dump()["if"] == "$get(sector_id).value"
+    assert "if_condition" not in model_dump
+    assert model_dump["if"] == "$get(sector_id).value"
 
 
 def test_if_group_condition():
@@ -389,7 +389,7 @@ def test_if_group_condition():
         ],
     }
 
-    node: FormKitNode = FormKitNode.model_validate(schema)
+    node: FormKitNode = DiscriminatedNodeType.model_validate(schema)
     # assert node.root.children[0].if_condition == "$get(sector_id).value"
     node.root.model_dump()
     schema_out = node.model_dump(by_alias=True, exclude_none=True)
@@ -404,7 +404,7 @@ def test_protected_model(formkit_text_node: dict):
     This works right at the database level, not through the API
     We can test directly with a call to `.delete`
     """
-    node: FormKitNode = FormKitNode.model_validate(formkit_text_node)
+    node: FormKitNode = DiscriminatedNodeType.model_validate(formkit_text_node)
     parsed_node: formkit_schema.SelectNode = node.root
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
     node_in_the_db.protected = True

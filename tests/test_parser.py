@@ -30,7 +30,7 @@ def test_meeting_type_node():
     are the same as entered values
     """
     schema = json.loads(files(samples).joinpath("meeting_type_node.json").read_text())
-    formkit_schema.FormKitNode.model_validate(schema[0])
+    formkit_schema.DiscriminatedNodeType.model_validate(schema[0])
     meeting_type_schema = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(schema)
     reloaded = json.loads(
         meeting_type_schema.model_dump_json(by_alias=True, exclude_none=True)
@@ -45,7 +45,7 @@ def test_meeting_type_node():
 
 def test_repeater():
     schema = json.loads(files(samples).joinpath("repeater.json").read_text())
-    model = formkit_schema.FormKitNode.model_validate(schema[0])
+    model = formkit_schema.DiscriminatedNodeType.model_validate(schema[0])
     assert model.root.model_dump(by_alias=True, exclude_none=True)
 
 
@@ -77,7 +77,7 @@ def test_formkit_element():
             }
         ],
     }
-    validated = formkit_schema.FormKitNode.model_validate(schema)
+    validated = formkit_schema.DiscriminatedNodeType.model_validate(schema)
     object = validated.root.model_dump(by_alias=True, exclude_none=True)
     assert validated.root.node_type == "formkit"
     assert isinstance(validated.root, formkit_schema.GroupNode)

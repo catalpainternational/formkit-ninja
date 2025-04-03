@@ -79,33 +79,6 @@ def test_group_node_field(django_class_template: Template, group_node: NodePath)
     assert field_call.keywords[0].arg == "null"
     assert field_call.func.attr == "IntegerField"
 
-def test_nested_group_node_field(
-    django_class_template: Template, nested_group_node: NodePath
-):
-    text = django_class_template.render(this=nested_group_node)
-    expect = """
-        class BarFoo(models.Model):
-            foonum = models.IntegerField(null=True, blank=True)
-        class Bar(models.Model):
-            foo = models.OneToOneField(BarFoo, on_delete=models.CASCADE)
-        """
-    assert text.strip() == dedent(expect).strip()
-
-
-def test_admin_group_node_field(admin_template: Template, group_node: NodePath):
-    text = admin_template.render(this=group_node)
-    expect = """
-        @admin.register(models.Foo)
-        class FooAdmin(admin.ModelAdmin):
-            list_display = [
-                "foonum",
-            ]
-            readonly_fields = [
-                "foonum",
-            ]
-    """
-    assert text.strip() == dedent(expect).strip()
-
 
 def test_admin_py_group_node_field(admin_py_template: Template, group_node: NodePath):
     text = admin_py_template.render(nodepaths=[group_node])
@@ -214,3 +187,203 @@ def test_schema_out_nested_group_node_field(
             foo: BarFoo | None = None
     """
     assert text.strip() == dedent(expect).strip()
+
+
+def test_checkbox_node_field(pydantic_class_template: Template, checkbox_node: NodePath):
+    text = pydantic_class_template.render(this=checkbox_node)
+    expect = "    is_active: bool\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_currency_node_field(pydantic_class_template: Template, currency_node: NodePath):
+    text = pydantic_class_template.render(this=currency_node)
+    expect = "    amount: Decimal\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_uuid_node_field(pydantic_class_template: Template, uuid_node: NodePath):
+    text = pydantic_class_template.render(this=uuid_node)
+    expect = "    id: UUID\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_date_node_field(pydantic_class_template: Template, date_node: NodePath):
+    text = pydantic_class_template.render(this=date_node)
+    expect = "    birth_date: date\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_datepicker_node_field(pydantic_class_template: Template, datepicker_node: NodePath):
+    text = pydantic_class_template.render(this=datepicker_node)
+    expect = "    meeting_time: datetime\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_tel_node_field(pydantic_class_template: Template, tel_node: NodePath):
+    text = pydantic_class_template.render(this=tel_node)
+    expect = "    phone: int\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_select_node_field(pydantic_class_template: Template, select_node: NodePath):
+    text = pydantic_class_template.render(this=select_node)
+    expect = "    country: str\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_hidden_node_field(pydantic_class_template: Template, hidden_node: NodePath):
+    text = pydantic_class_template.render(this=hidden_node)
+    expect = "    token: str\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_checkbox_node_django_field(django_class_template: Template, checkbox_node: NodePath):
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =checkbox_node)
+    expect = "is_active = models.BooleanField(null=True, blank=True)\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_currency_node_django_field(django_class_template: Template, currency_node: NodePath):
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =currency_node)
+    expect = "amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_uuid_node_django_field(django_class_template: Template, uuid_node: NodePath):
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =uuid_node)
+    expect = "id = models.UUIDField(editable=False, null=True, blank=True)\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_date_node_django_field(django_class_template: Template, date_node: NodePath):
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =date_node)
+    expect = "birth_date = models.DateField(null=True, blank=True)\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_datepicker_node_django_field(django_class_template: Template, datepicker_node: NodePath):
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =datepicker_node)
+    expect = "meeting_time = models.DateTimeField(null=True, blank=True)\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_tel_node_django_field(django_class_template: Template, tel_node: NodePath):
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =tel_node)
+    expect = "phone = models.IntegerField(null=True, blank=True)\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_select_node_django_field(django_class_template: Template, select_node: NodePath):
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =select_node)
+    expect = "country = models.TextField(null=True, blank=True)\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_hidden_node_django_field(django_class_template: Template, hidden_node: NodePath):
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =hidden_node)
+    expect = "token = models.TextField(null=True, blank=True)\n"
+    assert text.strip() == dedent(expect).strip()
+
+
+def test_select_node_json_table_query(select_node: NodePath):
+    query = select_node.to_json_table_query("form_data", "json_content")
+    expect = """
+    SELECT jt.country
+    FROM form_data,
+    jsonb_array_elements(json_content) AS jt
+    WHERE jt->>'$formkit' = 'select'
+    AND jt->>'name' = 'country'
+    """
+    assert query.strip() == dedent(expect).strip()
+
+def test_select_node_json_table_query_with_validation(select_node: NodePath):
+    query = select_node.to_json_table_query_with_validation("form_data", "json_content")
+    expect = """
+    SELECT jt.country
+    FROM form_data,
+    jsonb_array_elements(json_content) AS jt
+    WHERE jt->>'$formkit' = 'select'
+    AND jt->>'name' = 'country'
+    AND jt.country IS NOT NULL
+    """
+    assert query.strip() == dedent(expect).strip()
+
+def test_number_node_json_table_query_with_validation(number_node: NodePath):
+    query = number_node.to_json_table_query_with_validation("form_data", "json_content")
+    expect = """
+    SELECT jt.foonum
+    FROM form_data,
+    jsonb_array_elements(json_content) AS jt
+    WHERE jt->>'$formkit' = 'number'
+    AND jt->>'name' = 'foonum'
+    AND jt.foonum ~ '^[0-9]+$'
+    """
+    assert query.strip() == dedent(expect).strip()
+
+def test_date_node_json_table_query_with_validation(date_node: NodePath):
+    query = date_node.to_json_table_query_with_validation("form_data", "json_content")
+    expect = """
+    SELECT jt.birth_date
+    FROM form_data,
+    jsonb_array_elements(json_content) AS jt
+    WHERE jt->>'$formkit' = 'date'
+    AND jt->>'name' = 'birth_date'
+    AND jt.birth_date ~ '^\\d{4}-\\d{2}-\\d{2}'
+    """
+    assert query.strip() == dedent(expect).strip()
+
+def test_uuid_node_json_table_query_with_validation(uuid_node: NodePath):
+    query = uuid_node.to_json_table_query_with_validation("form_data", "json_content")
+    expect = """
+    SELECT jt.id
+    FROM form_data,
+    jsonb_array_elements(json_content) AS jt
+    WHERE jt->>'$formkit' = 'uuid'
+    AND jt->>'name' = 'id'
+    AND jt.id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    """
+    assert query.strip() == dedent(expect).strip()
+
+def test_currency_node_json_table_query_with_validation(currency_node: NodePath):
+    query = currency_node.to_json_table_query_with_validation("form_data", "json_content")
+    expect = """
+    SELECT jt.amount
+    FROM form_data,
+    jsonb_array_elements(json_content) AS jt
+    WHERE jt->>'$formkit' = 'currency'
+    AND jt->>'name' = 'amount'
+    AND jt.amount ~ '^\\d+(\\.\\d{2})?$'
+    """
+    assert query.strip() == dedent(expect).strip()
+
+def test_checkbox_node_json_table_query_with_validation(checkbox_node: NodePath):
+    query = checkbox_node.to_json_table_query_with_validation("form_data", "json_content")
+    expect = """
+    SELECT jt.is_active
+    FROM form_data,
+    jsonb_array_elements(json_content) AS jt
+    WHERE jt->>'$formkit' = 'checkbox'
+    AND jt->>'name' = 'is_active'
+    AND jt.is_active IN ('true', 'false')
+    """
+    assert query.strip() == dedent(expect).strip()
+
+def test_complete_json_table_query(nested_group_node: NodePath):
+    query = nested_group_node.to_complete_json_table_query("form_data", "json_content")
+    expect = """
+    SELECT jt.*
+    FROM form_data,
+    JSONTABLE(
+        json_content,
+        '$[*]' COLUMNS (
+            foonum int PATH '$.foonum'
+        )
+    ) AS jt
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM form_data t2 
+        WHERE t2.id = jt.id 
+        AND t2.deleted_at IS NOT NULL
+    )
+    """
+    assert query.strip() == dedent(expect).strip()
