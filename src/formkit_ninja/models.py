@@ -18,6 +18,8 @@ from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
 from rich.console import Console
 from django.utils import timezone
+from django.db import models
+import json
 
 from formkit_ninja import formkit_schema, triggers
 
@@ -795,7 +797,7 @@ class FormKitSchema(UuidIdModel):
         Converts a given JSON string to a suitable
         Django representation
         """
-        schema_instance = formkit_schema.FormKitSchema.parse_obj(input_file)
+        schema_instance = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(input_file)
         return cls.from_pydantic(schema_instance)
 
     def publish(self):
@@ -865,15 +867,25 @@ class PublishedForm(models.Model):
         Returns:
             A PostgreSQL query string that extracts all fields from the submissions
         """
-        # Get all non-group fields from the schema
+        # Get all non-repeater fields from the schema
         columns = []
         for node in self.published_schema:
-            if node.get("$formkit") and not node.get("$formkit") in ["group", "repeater"]:
-                field_name = node["name"]
-                field_type = self._get_postgres_type(node["$formkit"])
-                columns.append(f"{field_name} {field_type} PATH '$.{field_name}'")
+            if node.get("$formkit"):
+                if node["$formkit"] == "group":
+                    # Handle group fields by prefixing with group name
+                    group_name = node["name"]
+                    for child in node.get("children", []):
+                        if child.get("$formkit") and not child["$formkit"] in ["group", "repeater"]:
+                            field_name = f"{group_name}_{child['name']}"
+                            field_type = self._get_postgres_type(child["$formkit"])
+                            columns.append(f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'")
+                elif node["$formkit"] != "repeater":
+                    # Handle regular fields
+                    field_name = node["name"]
+                    field_type = self._get_postgres_type(node["$formkit"])
+                    columns.append(f"{field_name} {field_type} PATH '$.{field_name}'")
 
-        # Create the JSON_TABLE query
+        # Create the JSON_TABLE query for non-repeater fields
         columns_str = ",\n    ".join(columns)
         return f"""
         SELECT jt.*
@@ -887,59 +899,107 @@ class PublishedForm(models.Model):
         WHERE form_id = '{self.id}'
         """
 
-    def get_json_table_query_with_validation(self, table_name: str = "submissions", json_column: str = "data") -> str:
+    def get_repeater_json_table_query(self, repeater_name: str, table_name: str = "submissionsdemo_submission", json_column: str = "data") -> str:
         """
-        Generate a PostgreSQL query that includes validation of the JSON structure.
-        This ensures fields exist and have the correct types.
+        Generate a PostgreSQL query using JSON_TABLE to extract data from a repeater field.
+        This creates a separate row for each item in the repeater array.
         
         Args:
-            table_name: The name of the table containing the submissions (default: "submissions")
-            json_column: The name of the column containing the JSON data (default: "data")
+            repeater_name: Name of the repeater field to extract data from
+            table_name: The name of the table containing the submissions
+            json_column: The name of the column containing the JSON data
             
         Returns:
-            A PostgreSQL query string that extracts and validates fields from the submissions
+            A PostgreSQL query string that extracts repeater field data
         """
-        validations = []
-        for node in self.published_schema:
-            if not node.get("$formkit") or node["$formkit"] in ["group", "repeater"]:
-                continue
-                
-            field_name = node["name"]
-            field_type = node["$formkit"]
-            
-            # Add type validation based on the field type
-            validation = ""
-            match field_type:
-                case "number" | "tel":
-                    validation = f"AND jt.{field_name} ~ '^[0-9]+$'"
-                case "date" | "datepicker":
-                    validation = f"AND jt.{field_name} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}'"
-                case "uuid":
-                    validation = f"AND jt.{field_name} ~ '^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$'"
-                case "checkbox":
-                    validation = f"AND jt.{field_name} IN ('true', 'false')"
-                case "currency":
-                    validation = f"AND jt.{field_name} ~ '^\\d+(\\.\\d{{2}})?$'"
-                case "email":
-                    validation = f"AND jt.{field_name} ~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{{2,}}$'"
-                case _:
-                    validation = f"AND jt.{field_name} IS NOT NULL"
-            
-            validations.append(validation)
-
-        validation_str = "\n        ".join(validations)
-        return f"""
-        SELECT jt.*
-        FROM {table_name},
-        jsonb_array_elements({json_column}) AS jt
-        WHERE form_id = '{self.id}'
-        {validation_str}
-        AND NOT EXISTS (
-            SELECT 1 
-            FROM {table_name} t2 
-            WHERE t2.id = jt.id 
-            AND t2.deleted_at IS NOT NULL
+        # Find the repeater node
+        repeater_node = next(
+            (node for node in self.published_schema if node.get("$formkit") == "repeater" and node["name"] == repeater_name),
+            None
         )
+        if not repeater_node:
+            raise ValueError(f"No repeater field found with name {repeater_name}")
+
+        # Get the columns for the repeater items
+        columns = []
+        for child in repeater_node.get("children", []):
+            if child.get("$formkit") and not child["$formkit"] in ["group", "repeater"]:
+                field_name = child["name"]
+                field_type = self._get_postgres_type(child["$formkit"])
+                columns.append(f"{field_name} {field_type} PATH '$.{field_name}'")
+
+        # Add array_index using FOR ORDINALITY
+        columns.insert(0, "array_index FOR ORDINALITY")
+
+        # Create the JSON_TABLE query
+        columns_str = ",\n    ".join(columns)
+        return f"""
+        SELECT s.id as submission_id, jt.*
+        FROM {table_name} s,
+        JSON_TABLE(
+            {json_column}->'{repeater_name}',
+            '$[*]' COLUMNS (
+                {columns_str}
+            )
+        ) AS jt
+        WHERE s.form_id = '{self.id}'
+        """
+
+    def get_flattened_json_table_query(self, table_name: str = "submissionsdemo_submission", json_column: str = "data", max_repeater_items: int = 5) -> str:
+        """
+        Generate a PostgreSQL query that flattens groups and repeaters into a single row.
+        Repeater items are numbered up to max_repeater_items.
+        
+        Args:
+            table_name: The name of the table containing the submissions
+            json_column: The name of the column containing the JSON data
+            max_repeater_items: Maximum number of items to extract from repeater fields
+            
+        Returns:
+            A PostgreSQL query string that extracts all fields in a flat structure
+        """
+        columns = []
+        
+        # First add all non-repeater fields
+        for node in self.published_schema:
+            if node.get("$formkit"):
+                if node["$formkit"] == "group":
+                    # Handle group fields by prefixing with group name
+                    group_name = node["name"]
+                    for child in node.get("children", []):
+                        if child.get("$formkit") and not child["$formkit"] in ["group", "repeater"]:
+                            field_name = f"{group_name}_{child['name']}"
+                            field_type = self._get_postgres_type(child["$formkit"])
+                            columns.append(f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'")
+                elif node["$formkit"] != "repeater":
+                    # Handle regular fields
+                    field_name = node["name"]
+                    field_type = self._get_postgres_type(node["$formkit"])
+                    columns.append(f"{field_name} {field_type} PATH '$.{field_name}'")
+
+        # Then add repeater fields with numbered columns
+        for node in self.published_schema:
+            if node.get("$formkit") == "repeater":
+                repeater_name = node["name"]
+                for i in range(max_repeater_items):
+                    for child in node.get("children", []):
+                        if child.get("$formkit") and not child["$formkit"] in ["group", "repeater"]:
+                            field_name = f"{repeater_name}_{i+1}_{child['name']}"
+                            field_type = self._get_postgres_type(child["$formkit"])
+                            columns.append(f"{field_name} {field_type} PATH '$.{repeater_name}[{i}].{child['name']}'")
+
+        # Create the JSON_TABLE query
+        columns_str = ",\n    ".join(columns)
+        return f"""
+        SELECT s.id as submission_id, jt.*
+        FROM {table_name} s,
+        JSON_TABLE(
+            s.{json_column},
+            '$' COLUMNS (
+                {columns_str}
+            )
+        ) AS jt
+        WHERE s.form_id = '{self.id}'
         """
 
     def _get_postgres_type(self, formkit_type: str) -> str:
@@ -1000,4 +1060,8 @@ class Submission(models.Model):
     data = models.JSONField()
 
     class Meta:
+        ordering = ['-created_at']
         abstract = True
+
+    def __str__(self):
+        return f"Submission {self.id} for {self.form}"

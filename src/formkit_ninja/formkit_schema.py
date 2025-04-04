@@ -353,6 +353,12 @@ class FormNode(NodeType):
     formkit: Literal["form"] = Field(default="form", alias="$formkit")
 
 
+class SubmitNode(NodeType):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
+    formkit: Literal["submit"] = Field(default="submit", alias="$formkit")
+    label: str | None = None
+
+
 class TextNode(NodeType):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["text"] = Field(default="text", alias="$formkit")
@@ -491,6 +497,7 @@ FormKitType = (
     | CurrencyNode
     | HiddenNode
     | UuidNode
+    | SubmitNode
 )
 
 FormKitSchemaFormKit = Annotated[
@@ -514,6 +521,7 @@ FormKitSchemaFormKit = Annotated[
         HiddenNode,
         UuidNode,
         RepeaterNode,
+        SubmitNode,
     ],
     Field(discriminator="formkit"),
 ]
@@ -722,6 +730,7 @@ class DiscriminatedNodeType(RootModel):
             | Annotated[CurrencyNode, Tag("currency")]
             | Annotated[HiddenNode, Tag("hidden")]
             | Annotated[UuidNode, Tag("uuid")]
+            | Annotated[SubmitNode, Tag("submit")]
             # Additional types
             | Annotated[FormKitSchemaAttributesCondition, Tag("condition")]
             | Annotated[FormKitSchemaDOMNode, Tag("element")]

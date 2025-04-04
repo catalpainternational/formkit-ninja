@@ -5,27 +5,17 @@
 <div id="content-main">
     <h1>{{ title }}</h1>
 
+    <div style="margin-bottom: 20px;">
+        <a href="{% url 'admin:publishedform_query_results' original.pk %}" class="button">← Back to Main Results</a>
+    </div>
+
     {% if error %}
         <div class="errornote">
             {{ error }}
         </div>
     {% else %}
-        {% if repeater_fields %}
-            <div class="module">
-                <h2>Repeater Fields</h2>
-                <ul>
-                    {% for repeater in repeater_fields %}
-                        <li>
-                            <a href="{% url 'admin:publishedform_repeater_results' original.pk repeater %}" 
-                               class="button">View {{ repeater }} Data</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        {% endif %}
-
         <div class="module">
-            <h2>Main Form Data</h2>
+            <h2>{{ repeater_name }} Data</h2>
             {% if results %}
                 <table>
                     <thead>

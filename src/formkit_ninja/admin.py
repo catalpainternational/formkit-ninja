@@ -736,14 +736,26 @@ class PublishedFormAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.query_results_view),
                 name='publishedform_query_results',
             ),
+            path(
+                '<path:object_id>/repeater-results/<str:repeater_name>/',
+                self.admin_site.admin_view(self.repeater_query_results_view),
+                name='publishedform_repeater_results',
+            ),
         ]
         return custom_urls + urls
 
     def query_results_view(self, request, object_id):
         """View to display the results of the JSON table query"""
-        obj = self.get_object(request, object_id)
+        obj: models.PublishedForm = self.get_object(request, object_id)
         if obj is None:
             return self._get_obj_does_not_exist_redirect(request, models.PublishedForm._meta, object_id)
+
+        # Get repeater fields from the schema
+        repeater_fields = [
+            node["name"] 
+            for node in obj.published_schema 
+            if node.get("$formkit") == "repeater"
+        ]
 
         context = {
             **self.admin_site.each_context(request),
@@ -755,10 +767,11 @@ class PublishedFormAdmin(admin.ModelAdmin):
             'has_delete_permission': False,
             'has_add_permission': False,
             'has_change_permission': False,
+            'repeater_fields': repeater_fields,
         }
 
         try:
-            # Execute the query
+            # Execute the main query
             with connection.cursor() as cursor:
                 cursor.execute(obj.get_json_table_query())
                 results = cursor.fetchall()
@@ -778,11 +791,45 @@ class PublishedFormAdmin(admin.ModelAdmin):
             context,
         )
 
-    def change_view(self, request, object_id, form_url='', extra_context=None):
-        """Add the query results URL to the context"""
-        extra_context = extra_context or {}
-        extra_context['show_query_results'] = True
-        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+    def repeater_query_results_view(self, request, object_id, repeater_name):
+        """View to display the results of a specific repeater query"""
+        obj: models.PublishedForm = self.get_object(request, object_id)
+        if obj is None:
+            return self._get_obj_does_not_exist_redirect(request, models.PublishedForm._meta, object_id)
+
+        context = {
+            **self.admin_site.each_context(request),
+            'title': f'Repeater Results for {repeater_name} in {obj.schema.label}',
+            'original': obj,
+            'repeater_name': repeater_name,
+            'is_popup': False,
+            'save_as': False,
+            'show_save': False,
+            'has_delete_permission': False,
+            'has_add_permission': False,
+            'has_change_permission': False,
+        }
+
+        try:
+            # Execute the repeater query
+            with connection.cursor() as cursor:
+                cursor.execute(obj.get_repeater_json_table_query(repeater_name))
+                results = cursor.fetchall()
+                # Get column names from cursor description
+                columns = [col[0] for col in cursor.description] if cursor.description else []
+                
+            context.update({
+                'results': results,
+                'columns': columns,
+            })
+        except Exception as e:
+            context['error'] = str(e)
+
+        return TemplateResponse(
+            request,
+            'formkit_ninja/published_form_repeater_view.html',
+            context,
+        )
 
     def formatted_published_schema(self, obj):
         """Display the published schema JSON in a formatted way"""
