@@ -1,0 +1,41 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+    <h1>JSON Table Query Results for {{ original.schema.label }}</h1>
+    
+    <div style="margin-bottom: 20px;">
+        <a href="{% url 'admin:formkit_ninja_publishedform_change' original.pk %}" class="button">← Back to Published Form</a>
+    </div>
+
+    {% if error %}
+        <div class="errornote">
+            {{ error }}
+        </div>
+    {% else %}
+        {% if results %}
+            <table>
+                <thead>
+                    <tr>
+                        {% for column in columns %}
+                            <th>{{ column }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results %}
+                        <tr>
+                            {% for value in row %}
+                                <td>{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No results found.</p>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %} 

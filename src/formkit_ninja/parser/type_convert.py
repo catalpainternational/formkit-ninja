@@ -451,18 +451,12 @@ class NodePath:
         return f"""
         SELECT jt.*
         FROM {table_name},
-        JSONTABLE(
+        JSON_TABLE(
             {json_column},
             '$[*]' COLUMNS (
                 {columns_str}
             )
         ) AS jt
-        WHERE NOT EXISTS (
-            SELECT 1 
-            FROM {table_name} t2 
-            WHERE t2.id = jt.id 
-            AND t2.deleted_at IS NOT NULL
-        )
         """
 
     def to_json_table_query_with_validation(self, table_name: str, json_column: str) -> str:

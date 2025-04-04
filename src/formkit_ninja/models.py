@@ -853,8 +853,112 @@ class PublishedForm(models.Model):
             base += ")"
         return base
 
-    # TODO: Create methods to extract data from this PublishedForm.
-    # We want a JSONTable function to fetch data from a Submission.
+    def get_json_table_query(self, table_name: str = "submissionsdemo_submission", json_column: str = "data") -> str:
+        """
+        Generate a PostgreSQL query using JSON_TABLE to extract all fields from form submissions.
+        Requires PostgreSQL 17+.
+        
+        Args:
+            table_name: The name of the table containing the submissions (default: "submissions")
+            json_column: The name of the column containing the JSON data (default: "data")
+            
+        Returns:
+            A PostgreSQL query string that extracts all fields from the submissions
+        """
+        # Get all non-group fields from the schema
+        columns = []
+        for node in self.published_schema:
+            if node.get("$formkit") and not node.get("$formkit") in ["group", "repeater"]:
+                field_name = node["name"]
+                field_type = self._get_postgres_type(node["$formkit"])
+                columns.append(f"{field_name} {field_type} PATH '$.{field_name}'")
+
+        # Create the JSON_TABLE query
+        columns_str = ",\n    ".join(columns)
+        return f"""
+        SELECT jt.*
+        FROM {table_name},
+        JSON_TABLE(
+            {json_column},
+            '$' COLUMNS (
+                {columns_str}
+            )
+        ) AS jt
+        WHERE form_id = '{self.id}'
+        """
+
+    def get_json_table_query_with_validation(self, table_name: str = "submissions", json_column: str = "data") -> str:
+        """
+        Generate a PostgreSQL query that includes validation of the JSON structure.
+        This ensures fields exist and have the correct types.
+        
+        Args:
+            table_name: The name of the table containing the submissions (default: "submissions")
+            json_column: The name of the column containing the JSON data (default: "data")
+            
+        Returns:
+            A PostgreSQL query string that extracts and validates fields from the submissions
+        """
+        validations = []
+        for node in self.published_schema:
+            if not node.get("$formkit") or node["$formkit"] in ["group", "repeater"]:
+                continue
+                
+            field_name = node["name"]
+            field_type = node["$formkit"]
+            
+            # Add type validation based on the field type
+            validation = ""
+            match field_type:
+                case "number" | "tel":
+                    validation = f"AND jt.{field_name} ~ '^[0-9]+$'"
+                case "date" | "datepicker":
+                    validation = f"AND jt.{field_name} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}'"
+                case "uuid":
+                    validation = f"AND jt.{field_name} ~ '^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$'"
+                case "checkbox":
+                    validation = f"AND jt.{field_name} IN ('true', 'false')"
+                case "currency":
+                    validation = f"AND jt.{field_name} ~ '^\\d+(\\.\\d{{2}})?$'"
+                case "email":
+                    validation = f"AND jt.{field_name} ~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{{2,}}$'"
+                case _:
+                    validation = f"AND jt.{field_name} IS NOT NULL"
+            
+            validations.append(validation)
+
+        validation_str = "\n        ".join(validations)
+        return f"""
+        SELECT jt.*
+        FROM {table_name},
+        jsonb_array_elements({json_column}) AS jt
+        WHERE form_id = '{self.id}'
+        {validation_str}
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM {table_name} t2 
+            WHERE t2.id = jt.id 
+            AND t2.deleted_at IS NOT NULL
+        )
+        """
+
+    def _get_postgres_type(self, formkit_type: str) -> str:
+        """Map FormKit types to PostgreSQL types"""
+        match formkit_type:
+            case "number" | "tel":
+                return "integer"
+            case "date":
+                return "date"
+            case "datepicker":
+                return "timestamp"
+            case "checkbox":
+                return "boolean"
+            case "currency":
+                return "decimal"
+            case "uuid":
+                return "uuid"
+            case _:
+                return "text"
 
 class SchemaLabel(models.Model):
     """
@@ -891,6 +995,7 @@ class Submission(models.Model):
     """
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
     form = models.ForeignKey(PublishedForm, on_delete=models.PROTECT)
     data = models.JSONField()
 

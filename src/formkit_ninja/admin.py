@@ -5,12 +5,17 @@ import operator
 import warnings
 from collections import Counter
 from functools import reduce
+import json
 
 import django.core.exceptions
 from django import forms
 from django.contrib import admin
+from django.db import connection
 from django.db.models import JSONField
 from django.http import HttpRequest, HttpResponseRedirect
+from django.template.response import TemplateResponse
+from django.urls import path
+from django.utils.safestring import mark_safe
 
 from formkit_ninja import formkit_schema, models
 
@@ -500,9 +505,9 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         self, request: HttpRequest, obj: models.FormKitSchemaNode | None = None
     ):
         """
-        Set fieldsets to control the layout of admin “add” and “change” pages.
+        Set fieldsets to control the layout of admin "add" and "change" pages.
         fieldsets is a list of two-tuples, in which each two-tuple represents a <fieldset>
-        on the admin form page. (A <fieldset> is a “section” of the form.)
+        on the admin form page. (A <fieldset> is a "section" of the form.)
         """
         fieldsets: list[tuple[str, dict]] = []
         if not getattr(obj, "node_type", None):
@@ -709,16 +714,102 @@ class OptionLabelAdmin(admin.ModelAdmin):
 
 @admin.register(models.PublishedForm)
 class PublishedFormAdmin(admin.ModelAdmin):
-
-
     list_display = (
         "schema",
         "published",
         "is_active"
     )
-    readonly_fields=(
+    readonly_fields = (
         "schema",
         "published",
         "is_active",
-        "published_schema"
+        "formatted_published_schema",
+        "json_table_query",
+        "json_table_query_with_validation"
     )
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                '<path:object_id>/query-results/',
+                self.admin_site.admin_view(self.query_results_view),
+                name='publishedform_query_results',
+            ),
+        ]
+        return custom_urls + urls
+
+    def query_results_view(self, request, object_id):
+        """View to display the results of the JSON table query"""
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            return self._get_obj_does_not_exist_redirect(request, models.PublishedForm._meta, object_id)
+
+        context = {
+            **self.admin_site.each_context(request),
+            'title': f'Query Results for {obj.schema.label}',
+            'original': obj,
+            'is_popup': False,
+            'save_as': False,
+            'show_save': False,
+            'has_delete_permission': False,
+            'has_add_permission': False,
+            'has_change_permission': False,
+        }
+
+        try:
+            # Execute the query
+            with connection.cursor() as cursor:
+                cursor.execute(obj.get_json_table_query())
+                results = cursor.fetchall()
+                # Get column names from cursor description
+                columns = [col[0] for col in cursor.description] if cursor.description else []
+                
+            context.update({
+                'results': results,
+                'columns': columns,
+            })
+        except Exception as e:
+            context['error'] = str(e)
+
+        return TemplateResponse(
+            request,
+            'formkit_ninja/published_form_query_view.html',
+            context,
+        )
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        """Add the query results URL to the context"""
+        extra_context = extra_context or {}
+        extra_context['show_query_results'] = True
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
+    def formatted_published_schema(self, obj):
+        """Display the published schema JSON in a formatted way"""
+        if obj and obj.published_schema:
+            formatted_json = json.dumps(obj.published_schema, indent=2)
+            return mark_safe(f'<pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px;">{formatted_json}</pre>')
+        return ""
+    formatted_published_schema.short_description = "Published Schema"
+
+    def json_table_query(self, obj):
+        """Display the JSON table query in the admin"""
+        if obj:
+            query_html = f'<pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px;">{obj.get_json_table_query()}</pre>'
+            if obj.pk:
+                url = f'../../{obj.pk}/query-results/'
+                query_html += f'<p><a class="button" href="{url}">View Query Results</a></p>'
+            return mark_safe(query_html)
+        return ""
+    json_table_query.short_description = "JSON Table Query"
+
+    def json_table_query_with_validation(self, obj):
+        """Display the JSON table query with validation in the admin"""
+        if obj:
+            return mark_safe(f'<pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px;">{obj.get_json_table_query_with_validation()}</pre>')
+        return ""
+    json_table_query_with_validation.short_description = "JSON Table Query with Validation"
+
+    def has_add_permission(self, request):
+        """Forms can only be published through the FormKitSchema admin"""
+        return False
