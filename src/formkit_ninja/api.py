@@ -188,7 +188,7 @@ def get_components(request):
 
 @router.get(
     "schema/by-uuid/{schema_id}",
-    response=formkit_schema.FormKitSchema,
+    response=formkit_schema.DiscriminatedNodeTypeSchema,
     exclude_none=True,
     by_alias=True,
 )
@@ -205,7 +205,7 @@ def get_schemas(request, schema_id: UUID):
 
 @router.get(
     "schema/all",
-    response=list[formkit_schema.FormKitSchema],
+    response=list[formkit_schema.DiscriminatedNodeTypeSchema],
     exclude_none=True,
     by_alias=True,
 )
@@ -220,7 +220,7 @@ def get_all_schemas(request):
 
 @router.get(
     "schema/by-label/{label}",
-    response=formkit_schema.FormKitSchema,
+    response=formkit_schema.DiscriminatedNodeTypeSchema,
     exclude_none=True,
     by_alias=True,
 )
