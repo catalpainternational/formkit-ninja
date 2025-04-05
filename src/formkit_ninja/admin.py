@@ -722,6 +722,7 @@ class PublishedFormAdmin(admin.ModelAdmin):
     readonly_fields = (
         "schema",
         "published",
+        "replaced",
         "is_active",
         "formatted_published_schema",
         "json_table_query",
