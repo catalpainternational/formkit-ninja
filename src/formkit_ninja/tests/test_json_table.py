@@ -16,7 +16,7 @@ def registration_schema():
     with open(schema_file) as f:
         schema_data = json.load(f)
     
-    schema = FormKitSchema.from_json(schema_data)
+    schema = FormKitSchema.from_json(schema_data['children'])
     schema.label = "Registration with Family"
     schema.save()
     return schema.publish()

@@ -1,51 +1,54 @@
-[
-    {
-        "$formkit": "text",
-        "name": "full_name",
-        "label": "Your Full Name",
-        "validation": "required"
-    },
-    {
-        "$formkit": "email",
-        "name": "email",
-        "label": "Your Email Address",
-        "validation": "required|email"
-    },
-    {
-        "$formkit": "tel",
-        "name": "phone",
-        "label": "Your Phone Number",
-        "validation": "required|number|length:9,12"
-    },
-    {
-        "$formkit": "repeater",
-        "name": "family_members",
-        "label": "Family Members",
-        "children": [
-            {
-                "$formkit": "text",
-                "name": "name",
-                "label": "Family Member Name",
-                "validation": "required"
-            },
-            {
-                "$formkit": "email",
-                "name": "email",
-                "label": "Family Member Email",
-                "validation": "required|email"
-            },
-            {
-                "$formkit": "tel",
-                "name": "phone",
-                "label": "Family Member Phone",
-                "validation": "required|number|length:9,12"
-            }
-        ]
-    },
-    {
-        "$formkit": "checkbox",
-        "name": "terms",
-        "label": "I agree to the terms and conditions",
-        "validation": "required"
-    }
-]
+{
+    "$formkit": "group",
+    "children": [
+        {
+            "$formkit": "text",
+            "name": "full_name",
+            "label": "Your Full Name",
+            "validation": "required"
+        },
+        {
+            "$formkit": "email",
+            "name": "email",
+            "label": "Your Email Address",
+            "validation": "required|email"
+        },
+        {
+            "$formkit": "tel",
+            "name": "phone",
+            "label": "Your Phone Number",
+            "validation": "required|number|length:9,12"
+        },
+        {
+            "$formkit": "repeater",
+            "name": "family_members",
+            "label": "Family Members",
+            "children": [
+                {
+                    "$formkit": "text",
+                    "name": "name",
+                    "label": "Family Member Name",
+                    "validation": "required"
+                },
+                {
+                    "$formkit": "email",
+                    "name": "email",
+                    "label": "Family Member Email",
+                    "validation": "required|email"
+                },
+                {
+                    "$formkit": "tel",
+                    "name": "phone",
+                    "label": "Family Member Phone",
+                    "validation": "required|number|length:9,12"
+                }
+            ]
+        },
+        {
+            "$formkit": "checkbox",
+            "name": "terms",
+            "label": "I agree to the terms and conditions",
+            "validation": "required"
+        }
+    ]
+}
