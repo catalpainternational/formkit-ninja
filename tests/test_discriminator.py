@@ -196,64 +196,6 @@ sf_repeater = {
             ],
         },
         {"$formkit": "uuid", "name": "uuid", "readonly": True},
-        #   {
-        #    "$formkit": "select",
-        #    "label": "$gettext(\"Round\")",
-        #    "name": "round",
-        #    "options":  "$ida(electionround)",
-        #    "placeholder": "$gettext(\"Please select\")"
-        #   },
-        #   {
-        #    "$formkit": "select",
-        #    "label": "$gettext(\"Position\")",
-        #    "name": "position",
-        #    "options": "$ida(teamposition, \"group_id=2\")",
-        #    "placeholder": "$gettext(\"Please select\")"
-        #   },
-        #   {
-        #    "$formkit": "text",
-        #    "label": "$gettext(\"Name\")",
-        #    "name": "name",
-        #    "placeholder": "$gettext(\"Please enter\")"
-        #   },
-        #   {
-        #    "$formkit": "select",
-        #    "label": "$gettext(\"Gender\")",
-        #    "name": "gender",
-        #    "options": "$ida(gender)",
-        #    "placeholder": "$gettext(\"Please select\")"
-        #   },
-        #   {
-        #    "$formkit": "select",
-        #    "label": "$gettext(\"Person with a disability\")",
-        #    "name": "person_with_disability",
-        #    "options": "$ida(yesno)",
-        #    "placeholder": "$gettext(\"Please select\")"
-        #   },
-        #   {
-        #    "$formkit": "tel",
-        #    "label": "$gettext(\"Phone number\")",
-        #    "maxLength": 8,
-        #    "name": "phone_number",
-        #    "validation": "number|length:8,8"
-        #   },
-        #   {
-        #    "$formkit": "date",
-        #    "label": "$gettext(\"Date of exit from the committee\")",
-        #    "name": "date_exit_committee"
-        #   },
-        #   {
-        #    "$formkit": "text",
-        #    "label": "$gettext(\"Reason for exit\")",
-        #    "name": "exit_details"
-        #   },
-        #   {
-        #    "$formkit": "select",
-        #    "label": "$gettext(\"Is active?\")",
-        #    "name": "active_status",
-        #    "options": "$ida(yesno)",
-        #    "value": "1"
-        #   }
     ],
     "downControl": False,
     "id": "repeaterSukus",
@@ -417,6 +359,10 @@ def test_param_schemas(schema: dict[str, Any] | dict[str, str]):
     schema_out = model_validated.root.model_dump(by_alias=True, exclude_none=True)
     assert schema_out == schema
 
+def test_sf_repeater():
+    model_validated = DiscriminatedNodeType.model_validate(sf_repeater)
+    schema_out = model_validated.root.model_dump(by_alias=True, exclude_none=True)
+    assert schema_out == sf_repeater
 
 def test_el():
     div_el = {

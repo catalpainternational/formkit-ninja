@@ -457,12 +457,6 @@ class FormKitSchemaNode(UuidIdModel):
         help_text="A JSON representation of select parts of the FormKit schema",
     )
 
-    additional_props = models.JSONField(
-        null=True,
-        blank=True,
-        help_text="User space for additional, less used props",
-    )
-
     text_content = models.TextField(
         null=True,
         blank=True,
@@ -534,8 +528,6 @@ class FormKitSchemaNode(UuidIdModel):
             ]
             if children:
                 values["children"] = children
-        if self.additional_props and len(self.additional_props) > 0:
-            values["additional_props"] = self.additional_props
 
         if values == {}:
             if self.node_type == "$el":
@@ -564,6 +556,8 @@ class FormKitSchemaNode(UuidIdModel):
                 **kwargs, recursive=recursive, options=options
             )
 
+        
+
         formkit_node = formkit_schema.DiscriminatedNodeType.model_validate(node_content)
         return formkit_node.root
 
@@ -577,8 +571,6 @@ class FormKitSchemaNode(UuidIdModel):
                 break
 
         # Node types
-        if props := getattr(input_model, "additional_props", None):
-            instance.additional_props = props
         try:
             node_type = getattr(input_model, "node_type")
         except Exception as E:
@@ -594,18 +586,26 @@ class FormKitSchemaNode(UuidIdModel):
 
         log(f"[green]Yielding: {instance}")
 
-        # Must save the instance before  adding "options" or "children"
+        # Must save the instance before adding "options" or "children"
+        
+        # Get additional props and include them in node
+        additional_props = getattr(input_model, "additional_props", None)
+        
         instance.node = input_model.model_dump(
             exclude={
                 "options",
                 "children",
-                "additional_props",
                 "node_type",
             },
             exclude_none=True,
             exclude_unset=True,
             by_alias=True,
         )
+        
+        # Include additional props in node if available
+        if additional_props:
+            instance.node.update(additional_props)
+            
         # Where an alias is used ("el", ) restore it to the expected value
         # of a FormKit schema node
         for pydantic_key, db_key in (("el", "$el"), ("formkit", "$formkit")):
@@ -748,7 +748,7 @@ class FormKitSchema(UuidIdModel):
 
     def to_pydantic(self):
         values = list(self.get_schema_values())
-        return formkit_schema.DiscriminatedNodeTypeSchema.model_valdate(values)
+        return formkit_schema.DiscriminatedNodeTypeSchema.model_validate(values)
 
     def __str__(self):
         return f"{self.label}" or f"{str(self.id)[:8]}"
@@ -824,6 +824,10 @@ class PublishedForm(models.Model):
     published_schema = models.JSONField(editable=False)
     replaced = models.DateTimeField(null=True, blank=True, help_text="When this form version was replaced by a newer version")
 
+    @property
+    def name(self):
+        return self.schema.label
+
     def save(self, *args, **kwargs):
         """
         Ensure that only one schema is active at a time and track when forms are replaced
@@ -841,6 +845,7 @@ class PublishedForm(models.Model):
                 replaced=timezone.now()
             )
 
+        # Hard coded schema avoids potential changes we don't intend to make
         self.published_schema = list(self.schema.get_schema_values(recursive=True, options=True))
         return super().save(*args, **kwargs)
 
@@ -873,7 +878,12 @@ class PublishedForm(models.Model):
             if node.get("$formkit"):
                 if node["$formkit"] == "group":
                     # Handle group fields by prefixing with group name
-                    group_name = node["name"]
+                    if "name" in node:
+                        group_name = node["name"]
+                    elif "id" in node:
+                        group_name = node["id"]
+                    else:
+                        group_name = "unnamed group"
                     for child in node.get("children", []):
                         if child.get("$formkit") and not child["$formkit"] in ["group", "repeater"]:
                             field_name = f"{group_name}_{child['name']}"

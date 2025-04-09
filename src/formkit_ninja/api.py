@@ -478,3 +478,21 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     return node_queryset_response(
         models.FormKitSchemaNode.objects.filter(pk__in=[child.pk])
     )[0]
+
+class PublishedFormSchemaOut(ModelSchema):
+    name: str = Field(alias="name")
+    
+    class Meta:
+        model = models.PublishedForm
+        fields = ["schema", "id", "published", "published_schema", "is_active", "replaced"]
+
+@router.get(
+    "published",
+    response=list[PublishedFormSchemaOut],
+    exclude_defaults=False,
+    exclude_none=True,
+    by_alias=True,
+)
+def get_published_forms(request):
+    values = models.PublishedForm.objects.all()
+    return values

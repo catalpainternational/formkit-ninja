@@ -4,7 +4,7 @@ from importlib.resources import files
 import pytest
 
 from formkit_ninja import formkit_schema, models, samples
-from formkit_ninja.formkit_schema import (DiscriminatedNodeType, FormKitNode,
+from formkit_ninja.formkit_schema import (DiscriminatedNodeType, DiscriminatedNodeTypeSchema, FormKitNode,
                                           FormKitSchemaDOMNode, SelectNode)
 from formkit_ninja.schemas import Schemas
 
@@ -328,10 +328,10 @@ def schema_are_same(in_: dict | str, out_: dict | str):
 
 
 @pytest.mark.django_db()
-def test_schemas(schema: dict):
+def test_schemas(schema: dict | list):
     m = DiscriminatedNodeType.model_validate(schema)
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(m.root))[0]
-    schema_from_db: FormKitNode = node_in_the_db.to_pydantic(
+    schema_from_db = node_in_the_db.to_pydantic(
         recursive=True, options=True
     )
 
@@ -339,11 +339,11 @@ def test_schemas(schema: dict):
 
     schema_are_same(schema_out, schema)
 
-    node: FormKitNode = DiscriminatedNodeType.model_validate(schema)
+    node = DiscriminatedNodeType.model_validate(schema)
 
     parsed_node: formkit_schema.SelectNode = node.root
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
-    schema_from_db: FormKitNode = node_in_the_db.to_pydantic(
+    schema_from_db = node_in_the_db.to_pydantic(
         recursive=True, options=True
     )
 

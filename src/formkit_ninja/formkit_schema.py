@@ -203,6 +203,12 @@ class FormKitSchemaProps(BaseModel):
     )
     model_config = ConfigDict(populate_by_name=True)
 
+    # Specifically for the "tel" input
+    maxLength: int | None = Field(None)
+    minLength: int | None = Field(None)
+
+    addLabel: str | None = Field(None)
+
     @classmethod
     def exclude_fields(cls) -> set[str]:
         """
@@ -700,7 +706,7 @@ def get_discriminator_v(v: Any) -> str:
     elif hasattr(v, "cmp"):
         return "element"
 
-    raise AssertionError("Could not determine node type")
+    raise TypeError(f"Could not determine node type for {v}")
 
 
 class DiscriminatedNodeType(RootModel):
