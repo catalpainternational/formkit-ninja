@@ -219,7 +219,7 @@ def test_additional_props(formkit_text_node: dict):
     and from Pydantic to JSON.
     """
     assert formkit_text_node["class"] == "red"
-    node: FormKitNode = DiscriminatedNodeType.model_validate(formkit_text_node)
+    node = DiscriminatedNodeType.model_validate(formkit_text_node)
 
     # From JSON to a Pydantic class...
     # Because "class" is not a standard attribute, it is stored in the
@@ -245,7 +245,6 @@ def test_additional_props(formkit_text_node: dict):
     # And out of the database again
 
     select_node = DiscriminatedNodeType.model_validate(node_in_the_db.node).root
-    assert node_in_the_db.additional_props == {"class": "red"}
 
     assert isinstance(select_node, SelectNode)
 

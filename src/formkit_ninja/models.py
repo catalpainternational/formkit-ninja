@@ -457,6 +457,12 @@ class FormKitSchemaNode(UuidIdModel):
         help_text="A JSON representation of select parts of the FormKit schema",
     )
 
+    additional_props = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="User space for additional, less used props",
+    )
+
     text_content = models.TextField(
         null=True,
         blank=True,
@@ -535,6 +541,9 @@ class FormKitSchemaNode(UuidIdModel):
             elif self.node_type == "$formkit":
                 values.update({"$formkit": "text"})
 
+        if self.additional_props and len(self.additional_props) > 0:
+            values["additional_props"] = self.additional_props
+
         return values
 
     def get_node(
@@ -571,6 +580,8 @@ class FormKitSchemaNode(UuidIdModel):
                 break
 
         # Node types
+        if props := getattr(input_model, "additional_props", None):
+            instance.additional_props = props
         try:
             node_type = getattr(input_model, "node_type")
         except Exception as E:
@@ -586,25 +597,18 @@ class FormKitSchemaNode(UuidIdModel):
 
         log(f"[green]Yielding: {instance}")
 
-        # Must save the instance before adding "options" or "children"
-        
-        # Get additional props and include them in node
-        additional_props = getattr(input_model, "additional_props", None)
-        
+        # Must save the instance before  adding "options" or "children"
         instance.node = input_model.model_dump(
             exclude={
                 "options",
                 "children",
+                "additional_props",
                 "node_type",
             },
             exclude_none=True,
             exclude_unset=True,
             by_alias=True,
         )
-        
-        # Include additional props in node if available
-        if additional_props:
-            instance.node.update(additional_props)
             
         # Where an alias is used ("el", ) restore it to the expected value
         # of a FormKit schema node
