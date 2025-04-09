@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "django-cors-headers>=4.7.0",
     "django-ninja>=1",
     "django-pghistory>=3.5.0",
     "django-pgtrigger>=4.13.2",
@@ -45,6 +46,9 @@ docs = [
 jupyter = [
     "ipykernel>=6.29.5",
     "rich>=13.9.4",
+]
+test = [
+    "pytest-cov>=6.0.0",
 ]
 
 [tool.mypy]
