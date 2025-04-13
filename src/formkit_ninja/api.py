@@ -59,15 +59,6 @@ class FormKitSchemaListOut(ModelSchema):
         fields = ["id", "label"]
 
 
-class FormComponentsOut(ModelSchema):
-    node_id: UUID
-    schema_id: UUID
-
-    class Meta:
-        model = models.FormComponents
-        fields = ["label"]
-
-
 class NodeChildrenOut(ModelSchema):
     children: list[UUID] = []
     latest_change: int | None = None
@@ -172,18 +163,6 @@ def get_related_nodes(request, response: HttpResponse, latest_change: int | None
     add_never_cache_headers(response)
     objects: models.NodeChildrenManager = models.NodeChildren.objects
     return objects.aggregate_changes_table(latest_change=latest_change)
-
-
-@router.get(
-    "list-components",
-    response=list[FormComponentsOut],
-    exclude_defaults=True,
-    exclude_none=True,
-    by_alias=True,
-)
-def get_components(request):
-    values = models.FormComponents.objects.all()
-    return values
 
 
 @router.get(
@@ -484,7 +463,7 @@ class PublishedFormSchemaOut(ModelSchema):
     
     class Meta:
         model = models.PublishedForm
-        fields = ["schema", "id", "published", "published_schema", "is_active", "replaced"]
+        fields = ["schema", "id", "published", "is_active", "replaced"]
 
 @router.get(
     "published",

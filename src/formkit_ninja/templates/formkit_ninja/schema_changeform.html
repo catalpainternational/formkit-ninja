@@ -1,8 +1,16 @@
-{% extends 'admin/change_form.html' %}
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
 
-{% block content %}
-{{ block.super }}
-{{schema_json}}
+{% block field_sets %}
+    {{ block.super }}
+{% endblock %}
+
+{% block inline_field_sets %}
+    {{ block.super }}
+    <h2>Schema JSON Representation</h2>
+    <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; margin-top: 20px; height: 200px; overflow-y: auto; resize: vertical;">
+        {{schema_json|safe}}
+    </pre>
 {% endblock %}
 
 {% block submit_buttons_bottom %}

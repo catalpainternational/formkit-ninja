@@ -20,6 +20,7 @@ from rich.console import Console
 from django.utils import timezone
 from django.db import models
 import json
+from typing_extensions import Self
 
 from formkit_ninja import formkit_schema, triggers
 
@@ -271,33 +272,6 @@ class OptionLabel(models.Model):
         ]
 
 
-class FormComponents(UuidIdModel):
-    """
-    A model relating "nodes" of a schema to a schema with model ordering
-    """
-
-    schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
-    # This is null=True so that a new FormComponent can be added from the admin inline
-    node = models.ForeignKey(
-        "FormKitSchemaNode", on_delete=models.CASCADE, null=True, blank=True
-    )
-    label = models.CharField(
-        max_length=1024,
-        help_text="Used as a human-readable label",
-        null=True,
-        blank=True,
-    )
-    order = models.IntegerField(null=True, blank=True)
-    order_with_respect_to = "schema"
-
-    class Meta:
-        triggers = triggers.update_or_insert_group_trigger("schema_id")
-        ordering = ("schema", "order")
-
-    def __str__(self):
-        return f"{self.node}[{self.order}]: {self.schema}"
-
-
 class NodeChildrenManager(models.Manager):
     """
     Adds aggregation and filtering for client side data
@@ -385,6 +359,20 @@ class NodeQS(models.QuerySet):
                 warnings.warn(f"An unparseable FormKit node was hit at {node.pk}")
                 warnings.warn(f"{E}")
 
+"""
+In this `FormKitSchemaNode` model we have a `schema` and an `order`.
+
+# Unique Together Constraint: 
+The schema and order fields should be unique together, ensuring that no two nodes within the same schema can have the same order.
+
+# Order Assignment on Save:
+If a node is saved without an order, it should be assigned the maximum order value of the current schema plus one.
+If a node is saved with an existing order, all other nodes with an order higher than or equal to the current node's order should be incremented by one to make room for the new order.
+
+# Order Adjustment on Delete or Deactivation:
+When a node is deleted or its is_active field is set to False, its order should be set to Null.
+All nodes with an order higher than the deleted or deactivated node's order should be decremented by one to fill the gap.
+"""
 
 @pghistory.track()
 @pgtrigger.register(
@@ -402,6 +390,54 @@ class NodeQS(models.QuerySet):
     ),
     pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
     triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
+    # Trigger for new nodes without order
+    pgtrigger.Trigger(
+        name='assign_order_on_insert',
+        operation=pgtrigger.Insert,
+        when=pgtrigger.Before,
+        condition=pgtrigger.Q(new__order__isnull=True),
+        func="""
+            NEW.order = (
+                SELECT COALESCE(MAX("order"), 0) + 1
+                FROM formkit_ninja_formkitschemanode
+                WHERE schema_id = NEW.schema_id
+            );
+            RETURN NEW;
+        """
+    ),
+    # Trigger for nodes with existing order
+    pgtrigger.Trigger(
+        name='increment_higher_orders',
+        operation=pgtrigger.Insert | pgtrigger.Update,
+        when=pgtrigger.After,
+        condition=pgtrigger.Q(new__order__isnull=False),
+        func="""
+            UPDATE formkit_ninja_formkitschemanode
+            SET "order" = "order" + 1
+            WHERE schema_id = NEW.schema_id
+            AND "order" >= NEW."order"
+            AND id != NEW.id
+            AND pg_trigger_depth() = 1;
+            RETURN NEW;
+        """
+    ),
+    # Trigger for deactivation/deletion
+    pgtrigger.Trigger(
+        name='decrement_higher_orders',
+        operation=pgtrigger.Update,
+        when=pgtrigger.Before,
+        condition=pgtrigger.Q(old__order__isnull=False) & (
+            pgtrigger.Q(new__is_active=False) | 
+            pgtrigger.Q(new__order__isnull=True)
+        ),
+        func="""
+            UPDATE formkit_ninja_formkitschemanode
+            SET "order" = "order" - 1
+            WHERE schema_id = OLD.schema_id
+            AND "order" > OLD."order";
+            RETURN OLD;
+        """
+    )
 )
 class FormKitSchemaNode(UuidIdModel):
     """
@@ -416,6 +452,14 @@ class FormKitSchemaNode(UuidIdModel):
 
     objects = NodeQS.as_manager()
 
+    class Meta:
+        constraints = [
+            # models.UniqueConstraint(
+            #     fields=['schema', 'order'],
+            #     name='unique_schema_order'
+            # )
+        ]
+
     NODE_TYPE_CHOICES = (
         ("$cmp", "Component"),  # Not yet implemented
         ("text", "Text"),
@@ -428,13 +472,16 @@ class FormKitSchemaNode(UuidIdModel):
 
     ELEMENT_TYPE_CHOICES = [("p", "p"), ("h1", "h1"), ("h2", "h2"), ("span", "span")]
     node_type = models.CharField(
-        max_length=256, choices=NODE_TYPE_CHOICES, blank=True, help_text=""
+        max_length=256,
+        choices=NODE_TYPE_CHOICES,
+        blank=True,
+        help_text="",
     )
     description = models.CharField(
         max_length=4000,
         null=True,
         blank=True,
-        help_text="Decribe the type of data / reason for this component",
+        help_text="Describe the type of data / reason for this component",
     )
     label = models.CharField(
         max_length=1024,
@@ -469,6 +516,11 @@ class FormKitSchemaNode(UuidIdModel):
         help_text="Content for a text element, for children of an $el type component",
     )
     track_change = models.BigIntegerField(null=True, blank=True)
+
+    # Add a foreign key to "Schema", and an "Order" field
+    # These will be unique_together
+    schema = models.ForeignKey("FormKitSchema", null=True, blank=True, on_delete=models.SET_NULL)
+    order = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
         return f"Node: {self.label}" if self.label else f"{self.node_type} {self.id}"
@@ -571,7 +623,7 @@ class FormKitSchemaNode(UuidIdModel):
         return formkit_node.root
 
     @classmethod
-    def _from_props_instance(cls, input_model: formkit_schema.FormKitSchemaProps):
+    def _from_props_instance(cls, input_model: formkit_schema.FormKitSchemaProps, schema: FormKitSchema | None = None):
         instance = cls()
         log(f"[green]Creating {instance}")
         for label_field in ("name", "id", "key", "label"):
@@ -616,6 +668,7 @@ class FormKitSchemaNode(UuidIdModel):
             if db_value := instance.node.pop(pydantic_key, None):
                 instance.node[db_key] = db_value
 
+        instance.schema = schema
         instance.save()
         # Add the "options" if it is a 'text' type getter
         options: formkit_schema.OptionsType = getattr(input_model, "options", None)
@@ -638,12 +691,12 @@ class FormKitSchemaNode(UuidIdModel):
         # Retain input strings without splitting to a list
         children = getattr(input_model, "children", []) or []
         if isinstance(children, str):
-            child_node = next(iter(cls.from_pydantic(children)))
+            child_node = next(iter(cls.from_pydantic(children, schema=schema)))
             console.log(f"    {child_node}")
             instance.children.add(child_node)
         elif isinstance(children, Iterable):
             for c_n in children:
-                child_node = next(iter(cls.from_pydantic(c_n)))
+                child_node = next(iter(cls.from_pydantic(c_n, schema=schema)))
                 console.log(f"    {child_node}")
                 instance.children.add(child_node)
 
@@ -657,26 +710,27 @@ class FormKitSchemaNode(UuidIdModel):
             | Iterable[formkit_schema.FormKitSchemaProps]
             | str
         ),
-    ):
+        schema: FormKitSchema | None = None,
+    ) -> Iterable["FormKitSchemaNode"]:
         if isinstance(input_models, str):
             yield cls.objects.create(
-                node_type="text", label=input_models, text_content=input_models
+                node_type="text", label=input_models, text_content=input_models, schema=schema
             )
 
         if isinstance(input_models, formkit_schema.DiscriminatedNodeType):
-            yield from cls.from_pydantic(input_models.root)
+            yield from cls.from_pydantic(input_models.root, schema=schema)
 
         elif isinstance(input_models, formkit_schema.DiscriminatedNodeTypeSchema):
             for node in input_models.root:
-                yield from cls.from_pydantic(node)
+                yield from cls.from_pydantic(node, schema=schema)
 
         elif isinstance(input_models, Iterable) and not isinstance(
             input_models, formkit_schema.FormKitSchemaProps
         ):
-            yield from (cls.from_pydantic(n) for n in input_models)
+            yield from (cls.from_pydantic(n, schema=schema) for n in input_models)
 
         elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
-            yield from cls._from_props_instance(input_models)
+            yield from cls._from_props_instance(input_models, schema=schema)
 
         else:
             raise TypeError(
@@ -695,9 +749,7 @@ class SchemaManager(models.Manager):
     """
     Provides prefetching which we'll almost always want to have
     """
-
-    def get_queryset(self):
-        return super().get_queryset().prefetch_related("nodes", "nodes__children")
+    ...
 
 
 class FormKitSchema(UuidIdModel):
@@ -715,11 +767,13 @@ class FormKitSchema(UuidIdModel):
         unique=True,
         default=uuid.uuid4,
     )
-    nodes = models.ManyToManyField(FormKitSchemaNode, through=FormComponents)
     objects = SchemaManager()
 
+    def nodes(self):
+        return self.formkitschemanode_set.all()
+
     def ordered_nodes(self):
-        return self.nodes.order_by("formcomponents__order")
+        return self.formkitschemanode_set.order_by("order")
 
     def tabular(self):
         """
@@ -740,8 +794,6 @@ class FormKitSchema(UuidIdModel):
                 sorted_data[col].append(data.get(keyval, None))
 
         return sorted_data
-        
-
 
     def get_schema_values(self, recursive=False, options=False, **kwargs):
         """
@@ -757,22 +809,28 @@ class FormKitSchema(UuidIdModel):
     def __str__(self):
         return f"{self.label}" or f"{str(self.id)[:8]}"
 
-
     @classmethod
-    def from_pydantic(cls, input_model: formkit_schema.DiscriminatedNodeTypeSchema | formkit_schema.FormKitSchema):
+    def from_pydantic(cls, input_model:  formkit_schema.GroupNode | formkit_schema.DiscriminatedNodeTypeSchema | formkit_schema.FormKitSchema, *, label: str | None = None) -> "FormKitSchema":
+        """
+        Convert a Pydantic model to a FormKitSchema instance.
+        Handles both single nodes and full schemas.
+
+        Args:
+            input_model: The input model to convert
+            label: Optional label for the schema. If not provided, will use a UUID.
+        """
         if isinstance(input_model, formkit_schema.FormKitSchema):
-            return cls.from_formkitschema(input_model)
+            return cls.from_formkitschema(input_model, label=label)
         elif isinstance(input_model, formkit_schema.DiscriminatedNodeTypeSchema):
             with transaction.atomic():
-                schema = cls.objects.create()
-                for node in itertools.chain.from_iterable(
-                    FormKitSchemaNode.from_pydantic(input_model.root)
-                ):
-                    log(f"[yellow]Saving {node}")
-                    FormComponents.objects.create(
-                        schema=schema, node=node, label=str(f"{str(schema)} {str(node)}")
-                    )
+                schema = cls.objects.create(label=label)
+                # Handle each node in the schema
+                _ = list(itertools.chain.from_iterable(
+                    FormKitSchemaNode.from_pydantic(input_model.root, schema=schema)
+                ))
             return schema
+        elif isinstance(input_model, formkit_schema.GroupNode):
+            return cls.from_pydantic(formkit_schema.DiscriminatedNodeTypeSchema(input_model.children), label=label)
 
     @classmethod
     def from_formkitschema(
@@ -784,14 +842,9 @@ class FormKitSchema(UuidIdModel):
         """
         warnings.warn("FormKitSchema should be replaced by DiscriminatedNodeTypeSchema", DeprecationWarning)
         instance = cls.objects.create(label=label)
-        for node in itertools.chain.from_iterable(
-            FormKitSchemaNode.from_pydantic(input_model.root)
-        ):
-            log(f"[yellow]Saving {node}")
-            node.save()
-            FormComponents.objects.create(
-                schema=instance, node=node, label=str(f"{str(instance)} {str(node)}")
-            )
+        _ = list(itertools.chain.from_iterable(
+            FormKitSchemaNode.from_pydantic(input_model.root, schema=instance)
+        ))
         logger.info("Schema load from JSON done")
         return instance
 
@@ -822,11 +875,23 @@ class PublishedForm(models.Model):
     can be used to create forms
     """
 
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PUBLISHED = 'published', 'Published'
+        REPLACED = 'replaced', 'Replaced'
+
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
-    published = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     published_schema = models.JSONField(editable=False)
+
+    published = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     replaced = models.DateTimeField(null=True, blank=True, help_text="When this form version was replaced by a newer version")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        help_text="Current status of the form"
+    )
 
     @property
     def name(self):
@@ -835,6 +900,7 @@ class PublishedForm(models.Model):
     def save(self, *args, **kwargs):
         """
         Ensure that only one schema is active at a time and track when forms are replaced
+        Update status based on form state
         """
         if self.is_active:
             # Get currently active forms that will be deactivated
@@ -843,25 +909,85 @@ class PublishedForm(models.Model):
                 is_active=True
             ).exclude(pk=self.pk)
             
-            # Set replaced timestamp on forms being deactivated
+            # Set replaced timestamp and status on forms being deactivated
             to_deactivate.update(
                 is_active=False,
-                replaced=timezone.now()
+                replaced=timezone.now(),
+                status=self.Status.REPLACED
             )
+            
+            # Set this form as published if it's active
+            if self.status == self.Status.DRAFT:
+                self.status = self.Status.PUBLISHED
 
         # Hard coded schema avoids potential changes we don't intend to make
         self.published_schema = list(self.schema.get_schema_values(recursive=True, options=True))
         return super().save(*args, **kwargs)
 
+    @classmethod
+    def from_json_file(cls, json_file_path, label=None, force=False):
+        """
+        Create a PublishedForm instance from a JSON file.
+        
+        The JSON file can be either:
+        1. A list of schema nodes
+        2. A single group node with children
+        3. A nested structure of group nodes
+        
+        Args:
+            json_file_path (str|Path): Path to the JSON schema file
+            label (str, optional): Label for the schema. Defaults to filename stem.
+            force (bool): Whether to force update if schema exists. Defaults to False.
+            
+        Returns:
+            tuple[PublishedForm, bool]: Tuple of (published_form, created) where created is True if new schema was created
+        """
+        from pathlib import Path
+        import json
+        
+        json_path = Path(json_file_path)
+        if not json_path.exists():
+            raise FileNotFoundError(f"Schema file not found: {json_file_path}")
+            
+        # Use filename as label if not provided
+        if label is None:
+            label = json_path.stem
+            
+        # Check if schema exists
+        schema_exists = FormKitSchema.objects.filter(label=label).exists()
+        if schema_exists and not force:
+            return None, False
+            
+        # Load and parse JSON
+        with open(json_path) as f:
+            schema_data = json.load(f)
+
+        # Convert group node format to list format if needed
+        if isinstance(schema_data, dict):
+            # If it's a group node or any node with children, extract the children
+            if "children" in schema_data:
+                schema_data = schema_data["children"]
+            else:
+                # Single node without children, wrap in list
+                schema_data = [schema_data]
+        elif not isinstance(schema_data, list):
+            raise ValueError(f"Invalid schema format in {json_path}. Expected list or dict with children.")
+            
+        # Create schema from JSON
+        schema = FormKitSchema.from_json(schema_data)
+        schema.label = label
+        schema.save()
+        
+        # Create and return published form
+        published_form = schema.publish()
+        return published_form, not schema_exists
+
     def __str__(self):
-        base = f"{self.schema.label}"
-        if self.published:
-            base += f" (published: {self.published.strftime('%Y-%m-%d')}"
+        base = f"{self.schema.label} ({self.get_status_display()})"
+        if self.published and self.status != self.Status.DRAFT:
+            base += f" - {self.published.strftime('%Y-%m-%d')}"
             if self.replaced:
                 base += f" to {self.replaced.strftime('%Y-%m-%d')}"
-            elif self.is_active:
-                base += " - current"
-            base += ")"
         return base
 
     def get_json_table_query(self, table_name: str = "submissionsdemo_submission", json_column: str = "data") -> str:

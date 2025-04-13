@@ -64,6 +64,7 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "*"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -93,7 +94,7 @@ WSGI_APPLICATION = "testproject.wsgi.application"
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 # Note:
 # If you have no database running yet
-# maybe start one with `docker run -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres`
+# maybe start one with `docker run -d -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres`
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",

@@ -192,23 +192,6 @@ class OptionForm(forms.ModelForm):
         exclude = ()
 
 
-class FormComponentsForm(forms.ModelForm):
-    class Meta:
-        model = models.FormComponents
-        exclude = ()
-
-
-class FormKitSchemaComponentInline(admin.TabularInline):
-    model = models.FormComponents
-    readonly_fields = (
-        "node",
-        "created_by",
-        "updated_by",
-    )
-    ordering = ("order",)
-    extra = 0
-
-
 class FormKitNodeGroupForm(JsonDecoratedFormBase):
     class Meta:
         model = models.FormKitSchemaNode
@@ -443,6 +426,22 @@ class SchemaDescriptionInline(admin.TabularInline):
     extra = 0
 
 
+class SchemaNodeInline(admin.TabularInline):
+    model = models.FormKitSchemaNode
+    fields = ('label', 'node_type', 'is_active', 'protected', 'order', 'view_node')
+    readonly_fields = ('label', 'node_type', 'is_active', 'protected', 'order', 'view_node')
+    extra = 0
+    can_delete = False
+    show_change_link = True  # This adds a pencil icon linking to the node's change form
+
+    def view_node(self, obj):
+        if obj.pk:
+            url = f'../../../formkitschemanode/{obj.pk}/change/'
+            return mark_safe(f'<a href="{url}">Edit Node</a>')
+        return ""
+    view_node.short_description = "Actions"
+
+
 class FormKitSchemaForm(forms.ModelForm):
     class Meta:
         model = models.FormKitSchema
@@ -461,8 +460,10 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         "track_change",
         "key_is_valid",
         "protected",
+        "schema",
+        "order"
     )
-    list_filter = ("node_type", "is_active", "protected")
+    list_filter = ("node_type", "is_active", "protected", "schema")
     readonly_fields = ("track_change",)
     search_fields = ["label", "description", "node", "node__el"]
 
@@ -622,11 +623,17 @@ class FormKitSchemaAdmin(admin.ModelAdmin):
 
     form = FormKitSchemaForm
     
+    inlines = [
+        SchemaLabelInline,
+        SchemaDescriptionInline,
+        SchemaNodeInline,
+    ]
     
     def change_view(self, request, object_id: str, form_url='', extra_context=None):
         extra_context = extra_context or {}
         object: models.FormKitSchema = self.get_object(request, object_id)
-        extra_context['schema_json'] = list(object.get_schema_values(recursive=True, options=True))
+        schema_values = list(object.get_schema_values(recursive=True, options=True))
+        extra_context['schema_json'] = json.dumps(schema_values, indent=2)
         return super(FormKitSchemaAdmin, self).change_view(
             request, object_id, form_url, extra_context=extra_context,
         )
@@ -647,7 +654,7 @@ class FormKitSchemaAdmin(admin.ModelAdmin):
             [
                 SchemaLabelInline,
                 SchemaDescriptionInline,
-                FormKitSchemaComponentInline,
+                SchemaNodeInline,
             ]
             if obj
             else [
@@ -655,22 +662,6 @@ class FormKitSchemaAdmin(admin.ModelAdmin):
                 SchemaDescriptionInline,
             ]
         )
-
-    inlines = [
-        SchemaLabelInline,
-        SchemaDescriptionInline,
-        FormKitSchemaComponentInline,
-    ]
-
-
-@admin.register(models.FormComponents)
-class FormComponentsAdmin(admin.ModelAdmin):
-    list_display = (
-        "label",
-        "schema",
-        "node",
-        "order",
-    )
 
 
 class OptionLabelInline(admin.TabularInline):
