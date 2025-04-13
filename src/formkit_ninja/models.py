@@ -676,27 +676,32 @@ class FormKitSchemaNode(UuidIdModel):
         if isinstance(options, str):
             # Maintain this as it is probably a `$get...` options call
             # to a Javascript function
+            instance.refresh_from_db()
             instance.node["options"] = options
             instance.save()
+            instance.refresh_from_db()
 
         elif isinstance(options, Iterable):
             # Create a new "group" to assign these options to
             # Here we use a random UUID as the group name
+            instance.refresh_from_db()
             instance.option_group = OptionGroup.objects.create(
                 group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}"
             )
             for option in Option.from_pydantic(options, group=instance.option_group):
                 pass
             instance.save()
+            instance.refresh_from_db()
+
         # Retain input strings without splitting to a list
         children = getattr(input_model, "children", []) or []
         if isinstance(children, str):
-            child_node = next(iter(cls.from_pydantic(children, schema=schema)))
+            child_node = next(iter(cls.from_pydantic(children)))
             console.log(f"    {child_node}")
             instance.children.add(child_node)
         elif isinstance(children, Iterable):
             for c_n in children:
-                child_node = next(iter(cls.from_pydantic(c_n, schema=schema)))
+                child_node = next(iter(cls.from_pydantic(c_n)))
                 console.log(f"    {child_node}")
                 instance.children.add(child_node)
 
@@ -769,7 +774,7 @@ class FormKitSchema(UuidIdModel):
     )
     objects = SchemaManager()
 
-    def nodes(self):
+    def nodes(self) -> models.QuerySet[FormKitSchemaNode]:
         return self.formkitschemanode_set.all()
 
     def ordered_nodes(self):
@@ -857,17 +862,23 @@ class FormKitSchema(UuidIdModel):
         schema_instance = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(input_file)
         return cls.from_pydantic(schema_instance)
 
+    def save_as_draft(self):
+        """
+        Save this schema as a draft
+        """
+        return PublishedForm.objects.create(schema=self, status=PublishedForm.Status.DRAFT)
+
     def publish(self):
         """
         Publish this schema
         """
-        return PublishedForm.objects.create(schema=self)
+        return PublishedForm.objects.create(schema=self, status=PublishedForm.Status.PUBLISHED)
 
     def get_published(self):
         """
         Get the published schema
         """
-        return PublishedForm.objects.get(schema=self, is_active=True)
+        return PublishedForm.objects.get(schema=self, status=PublishedForm.Status.PUBLISHED)
 
 class PublishedForm(models.Model):
     """
@@ -881,7 +892,6 @@ class PublishedForm(models.Model):
         REPLACED = 'replaced', 'Replaced'
 
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
-    is_active = models.BooleanField(default=True)
     published_schema = models.JSONField(editable=False)
 
     published = models.DateTimeField(auto_now_add=True, blank=True, null=True)
@@ -902,27 +912,24 @@ class PublishedForm(models.Model):
         Ensure that only one schema is active at a time and track when forms are replaced
         Update status based on form state
         """
-        if self.is_active:
-            # Get currently active forms that will be deactivated
-            to_deactivate = self.__class__.objects.filter(
-                schema=self.schema, 
-                is_active=True
-            ).exclude(pk=self.pk)
-            
-            # Set replaced timestamp and status on forms being deactivated
-            to_deactivate.update(
-                is_active=False,
-                replaced=timezone.now(),
-                status=self.Status.REPLACED
-            )
-            
-            # Set this form as published if it's active
-            if self.status == self.Status.DRAFT:
-                self.status = self.Status.PUBLISHED
+        # Get currently active forms that will be deactivated
+        to_deactivate = self.__class__.objects.filter(
+            schema=self.schema, 
+        ).exclude(pk=self.pk)
+        
+        # Set replaced timestamp and status on forms being deactivated
+        to_deactivate.update(
+            replaced=timezone.now(),
+            status=self.Status.REPLACED
+        )
 
         # Hard coded schema avoids potential changes we don't intend to make
         self.published_schema = list(self.schema.get_schema_values(recursive=True, options=True))
         return super().save(*args, **kwargs)
+
+    def publish(self):
+        self.status = self.Status.PUBLISHED
+        self.save()
 
     @classmethod
     def from_json_file(cls, json_file_path, label=None, force=False):
