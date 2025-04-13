@@ -708,16 +708,16 @@ class PublishedFormAdmin(admin.ModelAdmin):
     list_display = (
         "schema",
         "published",
-        "is_active"
+        "status"
     )
     readonly_fields = (
         "schema",
         "published",
         "replaced",
-        "is_active",
         "formatted_published_schema",
         "json_table_query",
-        "json_table_query_with_validation"
+        "json_table_query_with_validation",
+        "status"
     )
 
     def get_urls(self):

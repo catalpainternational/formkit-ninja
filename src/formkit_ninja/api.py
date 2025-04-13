@@ -463,7 +463,7 @@ class PublishedFormSchemaOut(ModelSchema):
     
     class Meta:
         model = models.PublishedForm
-        fields = ["schema", "id", "published", "is_active", "replaced"]
+        fields = ["schema", "id", "published", "replaced", "status"]
 
 @router.get(
     "published",

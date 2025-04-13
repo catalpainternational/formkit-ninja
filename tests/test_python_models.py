@@ -1,5 +1,6 @@
 import json
 from importlib.resources import files
+from django.utils import timezone
 
 import pytest
 
@@ -54,13 +55,13 @@ def test_create_from_old_schema():
     assert element_schema.root[0].node_type == "element"
     c = models.FormKitSchema.from_pydantic(element_schema)
     # This test schema has one node
-    assert c.nodes.count() == 1
+    assert c.nodes().count() == 1
     # The "Hello world" is one node
-    hello_world_text = c.nodes.first().children.first()
+    hello_world_text = c.nodes().first().children.first()
     assert hello_world_text.text_content == "Hello world"
 
     # The node...
-    first_node = c.nodes.first()
+    first_node = c.nodes().first()
     dictify = first_node.get_node(recursive=True).model_dump(
         exclude_none=True, by_alias=True
     )
@@ -74,7 +75,7 @@ def test_create_from_old_schema():
     assert set(dictify["attrs"].keys()) == {"style", "data-foo"}
 
     # A 'group' node
-    first_node = c.nodes.first()
+    first_node = c.nodes().first()
     first_node.get_node().model_dump(
         exclude_none=True, by_alias=True, exclude={"children"}
     )
@@ -98,13 +99,13 @@ def test_create_from_schema():
     element_schema.model_dump(exclude_none=True, by_alias=True)
     c = models.FormKitSchema.from_pydantic(element_schema)
     # This test schema has one node
-    assert c.nodes.count() == 1
+    assert c.nodes().count() == 1
     # The "Hello world" is one node
-    hello_world_text = c.nodes.first().children.first()
+    hello_world_text = c.nodes().first().children.first()
     assert hello_world_text.text_content == "Hello world"
 
     # The node...
-    first_node = c.nodes.first()
+    first_node = c.nodes().first()
     dictify = first_node.get_node(recursive=True).model_dump(
         exclude_none=True, by_alias=True
     )
@@ -118,7 +119,7 @@ def test_create_from_schema():
     assert set(dictify["attrs"].keys()) == {"style", "data-foo"}
 
     # A 'group' node
-    first_node = c.nodes.first()
+    first_node = c.nodes().first()
     first_node.get_node().model_dump(
         exclude_none=True, by_alias=True, exclude={"children"}
     )
@@ -325,6 +326,93 @@ def schema_are_same(in_: dict | str, out_: dict | str):
         for c_in, c_out in zip(in_.get("children", []), out_.get("children", [])):
             schema_are_same(c_in, c_out)
 
+@pytest.mark.django_db()
+def test_options():
+    """Had a test failure when options (text) was not being included in output"""
+
+    node_json = {
+     "$formkit": "select",
+     "options": "$getLocations()"
+    }
+    node = DiscriminatedNodeType.model_validate(node_json)
+    nodes_in_db = list(models.FormKitSchemaNode.from_pydantic(
+        node
+    ))
+    assert "options" in nodes_in_db[0].node
+    assert nodes_in_db[0].node["options"] == "$getLocations()"
+    node_from_db = nodes_in_db[0].to_pydantic(options=True)
+    assert node_from_db.root.options == "$getLocations()"
+    json_from_db = node_from_db.model_dump(by_alias=True, exclude_none=True)
+    assert json_from_db == node_json
+
+@pytest.mark.django_db()
+def test_options_list():
+    node_json = {
+     "$formkit": "select",
+     "options": ["One", "Two", "Three"]
+    }
+    node = DiscriminatedNodeType.model_validate(node_json)
+    node_in_db = list(models.FormKitSchemaNode.from_pydantic(
+        node
+    ))[0]
+    assert node_in_db.option_group.option_set.count() == 3
+    node_from_db = node_in_db.to_pydantic(options=True) 
+    assert node_from_db.root.options == [{'value': 'One', 'label': 'One'}, {'value': 'Two', 'label': 'Two'}, {'value': 'Three', 'label': 'Three'}]
+
+
+
+@pytest.mark.django_db()
+def test_options_group():
+    """Had a test failure when options (text) was not being included in output"""
+
+    node_json = {
+        "$formkit": "group",
+        "children": [
+            {
+            "id": "location-test",
+            "$formkit": "select",
+            "options": "$getLocations()"
+            },
+        ]
+        }
+
+    node = DiscriminatedNodeType.model_validate(node_json)
+    nodes_in_db = list(models.FormKitSchemaNode.from_pydantic(
+        node
+    ))
+    location_node = nodes_in_db[0].children.get()
+    assert "options" in location_node.node
+    assert location_node.node["options"] == "$getLocations()"
+
+@pytest.mark.django_db()
+def test_options_nested_group():
+    """Had a test failure when options (text) was not being included in output"""
+
+    node_json = {
+        "$formkit": "group",
+        "children": [
+            {
+            "id": "location-test",
+            "$formkit": "select",
+            "options": "$getLocations()"
+            },
+        ]
+    }
+    node_json = {
+        "$formkit": "group",
+        "children": [
+            node_json,
+        ]
+    }
+
+    node = DiscriminatedNodeType.model_validate(node_json)
+    nodes_in_db = list(models.FormKitSchemaNode.from_pydantic(
+        node
+    ))
+    location_node = nodes_in_db[0].children.get().children.get()
+    assert "options" in location_node.node
+    assert location_node.node["options"] == "$getLocations()"
+
 
 @pytest.mark.django_db()
 def test_schemas(schema: dict | list):
@@ -412,3 +500,98 @@ def test_protected_model(formkit_text_node: dict):
 
     with pytest.raises(InternalError):
         node_in_the_db.delete()
+
+
+@pytest.mark.django_db
+class TestPublishedFormStatus:
+    """Tests for the PublishedForm status functionality"""
+
+    def test_initial_status_is_draft(self):
+        """Test that a new PublishedForm starts as draft"""
+        schema = models.FormKitSchema.objects.create(label="Test Schema")
+        schema.save_as_draft()
+        form = models.PublishedForm.objects.get(schema=schema)
+        assert form.status == models.PublishedForm.Status.DRAFT
+        assert str(form) == f"Test Schema (Draft)"
+
+    def test_publish_sets_status(self):
+        """Test that publishing a form sets its status to published"""
+        schema = models.FormKitSchema.objects.create(label="Test Schema")
+        form = schema.publish()  # This creates a PublishedForm
+        assert form.status == models.PublishedForm.Status.PUBLISHED
+        assert str(form).startswith("Test Schema (Published) -")
+
+    def test_replaced_status(self):
+        """Test that publishing a new version replaces the old one"""
+        schema = models.FormKitSchema.objects.create(label="Test Schema")
+        
+        # Create first published version
+        first_form = schema.publish()
+        assert first_form.status == models.PublishedForm.Status.PUBLISHED
+        
+        # Create second version
+        second_form = schema.publish()
+        
+        # Refresh first form from database
+        first_form.refresh_from_db()
+        
+        # Check statuses
+        assert second_form.status == models.PublishedForm.Status.PUBLISHED
+        assert first_form.status == models.PublishedForm.Status.REPLACED
+        assert first_form.replaced is not None
+        assert str(first_form).startswith("Test Schema (Replaced) -")
+
+    def test_multiple_replacements(self):
+        """Test handling multiple versions of the same form"""
+        schema = models.FormKitSchema.objects.create(label="Test Schema")
+        
+        # Create three versions
+        forms = [schema.publish() for _ in range(3)]
+        
+        # Refresh all forms from database
+        for form in forms:
+            form.refresh_from_db()
+        
+        # Check statuses
+        assert forms[0].status == models.PublishedForm.Status.REPLACED
+        assert forms[1].status == models.PublishedForm.Status.REPLACED
+        assert forms[2].status == models.PublishedForm.Status.PUBLISHED
+        
+        # Check only one is active
+        assert models.PublishedForm.objects.filter(
+            schema=schema,
+            status=models.PublishedForm.Status.PUBLISHED
+        ).count() == 1
+
+    def test_draft_to_published_transition(self):
+        """Test transition from draft to published status"""
+        schema = models.FormKitSchema.objects.create(label="Test Schema")
+        form = models.PublishedForm.objects.create(
+            schema=schema,
+        )
+        
+        # Should start as draft
+        assert form.status == models.PublishedForm.Status.DRAFT
+        form.publish()
+        # Should now be published
+        assert form.status == models.PublishedForm.Status.PUBLISHED
+
+    @pytest.mark.django_db
+    def test_string_representation(self):
+        """Test the string representation includes dates appropriately"""
+        schema = models.FormKitSchema.objects.create(label="Test Schema")
+        
+        # Draft form
+        draft = models.PublishedForm.objects.create(schema=schema)
+        assert str(draft) == "Test Schema (Draft)"
+        
+        # Published form
+        published = schema.publish()
+        assert "Test Schema (Published) -" in str(published)
+        assert timezone.now().strftime('%Y-%m-%d') in str(published)
+        
+        # Replaced form (create new version to replace the published one)
+        replaced = schema.publish()
+        published.refresh_from_db()
+        assert "Test Schema (Replaced) -" in str(published)
+        assert "to" in str(published)  # Should show replacement date
