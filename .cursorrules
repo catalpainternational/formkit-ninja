@@ -1,0 +1,32 @@
+# .cursorrules
+
+[python]
+# Enforce PEP8 style
+lint = true
+lint_tool = "flake8"
+# Enforce type checking
+mypy = true
+# Require docstrings for all public modules, classes, functions
+require_docstrings = true
+# Disallow unused imports and variables
+no_unused_imports = true
+no_unused_variables = true
+# Enforce test coverage
+coverage = true
+coverage_threshold = 80
+# Require tests for all new/changed code
+require_tests = true
+# Use black for code formatting
+formatter = "black"
+# Use isort for import sorting
+import_sorter = "isort"
+# Warn on TODO/FIXME comments
+warn_on_todo = true
+# Disallow print statements (use logging)
+disallow_print = true
+# Prefer f-strings over % or .format
+prefer_fstrings = true
+# Disallow wildcard imports
+disallow_wildcard_imports = true
+# Enforce explicit exception types
+explicit_exception_types = true 

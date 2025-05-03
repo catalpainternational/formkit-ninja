@@ -2,9 +2,11 @@ from typing import Any
 
 import json5
 import pytest
+import logging
 
 from formkit_ninja import formkit_schema
 from formkit_ninja.models import FormKitSchema
+from formkit_ninja.formkit_schema import normalize_node
 
 # This is copied from the Schema example on the Formkit website
 # But note that it's been modified to be "Python friendly":
@@ -80,3 +82,40 @@ def test_schema(schema: list[dict[str, Any]]):
 
     db_schema.publish()
     assert schema_out == schema
+
+def test_normalize_node_sets_missing_node_type(caplog):
+    node = {"$formkit": "text", "label": "A"}
+    with caplog.at_level(logging.WARNING):
+        result = normalize_node(node.copy())
+    assert result["node_type"] == "formkit"
+    assert any("normalize_node: Setting node_type to 'formkit'" in m for m in caplog.text.splitlines())
+
+def test_normalize_node_correct_node_type(caplog):
+    node = {"$formkit": "text", "label": "A", "node_type": "formkit"}
+    with caplog.at_level(logging.WARNING):
+        result = normalize_node(node.copy())
+    assert result["node_type"] == "formkit"
+    assert not caplog.records  # No warning should be logged
+
+def test_normalize_node_incorrect_node_type(caplog):
+    node = {"$formkit": "text", "label": "A", "node_type": "element"}
+    with caplog.at_level(logging.WARNING):
+        result = normalize_node(node.copy())
+    assert result["node_type"] == "formkit"
+    assert any("normalize_node: Setting node_type to 'formkit'" in m for m in caplog.text.splitlines())
+
+def test_normalize_node_nested_children(caplog):
+    node = {
+        "$formkit": "group",
+        "label": "Parent",
+        "children": [
+            {"$formkit": "text", "label": "Child1"},
+            {"$el": "div", "label": "Child2"},
+        ],
+    }
+    with caplog.at_level(logging.WARNING):
+        result = normalize_node(node.copy())
+    assert result["node_type"] == "formkit"
+    assert result["children"][0]["node_type"] == "formkit"
+    assert result["children"][1]["node_type"] == "element"
+    assert sum("normalize_node: Setting node_type" in m for m in caplog.text.splitlines()) >= 2

@@ -756,3 +756,29 @@ FormKitSchema.model_rebuild()
 FormKitSchemaCondition.model_rebuild()
 PasswordNode.model_rebuild()
 RepeaterNode.model_rebuild()
+
+def normalize_node(node):
+    """
+    Recursively ensure each node dict has the correct node_type discriminator.
+    Logs a warning if node_type was missing or incorrect and is being set.
+    """
+    if isinstance(node, dict):
+        expected_type = None
+        if "$formkit" in node:
+            expected_type = "formkit"
+        elif "$el" in node:
+            expected_type = "element"
+        elif "$cmp" in node:
+            expected_type = "component"
+        elif "if" in node:
+            expected_type = "condition"
+        if expected_type:
+            if node.get("node_type") != expected_type:
+                logging.warning(f"normalize_node: Setting node_type to '{expected_type}' for node {node}. Previous value: {node.get('node_type')}")
+                node["node_type"] = expected_type
+        # Recursively normalize children
+        if "children" in node and isinstance(node["children"], list):
+            node["children"] = [normalize_node(child) for child in node["children"]]
+    elif isinstance(node, list):
+        return [normalize_node(child) for child in node]
+    return node

@@ -23,6 +23,7 @@ import json
 from typing_extensions import Self
 
 from formkit_ninja import formkit_schema, triggers
+from formkit_ninja.formkit_schema import normalize_node
 
 console = Console()
 log = console.log
@@ -623,7 +624,10 @@ class FormKitSchemaNode(UuidIdModel):
         return formkit_node.root
 
     @classmethod
-    def _from_props_instance(cls, input_model: formkit_schema.FormKitSchemaProps, schema: FormKitSchema | None = None):
+    def _from_props_instance(cls, input_model: formkit_schema.FormKitSchemaProps, schema: FormKitSchema | None = None, _depth=0):
+        MAX_DEPTH = 50
+        if _depth > MAX_DEPTH:
+            raise RuntimeError(f"Schema nesting too deep (>{MAX_DEPTH}). Possible circular reference or malformed schema. Offending node: {input_model.model_dump(exclude_none=True, by_alias=True)}")
         instance = cls()
         log(f"[green]Creating {instance}")
         for label_field in ("name", "id", "key", "label"):
@@ -696,12 +700,12 @@ class FormKitSchemaNode(UuidIdModel):
         # Retain input strings without splitting to a list
         children = getattr(input_model, "children", []) or []
         if isinstance(children, str):
-            child_node = next(iter(cls.from_pydantic(children)))
+            child_node = next(iter(cls.from_pydantic(children, _depth=_depth+1)))
             console.log(f"    {child_node}")
             instance.children.add(child_node)
         elif isinstance(children, Iterable):
             for c_n in children:
-                child_node = next(iter(cls.from_pydantic(c_n)))
+                child_node = next(iter(cls.from_pydantic(c_n, _depth=_depth+1)))
                 console.log(f"    {child_node}")
                 instance.children.add(child_node)
 
@@ -716,27 +720,26 @@ class FormKitSchemaNode(UuidIdModel):
             | str
         ),
         schema: FormKitSchema | None = None,
+        _depth=0,
     ) -> Iterable["FormKitSchemaNode"]:
+        MAX_DEPTH = 50
+        if _depth > MAX_DEPTH:
+            raise RuntimeError(f"Schema nesting too deep (>{MAX_DEPTH}). Possible circular reference or malformed schema. Offending input: {input_models}")
         if isinstance(input_models, str):
             yield cls.objects.create(
                 node_type="text", label=input_models, text_content=input_models, schema=schema
             )
-
         if isinstance(input_models, formkit_schema.DiscriminatedNodeType):
-            yield from cls.from_pydantic(input_models.root, schema=schema)
-
+            yield from cls.from_pydantic(input_models.root, schema=schema, _depth=_depth+1)
         elif isinstance(input_models, formkit_schema.DiscriminatedNodeTypeSchema):
             for node in input_models.root:
-                yield from cls.from_pydantic(node, schema=schema)
-
+                yield from cls.from_pydantic(node, schema=schema, _depth=_depth+1)
         elif isinstance(input_models, Iterable) and not isinstance(
             input_models, formkit_schema.FormKitSchemaProps
         ):
-            yield from (cls.from_pydantic(n, schema=schema) for n in input_models)
-
+            yield from (cls.from_pydantic(n, schema=schema, _depth=_depth+1) for n in input_models)
         elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
-            yield from cls._from_props_instance(input_models, schema=schema)
-
+            yield from cls._from_props_instance(input_models, schema=schema, _depth=_depth+1)
         else:
             raise TypeError(
                 f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}"
@@ -859,7 +862,18 @@ class FormKitSchema(UuidIdModel):
         Converts a given JSON string to a suitable
         Django representation
         """
-        schema_instance = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(input_file)
+        def _check_nesting(obj, max_depth=50, _depth=0):
+            if _depth > max_depth:
+                raise RuntimeError(f"Schema nesting too deep (>{max_depth}) before validation. Possible circular reference or malformed schema. Offending input: {str(obj)[:500]}")
+            if isinstance(obj, dict):
+                for v in obj.values():
+                    _check_nesting(v, max_depth, _depth + 1)
+            elif isinstance(obj, list):
+                for v in obj:
+                    _check_nesting(v, max_depth, _depth + 1)
+        _check_nesting(input_file)
+        normalized = normalize_node(input_file)
+        schema_instance = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(normalized)
         return cls.from_pydantic(schema_instance)
 
     def save_as_draft(self):
@@ -902,6 +916,15 @@ class PublishedForm(models.Model):
         default=Status.DRAFT,
         help_text="Current status of the form"
     )
+    version = models.IntegerField(default=1, null=False, blank=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['schema', 'version'],
+                name='unique_schema_version'
+            )
+        ]
 
     @property
     def name(self):
@@ -925,6 +948,14 @@ class PublishedForm(models.Model):
 
         # Hard coded schema avoids potential changes we don't intend to make
         self.published_schema = list(self.schema.get_schema_values(recursive=True, options=True))
+
+        # Fetch the highest previous schema version, and increment by one
+        previous_version = self.__class__.objects.filter(schema=self.schema).order_by("-version").first()
+        if previous_version:
+            self.version = previous_version.version + 1
+        else:
+            self.version = 1
+
         return super().save(*args, **kwargs)
 
     def publish(self):
