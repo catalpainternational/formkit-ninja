@@ -14,7 +14,7 @@ dependencies = [
     "django-pgtrigger>=4.13.2",
     "jinja2>=3.1.4",
     "json5>=0.10.0",
-    "pydantic[email]>=2.10.6",
+    "pydantic[email]",
     "rich>=13.9.4",
 ]
 
@@ -57,3 +57,7 @@ ignore_missing_imports = true
 
 [tool.django-stubs]
 django_settings_module = "testproject.settings"
+
+[tool.ruff]
+# Enable ths isort rules
+select = ["E", "F", "I"]  # E: pycodestyle, F: pyflakes, I: isort
