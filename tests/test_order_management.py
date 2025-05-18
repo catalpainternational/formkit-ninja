@@ -1,5 +1,4 @@
 import pytest
-from django.db import IntegrityError
 
 from formkit_ninja.models import FormKitSchema, FormKitSchemaNode
 
@@ -14,13 +13,11 @@ class TestOrderManagement:
     def node_factory(self, schema):
         def create_node(**kwargs):
             n = FormKitSchemaNode.objects.create(
-                schema=schema,
-                node_type="$formkit",
-                node={"$formkit": "text"},
-                **kwargs
+                schema=schema, node_type="$formkit", node={"$formkit": "text"}, **kwargs
             )
             n.refresh_from_db()  # Otherwise we miss `order` updates
             return n
+
         return create_node
 
     def test_auto_order_assignment(self, node_factory):
@@ -46,13 +43,13 @@ class TestOrderManagement:
 
         # Insert a node in the middle
         node4 = node_factory(order=2)
-        
+
         # Verify orders were adjusted
         node1.refresh_from_db()
         node2.refresh_from_db()
         node3.refresh_from_db()
         node4.refresh_from_db()
-        
+
         assert node1.order == 1
         assert node4.order == 2
         assert node2.order == 3
@@ -72,11 +69,10 @@ class TestOrderManagement:
         node1.refresh_from_db()
         # node2.refresh_from_db()
         node3.refresh_from_db()
-        
+
         assert node1.order == 1
         # assert node2.order is None
         assert node3.order == 2
-
 
     def test_order_null_on_deletion(self, node_factory):
         """Test that deleting a node adjusts remaining orders"""
@@ -91,7 +87,7 @@ class TestOrderManagement:
         # Verify orders were adjusted
         node1.refresh_from_db()
         node3.refresh_from_db()
-        
+
         assert node1.order == 1
         assert node3.order == 2
 
@@ -104,20 +100,14 @@ class TestOrderManagement:
         # Create second schema and nodes
         schema2 = FormKitSchema.objects.create(label="Test Schema 2")
         node3 = FormKitSchemaNode.objects.create(
-            schema=schema2,
-            node_type="$formkit",
-            node={"$formkit": "text"},
-            order=1
+            schema=schema2, node_type="$formkit", node={"$formkit": "text"}, order=1
         )
         node4 = FormKitSchemaNode.objects.create(
-            schema=schema2,
-            node_type="$formkit",
-            node={"$formkit": "text"},
-            order=2
+            schema=schema2, node_type="$formkit", node={"$formkit": "text"}, order=2
         )
 
         # Verify orders are independent between schemas
         assert node1.order == 1
         assert node2.order == 2
         assert node3.order == 1
-        assert node4.order == 2 
+        assert node4.order == 2

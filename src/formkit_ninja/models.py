@@ -18,9 +18,7 @@ from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
 from rich.console import Console
 from django.utils import timezone
-from django.db import models
 import json
-from typing_extensions import Self
 
 from formkit_ninja import formkit_schema, triggers
 from formkit_ninja.formkit_schema import normalize_node
@@ -138,15 +136,15 @@ class OptionGroup(models.Model):
         """
 
         with transaction.atomic():
-            group, group_created = cls.objects.get_or_create(
+            group_instance, group_created = cls.objects.get_or_create(
                 group=group, content_type=ContentType.objects.get_for_model(model)
             )
-            log(group)
+            log(group_instance)
 
             for obj in model.objects.values("pk", field):
                 option, option_created = Option.objects.get_or_create(
                     object_id=obj["pk"],
-                    group=group,
+                    group=group_instance,
                     value=obj["pk"],
                 )
                 OptionLabel.objects.get_or_create(
@@ -360,6 +358,7 @@ class NodeQS(models.QuerySet):
                 warnings.warn(f"An unparseable FormKit node was hit at {node.pk}")
                 warnings.warn(f"{E}")
 
+
 """
 In this `FormKitSchemaNode` model we have a `schema` and an `order`.
 
@@ -374,6 +373,7 @@ If a node is saved with an existing order, all other nodes with an order higher 
 When a node is deleted or its is_active field is set to False, its order should be set to Null.
 All nodes with an order higher than the deleted or deactivated node's order should be decremented by one to fill the gap.
 """
+
 
 @pghistory.track()
 @pgtrigger.register(
@@ -393,7 +393,7 @@ All nodes with an order higher than the deleted or deactivated node's order shou
     triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
     # Trigger for new nodes without order
     pgtrigger.Trigger(
-        name='assign_order_on_insert',
+        name="assign_order_on_insert",
         operation=pgtrigger.Insert,
         when=pgtrigger.Before,
         condition=pgtrigger.Q(new__order__isnull=True),
@@ -404,11 +404,11 @@ All nodes with an order higher than the deleted or deactivated node's order shou
                 WHERE schema_id = NEW.schema_id
             );
             RETURN NEW;
-        """
+        """,
     ),
     # Trigger for nodes with existing order
     pgtrigger.Trigger(
-        name='increment_higher_orders',
+        name="increment_higher_orders",
         operation=pgtrigger.Insert | pgtrigger.Update,
         when=pgtrigger.After,
         condition=pgtrigger.Q(new__order__isnull=False),
@@ -420,25 +420,23 @@ All nodes with an order higher than the deleted or deactivated node's order shou
             AND id != NEW.id
             AND pg_trigger_depth() = 1;
             RETURN NEW;
-        """
+        """,
     ),
     # Trigger for deactivation/deletion
     pgtrigger.Trigger(
-        name='decrement_higher_orders',
+        name="decrement_higher_orders",
         operation=pgtrigger.Update,
         when=pgtrigger.Before,
-        condition=pgtrigger.Q(old__order__isnull=False) & (
-            pgtrigger.Q(new__is_active=False) | 
-            pgtrigger.Q(new__order__isnull=True)
-        ),
+        condition=pgtrigger.Q(old__order__isnull=False)
+        & (pgtrigger.Q(new__is_active=False) | pgtrigger.Q(new__order__isnull=True)),
         func="""
             UPDATE formkit_ninja_formkitschemanode
             SET "order" = "order" - 1
             WHERE schema_id = OLD.schema_id
             AND "order" > OLD."order";
             RETURN OLD;
-        """
-    )
+        """,
+    ),
 )
 class FormKitSchemaNode(UuidIdModel):
     """
@@ -520,7 +518,9 @@ class FormKitSchemaNode(UuidIdModel):
 
     # Add a foreign key to "Schema", and an "Order" field
     # These will be unique_together
-    schema = models.ForeignKey("FormKitSchema", null=True, blank=True, on_delete=models.SET_NULL)
+    schema = models.ForeignKey(
+        "FormKitSchema", null=True, blank=True, on_delete=models.SET_NULL
+    )
     order = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
@@ -618,16 +618,21 @@ class FormKitSchemaNode(UuidIdModel):
                 **kwargs, recursive=recursive, options=options
             )
 
-        
-
         formkit_node = formkit_schema.DiscriminatedNodeType.model_validate(node_content)
         return formkit_node.root
 
     @classmethod
-    def _from_props_instance(cls, input_model: formkit_schema.FormKitSchemaProps, schema: FormKitSchema | None = None, _depth=0):
+    def _from_props_instance(
+        cls,
+        input_model: formkit_schema.FormKitSchemaProps,
+        schema: FormKitSchema | None = None,
+        _depth=0,
+    ):
         MAX_DEPTH = 50
         if _depth > MAX_DEPTH:
-            raise RuntimeError(f"Schema nesting too deep (>{MAX_DEPTH}). Possible circular reference or malformed schema. Offending node: {input_model.model_dump(exclude_none=True, by_alias=True)}")
+            raise RuntimeError(
+                f"Schema nesting too deep (>{MAX_DEPTH}). Possible circular reference or malformed schema. Offending node: {input_model.model_dump(exclude_none=True, by_alias=True)}"
+            )
         instance = cls()
         log(f"[green]Creating {instance}")
         for label_field in ("name", "id", "key", "label"):
@@ -665,7 +670,7 @@ class FormKitSchemaNode(UuidIdModel):
             exclude_unset=True,
             by_alias=True,
         )
-            
+
         # Where an alias is used ("el", ) restore it to the expected value
         # of a FormKit schema node
         for pydantic_key, db_key in (("el", "$el"), ("formkit", "$formkit")):
@@ -698,16 +703,17 @@ class FormKitSchemaNode(UuidIdModel):
             instance.refresh_from_db()
 
         # Retain input strings without splitting to a list
-        children = getattr(input_model, "children", []) or []
-        if isinstance(children, str):
-            child_node = next(iter(cls.from_pydantic(children, _depth=_depth+1)))
-            console.log(f"    {child_node}")
-            instance.children.add(child_node)
-        elif isinstance(children, Iterable):
-            for c_n in children:
-                child_node = next(iter(cls.from_pydantic(c_n, _depth=_depth+1)))
+        children = getattr(input_model, "children", None)
+        if children:
+            if isinstance(children, str):
+                child_node = next(iter(cls.from_pydantic(children, _depth=_depth + 1)))
                 console.log(f"    {child_node}")
                 instance.children.add(child_node)
+            elif isinstance(children, Iterable) and not isinstance(children, str):
+                for c_n in children:
+                    child_node = next(iter(cls.from_pydantic(c_n, _depth=_depth + 1)))
+                    console.log(f"    {child_node}")
+                    instance.children.add(child_node)
 
         yield instance
 
@@ -724,22 +730,34 @@ class FormKitSchemaNode(UuidIdModel):
     ) -> Iterable["FormKitSchemaNode"]:
         MAX_DEPTH = 50
         if _depth > MAX_DEPTH:
-            raise RuntimeError(f"Schema nesting too deep (>{MAX_DEPTH}). Possible circular reference or malformed schema. Offending input: {input_models}")
+            raise RuntimeError(
+                f"Schema nesting too deep (>{MAX_DEPTH}). Possible circular reference or malformed schema. Offending input: {input_models}"
+            )
         if isinstance(input_models, str):
             yield cls.objects.create(
-                node_type="text", label=input_models, text_content=input_models, schema=schema
+                node_type="text",
+                label=input_models,
+                text_content=input_models,
+                schema=schema,
             )
         if isinstance(input_models, formkit_schema.DiscriminatedNodeType):
-            yield from cls.from_pydantic(input_models.root, schema=schema, _depth=_depth+1)
+            yield from cls.from_pydantic(
+                input_models.root, schema=schema, _depth=_depth + 1
+            )
         elif isinstance(input_models, formkit_schema.DiscriminatedNodeTypeSchema):
             for node in input_models.root:
-                yield from cls.from_pydantic(node, schema=schema, _depth=_depth+1)
+                yield from cls.from_pydantic(node, schema=schema, _depth=_depth + 1)
         elif isinstance(input_models, Iterable) and not isinstance(
             input_models, formkit_schema.FormKitSchemaProps
         ):
-            yield from (cls.from_pydantic(n, schema=schema, _depth=_depth+1) for n in input_models)
+            yield from (
+                cls.from_pydantic(n, schema=schema, _depth=_depth + 1)
+                for n in input_models
+            )
         elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
-            yield from cls._from_props_instance(input_models, schema=schema, _depth=_depth+1)
+            yield from cls._from_props_instance(
+                input_models, schema=schema, _depth=_depth + 1
+            )
         else:
             raise TypeError(
                 f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}"
@@ -748,21 +766,30 @@ class FormKitSchemaNode(UuidIdModel):
     def to_pydantic(self, recursive=False, options=False, **kwargs):
         if self.text_content:
             return self.text_content
-        return formkit_schema.DiscriminatedNodeType.model_validate(
-            self.get_node_values(recursive=recursive, options=options, **kwargs)
-        )
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            try:
+                return formkit_schema.DiscriminatedNodeType.model_validate(
+                    self.get_node_values(recursive=recursive, options=options, **kwargs)
+                )
+            except Exception as E:
+                print(E)
+                raise E
 
 
 class SchemaManager(models.Manager):
     """
     Provides prefetching which we'll almost always want to have
     """
+
     ...
 
 
 class FormKitSchema(UuidIdModel):
     """
-    A schema is an array of objects or strings (called "schema nodes"), 
+    A schema is an array of objects or strings (called "schema nodes"),
     where each array item defines a single schema node
     See: [docs](https://formkit.com/essentials/schema
     """
@@ -787,7 +814,10 @@ class FormKitSchema(UuidIdModel):
         """
         Create a "table view" of a schema
         """
-        data = [n.get_node().model_dump(by_alias=True, exclude_none=True) for n in self.ordered_nodes()]
+        data = [
+            n.get_node().model_dump(by_alias=True, exclude_none=True)
+            for n in self.ordered_nodes()
+        ]
 
         # Get intersection of keys
         keys: set[str] = set()
@@ -818,7 +848,14 @@ class FormKitSchema(UuidIdModel):
         return f"{self.label}" or f"{str(self.id)[:8]}"
 
     @classmethod
-    def from_pydantic(cls, input_model:  formkit_schema.GroupNode | formkit_schema.DiscriminatedNodeTypeSchema | formkit_schema.FormKitSchema, *, label: str | None = None) -> "FormKitSchema":
+    def from_pydantic(
+        cls,
+        input_model: formkit_schema.GroupNode
+        | formkit_schema.DiscriminatedNodeTypeSchema
+        | formkit_schema.FormKitSchema,
+        *,
+        label: str | None = None,
+    ) -> "FormKitSchema":
         """
         Convert a Pydantic model to a FormKitSchema instance.
         Handles both single nodes and full schemas.
@@ -833,12 +870,17 @@ class FormKitSchema(UuidIdModel):
             with transaction.atomic():
                 schema = cls.objects.create(label=label)
                 # Handle each node in the schema
-                _ = list(itertools.chain.from_iterable(
-                    FormKitSchemaNode.from_pydantic(input_model.root, schema=schema)
-                ))
+                _ = list(
+                    itertools.chain.from_iterable(
+                        FormKitSchemaNode.from_pydantic(input_model.root, schema=schema)
+                    )
+                )
             return schema
         elif isinstance(input_model, formkit_schema.GroupNode):
-            return cls.from_pydantic(formkit_schema.DiscriminatedNodeTypeSchema(input_model.children), label=label)
+            return cls.from_pydantic(
+                formkit_schema.DiscriminatedNodeTypeSchema(input_model.children),
+                label=label,
+            )
 
     @classmethod
     def from_formkitschema(
@@ -848,11 +890,16 @@ class FormKitSchema(UuidIdModel):
         Converts a given Pydantic representation of a Schema
         to Django database fields
         """
-        warnings.warn("FormKitSchema should be replaced by DiscriminatedNodeTypeSchema", DeprecationWarning)
+        warnings.warn(
+            "FormKitSchema should be replaced by DiscriminatedNodeTypeSchema",
+            DeprecationWarning,
+        )
         instance = cls.objects.create(label=label)
-        _ = list(itertools.chain.from_iterable(
-            FormKitSchemaNode.from_pydantic(input_model.root, schema=instance)
-        ))
+        _ = list(
+            itertools.chain.from_iterable(
+                FormKitSchemaNode.from_pydantic(input_model.root, schema=instance)
+            )
+        )
         logger.info("Schema load from JSON done")
         return instance
 
@@ -862,37 +909,50 @@ class FormKitSchema(UuidIdModel):
         Converts a given JSON string to a suitable
         Django representation
         """
+
         def _check_nesting(obj, max_depth=50, _depth=0):
             if _depth > max_depth:
-                raise RuntimeError(f"Schema nesting too deep (>{max_depth}) before validation. Possible circular reference or malformed schema. Offending input: {str(obj)[:500]}")
+                raise RuntimeError(
+                    f"Schema nesting too deep (>{max_depth}) before validation. Possible circular reference or malformed schema. Offending input: {str(obj)[:500]}"
+                )
             if isinstance(obj, dict):
                 for v in obj.values():
                     _check_nesting(v, max_depth, _depth + 1)
             elif isinstance(obj, list):
                 for v in obj:
                     _check_nesting(v, max_depth, _depth + 1)
+
         _check_nesting(input_file)
         normalized = normalize_node(input_file)
-        schema_instance = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(normalized)
+        schema_instance = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(
+            normalized
+        )
         return cls.from_pydantic(schema_instance)
 
     def save_as_draft(self):
         """
         Save this schema as a draft
         """
-        return PublishedForm.objects.create(schema=self, status=PublishedForm.Status.DRAFT)
+        return PublishedForm.objects.create(
+            schema=self, status=PublishedForm.Status.DRAFT
+        )
 
     def publish(self):
         """
         Publish this schema
         """
-        return PublishedForm.objects.create(schema=self, status=PublishedForm.Status.PUBLISHED)
+        return PublishedForm.objects.create(
+            schema=self, status=PublishedForm.Status.PUBLISHED
+        )
 
     def get_published(self):
         """
         Get the published schema
         """
-        return PublishedForm.objects.get(schema=self, status=PublishedForm.Status.PUBLISHED)
+        return PublishedForm.objects.get(
+            schema=self, status=PublishedForm.Status.PUBLISHED
+        )
+
 
 class PublishedForm(models.Model):
     """
@@ -901,28 +961,31 @@ class PublishedForm(models.Model):
     """
 
     class Status(models.TextChoices):
-        DRAFT = 'draft', 'Draft'
-        PUBLISHED = 'published', 'Published'
-        REPLACED = 'replaced', 'Replaced'
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "published", "Published"
+        REPLACED = "replaced", "Replaced"
 
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     published_schema = models.JSONField(editable=False)
 
     published = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    replaced = models.DateTimeField(null=True, blank=True, help_text="When this form version was replaced by a newer version")
+    replaced = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this form version was replaced by a newer version",
+    )
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
         default=Status.DRAFT,
-        help_text="Current status of the form"
+        help_text="Current status of the form",
     )
     version = models.IntegerField(default=1, null=False, blank=False)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['schema', 'version'],
-                name='unique_schema_version'
+                fields=["schema", "version"], name="unique_schema_version"
             )
         ]
 
@@ -937,20 +1000,23 @@ class PublishedForm(models.Model):
         """
         # Get currently active forms that will be deactivated
         to_deactivate = self.__class__.objects.filter(
-            schema=self.schema, 
+            schema=self.schema,
         ).exclude(pk=self.pk)
-        
+
         # Set replaced timestamp and status on forms being deactivated
-        to_deactivate.update(
-            replaced=timezone.now(),
-            status=self.Status.REPLACED
-        )
+        to_deactivate.update(replaced=timezone.now(), status=self.Status.REPLACED)
 
         # Hard coded schema avoids potential changes we don't intend to make
-        self.published_schema = list(self.schema.get_schema_values(recursive=True, options=True))
+        self.published_schema = list(
+            self.schema.get_schema_values(recursive=True, options=True)
+        )
 
         # Fetch the highest previous schema version, and increment by one
-        previous_version = self.__class__.objects.filter(schema=self.schema).order_by("-version").first()
+        previous_version = (
+            self.__class__.objects.filter(schema=self.schema)
+            .order_by("-version")
+            .first()
+        )
         if previous_version:
             self.version = previous_version.version + 1
         else:
@@ -966,36 +1032,35 @@ class PublishedForm(models.Model):
     def from_json_file(cls, json_file_path, label=None, force=False):
         """
         Create a PublishedForm instance from a JSON file.
-        
+
         The JSON file can be either:
         1. A list of schema nodes
         2. A single group node with children
         3. A nested structure of group nodes
-        
+
         Args:
             json_file_path (str|Path): Path to the JSON schema file
             label (str, optional): Label for the schema. Defaults to filename stem.
             force (bool): Whether to force update if schema exists. Defaults to False.
-            
+
         Returns:
             tuple[PublishedForm, bool]: Tuple of (published_form, created) where created is True if new schema was created
         """
         from pathlib import Path
-        import json
-        
+
         json_path = Path(json_file_path)
         if not json_path.exists():
             raise FileNotFoundError(f"Schema file not found: {json_file_path}")
-            
+
         # Use filename as label if not provided
         if label is None:
             label = json_path.stem
-            
+
         # Check if schema exists
         schema_exists = FormKitSchema.objects.filter(label=label).exists()
         if schema_exists and not force:
             return None, False
-            
+
         # Load and parse JSON
         with open(json_path) as f:
             schema_data = json.load(f)
@@ -1009,13 +1074,15 @@ class PublishedForm(models.Model):
                 # Single node without children, wrap in list
                 schema_data = [schema_data]
         elif not isinstance(schema_data, list):
-            raise ValueError(f"Invalid schema format in {json_path}. Expected list or dict with children.")
-            
+            raise ValueError(
+                f"Invalid schema format in {json_path}. Expected list or dict with children."
+            )
+
         # Create schema from JSON
         schema = FormKitSchema.from_json(schema_data)
         schema.label = label
         schema.save()
-        
+
         # Create and return published form
         published_form = schema.publish()
         return published_form, not schema_exists
@@ -1028,15 +1095,17 @@ class PublishedForm(models.Model):
                 base += f" to {self.replaced.strftime('%Y-%m-%d')}"
         return base
 
-    def get_json_table_query(self, table_name: str = "submissionsdemo_submission", json_column: str = "data") -> str:
+    def get_json_table_query(
+        self, table_name: str = "submissionsdemo_submission", json_column: str = "data"
+    ) -> str:
         """
         Generate a PostgreSQL query using JSON_TABLE to extract all fields from form submissions.
         Requires PostgreSQL 17+.
-        
+
         Args:
             table_name: The name of the table containing the submissions (default: "submissions")
             json_column: The name of the column containing the JSON data (default: "data")
-            
+
         Returns:
             A PostgreSQL query string that extracts all fields from the submissions
         """
@@ -1053,10 +1122,15 @@ class PublishedForm(models.Model):
                     else:
                         group_name = "unnamed group"
                     for child in node.get("children", []):
-                        if child.get("$formkit") and not child["$formkit"] in ["group", "repeater"]:
+                        if child.get("$formkit") and child["$formkit"] not in [
+                            "group",
+                            "repeater",
+                        ]:
                             field_name = f"{group_name}_{child['name']}"
                             field_type = self._get_postgres_type(child["$formkit"])
-                            columns.append(f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'")
+                            columns.append(
+                                f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'"
+                            )
                 elif node["$formkit"] != "repeater":
                     # Handle regular fields
                     field_name = node["name"]
@@ -1077,23 +1151,32 @@ class PublishedForm(models.Model):
         WHERE form_id = '{self.id}'
         """
 
-    def get_repeater_json_table_query(self, repeater_name: str, table_name: str = "submissionsdemo_submission", json_column: str = "data") -> str:
+    def get_repeater_json_table_query(
+        self,
+        repeater_name: str,
+        table_name: str = "submissionsdemo_submission",
+        json_column: str = "data",
+    ) -> str:
         """
         Generate a PostgreSQL query using JSON_TABLE to extract data from a repeater field.
         This creates a separate row for each item in the repeater array.
-        
+
         Args:
             repeater_name: Name of the repeater field to extract data from
             table_name: The name of the table containing the submissions
             json_column: The name of the column containing the JSON data
-            
+
         Returns:
             A PostgreSQL query string that extracts repeater field data
         """
         # Find the repeater node
         repeater_node = next(
-            (node for node in self.published_schema if node.get("$formkit") == "repeater" and node["name"] == repeater_name),
-            None
+            (
+                node
+                for node in self.published_schema
+                if node.get("$formkit") == "repeater" and node["name"] == repeater_name
+            ),
+            None,
         )
         if not repeater_node:
             raise ValueError(f"No repeater field found with name {repeater_name}")
@@ -1101,7 +1184,7 @@ class PublishedForm(models.Model):
         # Get the columns for the repeater items
         columns = []
         for child in repeater_node.get("children", []):
-            if child.get("$formkit") and not child["$formkit"] in ["group", "repeater"]:
+            if child.get("$formkit") and child["$formkit"] not in ["group", "repeater"]:
                 field_name = child["name"]
                 field_type = self._get_postgres_type(child["$formkit"])
                 columns.append(f"{field_name} {field_type} PATH '$.{field_name}'")
@@ -1123,21 +1206,26 @@ class PublishedForm(models.Model):
         WHERE s.form_id = '{self.id}'
         """
 
-    def get_flattened_json_table_query(self, table_name: str = "submissionsdemo_submission", json_column: str = "data", max_repeater_items: int = 5) -> str:
+    def get_flattened_json_table_query(
+        self,
+        table_name: str = "submissionsdemo_submission",
+        json_column: str = "data",
+        max_repeater_items: int = 5,
+    ) -> str:
         """
         Generate a PostgreSQL query that flattens groups and repeaters into a single row.
         Repeater items are numbered up to max_repeater_items.
-        
+
         Args:
             table_name: The name of the table containing the submissions
             json_column: The name of the column containing the JSON data
             max_repeater_items: Maximum number of items to extract from repeater fields
-            
+
         Returns:
             A PostgreSQL query string that extracts all fields in a flat structure
         """
         columns = []
-        
+
         # First add all non-repeater fields
         for node in self.published_schema:
             if node.get("$formkit"):
@@ -1145,10 +1233,15 @@ class PublishedForm(models.Model):
                     # Handle group fields by prefixing with group name
                     group_name = node["name"]
                     for child in node.get("children", []):
-                        if child.get("$formkit") and not child["$formkit"] in ["group", "repeater"]:
+                        if child.get("$formkit") and child["$formkit"] not in [
+                            "group",
+                            "repeater",
+                        ]:
                             field_name = f"{group_name}_{child['name']}"
                             field_type = self._get_postgres_type(child["$formkit"])
-                            columns.append(f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'")
+                            columns.append(
+                                f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'"
+                            )
                 elif node["$formkit"] != "repeater":
                     # Handle regular fields
                     field_name = node["name"]
@@ -1161,10 +1254,15 @@ class PublishedForm(models.Model):
                 repeater_name = node["name"]
                 for i in range(max_repeater_items):
                     for child in node.get("children", []):
-                        if child.get("$formkit") and not child["$formkit"] in ["group", "repeater"]:
+                        if child.get("$formkit") and child["$formkit"] not in [
+                            "group",
+                            "repeater",
+                        ]:
                             field_name = f"{repeater_name}_{i+1}_{child['name']}"
                             field_type = self._get_postgres_type(child["$formkit"])
-                            columns.append(f"{field_name} {field_type} PATH '$.{repeater_name}[{i}].{child['name']}'")
+                            columns.append(
+                                f"{field_name} {field_type} PATH '$.{repeater_name}[{i}].{child['name']}'"
+                            )
 
         # Create the JSON_TABLE query
         columns_str = ",\n    ".join(columns)
@@ -1198,6 +1296,7 @@ class PublishedForm(models.Model):
             case _:
                 return "text"
 
+
 class SchemaLabel(models.Model):
     """
     This intended to hold translations of Partisipa schema definitions.
@@ -1227,10 +1326,12 @@ class SchemaDescription(models.Model):
         choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")),
     )
 
+
 class Submission(models.Model):
     """
     This abstract model may be adapted to suit your own model
     """
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -1238,7 +1339,7 @@ class Submission(models.Model):
     data = models.JSONField()
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
         abstract = True
 
     def __str__(self):

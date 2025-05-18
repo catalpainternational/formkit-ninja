@@ -2,13 +2,32 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import (Annotated, Any, Callable, Dict, List, Literal, Self, TypedDict,
-                    TypeVar, Union)
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Self,
+    TypedDict,
+    TypeVar,
+    Union,
+)
 
 from json5 import loads as js_load
-from pydantic import (BaseModel, ConfigDict, Discriminator, Field,
-                      PlainValidator, RootModel, Tag, model_serializer,
-                      model_validator)
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Discriminator,
+    Field,
+    PlainValidator,
+    RootModel,
+    Tag,
+    model_serializer,
+    field_serializer,
+    model_validator,
+)
 from pydantic.functional_validators import field_validator
 from typing_extensions import deprecated
 
@@ -35,6 +54,7 @@ def parse_vue_syntax(key: str, value: str) -> tuple[str, Any] | tuple[None, None
     if key.startswith(":"):
         return key[1:], try_convert(value)
     return None, None
+
 
 def get_additional_props(
     object_in: dict[str, Any], exclude: set[str] = set()
@@ -69,15 +89,16 @@ class FormKitSchemaCondition(BaseModel):
     node_type: Literal["condition"] = Field(default="condition", exclude=True)
     # If, Then, Else are aliases bacause they're reserved words
     if_condition: str = Field(..., alias="if")
-    then_condition: Node | List[Node] = Field(..., alias="then")
-    else_condition: Node | List[Node] | None = Field(None, alias="else")
+    then_condition: "Node" | List["Node"] = Field(..., alias="then")
+    else_condition: "Node" | List["Node"] | None = Field(None, alias="else")
 
 
 class FormKitSchemaMeta(RootModel):
     root: dict[str, str | float | int | bool | None]
 
 
-class FormKitTypeDefinition(BaseModel): ...
+class FormKitTypeDefinition(BaseModel):
+    ...
 
 
 class FormKitContextShape(BaseModel):
@@ -162,14 +183,7 @@ class FormKitSchemaProps(BaseModel):
     """
 
     children: Annotated[
-        str
-        | list[
-            FormKitType
-            | FormKitSchemaDOMNode
-            | FormKitSchemaComponent
-            | FormKitSchemaCondition
-        ]
-        | None,
+        str | list["FormKitSchemaProps"] | None,
         PlainValidator(child_validate),
     ] = Field(None)
     key: str | None = None
@@ -256,9 +270,28 @@ class FormKitSchemaProps(BaseModel):
 
         return {**data, "node_type": node_type}
 
+    @field_serializer("children")
+    def serialize_children(
+        self, children: str | list["FormKitSchemaProps"] | None, _info
+    ):
+        if children is None:
+            return
+        if isinstance(children, str):
+            return children
+
+        def iterate_over_child_nodes():
+            for child in children:
+                if isinstance(child, str):
+                    yield child
+                else:
+                    yield DiscriminatedNodeType.model_dump(
+                        child, by_alias=_info.by_alias, exclude_none=_info.exclude_none
+                    )
+
+        return list(iterate_over_child_nodes())
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler: Callable[[Self], Any]):
-
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             # We get a storm of "UnexpectedValueWarnings"
@@ -303,11 +336,7 @@ class FormKitSchemaProps(BaseModel):
         However this may be JSON so coerce to a JSON object
         if it smells like JSON
         """
-        return value    
-
-
-# We defined this after the model above as it's a circular reference
-ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None
+        return value
 
 
 class NodeType(FormKitSchemaProps):
@@ -579,7 +608,6 @@ Node = Annotated[
 # This necessary to properly "populate" some more complicated models
 FormKitSchemaAttributesCondition.model_rebuild()
 FormKitAttributeValue.model_rebuild()
-FormKitSchemaDOMNode.model_rebuild()
 FormKitSchemaCondition.model_rebuild()
 FormKitSchemaComponent.model_rebuild()
 
@@ -646,9 +674,7 @@ def get_node_type(obj: dict) -> Literal["text", "element", "formkit", "component
     raise KeyError(f"Could not determine node type for {obj}")
 
 
-NodeTypes = (
-    FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
-)
+NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent
 
 
 @deprecated("This model should be migrated to DiscriminatedNodeType")
@@ -680,11 +706,11 @@ class FormKitSchema(RootModel):
             obj = [obj]
         return super().model_validate(obj, *args, **kwargs)
 
-FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition
+
+FormKitSchemaDefinition = Node | list[Node]
 
 
 def get_discriminator_v(v: Any) -> str:
-
     if isinstance(v, str):
         return "string"
     if isinstance(v, dict):
@@ -752,10 +778,12 @@ class DiscriminatedNodeTypeSchema(RootModel):
     root: list[DiscriminatedNodeType]
 
 
+FormKitSchemaProps.model_rebuild()
 FormKitSchema.model_rebuild()
 FormKitSchemaCondition.model_rebuild()
 PasswordNode.model_rebuild()
 RepeaterNode.model_rebuild()
+
 
 def normalize_node(node):
     """
@@ -774,7 +802,9 @@ def normalize_node(node):
             expected_type = "condition"
         if expected_type:
             if node.get("node_type") != expected_type:
-                logging.warning(f"normalize_node: Setting node_type to '{expected_type}' for node {node}. Previous value: {node.get('node_type')}")
+                logging.warning(
+                    f"normalize_node: Setting node_type to '{expected_type}' for node {node}. Previous value: {node.get('node_type')}"
+                )
                 node["node_type"] = expected_type
         # Recursively normalize children
         if "children" in node and isinstance(node["children"], list):
@@ -782,3 +812,8 @@ def normalize_node(node):
     elif isinstance(node, list):
         return [normalize_node(child) for child in node]
     return node
+
+
+FormKitSchemaProps.model_rebuild()
+FormKitSchemaDOMNode.model_rebuild()
+FormKitSchemaComponent.model_rebuild()

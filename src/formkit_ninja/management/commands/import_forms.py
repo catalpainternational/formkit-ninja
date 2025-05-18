@@ -1,9 +1,10 @@
 from django.core.management.base import BaseCommand
 
 from formkit_ninja import models
-from formkit_ninja.formkit_schema import DiscriminatedNodeType, GroupNode, FormKitSchema
+from formkit_ninja.formkit_schema import DiscriminatedNodeType
 from formkit_ninja.schemas import Schemas
 import pgtrigger
+
 
 class Command(BaseCommand):
     help = "Load all the Partisipa forms to the database"
@@ -23,4 +24,3 @@ class Command(BaseCommand):
             node = DiscriminatedNodeType.model_validate(schema)
             schema = models.FormKitSchema.from_pydantic(node.root, label=schema_name)
             published = schema.publish()
-           

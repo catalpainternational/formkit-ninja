@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import warnings
 from keyword import iskeyword
-from typing import Iterable, Literal, NamedTuple, Any, Type
+from typing import Iterable, Literal, NamedTuple, Type
 
 from formkit_ninja import formkit_schema
-from formkit_ninja.formkit_schema import DiscriminatedNodeType, GroupNode, NodeTypes, RepeaterNode
+from formkit_ninja.formkit_schema import (
+    DiscriminatedNodeType,
+    GroupNode,
+    NodeTypes,
+    RepeaterNode,
+)
 from pydantic import BaseModel, EmailStr, create_model, Field
 
 FormKitType = formkit_schema.FormKitType
@@ -236,7 +241,7 @@ class NodePath:
                 pydantic=self.classname,
                 django="OneToOneField",
                 postgres="integer",  # For the foreign key
-                django_args=f"{self.classname}, on_delete=models.PROTECT"
+                django_args=f"{self.classname}, on_delete=models.PROTECT",
             )
 
         node = self.node
@@ -246,13 +251,13 @@ class NodePath:
                     pydantic="float",
                     django="FloatField",
                     postgres="float",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
             return FieldTypes(
                 pydantic="int",
                 django="IntegerField",
                 postgres="int",
-                django_args="null=True, blank=True"
+                django_args="null=True, blank=True",
             )
 
         match node.formkit:
@@ -261,91 +266,91 @@ class NodePath:
                     pydantic="str",
                     django="TextField",
                     postgres="text",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
             case "number":
                 return FieldTypes(
                     pydantic="float",
                     django="FloatField",
                     postgres="float",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
             case "select" | "dropdown" | "radio" | "autocomplete":
                 return FieldTypes(
                     pydantic="str",
                     django="TextField",
                     postgres="text",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
             case "datepicker":
                 return FieldTypes(
                     pydantic="datetime",
                     django="DateTimeField",
                     postgres="timestamp",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
             case "tel":
                 return FieldTypes(
                     pydantic="int",
                     django="IntegerField",
                     postgres="int",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
             case "hidden":
                 return FieldTypes(
                     pydantic="str",
                     django="TextField",
                     postgres="text",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
             case "group":
                 return FieldTypes(
                     pydantic=self.classname,
                     django="OneToOneField",
                     postgres="integer",
-                    django_args=f"{self.classname}, on_delete=models.PROTECT"
+                    django_args=f"{self.classname}, on_delete=models.PROTECT",
                 )
             case "repeater":
                 return FieldTypes(
                     pydantic=f"list[{self.classname}]",
                     django="OneToManyField",
                     postgres="integer",
-                    django_args=f"{self.classname}, on_delete=models.PROTECT"
+                    django_args=f"{self.classname}, on_delete=models.PROTECT",
                 )
             case "checkbox":
                 return FieldTypes(
                     pydantic="bool",
                     django="BooleanField",
                     postgres="boolean",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
             case "currency":
                 return FieldTypes(
                     pydantic="Decimal",
                     django="DecimalField",
                     postgres="NUMERIC(15,2)",
-                    django_args="max_digits=20, decimal_places=2, null=True, blank=True"
+                    django_args="max_digits=20, decimal_places=2, null=True, blank=True",
                 )
             case "uuid":
                 return FieldTypes(
                     pydantic="UUID",
                     django="UUIDField",
                     postgres="uuid",
-                    django_args="editable=False, null=True, blank=True"
+                    django_args="editable=False, null=True, blank=True",
                 )
             case "date":
                 return FieldTypes(
                     pydantic="date",
                     django="DateField",
                     postgres="date",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
             case _:
                 return FieldTypes(
                     pydantic="str",
                     django="TextField",
                     postgres="text",
-                    django_args="null=True, blank=True"
+                    django_args="null=True, blank=True",
                 )
 
     @property
@@ -399,11 +404,11 @@ class NodePath:
     def to_json_table_query(self, table_name: str, json_column: str) -> str:
         """
         Generate a PostgreSQL query using jsonb_array_elements to extract data from JSON documents.
-        
+
         Args:
             table_name: The name of the table containing the JSON data
             json_column: The name of the column containing the JSON data
-            
+
         Returns:
             A PostgreSQL query string that extracts the field value from JSON documents
         """
@@ -416,7 +421,7 @@ class NodePath:
             WHERE jt->>'$formkit' = 'group'
             AND jt->>'name' = '{self.fieldname}'
             """
-        
+
         # For regular fields, we need to find the matching node in the JSON structure
         return f"""
         SELECT jt.{self.fieldname}
@@ -430,11 +435,11 @@ class NodePath:
         """
         Generate a PostgreSQL query using JSONTABLE to extract all fields from the JSON data.
         This is useful when you have a schema and want to extract all fields from JSON documents.
-        
+
         Args:
             table_name: The name of the table containing the JSON data
             json_column: The name of the column containing the JSON data
-            
+
         Returns:
             A PostgreSQL query string that extracts all fields from the JSON documents
         """
@@ -459,15 +464,17 @@ class NodePath:
         ) AS jt
         """
 
-    def to_json_table_query_with_validation(self, table_name: str, json_column: str) -> str:
+    def to_json_table_query_with_validation(
+        self, table_name: str, json_column: str
+    ) -> str:
         """
         Generate a PostgreSQL query that includes validation of the JSON structure.
         This ensures the field exists and has the correct type.
-        
+
         Args:
             table_name: The name of the table containing the JSON data
             json_column: The name of the column containing the JSON data
-            
+
         Returns:
             A PostgreSQL query string that extracts and validates the field value
         """
@@ -480,7 +487,7 @@ class NodePath:
             AND jt->>'name' = '{self.fieldname}'
             AND jt.{self.fieldname} IS NOT NULL
             """
-        
+
         # Add type validation based on the field type
         type_validation = ""
         match self.node.formkit:
@@ -489,7 +496,9 @@ class NodePath:
             case "tel":
                 type_validation = f"AND jt.{self.fieldname} ~ '^[0-9]+$'"
             case "date" | "datepicker":
-                type_validation = f"AND jt.{self.fieldname} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}'"
+                type_validation = (
+                    f"AND jt.{self.fieldname} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}'"
+                )
             case "uuid":
                 type_validation = f"AND jt.{self.fieldname} ~ '^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$'"
             case "checkbox":
@@ -522,47 +531,52 @@ class NodePath:
         AND jt->>'name' = '{field_name}'
         """
 
+
 def create_pydantic_model_from_schema(schema: list[dict]) -> Type[BaseModel]:
     """
     Creates a Pydantic model from a FormKit schema.
     The model will have fields matching the schema's input names with appropriate types.
-    
+
     Args:
         schema: A FormKit schema array
-        
+
     Returns:
         A Pydantic model class with fields matching the schema inputs
     """
     fields = {}
-    
+
     for node in schema:
         if not isinstance(node, dict):
             continue
-            
+
         # Only process FormKit input nodes
         if node.get("$formkit") and node.get("name"):
             name = node["name"]
             formkit_type = node["$formkit"]
             required = "required" in node.get("validation", "")
-            
+
             # Map FormKit types to Python/Pydantic types
             type_mapping = {
-                "text": (str, ...if required else None),
-                "email": (EmailStr, ...if required else None),
-                "number": (int, ...if required else None),
+                "text": (str, ... if required else None),
+                "email": (EmailStr, ... if required else None),
+                "number": (int, ... if required else None),
                 "checkbox": (bool, False),
-                "date": (str, ...if required else None),  # Could use datetime.date with validation
-                "tel": (str, ...if required else None),
-                "url": (str, ...if required else None),
-                "textarea": (str, ...if required else None),
+                "date": (
+                    str,
+                    ... if required else None,
+                ),  # Could use datetime.date with validation
+                "tel": (str, ... if required else None),
+                "url": (str, ... if required else None),
+                "textarea": (str, ... if required else None),
             }
-            
+
             if formkit_type in type_mapping:
                 python_type, default = type_mapping[formkit_type]
                 fields[name] = (python_type, Field(default=default))
-    
+
     # Create and return the model
     return create_model("FormData", **fields)
+
 
 # Example usage:
 # schema = [

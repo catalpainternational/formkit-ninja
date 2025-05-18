@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
@@ -20,9 +19,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         force = options["force"]
         schemas_dir = Path(__file__).parent.parent.parent / "schemas"
-        
+
         if not schemas_dir.exists():
-            self.stderr.write(self.style.ERROR(f"Schemas directory not found at {schemas_dir}"))
+            self.stderr.write(
+                self.style.ERROR(f"Schemas directory not found at {schemas_dir}")
+            )
             return
 
         # Get all JSON files
@@ -33,14 +34,13 @@ class Command(BaseCommand):
             try:
                 with transaction.atomic():
                     published_form, created = PublishedForm.from_json_file(
-                        json_file,
-                        force=force
+                        json_file, force=force
                     )
-                    
+
                     if published_form is None:
                         self.stdout.write(f"Skipping {json_file.stem} - already exists")
                         continue
-                        
+
                     action = "Created" if created else "Updated"
                     self.stdout.write(
                         self.style.SUCCESS(
@@ -54,4 +54,4 @@ class Command(BaseCommand):
                 )
                 continue
 
-        self.stdout.write(self.style.SUCCESS("Schema loading complete!")) 
+        self.stdout.write(self.style.SUCCESS("Schema loading complete!"))
