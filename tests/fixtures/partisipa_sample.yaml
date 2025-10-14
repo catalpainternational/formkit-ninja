@@ -1,0 +1,453 @@
+- model: formkit_ninja.optiongroup
+  pk: Auto generated group for meeting_objective 51d2c7bf
+  fields:
+    content_type: null
+- model: formkit_ninja.option
+  pk: 0461dd16-bc36-42c6-b0cc-377bd95183f8
+  fields:
+    created: 2023-04-26 08:10:47.289954+00:00
+    updated: 2023-04-26 08:10:47.289964+00:00
+    created_by: null
+    updated_by: null
+    object_id: null
+    last_updated: 2023-11-07 01:43:37.297495+00:00
+    group: null
+    order: 5
+    value: '16'
+- model: formkit_ninja.option
+  pk: 068df82b-bb26-4812-aa8e-8091fc26f95b
+  fields:
+    created: 2023-04-26 08:10:47.300325+00:00
+    updated: 2023-04-26 08:10:47.300336+00:00
+    created_by: null
+    updated_by: null
+    object_id: null
+    last_updated: 2023-11-07 01:43:37.297495+00:00
+    group: null
+    order: 9
+    value: '1'
+- model: formkit_ninja.option
+  pk: 09679456-fbec-4682-9c66-7d10c4a89fa2
+  fields:
+    created: 2023-04-26 08:10:47.244288+00:00
+    updated: 2023-04-26 08:10:47.244298+00:00
+    created_by: null
+    updated_by: null
+    object_id: null
+    last_updated: 2023-11-07 01:43:37.297495+00:00
+    group: null
+    order: 2
+    value: '39'
+- model: formkit_ninja.option
+  pk: 1539a5ad-2e6c-4af0-899e-a6d6f4676c2a
+  fields:
+    created: 2023-10-19 05:12:11.758490+00:00
+    updated: 2023-10-19 05:12:11.762846+00:00
+    created_by: null
+    updated_by: null
+    object_id: null
+    last_updated: 2023-10-19 05:12:11.762852+00:00
+    group: Auto generated group for meeting_objective 51d2c7bf
+    order: 1
+    value: First accountability meeting
+- model: formkit_ninja.option
+  pk: 24cdf6f4-5fcd-42f3-9d1c-b2ea10487881
+  fields:
+    created: 2023-10-19 05:12:11.766614+00:00
+    updated: 2023-10-19 05:12:11.769162+00:00
+    created_by: null
+    updated_by: null
+    object_id: null
+    last_updated: 2023-10-19 05:12:11.769168+00:00
+    group: Auto generated group for meeting_objective 51d2c7bf
+    order: 2
+    value: Final accountability meeting
+- model: formkit_ninja.optionlabel
+  pk: 131
+  fields:
+    option: 1539a5ad-2e6c-4af0-899e-a6d6f4676c2a
+    label: First accountability meeting
+    lang: en
+- model: formkit_ninja.optionlabel
+  pk: 132
+  fields:
+    option: 24cdf6f4-5fcd-42f3-9d1c-b2ea10487881
+    label: Final accountability meeting
+    lang: en
+- model: formkit_ninja.formkitschemanode
+  pk: 003f844b-8ea8-4b10-aba1-07384a75056a
+  fields:
+    created: 2023-11-14 06:42:24.580079+00:00
+    updated: 2023-11-14 06:42:24.580138+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: null
+    option_group: null
+    is_active: false
+    protected: false
+    node:
+      id: 79fe71bb40ac2c15b07c534d4bb25c627c07d8e7
+      icon: las la-info-circle
+      name: ff5c79fc_unnamed
+      title: Project details
+      $formkit: group
+      additional_props:
+        id: 79fe71bb40ac2c15b07c534d4bb25c627c07d8e7
+        icon: las la-info-circle
+        title: Project details
+    additional_props: null
+    text_content: null
+    track_change: 1256
+- model: formkit_ninja.formkitschemanode
+  pk: 007a4b53-1491-4cf5-a4ae-4a4287cc883f
+  fields:
+    created: 2023-10-31 03:10:44.027674+00:00
+    updated: 2023-10-31 03:10:44.027692+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: null
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: TEST
+      icon: las la-users
+      name: TEST
+      title: TEST BY DICKRI
+      $formkit: group
+      additional_props:
+        id: TEST
+        icon: las la-users
+        title: TEST BY DICKRI
+    additional_props: null
+    text_content: null
+    track_change: 1140
+- model: formkit_ninja.formkitschemanode
+  pk: 0084be5a-9fe1-4c72-8895-c9467bd42b61
+  fields:
+    created: 2025-07-14 05:33:00.692171+00:00
+    updated: 2025-08-22 14:26:08.370996+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: null
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: e9f7993642efc5a8c9aa46cfde3cdbf7b5409689
+      icon: las la-address-book
+      name: _5a79bf1a_unnamed
+      title: Fatin
+      $formkit: group
+      additional_props:
+        id: e9f7993642efc5a8c9aa46cfde3cdbf7b5409689
+        icon: las la-address-book
+        title: Fatin
+    additional_props: null
+    text_content: null
+    track_change: 1874
+- model: formkit_ninja.formkitschemanode
+  pk: 02397091-6e21-46e4-a5ed-ea0769245036
+  fields:
+    created: 2023-10-19 05:12:08.818835+00:00
+    updated: 2023-10-19 05:12:08.818855+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: repeaterInfrastructureFund
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: repeaterInfrastructureFund
+      name: repeaterInfrastructureFund
+      $formkit: repeater
+      addLabel: $gettext("Add project")
+      upControl: false
+      downControl: false
+    additional_props:
+      addLabel: $gettext("Add project")
+      upControl: false
+      itemsClass: repeater
+      downControl: false
+      removeLabel: $gettext("Remove")
+      removeAction: $repeaterRemoveAction
+      sectionsSchema:
+        remove:
+          children:
+          - if: $value.length > 1
+            $el: button
+            attrs:
+              class: disabled:hidden cursor-pointer flex items-center justify-center
+                flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2
+                border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600
+                hover:text-white font-bold text-base
+              onClick: $attrs.removeAction
+              data-index: $index
+              data-repeaterid: $id
+            children:
+            - $attrs.removeLabel
+    text_content: null
+    track_change: 481
+- model: formkit_ninja.formkitschemanode
+  pk: 02a60929-2987-4f56-b63d-099431cd5f40
+  fields:
+    created: 2023-10-19 05:12:10.912935+00:00
+    updated: 2023-10-19 05:12:10.912953+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: cash
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: cash
+      name: cash
+      label: $gettext("1. Cash (USD)")
+      $formkit: currency
+    additional_props:
+      min: '0'
+    text_content: null
+    track_change: 799
+- model: formkit_ninja.formkitschemanode
+  pk: 081e135e-89bf-4e79-8513-fcc63d0dcc6a
+  fields:
+    created: 2023-10-26 06:49:39.143820+00:00
+    updated: 2023-10-26 06:49:39.143845+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: null
+    option_group: null
+    is_active: false
+    protected: false
+    node:
+      name: anothergroup
+      $formkit: group
+    additional_props: null
+    text_content: null
+    track_change: 1098
+- model: formkit_ninja.formkitschemanode
+  pk: 0885e623-079c-4dc4-9d40-040efb89e597
+  fields:
+    created: 2023-10-19 05:12:10.543590+00:00
+    updated: 2024-02-07 04:58:45.405518+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("Number of households")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      min: 0
+      name: number_of_households
+      label: $gettext("Number of households")
+      $formkit: number
+      validation: required
+      placeholder: $gettext("Please enter")
+      additional_props:
+        validation: required
+    additional_props: null
+    text_content: null
+    track_change: 1384
+- model: formkit_ninja.formkitschemanode
+  pk: 08c81a3a-c68a-4f46-bb51-c1fcd0087425
+  fields:
+    created: 2023-10-19 05:12:10.563991+00:00
+    updated: 2024-02-07 04:58:52.442998+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("No. of men")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      min: 0
+      name: no_of_men
+      label: $gettext("No. of men")
+      $formkit: number
+      validation: required
+      placeholder: $gettext("Please enter")
+      additional_props:
+        validation: required
+    additional_props: null
+    text_content: null
+    track_change: 1386
+- model: formkit_ninja.formkitschemanode
+  pk: 0a40efb0-8948-4a7e-a03b-586ee16aa8c2
+  fields:
+    created: 2023-10-19 05:12:10.004258+00:00
+    updated: 2024-02-07 05:05:55.652568+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("No. of beneficiaries male")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      min: 0
+      name: beneficiaries_male
+      label: $gettext("No. of beneficiaries male")
+      $formkit: number
+      validation: required
+      additional_props:
+        validation: required
+    additional_props: null
+    text_content: null
+    track_change: 1434
+- model: formkit_ninja.formkitschemanode
+  pk: 0b21acd4-1155-432e-9a90-5ed24a522b4f
+  fields:
+    created: 2023-10-19 05:12:09.200616+00:00
+    updated: 2023-10-19 05:12:09.200633+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: uuid
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      name: uuid
+      $formkit: uuid
+    additional_props:
+      readonly: true
+    text_content: null
+    track_change: 533
+- model: formkit_ninja.formkitschemanode
+  pk: 0b2c9702-0f92-4c3d-92c5-d248cf7de77c
+  fields:
+    created: 2023-10-19 05:12:09.019429+00:00
+    updated: 2025-08-22 14:26:08.412784+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $pgettext('partisipants', 'Total participants male')
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: attendance_male
+      key: attendance_male
+      name: attendance_male
+      label: $pgettext('partisipants', 'Total participants male')
+      $formkit: number
+      validation: greaterThanOrEqualSum:kpa_male+disable_male+community_member_male|required
+    additional_props:
+      validation-messages:
+        required: $gettext("The total participants male is required")
+        greaterThanOrEqualSum: $gettext("The total participants male should be greater
+          than or equal to the sum of Participants Suku Management Team (SMT) - male,
+          Number of People with Disability - male and Number of community members
+          - male")
+    text_content: null
+    track_change: 1878
+- model: formkit_ninja.formkitschemanode
+  pk: 0bbeb553-ce73-4c06-91af-c75156737a2d
+  fields:
+    created: 2025-07-10 06:04:39.161474+00:00
+    updated: 2025-08-22 14:26:08.415559+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: null
+    option_group: null
+    is_active: false
+    protected: false
+    node:
+      id: f9922f4e5be4dd1051e1f4e5eec537271160fb11
+      icon: las la-list-alt
+      name: ab4026b1_unnamed
+      title: Lista
+      $formkit: group
+      additional_props:
+        id: f9922f4e5be4dd1051e1f4e5eec537271160fb11
+        icon: las la-list-alt
+        title: Lista
+    additional_props: null
+    text_content: null
+    track_change: 1879
+- model: formkit_ninja.formkitschemanode
+  pk: 0c782e54-10ed-4d8c-92c6-07316b3227fa
+  fields:
+    created: 2023-10-19 05:12:08.693057+00:00
+    updated: 2023-10-19 05:12:08.693075+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: meetinginformation
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: meetinginformation
+      $formkit: group
+    additional_props:
+      icon: las la-map-marked-alt
+      title: Location
+    text_content: null
+    track_change: 464
+- model: formkit_ninja.formkitschemanode
+  pk: 0c7ec3c6-faf4-4c81-bdf0-ce701eba6cf9
+  fields:
+    created: 2023-10-19 05:12:09.882542+00:00
+    updated: 2023-10-19 05:12:09.882561+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: priorities
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: priorities
+      $formkit: group
+    additional_props:
+      icon: las la-list-alt
+      title: Priorities
+    text_content: null
+    track_change: 651
+- model: formkit_ninja.formkitschemanode
+  pk: 0c825c4a-7a6f-4227-9a75-55398949f840
+  fields:
+    created: 2023-10-19 05:12:09.706821+00:00
+    updated: 2023-10-19 05:12:09.708440+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: sector
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: sector_id
+      key: sector
+      name: sector
+      label: $gettext(Sector)
+      options: $ida(sector)
+      $formkit: radio
+    additional_props: null
+    text_content: null
+    track_change: 618
