@@ -12,7 +12,8 @@ from formkit_ninja.models import FormKitSchema
 # But note that it's been modified to be "Python friendly":
 # validationLabel -> validation_label
 # Options from a list to a dict (value, label)
-registration = json5.loads("""[
+registration = json5.loads(
+    """[
   {
     $el: 'h1',
     children: ['Register', "Something"],
@@ -59,19 +60,23 @@ registration = json5.loads("""[
     options: [{'value': 'refresh', 'label': 'refresh'}, {'value': 'hourly', 'label': 'hourly'}, {'value': 'daily', 'label': 'daily'}],
     help: 'How often should we display a cookie notice?',
   },
-]""")
+]"""
+)
 
 testdata = [
-        [
-            {
-                "$el": "div",
-                "attrs": {"style": {"color": "red"}, "data-foo": "bar"},
-                "children": ["Hello", "world"], # Note that either a string or a list can be input. However a list will always be output.
-            }
-        ],
-        registration
-
+    [
+        {
+            "$el": "div",
+            "attrs": {"style": {"color": "red"}, "data-foo": "bar"},
+            "children": [
+                "Hello",
+                "world",
+            ],  # Note that either a string or a list can be input. However a list will always be output.
+        }
+    ],
+    registration,
 ]
+
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("schema", testdata)
@@ -83,12 +88,17 @@ def test_schema(schema: list[dict[str, Any]]):
     db_schema.publish()
     assert schema_out == schema
 
+
 def test_normalize_node_sets_missing_node_type(caplog):
     node = {"$formkit": "text", "label": "A"}
     with caplog.at_level(logging.WARNING):
         result = normalize_node(node.copy())
     assert result["node_type"] == "formkit"
-    assert any("normalize_node: Setting node_type to 'formkit'" in m for m in caplog.text.splitlines())
+    assert any(
+        "normalize_node: Setting node_type to 'formkit'" in m
+        for m in caplog.text.splitlines()
+    )
+
 
 def test_normalize_node_correct_node_type(caplog):
     node = {"$formkit": "text", "label": "A", "node_type": "formkit"}
@@ -97,12 +107,17 @@ def test_normalize_node_correct_node_type(caplog):
     assert result["node_type"] == "formkit"
     assert not caplog.records  # No warning should be logged
 
+
 def test_normalize_node_incorrect_node_type(caplog):
     node = {"$formkit": "text", "label": "A", "node_type": "element"}
     with caplog.at_level(logging.WARNING):
         result = normalize_node(node.copy())
     assert result["node_type"] == "formkit"
-    assert any("normalize_node: Setting node_type to 'formkit'" in m for m in caplog.text.splitlines())
+    assert any(
+        "normalize_node: Setting node_type to 'formkit'" in m
+        for m in caplog.text.splitlines()
+    )
+
 
 def test_normalize_node_nested_children(caplog):
     node = {
@@ -118,4 +133,7 @@ def test_normalize_node_nested_children(caplog):
     assert result["node_type"] == "formkit"
     assert result["children"][0]["node_type"] == "formkit"
     assert result["children"][1]["node_type"] == "element"
-    assert sum("normalize_node: Setting node_type" in m for m in caplog.text.splitlines()) >= 2
+    assert (
+        sum("normalize_node: Setting node_type" in m for m in caplog.text.splitlines())
+        >= 2
+    )

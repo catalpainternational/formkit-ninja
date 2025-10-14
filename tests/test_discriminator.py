@@ -365,10 +365,12 @@ def test_param_schemas(schema: dict[str, Any] | dict[str, str]):
     schema_out = model_validated.root.model_dump(by_alias=True, exclude_none=True)
     assert schema_out == schema
 
+
 def test_sf_repeater():
     model_validated = DiscriminatedNodeType.model_validate(sf_repeater)
     schema_out = model_validated.root.model_dump(by_alias=True, exclude_none=True)
     assert schema_out == sf_repeater
+
 
 def test_el():
     div_el = {
