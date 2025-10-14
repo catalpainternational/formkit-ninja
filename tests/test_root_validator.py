@@ -1,7 +1,6 @@
 from typing import Any
 
-from pydantic import (BaseModel, RootModel, ValidatorFunctionWrapHandler,
-                      field_validator)
+from pydantic import BaseModel, RootModel, ValidatorFunctionWrapHandler, field_validator
 
 
 class MyModel(BaseModel):

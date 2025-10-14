@@ -59,8 +59,7 @@ def test_import_sf11(SF_1_1):
     """
     This tests that we can successfully import the 'SF11' form from Partisipa
     """
-    from formkit_ninja.formkit_schema import \
-        DiscriminatedNodeTypeSchema as BaseModel
+    from formkit_ninja.formkit_schema import DiscriminatedNodeTypeSchema as BaseModel
 
     schema = BaseModel.model_validate([SF_1_1])
     schema_in_the_db = models.FormKitSchema.from_pydantic(schema)
@@ -110,8 +109,7 @@ def test_admin_actions_sf11(SF_1_1, admin_page: Page):
     """
     This tests that we can successfully import the 'SF11' form from Partisipa
     """
-    from formkit_ninja.formkit_schema import \
-        DiscriminatedNodeTypeSchema as BaseModel
+    from formkit_ninja.formkit_schema import DiscriminatedNodeTypeSchema as BaseModel
 
     schema_json = [SF_1_1]
     schema = BaseModel.model_validate(schema_json)
@@ -122,8 +120,7 @@ def test_admin_actions_sf11(SF_1_1, admin_page: Page):
 @playwright
 @pytest.mark.django_db()
 def test_import_1321(TF_13_2_1, admin_page):
-    from formkit_ninja.formkit_schema import \
-        DiscriminatedNodeTypeSchema as BaseModel
+    from formkit_ninja.formkit_schema import DiscriminatedNodeTypeSchema as BaseModel
 
     schema_json = [TF_13_2_1]
     models.FormKitSchema.from_pydantic(BaseModel.model_validate(schema_json))
@@ -157,8 +154,7 @@ def test_admin_all_forms(admin_page, schema):
 
     schemas = Schemas()
     schema_json = schemas.as_json(schema)
-    from formkit_ninja.formkit_schema import \
-        DiscriminatedNodeTypeSchema as BaseModel
+    from formkit_ninja.formkit_schema import DiscriminatedNodeTypeSchema as BaseModel
 
     schema_as_pydantic = BaseModel.model_validate([schema_json])
 

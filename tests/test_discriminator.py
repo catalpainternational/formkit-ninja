@@ -4,9 +4,15 @@ import pytest
 from pydantic import RootModel, TypeAdapter
 
 from formkit_ninja import models
-from formkit_ninja.formkit_schema import (DiscriminatedNodeType, FormKitNode,
-                                          FormKitSchemaFormKit, GroupNode,
-                                          RepeaterNode, TextAreaNode, TextNode)
+from formkit_ninja.formkit_schema import (
+    DiscriminatedNodeType,
+    FormKitNode,
+    FormKitSchemaFormKit,
+    GroupNode,
+    RepeaterNode,
+    TextAreaNode,
+    TextNode,
+)
 from tests.test_python_models import schema_are_same
 
 

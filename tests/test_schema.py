@@ -1,12 +1,12 @@
+import logging
 from typing import Any
 
 import json5
 import pytest
-import logging
 
 from formkit_ninja import formkit_schema
-from formkit_ninja.models import FormKitSchema
 from formkit_ninja.formkit_schema import normalize_node
+from formkit_ninja.models import FormKitSchema
 
 # This is copied from the Schema example on the Formkit website
 # But note that it's been modified to be "Python friendly":

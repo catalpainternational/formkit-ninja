@@ -1,8 +1,8 @@
 import json
 from importlib.resources import files
-from django.utils import timezone
 
 import pytest
+from django.utils import timezone
 
 from formkit_ninja import formkit_schema, models, samples
 from formkit_ninja.formkit_schema import (
