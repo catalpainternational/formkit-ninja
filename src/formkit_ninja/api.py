@@ -336,8 +336,9 @@ class FormKitNodeIn(Schema):
     def preferred_name(self):
         """
         Fetch a suitable name for the database to use.
-        This name must be unique to the 'parent' group, a valid Python id, valid Django id,
-        preferably lowercase.
+
+        This name must be unique to the 'parent' group, a valid Python id,
+        valid Django id, preferably lowercase.
         """
         # If "name" is not provided use the "label" field
         if self.name is not None:
@@ -425,14 +426,16 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     Creates or updates a node in the FormKitSchemaNode model.
 
     This function takes payload of type FormKitNodeIn.
-    It fetches the parent node if it exists and checks if it is a group or repeater.
-    If the parent node is not valid or is not a group or repeater, it returns an error response.
-    Otherwise, it proceeds to create or update the node.
+    It fetches the parent node if it exists and checks if it is a group
+    or repeater. If the parent node is not valid or is not a group or
+    repeater, it returns an error response. Otherwise, it proceeds to
+    create or update the node.
 
     Args:
         request: The request object.
         response (HttpResponse): The HttpResponse object.
-        payload (FormKitNodeIn): The payload containing the data for the node to be created or updated.
+        payload (FormKitNodeIn): The payload containing the data for the
+            node to be created or updated.
 
     Returns:
         HTTPStatus: The status of the HTTP response.
@@ -458,12 +461,17 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
         models.FormKitSchemaNode.objects.filter(pk__in=[child.pk])
     )[0]
 
+
 class PublishedFormListOut(ModelSchema):
+    """Schema for listing published forms."""
+
     name: str = Field(alias="name")
-    
+    schema_id: UUID = Field(alias="schema")
+
     class Meta:
         model = models.PublishedForm
-        fields = ["schema", "id", "published", "replaced", "status", "version"]
+        fields = ["id", "published", "replaced", "status", "version"]
+
 
 @router.get(
     "published",
@@ -476,10 +484,23 @@ def get_published_forms(request):
     values = models.PublishedForm.objects.all()
     return values
 
+
 class PublishedFormDetailOut(ModelSchema):
+    """Schema for published form details."""
+
+    schema_id: UUID = Field(alias="schema")
+
     class Meta:
         model = models.PublishedForm
-        fields = ["schema", "id", "published", "published_schema", "replaced", "status", "version"]
+        fields = [
+            "id",
+            "published",
+            "published_schema",
+            "replaced",
+            "status",
+            "version",
+        ]
+
 
 @router.get(
     "published/{published_id}",
@@ -490,13 +511,11 @@ class PublishedFormDetailOut(ModelSchema):
 )
 def get_published_form(request, published_id: UUID, version: int = 1):
     """Get a specific version of a published form.
-    
+
     Args:
         published_id: The UUID of the form schema
         version: The version number to retrieve (default: 1)
     """
     return get_object_or_404(
-        models.PublishedForm,
-        schema_id=published_id,
-        version=version
+        models.PublishedForm, schema_id=published_id, version=version
     )

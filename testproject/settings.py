@@ -61,11 +61,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "*"
-]
+CORS_ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000", "*"]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -93,14 +89,16 @@ WSGI_APPLICATION = "testproject.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 # Note:
-# If you have no database running yet
-# maybe start one with `podman run -d -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres`
+# If you have no database running yet, start one with:
+# podman run -d -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "postgres",
-        "USER": "postgres",
-        "HOST": "localhost",
+        "NAME": environ.get("POSTGRES_DB", "postgres"),
+        "USER": environ.get("POSTGRES_USER", "postgres"),
+        "PASSWORD": environ.get("POSTGRES_PASSWORD", "postgres"),
+        "HOST": environ.get("POSTGRES_HOST", "localhost"),
+        "PORT": environ.get("POSTGRES_PORT", "5433"),
     }
 }
 
@@ -110,7 +108,10 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        ),
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
