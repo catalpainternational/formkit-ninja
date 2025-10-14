@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "formkit-ninja"
-version = "0.7.5"
+version = "0.7.6"
 description = "A Django-Ninja backend to specify FormKit schemas"
 authors = ["Josh Brooks <josh@catalpa.io>"]
 license = "GPLv3"
@@ -13,13 +13,11 @@ exclude = ["tests", "formkit_ninja/samples"]
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
 django-ninja = "<1"
-Django = "^4"
+Django = "==4.*"
 pydantic = "<2"
-django-stubs = {extras = ["compatible-mypy"], version = "^4.2.3"}
-django-pgtrigger = "^4.7.0"
+django-pgtrigger = "==4.*"
 rich = "*"
-django-pghistory = "^3.0.1"
-pytest-cov = "^4.1.0"
+django-pghistory = "==3.*"
 
 [tool.poetry.group.dev]
 optional = true
