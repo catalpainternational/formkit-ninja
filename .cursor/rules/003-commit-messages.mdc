@@ -1,0 +1,202 @@
+---
+description: Best practices for writing clear, conventional commit messages
+globs: "**/*"
+tags: [git, commits, workflow, standards]
+priority: 1
+version: 1.0.0
+---
+
+# Commit Message Standards
+
+## Format
+
+```
+<type>(scope): <description max 72 chars>
+
+[optional body - explain why and what]
+
+[optional footer - issue refs]
+```
+
+## Types
+
+- `feat`: New feature
+- `fix`: Bug fix
+- `refactor`: Code improvement (no behavior change)
+- `test`: Test changes
+- `docs`: Documentation
+- `style`: Formatting only (no logic change)
+- `perf`: Performance improvement
+- `chore`: Maintenance (deps, config)
+- `ci`: CI/CD changes
+
+## Scopes for This Project
+
+- `admin` - Django admin
+- `api` - REST API
+- `models` - Database models
+- `schema` - FormKit schema
+- `tests` - Test suite
+- `migrations` - Database migrations
+- `deps` - Dependencies
+
+## Rules
+
+1. **Subject**: Imperative mood ("fix" not "fixed"), max 72 chars
+2. **Body**: Wrap at 72 chars, explain why and what
+3. **Footer**: Use `Fixes #123` to auto-close issues
+4. **Atomic**: One logical change per commit
+5. **Tested**: Don't commit broken code
+
+## Examples
+
+### Simple Fix
+```
+fix(admin): prevent nested field overwrite
+
+Fixes #12
+```
+
+### Complex Change
+```
+fix(admin): resolve JSON field save bugs
+
+Fixed four critical bugs in JsonDecoratedFormBase:
+- Nested field overwrite in _set_json_fields
+- Falsy values skipped in save()
+- setattr outside loop
+- additional_props data loss
+
+Solution uses queryset.update() after instance.save().
+
+Tested with Partisipa data (600+ nodes).
+
+Fixes #12, Fixes #13, Fixes #14
+```
+
+### Feature Addition
+```
+feat(admin): add data cleanup management command
+
+Created cleanup_additional_props command to normalize
+Partisipa data structure by merging nested additional_props.
+
+Supports --dry-run, --verbose, --limit flags.
+
+Closes #15
+```
+
+### Refactoring
+```
+refactor(admin): extract helper methods from JsonDecoratedFormBase
+
+Extracted _extract_field_value(), _populate_form_field(),
+and _build_json_data() helpers. Added type hints and docstrings.
+
+No behavior changes, improved maintainability.
+```
+
+### Breaking Change
+```
+refactor(api)!: rename schema to schema_id in PublishedForm schemas
+
+BREAKING CHANGE: API responses now use schema_id instead of schema
+
+Clients must update: response.schema → response.schema_id
+
+Fixes #16
+```
+
+## Issue References
+
+- `Fixes #123` - Auto-closes issue
+- `Closes #456` - Auto-closes issue  
+- `Refs #789` - References without closing
+- `Fixes #12, Fixes #13` - Multiple issues
+
+## Anti-Patterns
+
+❌ `git commit -m "updates"` - Too vague
+❌ `git commit -m "WIP"` - Not meaningful
+❌ `git commit -m "fixed stuff"` - Not specific
+❌ `git commit -m "feat: added features and fixed bugs"` - Multiple changes
+
+## AI Behavior
+
+When creating commits, AI should:
+
+1. **Analyze changes**: Determine type and scope from git diff
+2. **Write clear subject**: Specific, imperative, under 72 chars
+3. **Add body for complex changes**: Explain why and what
+4. **Reference issues**: Auto-link with Fixes/Closes/Refs
+5. **Show draft**: Present commit message for review before committing
+6. **Never commit without permission**: Always ask first
+
+### AI Commit Workflow
+
+```
+User: "Commit these changes"
+
+AI: [Analyzes git diff]
+AI: "I've reviewed your changes. Suggested commit:
+
+fix(admin): resolve JSON field save bugs
+
+[Full message shown]
+
+Type: fix (bug fixes)
+Scope: admin (affected area)
+Issues: Fixes #12, #13, #14
+
+Commit now?"
+```
+
+### What AI Should Never Do
+
+- ❌ Commit without explicit user permission
+- ❌ Use vague messages
+- ❌ Combine unrelated changes
+- ❌ Force push to main/master
+- ❌ Amend pushed commits
+- ❌ Skip hooks (--no-verify)
+
+## Quick Reference
+
+**Check commit:**
+```bash
+git show              # View last commit
+git log -1            # See last commit message
+git commit --amend    # Fix last commit (if not pushed)
+```
+
+**Good subject lines from this project:**
+```
+✅ feat(admin): add helper methods to JsonDecoratedFormBase
+✅ fix(api): resolve Pydantic field shadowing warning
+✅ test: add end-to-end tests with Partisipa data
+✅ refactor(admin): extract fieldset builders
+✅ docs: add PostgreSQL container setup
+✅ chore(deps): add PyYAML for fixtures
+```
+
+## Template for Complex Commits
+
+```
+<type>(scope): <what changed in imperative>
+
+Context:
+<Why was this necessary?>
+
+Changes:
+- <Specific change 1>
+- <Specific change 2>
+
+Testing:
+<How verified?>
+
+Fixes #<issue>
+```
+
+---
+
+**For detailed examples and extended guidance, see:** `.github/COMMIT_MESSAGE_GUIDE.md`

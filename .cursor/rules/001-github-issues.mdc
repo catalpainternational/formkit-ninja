@@ -1,0 +1,233 @@
+---
+description: Best practices for creating GitHub issues with AI assistance
+globs: "**/*.md"
+tags: [github, issues, documentation, workflow]
+priority: 1
+version: 1.0.0
+---
+
+# GitHub Issue Best Practices
+
+## Issue Types and Titles
+
+### Format
+```
+[Type] Brief description (max 72 chars)
+```
+
+### Types
+- `[Bug]` - Something is broken
+- `[Feature]` - New functionality
+- `[Task]` - Maintenance or improvement
+- `[Docs]` - Documentation update
+
+### Good Titles
+```
+✅ [Bug] JSON fields not saving in Django admin
+✅ [Feature] Add data cleanup migration for nested additional_props
+✅ [Task] Refactor admin forms for maintainability
+```
+
+### Bad Titles
+```
+❌ admin broken
+❌ Fix the thing
+❌ [Bug][Feature] Multiple things
+```
+
+## Bug Report Template
+
+```markdown
+## Summary
+[One paragraph: what's broken and impact]
+
+## Steps to Reproduce
+1. [First step]
+2. [Second step]
+3. [Result]
+
+**Expected:** [Should do X]
+**Actual:** [Does Y instead]
+
+## Root Cause (if known)
+[File:line with explanation]
+
+## Proposed Fix
+[Technical approach]
+
+## Environment
+- OS: [e.g., Fedora 42]
+- Python: [e.g., 3.11.10]
+- Package: [e.g., formkit-ninja 2.0.0b3]
+
+## Related
+Fixes #123, Refs #456
+```
+
+## Feature Request Template
+
+```markdown
+## Problem Statement
+[What need isn't being met?]
+
+## Proposed Solution
+[How should it work?]
+
+## User Stories
+- As a [role], I want [capability] so that [benefit]
+
+## Acceptance Criteria
+- [ ] [Testable requirement 1]
+- [ ] [Testable requirement 2]
+
+## Alternatives Considered
+- [Option 1]: [Why not chosen]
+- [Option 2]: [Why not chosen]
+
+## Priority
+[Low/Medium/High] because [reason]
+
+## Related
+Refs #123
+```
+
+## Task Template
+
+```markdown
+## Description
+[What needs to be done?]
+
+## Motivation
+[Why is this important?]
+
+## Checklist
+- [ ] Subtask 1
+- [ ] Subtask 2
+
+## Definition of Done
+[How do we know it's complete?]
+```
+
+## Code Examples in Issues
+
+Always include:
+- **File path and line numbers**: `admin.py:125-131`
+- **Before/after** for fixes
+- **Highlight issues**: `# ❌ Bug here`
+- **Show solution**: `# ✅ Fixed version`
+
+**Example:**
+```markdown
+**Current** (`admin.py:125-131`):
+```python
+if "__" in json_field:
+    field_value = values[nested].get(...)  # ✅ Set correctly
+field_value = values.get(json_field, None)  # ❌ Overwrites!
+```
+
+**Should be:**
+```python
+if "__" in json_field:
+    field_value = values[nested].get(...)
+else:
+    field_value = values.get(json_field, None)
+```
+```
+
+## Labels to Suggest
+
+**Priority:** `critical` | `high` | `medium` | `low`
+**Type:** `bug` | `enhancement` | `documentation` | `chore`
+**Component:** `admin` | `api` | `models` | `tests`
+**Status:** `needs-triage` | `ready` | `blocked`
+
+## AI Workflow
+
+When creating an issue:
+
+1. **Search first**: Check for duplicates
+2. **Gather details**: Code, logs, environment
+3. **Categorize**: Bug/Feature/Task
+4. **Draft**: Use appropriate template
+5. **Show draft**: Let user review
+6. **Create**: Only after approval
+
+**AI should ask:**
+```
+"I'll create a [Bug] issue. Here's the draft:
+
+[Shows formatted issue]
+
+Suggested labels: bug, priority:high, component:admin
+
+Create this issue now?"
+```
+
+## Quality Checklist
+
+Before creating:
+- [ ] Title is clear and specific (<72 chars)
+- [ ] Type is correct (Bug/Feature/Task)
+- [ ] All required sections present
+- [ ] Code examples have file:line references
+- [ ] Acceptance criteria are testable
+- [ ] Labels suggested
+- [ ] Related issues linked
+- [ ] No sensitive data included
+
+## Common Mistakes
+
+❌ **Too vague**: "The admin doesn't work"
+✅ **Specific**: "JsonDecoratedFormBase.save() doesn't persist additional_props"
+
+❌ **Multiple issues**: "Fix bugs and add tests and refactor"
+✅ **Focused**: One issue per problem
+
+❌ **Missing steps**: "JSON fields are broken"
+✅ **Reproducible**: Exact steps from clean state
+
+❌ **No criteria**: "Make the admin better"
+✅ **Testable**: Specific checklist of requirements
+
+## Real Example
+
+From this project - Issue #15:
+
+```markdown
+# [Feature] Data cleanup migration for nested additional_props
+
+## Summary
+Partisipa data has `additional_props` in two locations causing
+duplication and admin warnings. Need cleanup command.
+
+## Problem Statement
+Nodes have `additional_props` both as model field (correct)
+and nested in `node` JSON (incorrect).
+
+Example node ff70de36-f6e8-4b84-8c60-e9198215e6d2:
+- Model field: {'min': '0', 'onChange': '$formula'}
+- Nested in node: {'validation': 'required'}
+
+## Proposed Solution
+Management command: `cleanup_additional_props`
+- Merge nested props into model field
+- Remove from node JSON
+- Support --dry-run, --verbose, --limit
+
+## Acceptance Criteria
+- [ ] Command scans all nodes
+- [ ] Merges without data loss
+- [ ] Reports statistics
+- [ ] Tests verify correctness
+
+## Environment
+- formkit-ninja 2.0.0b3
+- 647 nodes in Partisipa data
+- PostgreSQL 17
+```
+
+**Note:** Full detailed version in `.github/ISSUE_EXAMPLE_additional_props_cleanup.md`
+
+---
+
+**For extended examples and detailed workflows, see:** `.github/` guides
