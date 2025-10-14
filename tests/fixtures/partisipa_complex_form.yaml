@@ -1,0 +1,766 @@
+- model: formkit_ninja.formkitschemanode
+  pk: 0c782e54-10ed-4d8c-92c6-07316b3227fa
+  fields:
+    created: 2023-10-19 05:12:08.693057+00:00
+    updated: 2023-10-19 05:12:08.693075+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: meetinginformation
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: meetinginformation
+      $formkit: group
+    additional_props:
+      icon: las la-map-marked-alt
+      title: Location
+    text_content: null
+    track_change: 464
+- model: formkit_ninja.formkitschemanode
+  pk: c739db54-d3ef-4215-8c27-4c27de408082
+  fields:
+    created: 2023-10-19 05:12:08.893417+00:00
+    updated: 2023-10-19 05:12:08.893437+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: labour_incentive_3001
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: labour_incentive_3001
+      name: labour_incentive_3001
+      label: $gettext("3001 - Labour incentive (USD)")
+      $formkit: currency
+    additional_props:
+      min: '0'
+      step: '0.01'
+    text_content: null
+    track_change: 492
+- model: formkit_ninja.formkitschemanode
+  pk: 43af7be2-c4a5-4929-a162-279b3c47c9d0
+  fields:
+    created: 2023-10-19 05:12:08.836955+00:00
+    updated: 2023-10-19 05:12:08.836977+00:00
+    created_by: null
+    updated_by: null
+    node_type: text
+    description: null
+    label: 'Output '
+    option_group: null
+    is_active: true
+    protected: false
+    node: null
+    additional_props: null
+    text_content: 'Output '
+    track_change: 484
+- model: formkit_ninja.formkitschemanode
+  pk: d17f7e0c-02a6-4923-891b-a8a6f8c4dbc8
+  fields:
+    created: 2023-10-19 05:12:08.713335+00:00
+    updated: 2024-02-07 04:44:52.265382+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("Administrative Post")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: administrative_post
+      if: $get(district).value
+      key: administrative_post
+      name: administrative_post
+      label: $gettext("Administrative Post")
+      options: $getLocations($get(district).value)
+      $formkit: select
+      validation: required
+      additional_props:
+        validation: required
+    additional_props: null
+    text_content: null
+    track_change: 1355
+- model: formkit_ninja.formkitschemanode
+  pk: d45cc94b-9bf4-4e35-af21-c2ba431f4a11
+  fields:
+    created: 2023-10-19 05:12:08.847777+00:00
+    updated: 2023-10-19 05:12:08.847795+00:00
+    created_by: null
+    updated_by: null
+    node_type: text
+    description: null
+    label: '$: ($index + 1)'
+    option_group: null
+    is_active: true
+    protected: false
+    node: null
+    additional_props: null
+    text_content: '$: ($index + 1)'
+    track_change: 486
+- model: formkit_ninja.formkitschemanode
+  pk: 6207d4ab-350f-4b75-b4c4-9eaab31fce19
+  fields:
+    created: 2023-10-19 05:12:08.874206+00:00
+    updated: 2025-08-22 14:26:08.721826+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("Project name")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: '$: (project + $index)'
+      key: '$: (project + $index)'
+      name: project
+      label: $gettext("Project name")
+      options: $ida(project, "suku_id="+ $get("suco").value)
+      $formkit: autocomplete
+      placeholder: $gettext("Search project")
+      if_condition: $ida(project, "suku_id="+ $get("suco").value).length>0
+      additional_props: {}
+    additional_props:
+      inputClass: '!pl-10'
+      prefixIcon: search
+    text_content: null
+    track_change: 1911
+- model: formkit_ninja.formkitschemanode
+  pk: 3892b0d2-dee8-4466-bfe3-bf87cfa5a46e
+  fields:
+    created: 2023-10-19 05:12:08.846217+00:00
+    updated: 2023-10-25 07:00:57.361781+00:00
+    created_by: null
+    updated_by: null
+    node_type: $el
+    description: null
+    label: null
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      $el: span
+      classes: mx-1
+    additional_props: null
+    text_content: ''
+    track_change: 1009
+- model: formkit_ninja.formkitschemanode
+  pk: 258ac3fd-1d8c-47d3-88ee-18e6dc18511c
+  fields:
+    created: 2023-10-19 05:12:08.884291+00:00
+    updated: 2023-10-19 05:12:08.884315+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: materials
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: materials
+      name: materials
+      label: $gettext("3000 - Materials (USD)")
+      $formkit: currency
+    additional_props:
+      min: '0'
+      step: '0.01'
+    text_content: null
+    track_change: 491
+- model: formkit_ninja.formkitschemanode
+  pk: 02397091-6e21-46e4-a5ed-ea0769245036
+  fields:
+    created: 2023-10-19 05:12:08.818835+00:00
+    updated: 2023-10-19 05:12:08.818855+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: repeaterInfrastructureFund
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: repeaterInfrastructureFund
+      name: repeaterInfrastructureFund
+      $formkit: repeater
+      addLabel: $gettext("Add project")
+      upControl: false
+      downControl: false
+    additional_props:
+      addLabel: $gettext("Add project")
+      upControl: false
+      itemsClass: repeater
+      downControl: false
+      removeLabel: $gettext("Remove")
+      removeAction: $repeaterRemoveAction
+      sectionsSchema:
+        remove:
+          children:
+          - if: $value.length > 1
+            $el: button
+            attrs:
+              class: disabled:hidden cursor-pointer flex items-center justify-center
+                flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2
+                border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600
+                hover:text-white font-bold text-base
+              onClick: $attrs.removeAction
+              data-index: $index
+              data-repeaterid: $id
+            children:
+            - $attrs.removeLabel
+    text_content: null
+    track_change: 481
+- model: formkit_ninja.formkitschemanode
+  pk: ed93af66-cfe1-4479-ad1d-81adc3607ab5
+  fields:
+    created: 2023-10-19 05:12:08.747274+00:00
+    updated: 2024-02-07 04:45:10.449523+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("Fiscal Year")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      name: year
+      label: $gettext("Fiscal Year")
+      options: $ida(year)
+      $formkit: select
+      validation: required
+      placeholder: $gettext("Select year")
+      additional_props:
+        validation: required
+    additional_props: null
+    text_content: null
+    track_change: 1358
+- model: formkit_ninja.formkitschemanode
+  pk: 9f58f935-56ab-46cd-beda-67a177fe2c97
+  fields:
+    created: 2023-10-19 05:12:08.765609+00:00
+    updated: 2024-02-07 04:45:55.176086+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("Total amount (USD)")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: total_amount
+      min: 0
+      name: total_amount
+      step: '0.01'
+      label: $gettext("Total amount (USD)")
+      $formkit: currency
+      validation: required
+      additional_props:
+        validation: required
+    additional_props:
+      min: '0'
+      step: '0.01'
+      onChange: $formula.cfm2ff4
+    text_content: null
+    track_change: 1359
+- model: formkit_ninja.formkitschemanode
+  pk: 11815bef-ac08-44f4-8d72-92e3a227eaec
+  fields:
+    created: 2023-10-19 05:12:08.696852+00:00
+    updated: 2024-02-07 04:44:17.432920+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext(Municipality)
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: district
+      key: district
+      name: district
+      label: $gettext(Municipality)
+      options: $getLocations()
+      $formkit: select
+      validation: required
+      additional_props:
+        validation: required
+    additional_props: null
+    text_content: null
+    track_change: 1354
+- model: formkit_ninja.formkitschemanode
+  pk: 5c698787-aad0-4938-a091-f723bbf2164e
+  fields:
+    created: 2023-10-19 05:12:08.792313+00:00
+    updated: 2025-08-22 14:26:08.702831+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("2002 - Project Administration Costs (USD) - 20%")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: labour_incentive
+      min: 0
+      name: labour_incentive
+      step: '0.01'
+      label: $gettext("2002 - Project Administration Costs (USD) - 20%")
+      $formkit: currency
+      validation: required
+      additional_props:
+        validation: required
+    additional_props:
+      min: '0'
+      step: '0.01'
+      onChange: $formula.cfm2ff4
+    text_content: null
+    track_change: 1910
+- model: formkit_ninja.formkitschemanode
+  pk: 45e91fcf-cc16-4481-a7d9-bd99bbb80256
+  fields:
+    created: 2023-10-19 05:12:08.761411+00:00
+    updated: 2023-10-19 05:12:08.761429+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: operationalfundbudgetdetails
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: operationalfundbudgetdetails
+      $formkit: group
+    additional_props:
+      icon: las la-money-bill
+      title: Operational fund budget
+    text_content: null
+    track_change: 474
+- model: formkit_ninja.formkitschemanode
+  pk: cf5ca700-1867-4645-94d3-2f6bd912c12c
+  fields:
+    created: 2023-10-19 05:12:08.824393+00:00
+    updated: 2023-10-19 05:12:08.824411+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: uuid
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      name: uuid
+      $formkit: uuid
+    additional_props:
+      readonly: true
+    text_content: null
+    track_change: 482
+- model: formkit_ninja.formkitschemanode
+  pk: 0558783a-42c9-4911-8121-4255bfa5d9f0
+  fields:
+    created: 2023-10-19 05:12:08.724958+00:00
+    updated: 2024-04-18 23:18:23.494587+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext(Suco)
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: suco
+      if: $get(administrative_post).value
+      key: suco
+      name: suco
+      label: $gettext(Suco)
+      options: $getLocations($get(district).value, $get(administrative_post).value)
+      $formkit: select
+      validation: required
+      additional_props:
+        validation: required
+    additional_props: null
+    text_content: null
+    track_change: 1601
+- model: formkit_ninja.formkitschemanode
+  pk: 49bfad94-faf0-4131-b09d-1ebd76469eef
+  fields:
+    created: 2023-10-19 05:12:08.773892+00:00
+    updated: 2024-02-07 04:45:58.346436+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("2000 - Community meetings (USD) - 10%")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: community_meetings
+      min: 0
+      name: community_meetings
+      step: '0.01'
+      label: $gettext("2000 - Community meetings (USD) - 10%")
+      $formkit: currency
+      validation: required
+      additional_props:
+        validation: required
+    additional_props:
+      min: '0'
+      step: '0.01'
+      onChange: $formula.cfm2ff4
+    text_content: null
+    track_change: 1360
+- model: formkit_ninja.formkitschemanode
+  pk: ff70de36-f6e8-4b84-8c60-e9198215e6d2
+  fields:
+    created: 2023-10-19 05:12:08.782320+00:00
+    updated: 2025-08-22 14:26:09.307611+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("2001 - ES-PNDS training (USD) - 10%")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: community_training
+      min: 0
+      name: community_training
+      step: '0.01'
+      label: $gettext("2001 - ES-PNDS training (USD) - 10%")
+      $formkit: currency
+      validation: required
+      additional_props:
+        validation: required
+    additional_props:
+      min: '0'
+      step: '0.01'
+      onChange: $formula.cfm2ff4
+    text_content: null
+    track_change: 1969
+- model: formkit_ninja.formkitschemanode
+  pk: 5181c590-ba8e-4f9c-a33d-1a28b9ba09b7
+  fields:
+    created: 2023-10-19 05:12:08.814359+00:00
+    updated: 2023-10-19 05:12:08.814378+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: infrastructureExpenditures
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: infrastructureExpenditures
+      $formkit: group
+    additional_props:
+      icon: las la-users-cog
+      title: Infrastructure fund budget
+    text_content: null
+    track_change: 480
+- model: formkit_ninja.formkitschemanode
+  pk: 2668d239-f87c-4697-87d4-6a5ddaad187a
+  fields:
+    created: 2023-10-19 05:12:08.686507+00:00
+    updated: 2023-10-19 05:12:08.686528+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: CFM_2_FF_4
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      name: CFM_2_FF_4
+      $formkit: group
+    additional_props: null
+    text_content: null
+    track_change: 463
+- model: formkit_ninja.formkitschemanode
+  pk: 11775818-5733-4893-9319-533d632f1a64
+  fields:
+    created: 2023-10-19 05:12:08.864493+00:00
+    updated: 2023-10-25 03:31:16.691759+00:00
+    created_by: null
+    updated_by: null
+    node_type: $formkit
+    description: null
+    label: activity
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: activity
+      key: activity
+      name: activity
+      label: $gettext("Activity name")
+      options: $ida(cycle, 'current')
+      $formkit: select
+      placeholder: $gettext("Please select")
+    additional_props: null
+    text_content: null
+    track_change: 991
+- model: formkit_ninja.formkitschemanode
+  pk: 6c805bd4-b6fa-42fa-839a-c247d36d2f64
+  fields:
+    created: 2023-10-19 05:12:08.835144+00:00
+    updated: 2023-10-19 05:12:08.835168+00:00
+    created_by: null
+    updated_by: null
+    node_type: $el
+    description: null
+    label: null
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      $el: div
+      attrs:
+        class: rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5
+    additional_props: null
+    text_content: null
+    track_change: 483
+- model: formkit_ninja.formkitschemanode
+  pk: f16c4a3a-4fcc-46de-a571-681bfaa8cfec
+  fields:
+    created: 2023-10-19 05:12:08.738055+00:00
+    updated: 2024-03-06 02:39:08.559972+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("Date")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: date
+      key: date
+      name: date
+      label: $gettext("Date")
+      $formkit: datepicker
+      validation: required
+    additional_props:
+      valueFormat: YYYY-MM-DD
+      _currentDate: $getCurrentDate
+      value-format: YYYY-MM-DD
+      sectionsSchema:
+        day:
+          children:
+          - $day.getDate()
+          - if: $attrs._currentDate().day === $day.getDate()
+            children:
+            - if: $attrs._currentDate().month === $day.getMonth()
+              children:
+              - if: $attrs._currentDate().year === $day.getFullYear()
+                $el: div
+                attrs:
+                  class: formkit-day-highlight
+    text_content: null
+    track_change: 1538
+- model: formkit_ninja.formkitschemanode
+  pk: e42873cb-7c7f-4802-9bf4-35d18ce971a2
+  fields:
+    created: 2023-10-19 05:12:08.801119+00:00
+    updated: 2025-08-22 14:26:09.200636+00:00
+    created_by: null
+    updated_by: null
+    node_type: formkit
+    description: null
+    label: $gettext("2003 - Incentives for ES-PNDS (USD) - 60%")
+    option_group: null
+    is_active: true
+    protected: false
+    node:
+      id: project_admin_cost
+      min: 0
+      name: project_admin_cost
+      step: '0.01'
+      label: $gettext("2003 - Incentives for ES-PNDS (USD) - 60%")
+      $formkit: currency
+      validation: required
+      additional_props:
+        validation: required
+    additional_props:
+      min: '0'
+      step: '0.01'
+      onChange: $formula.cfm2ff4
+    text_content: null
+    track_change: 1961
+- model: formkit_ninja.nodechildren
+  pk: 340
+  fields:
+    parent: 0c782e54-10ed-4d8c-92c6-07316b3227fa
+    child: 11815bef-ac08-44f4-8d72-92e3a227eaec
+    order: 1
+    track_change: 344
+- model: formkit_ninja.nodechildren
+  pk: 341
+  fields:
+    parent: 0c782e54-10ed-4d8c-92c6-07316b3227fa
+    child: d17f7e0c-02a6-4923-891b-a8a6f8c4dbc8
+    order: 2
+    track_change: 345
+- model: formkit_ninja.nodechildren
+  pk: 342
+  fields:
+    parent: 0c782e54-10ed-4d8c-92c6-07316b3227fa
+    child: 0558783a-42c9-4911-8121-4255bfa5d9f0
+    order: 3
+    track_change: 346
+- model: formkit_ninja.nodechildren
+  pk: 343
+  fields:
+    parent: 0c782e54-10ed-4d8c-92c6-07316b3227fa
+    child: f16c4a3a-4fcc-46de-a571-681bfaa8cfec
+    order: 4
+    track_change: 347
+- model: formkit_ninja.nodechildren
+  pk: 344
+  fields:
+    parent: 0c782e54-10ed-4d8c-92c6-07316b3227fa
+    child: ed93af66-cfe1-4479-ad1d-81adc3607ab5
+    order: 5
+    track_change: 348
+- model: formkit_ninja.nodechildren
+  pk: 354
+  fields:
+    parent: 3892b0d2-dee8-4466-bfe3-bf87cfa5a46e
+    child: d45cc94b-9bf4-4e35-af21-c2ba431f4a11
+    order: 1
+    track_change: 358
+- model: formkit_ninja.nodechildren
+  pk: 352
+  fields:
+    parent: 02397091-6e21-46e4-a5ed-ea0769245036
+    child: cf5ca700-1867-4645-94d3-2f6bd912c12c
+    order: 1
+    track_change: 356
+- model: formkit_ninja.nodechildren
+  pk: 356
+  fields:
+    parent: 02397091-6e21-46e4-a5ed-ea0769245036
+    child: 6c805bd4-b6fa-42fa-839a-c247d36d2f64
+    order: 2
+    track_change: 360
+- model: formkit_ninja.nodechildren
+  pk: 357
+  fields:
+    parent: 02397091-6e21-46e4-a5ed-ea0769245036
+    child: 11775818-5733-4893-9319-533d632f1a64
+    order: 3
+    track_change: 361
+- model: formkit_ninja.nodechildren
+  pk: 358
+  fields:
+    parent: 02397091-6e21-46e4-a5ed-ea0769245036
+    child: 6207d4ab-350f-4b75-b4c4-9eaab31fce19
+    order: 4
+    track_change: 362
+- model: formkit_ninja.nodechildren
+  pk: 359
+  fields:
+    parent: 02397091-6e21-46e4-a5ed-ea0769245036
+    child: 258ac3fd-1d8c-47d3-88ee-18e6dc18511c
+    order: 5
+    track_change: 363
+- model: formkit_ninja.nodechildren
+  pk: 360
+  fields:
+    parent: 02397091-6e21-46e4-a5ed-ea0769245036
+    child: c739db54-d3ef-4215-8c27-4c27de408082
+    order: 6
+    track_change: 364
+- model: formkit_ninja.nodechildren
+  pk: 346
+  fields:
+    parent: 45e91fcf-cc16-4481-a7d9-bd99bbb80256
+    child: 9f58f935-56ab-46cd-beda-67a177fe2c97
+    order: 1
+    track_change: 350
+- model: formkit_ninja.nodechildren
+  pk: 347
+  fields:
+    parent: 45e91fcf-cc16-4481-a7d9-bd99bbb80256
+    child: 49bfad94-faf0-4131-b09d-1ebd76469eef
+    order: 2
+    track_change: 351
+- model: formkit_ninja.nodechildren
+  pk: 348
+  fields:
+    parent: 45e91fcf-cc16-4481-a7d9-bd99bbb80256
+    child: ff70de36-f6e8-4b84-8c60-e9198215e6d2
+    order: 3
+    track_change: 352
+- model: formkit_ninja.nodechildren
+  pk: 349
+  fields:
+    parent: 45e91fcf-cc16-4481-a7d9-bd99bbb80256
+    child: 5c698787-aad0-4938-a091-f723bbf2164e
+    order: 4
+    track_change: 353
+- model: formkit_ninja.nodechildren
+  pk: 350
+  fields:
+    parent: 45e91fcf-cc16-4481-a7d9-bd99bbb80256
+    child: e42873cb-7c7f-4802-9bf4-35d18ce971a2
+    order: 5
+    track_change: 354
+- model: formkit_ninja.nodechildren
+  pk: 361
+  fields:
+    parent: 5181c590-ba8e-4f9c-a33d-1a28b9ba09b7
+    child: 02397091-6e21-46e4-a5ed-ea0769245036
+    order: 1
+    track_change: 365
+- model: formkit_ninja.nodechildren
+  pk: 345
+  fields:
+    parent: 2668d239-f87c-4697-87d4-6a5ddaad187a
+    child: 0c782e54-10ed-4d8c-92c6-07316b3227fa
+    order: 1
+    track_change: 349
+- model: formkit_ninja.nodechildren
+  pk: 351
+  fields:
+    parent: 2668d239-f87c-4697-87d4-6a5ddaad187a
+    child: 45e91fcf-cc16-4481-a7d9-bd99bbb80256
+    order: 2
+    track_change: 355
+- model: formkit_ninja.nodechildren
+  pk: 362
+  fields:
+    parent: 2668d239-f87c-4697-87d4-6a5ddaad187a
+    child: 5181c590-ba8e-4f9c-a33d-1a28b9ba09b7
+    order: 3
+    track_change: 366
+- model: formkit_ninja.nodechildren
+  pk: 353
+  fields:
+    parent: 6c805bd4-b6fa-42fa-839a-c247d36d2f64
+    child: 43af7be2-c4a5-4929-a162-279b3c47c9d0
+    order: 1
+    track_change: 357
+- model: formkit_ninja.nodechildren
+  pk: 355
+  fields:
+    parent: 6c805bd4-b6fa-42fa-839a-c247d36d2f64
+    child: 3892b0d2-dee8-4466-bfe3-bf87cfa5a46e
+    order: 2
+    track_change: 359
