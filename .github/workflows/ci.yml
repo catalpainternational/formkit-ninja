@@ -151,5 +151,5 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
         run: |
-          poetry run pytest -v --cov=formkit_ninja --cov-report=term-missing
+          poetry run pytest -v
 
