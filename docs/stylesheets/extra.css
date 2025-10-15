@@ -1,0 +1,22 @@
+/* FormKit Ninja Documentation - Extra Styles */
+
+:root {
+  --formkit-primary: #6366f1;
+  --formkit-accent: #8b5cf6;
+}
+
+/* Custom styling for code blocks */
+.highlight {
+  border-radius: 0.5rem;
+}
+
+/* Enhance admonitions */
+.admonition {
+  border-left: 4px solid var(--formkit-primary);
+}
+
+/* Custom logo styling */
+.md-header__title {
+  font-weight: 600;
+}
+

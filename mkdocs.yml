@@ -1,60 +1,190 @@
-site_name: Formkit-Ninja
+site_name: FormKit Ninja
+site_description: Django-Ninja framework for FormKit schemas and form submissions
+site_author: Catalpa International
+site_url: https://catalpainternational.github.io/formkit-ninja/
+
+# Repository
+repo_name: catalpainternational/formkit-ninja
+repo_url: https://github.com/catalpainternational/formkit-ninja
+edit_uri: edit/main/docs/
+
+# Copyright
+copyright: Copyright &copy; 2025 Catalpa International
+
+# Configuration
 theme:
   name: material
+  logo: https://catalpa.io/favicon.ico
+  favicon: https://catalpa.io/favicon.ico
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
-    - toc.integrate
+    - navigation.expand
+    - navigation.path
     - navigation.top
-    - search.suggest
+    - navigation.indexes
+    - toc.follow
     - search.highlight
-    - content.tabs.link
-    - content.code.annotation
+    - search.share
+    - search.suggest
     - content.code.copy
-  language: en
-  palette:
-    - scheme: default
-      toggle:
-        icon: material/toggle-switch-off-outline
-        name: Switch to dark mode
-      primary: teal
-      accent: purple
-    - scheme: slate
-      toggle:
-        icon: material/toggle-switch
-        name: Switch to light mode
-      primary: teal
-      accent: lime
+    - content.code.annotate
+    - content.action.edit
+    - content.action.view
+    - content.tabs.link
 
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+# Plugins
 plugins:
-  - mkdocstrings
+  - search:
+      lang: en
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+  - minify:
+      minify_html: true
 
-extra:
-  social:
-    - icon: fontawesome/brands/github-alt
-      link: https://github.com/orgs/catalpainternational
-
+# Markdown extensions
 markdown_extensions:
+  # Code highlighting
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - admonition
-  - pymdownx.arithmatex:
-      generic: true
-  - footnotes
-  - pymdownx.details
-  - pymdownx.superfences
-  - pymdownx.mark
-  - attr_list
-  - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+
+  # Superfences for code blocks and diagrams
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
 
-copyright: |
-  &copy; 2023 <a href="https://catalpa.io"  target="_blank" rel="noopener">Catalpa International</a>
+  # Tabs for alternative content
+  - pymdownx.tabbed:
+      alternate_style: true
+
+  # Admonitions (callout boxes)
+  - admonition
+  - pymdownx.details
+
+  # Additional formatting
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+
+  # Task lists
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+  # Emoji
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+  # Magic links
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: catalpainternational
+      repo: formkit-ninja
+
+  # Math
+  - pymdownx.arithmatex:
+      generic: true
+
+  # Tables and attributes
+  - tables
+  - attr_list
+  - md_in_html
+
+  # Table of contents
+  - toc:
+      permalink: true
+      title: On this page
+      toc_depth: 3
+
+# Navigation
+nav:
+  - Home: index.md
+  
+  - Tutorials:
+    - Getting Started: tutorials/getting-started.md
+    - Admin Tutorial: tutorials/admin-tutorial.md
+  
+  - How-To Guides:
+    - Run Tests: how-to/run-tests.md
+    - Manage Options: how-to/manage-options.md
+    - Update Protected Nodes: how-to/update-protected-nodes.md
+  
+  - Reference:
+    - Models: reference/models.md
+    - API Endpoints: reference/api-endpoints.md
+    - CLI Commands: reference/cli-commands.md
+  
+  - Explanations:
+    - Architecture: explanations/architecture.md
+    - Options System: explanations/options-system.md
+
+# Extra configuration
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/catalpainternational
+      name: Catalpa on GitHub
+    - icon: fontawesome/brands/linkedin
+      link: https://linkedin.com/company/catalpa-international
+      name: Catalpa on LinkedIn
+
+  version:
+    provider: mike
+    default: latest
+
+# Extra CSS
+extra_css:
+  - stylesheets/extra.css
+
+# Extra JavaScript for Math
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+# Docs directory
+docs_dir: docs
+
+# Build directory
+site_dir: site

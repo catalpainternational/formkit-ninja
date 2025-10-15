@@ -1,0 +1,19 @@
+# Documentation dependencies for FormKit Ninja
+# Use: uv run --directory docs mkdocs serve
+
+[project]
+name = "formkit-ninja-docs"
+version = "2.0.0.b3"
+description = "Documentation for FormKit Ninja"
+requires-python = ">=3.11"
+dependencies = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.46",
+    "mkdocs-git-revision-date-localized-plugin>=1.2.0",
+    "mkdocs-minify-plugin>=0.8.0",
+    "pymdown-extensions>=10.11.0",
+    "mkdocstrings[python]>=0.27.0",
+]
+
+[dependency-groups]
+dev = []

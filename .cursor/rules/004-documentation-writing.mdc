@@ -1,0 +1,502 @@
+---
+description: Guidelines for writing documentation using Diataxis framework, MkDocs, and Mermaid diagrams
+globs: ["documentation/docs/**/*.md", "documentation/mkdocs.yml", "*.md"]
+alwaysApply: false
+---
+
+# Documentation Writing Guidelines
+
+AI agents must follow these rules when creating or updating documentation.
+
+## 🎯 Diataxis Framework - Quick Reference
+
+We use [Diataxis](https://diataxis.fr/) with four categories:
+
+| Category | Purpose | Location | When to Use |
+|----------|---------|----------|-------------|
+| **Tutorials** | Learning by doing | `docs/tutorials/` | Teaching beginners complete workflows |
+| **How-To** | Solve specific problems | `docs/how-to/` | Task-oriented guides for experienced users |
+| **Reference** | Technical specifications | `docs/reference/` | API docs, config options, command lists |
+| **Explanation** | Conceptual understanding | `docs/explanations/` | Design decisions, trade-offs, architecture |
+
+**Choose the right category**: Don't mix tutorial content into reference docs!
+
+---
+
+## ✍️ Writing Rules
+
+### **Before Writing - ALWAYS**
+
+```typescript
+// Required checks before creating documentation
+- Search existing docs (avoid duplication)
+- Identify correct Diataxis category
+- Check mkdocs.yml for existing nav structure  
+- Plan cross-links to related docs
+- Choose descriptive filename: lowercase-with-hyphens.md
+```
+
+### **Keep It Short and Simple**
+
+- ✅ Target: **300-500 words** per page
+- ✅ One topic per page
+- ✅ Write for beginners
+- ✅ Active voice, second person ("you")
+- ✅ Present tense
+- ❌ No walls of text
+- ❌ No jargon without explanation
+
+### **Code Examples Must**
+
+```markdown
+✅ GOOD:
+\`\`\`bash
+# Start all services
+djust up
+
+# Expected output:
+# ✅ All services started successfully
+\`\`\`
+
+❌ BAD:
+\`\`\`bash
+Run the setup command
+\`\`\`
+```
+
+- All examples **tested and working**
+- Include **expected output**
+- Add **comments** explaining what happens
+- Use **complete commands** (not fragments)
+
+---
+
+## 📁 File Structure
+
+**Always place files correctly**:
+
+```
+documentation/docs/
+├── index.md              # Homepage
+├── tutorials/            # Step-by-step learning
+├── how-to/              # Problem-solving
+├── reference/           # Technical specs
+└── explanations/        # Concepts and design
+```
+
+**Update navigation** in `documentation/mkdocs.yml`:
+
+```yaml
+nav:
+  - Tutorials:
+    - New Tutorial: tutorials/new-topic.md  # ADD THIS
+```
+
+---
+
+## 🎨 Use Mermaid for Diagrams
+
+**When to use**:
+- Architecture (services, connections)
+- Request/data flow
+- State machines
+- Deployment topology
+
+**Keep diagrams simple** (5-7 nodes max):
+
+```markdown
+\`\`\`mermaid
+graph TD
+    A[Frontend] -->|API| B[Backend]
+    B -->|SQL| C[Database]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
+\`\`\`
+```
+
+**Common diagram types**:
+
+```markdown
+# Architecture
+graph TD / graph LR
+
+# Request flow  
+sequenceDiagram
+
+# States
+stateDiagram-v2
+```
+
+---
+
+## 🔗 Cross-Linking Pattern
+
+```markdown
+# Link between categories:
+**Tutorial** → "See [How-To: Advanced Usage](../how-to/advanced.md)"
+**How-To** → "Learn basics: [Tutorial: Getting Started](../tutorials/start.md)"  
+**Reference** → "For examples: [How-To: Configure](../how-to/configure.md)"
+**Explanation** → "Try it: [Tutorial: First Feature](../tutorials/first.md)"
+
+# Use descriptive text, not raw URLs:
+✅ [Docker Compose docs](https://docs.docker.com/compose/)
+❌ https://docs.docker.com/compose/
+```
+
+---
+
+## 📝 MkDocs Features to Use
+
+### **Admonitions** (Callout Boxes)
+
+```markdown
+!!! tip "Pro Tip"
+    Use djust preflight before setup
+
+!!! warning "Important"
+    Stop Podman services first
+
+!!! danger "Critical"
+    Never commit .env.keys file
+```
+
+### **Tabs** (Show Alternatives)
+
+```markdown
+=== "Docker Compose"
+    \`\`\`bash
+    djust setup
+    \`\`\`
+
+=== "Podman"
+    \`\`\`bash
+    just setup-dev
+    \`\`\`
+```
+
+### **Code Blocks with Highlighting**
+
+```markdown
+\`\`\`bash
+djust setup
+\`\`\`
+
+\`\`\`python
+def example():
+    pass
+\`\`\`
+
+\`\`\`yaml
+services:
+  backend: {}
+\`\`\`
+```
+
+---
+
+## 🔄 Documentation Workflow
+
+```typescript
+// When creating documentation:
+1. Search existing docs to avoid duplication
+2. Choose Diataxis category (Tutorial/How-To/Reference/Explanation)
+3. Use appropriate voice for category
+4. Write short, simple content (300-500 words)
+5. Test all code examples
+6. Add Mermaid diagrams for complex concepts
+7. Update mkdocs.yml navigation
+8. Test build: cd documentation && ./serve-docs.sh
+```
+
+---
+
+## 🛠️ Building Documentation
+
+### **Local Development**
+
+```bash
+# Serve with live reload
+cd documentation
+./serve-docs.sh
+
+# Or specify port
+./serve-docs.sh 8001
+
+# Access at http://localhost:8000
+```
+
+### **What serve-docs.sh Does**
+
+```bash
+uvx --with mkdocs-material \
+    --with mkdocs-mermaid2-plugin \
+    --with mkdocs-git-revision-date-localized-plugin \
+    --with mkdocs-minify-plugin \
+    --with pymdown-extensions \
+    mkdocs serve --dev-addr "0.0.0.0:8000"
+```
+
+### **Production Build**
+
+```bash
+cd documentation
+uvx [same dependencies] mkdocs build
+# Output: documentation/site/
+```
+
+---
+
+## ✅ Quality Checklist
+
+Every documentation page must have:
+
+- [ ] **Clear title** describing content
+- [ ] **Brief intro** (1-2 sentences)
+- [ ] **Prerequisites** (if any)
+- [ ] **Tested code examples**
+- [ ] **Expected outputs** shown
+- [ ] **Cross-links** to related docs
+- [ ] **Entry in mkdocs.yml** nav
+- [ ] **Builds without errors**
+
+---
+
+## 🎯 Project-Specific Guidelines
+
+### **Docker Compose Documentation**
+
+When documenting Docker:
+- Show both `djust` (justfile) **and** `docker compose` commands
+- Document both **development and production** configs
+- Include **troubleshooting** based on real user experience
+- Explain **Podman vs Docker Compose** trade-offs
+
+### **Secrets Documentation**
+
+When documenting secrets:
+- ⚠️ **Never** include actual secret values
+- ✅ Use placeholders: `<your-key-here>`
+- ✅ Emphasize **secure channels**
+- ✅ Explain the `DOTENV_KEY` warning (it's normal!)
+
+### **GIS/Spatial Documentation**
+
+When documenting GIS:
+- Use correct terminology (SRID, geometry, spatial index)
+- Include PostGIS examples
+- Reference coordinate systems accurately
+- Show map visualizations when helpful
+
+---
+
+## 📐 Common Mermaid Patterns
+
+### **Service Architecture**
+
+```mermaid
+graph TD
+    A[Frontend<br/>:3000] --> B[Backend<br/>:8000]
+    B --> C[(Database<br/>:5432)]
+    
+    style A fill:#e8f5e9
+    style B fill:#fff3e0
+    style C fill:#e1f5ff
+```
+
+### **Request Flow**
+
+```mermaid
+sequenceDiagram
+    User->>Frontend: Visit page
+    Frontend->>Backend: GET /api/data
+    Backend->>DB: Query
+    DB-->>Backend: Results
+    Backend-->>Frontend: JSON
+    Frontend-->>User: Render
+```
+
+### **Deployment States**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Setup
+    Setup --> Running: djust up
+    Running --> Healthy: Checks pass
+    Healthy --> Failed: Error
+    Failed --> Running: Restart
+    Running --> [*]: djust down
+```
+
+---
+
+## 🔄 Maintenance Rules
+
+### **Update Documentation When**:
+
+```typescript
+const updateDocsFor = {
+  'docker-compose.yml': ['reference/docker-services.md'],
+  'justfile.docker': ['reference/justfile-commands.md'],
+  'Containerfile': ['reference/containerfiles.md'],
+  '.env.*': ['reference/environment-variables.md'],
+  'New features': ['tutorials/*.md', 'how-to/*.md'],
+  'Bug fixes': ['how-to/troubleshooting.md']
+}
+```
+
+### **Review Documentation Before**:
+
+- [ ] Don't repeat existing content (search first!)
+- [ ] Add to mkdocs.yml navigation
+- [ ] Test build with `./serve-docs.sh`
+- [ ] Verify cross-links work
+- [ ] Test all code examples
+
+---
+
+## 🎓 Quick Examples by Category
+
+### **Tutorial**: Learning-oriented
+
+```markdown
+# Tutorial: Your First Docker Compose Setup
+
+Learn how to set up the development environment from scratch.
+
+**Time**: 15 minutes
+
+## What You'll Learn
+- Starting all services
+- Running migrations  
+- Creating admin user
+
+## Step 1: Get Secrets
+Contact team lead for `.env.keys`...
+
+## Step 2: Run Setup
+\`\`\`bash
+djust setup
+\`\`\`
+
+## Step 3: Verify
+\`\`\`bash
+curl http://localhost:3000
+\`\`\`
+
+## What You Learned
+You can now start the full development environment!
+
+## Next: [Build Your First Feature](first-feature.md)
+```
+
+---
+
+### **How-To**: Problem-oriented
+
+```markdown
+# How to Fix Port Conflicts
+
+Quick guide to resolve "address already in use" errors.
+
+## Steps
+
+1. Find what's using the port:
+\`\`\`bash
+lsof -i :8000
+\`\`\`
+
+2. Either stop it or change Docker port:
+\`\`\`bash
+echo "BACKEND_PORT=8001" >> .env
+\`\`\`
+
+3. Restart services:
+\`\`\`bash
+djust restart
+\`\`\`
+
+## Troubleshooting
+**Issue**: lsof not found  
+**Fix**: Use `ss -tlnp | grep :8000`
+```
+
+---
+
+### **Reference**: Information-oriented
+
+```markdown
+# Docker Compose Services Reference
+
+## Backend Service
+
+**Image**: `microplanning-backend:dev`  
+**Port**: `8000` (configurable: `BACKEND_PORT`)  
+**Networks**: app-network, db-network  
+**Depends on**: postgres
+
+**Environment Variables**:
+- `DJANGO_SECRET_KEY` - Django secret
+- `DATABASE_URL` - Database connection
+
+## Frontend Service
+
+[Repeat structure...]
+```
+
+---
+
+### **Explanation**: Understanding-oriented
+
+```markdown
+# Why Docker Compose and Podman
+
+## The Context
+We support both to serve different use cases.
+
+## Docker Compose
+**Best for**: Development, cross-platform  
+**Pros**: Standard tooling, wide support  
+**Cons**: Requires Docker daemon
+
+## Podman  
+**Best for**: Production, Linux servers  
+**Pros**: Rootless, systemd integration  
+**Cons**: Linux-only
+
+## Our Decision
+Offer both. Let teams choose based on deployment target.
+```
+
+---
+
+## 📚 External Resources
+
+For comprehensive guides, see:
+- [Diataxis Framework](https://diataxis.fr/)
+- [MkDocs Documentation](https://www.mkdocs.org/)
+- [Mermaid Syntax](https://mermaid.js.org/)
+
+**This rule provides project-specific integration, not a complete documentation course.**
+
+---
+
+## ✅ Final Checklist
+
+Before committing documentation:
+
+```markdown
+- [ ] Correct Diataxis category
+- [ ] No duplication (searched existing)
+- [ ] Short and focused (< 1000 words)
+- [ ] All code examples tested
+- [ ] Cross-links added
+- [ ] Added to mkdocs.yml
+- [ ] Builds: `./serve-docs.sh`
+- [ ] Mermaid diagrams render
+```
+
+---
+
+**Remember**: Keep documentation **short, simple, and tested**. Link to external resources for comprehensive guides.
