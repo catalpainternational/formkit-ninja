@@ -30,6 +30,10 @@ version: 1.0.0
 - `chore`: Maintenance (deps, config)
 - `ci`: CI/CD changes
 
+## Length
+
+Descriptions should be maximum 2 short paragraphs. Where a description would be longer, consider splitting the commit.
+
 ## Scopes for This Project
 
 - `admin` - Django admin
