@@ -7,7 +7,10 @@ from formkit_ninja.models import PublishedForm
 
 
 class Command(BaseCommand):
-    help = "Load all JSON schema files from the schemas directory and create PublishedForm instances"
+    help = """
+        Load all JSON schema files from the schemas directory and create 
+        PublishedForm instances
+    """
 
     def add_arguments(self, parser):
         parser.add_argument(

@@ -1,9 +1,9 @@
+import pgtrigger
 from django.core.management.base import BaseCommand
 
 from formkit_ninja import models
 from formkit_ninja.formkit_schema import DiscriminatedNodeType
 from formkit_ninja.schemas import Schemas
-import pgtrigger
 
 
 class Command(BaseCommand):
@@ -23,4 +23,4 @@ class Command(BaseCommand):
             schema = schemas.as_json(schema_name)
             node = DiscriminatedNodeType.model_validate(schema)
             schema = models.FormKitSchema.from_pydantic(node.root, label=schema_name)
-            published = schema.publish()
+            schema.publish()

@@ -59,5 +59,8 @@ ignore_missing_imports = true
 django_settings_module = "testproject.settings"
 
 [tool.ruff]
-# Enable ths isort rules
+# Ruff configuration
+
+[tool.ruff.lint]
+# Enable the isort rules
 select = ["E", "F", "I"]  # E: pycodestyle, F: pyflakes, I: isort
