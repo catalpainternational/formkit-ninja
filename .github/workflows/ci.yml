@@ -147,16 +147,6 @@ jobs:
             sleep 2
           done
 
-      - name: Test Django setup
-        env:
-          POSTGRES_DB: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-        run: |
-          poetry run python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'testproject.settings'); import django; django.setup(); print('Django setup successful')"
-
       - name: Run tests with pytest
         env:
           POSTGRES_DB: postgres
