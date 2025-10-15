@@ -5,7 +5,11 @@ import warnings
 from html.parser import HTMLParser
 from typing import Annotated, Any, Literal, Type, TypedDict, TypeVar, Union
 
+# Configure Pydantic to avoid forward reference issues
+import pydantic
 from pydantic import BaseModel, Field
+
+pydantic.BaseModel.Config.arbitrary_types_allowed = True
 
 """
 This is a port of selected parts of the FormKit schema
