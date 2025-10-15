@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import warnings
 from html.parser import HTMLParser
-from typing import Annotated, Any, List, Literal, Type, TypedDict, TypeVar, Union
+from typing import Annotated, Any, Literal, Type, TypedDict, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
@@ -28,8 +28,8 @@ OptionsType = str | list[dict[str, Any]] | list[str] | dict[str, str] | None
 class FormKitSchemaCondition(BaseModel):
     node_type: Literal["condition"] = Field(default="condition", exclude=True)
     if_condition: str = Field(..., alias="if")
-    then_condition: Node | List[Node] = Field(..., alias="then")
-    else_condition: Node | List[Node] | None = Field(None, alias="else")
+    then_condition: Any = Field(..., alias="then")
+    else_condition: Any | None = Field(None, alias="else")
 
 
 class FormKitSchemaMeta(BaseModel):
