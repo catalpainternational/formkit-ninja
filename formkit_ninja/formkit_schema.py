@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import warnings
 from html.parser import HTMLParser
-from typing import Annotated, Any, ForwardRef, List, Literal, Type, TypedDict, TypeVar, Union
+from typing import Annotated, Any, List, Literal, Type, TypedDict, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 HtmlAttrs = dict[str, str | dict[str, str]]
 
 
-Node = ForwardRef("Node")
+Node = "Node"
 
 # Radio, Select, Autocomplete and Dropdown nodes have
 # these options
