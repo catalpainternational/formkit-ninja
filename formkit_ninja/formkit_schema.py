@@ -320,11 +320,12 @@ class FormKitSchemaComponent(FormKitSchemaProps):
 
 
 # This necessary to properly "populate" some more complicated models
-FormKitSchemaAttributesCondition.update_forward_refs()
-FormKitAttributeValue.update_forward_refs()
-FormKitSchemaDOMNode.update_forward_refs()
-FormKitSchemaCondition.update_forward_refs()
-FormKitSchemaComponent.update_forward_refs()
+# Forward reference updates removed to avoid Pydantic compatibility issues
+# FormKitSchemaAttributesCondition.update_forward_refs()
+# FormKitAttributeValue.update_forward_refs()
+# # FormKitSchemaDOMNode.update_forward_refs()
+# FormKitSchemaCondition.update_forward_refs()
+# FormKitSchemaComponent.update_forward_refs()
 
 
 class FormKitTagParser(HTMLParser):
@@ -374,7 +375,7 @@ class FormKitTagParser(HTMLParser):
             self.current_tag.__fields_set__.add("children")
 
 
-FormKitSchemaDOMNode.update_forward_refs()
+# FormKitSchemaDOMNode.update_forward_refs()
 
 Model = TypeVar("Model", bound="BaseModel")
 StrBytes = str | bytes
@@ -550,8 +551,8 @@ class FormKitSchema(BaseModel):
             raise
 
 
-FormKitSchema.update_forward_refs()
-FormKitSchemaCondition.update_forward_refs()
-PasswordNode.update_forward_refs()
+# FormKitSchema.update_forward_refs()
+# FormKitSchemaCondition.update_forward_refs()
+# PasswordNode.update_forward_refs()
 
 FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition
