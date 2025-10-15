@@ -44,11 +44,11 @@ jobs:
 
       - name: Check formatting with black
         run: |
-          poetry run black --check .
+          poetry run black --check formkit_ninja tests testproject
 
       - name: Check import sorting with isort
         run: |
-          poetry run isort --check .
+          poetry run isort --check formkit_ninja tests testproject
 
       - name: Lint with flake8
         run: |
@@ -155,5 +155,5 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
         run: |
-          poetry run pytest -v
+          poetry run pytest
 
