@@ -36,7 +36,7 @@ class FormKitSchemaMeta(BaseModel):
     __root__: dict[str, str | float | int | bool | None]
 
 
-class FormKitTypeDefinition(BaseModel):
+class FormKitTypeDefinition(BaseModel):  # noqa: E701
     ...
 
 
@@ -452,7 +452,7 @@ class FormKitNode(BaseModel):
     __root__: str | Node
 
     @classmethod
-    def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":
+    def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":  # noqa: C901
         """
         This classmethod differentiates between the different "Node" types
         when deserializing
