@@ -52,7 +52,7 @@ jobs:
 
       - name: Lint with flake8
         run: |
-          poetry run flake8 .
+          poetry run flake8 formkit_ninja tests testproject --exclude=migrations
 
   typecheck:
     name: Type Check (mypy)
@@ -135,6 +135,13 @@ jobs:
       - name: Install dependencies
         run: |
           poetry install --with dev --no-interaction
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
 
       - name: Run tests with pytest
         env:
