@@ -73,11 +73,11 @@ class FormKitAttributeValue(BaseModel):
     The possible value types of attributes (in the schema)
     """
 
-    __root__: str | int | float | bool | None | FormKitSchemaAttributes | FormKitSchemaAttributesCondition
+    __root__: Any
 
 
 class FormKitSchemaAttributes(BaseModel):
-    __root__: dict[str, FormKitAttributeValue | FormKitSchemaAttributes | FormKitSchemaAttributesCondition]
+    __root__: dict[str, Any]
 
 
 class FormKitSchemaProps(BaseModel):
