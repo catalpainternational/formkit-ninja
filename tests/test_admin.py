@@ -1,4 +1,3 @@
-import pytest
 from django.contrib import admin
 from django.test import RequestFactory
 
@@ -28,7 +27,7 @@ def test_admin_json_nested_field_preserved():
         label="el",
     )
     rf = RequestFactory()
-    request = rf.post("/admin/formkitschemanode/")
+    _ = rf.post("/admin/formkitschemanode/")
     data = {
         "label": node.label,
         "description": "",

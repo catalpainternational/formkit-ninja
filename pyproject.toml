@@ -14,7 +14,7 @@ exclude = ["tests", "formkit_ninja/samples"]
 python = ">=3.10,<3.14"
 django-ninja = "<1"
 Django = "==4.*"
-pydantic = "<2"
+pydantic = "1.10.16"
 django-pgtrigger = "==4.*"
 rich = "*"
 django-pghistory = "==3.*"

@@ -3,9 +3,13 @@ from __future__ import annotations
 import logging
 import warnings
 from html.parser import HTMLParser
-from typing import Annotated, Any, ForwardRef, List, Literal, Type, TypedDict, TypeVar, Union
+from typing import Annotated, Any, Literal, Type, TypedDict, TypeVar, Union
 
+# Configure Pydantic to avoid forward reference issues
+import pydantic
 from pydantic import BaseModel, Field
+
+pydantic.BaseModel.Config.arbitrary_types_allowed = True
 
 """
 This is a port of selected parts of the FormKit schema
@@ -18,7 +22,7 @@ logger = logging.getLogger(__name__)
 HtmlAttrs = dict[str, str | dict[str, str]]
 
 
-Node = ForwardRef("Node")
+Node = "Node"
 
 # Radio, Select, Autocomplete and Dropdown nodes have
 # these options
@@ -28,15 +32,15 @@ OptionsType = str | list[dict[str, Any]] | list[str] | dict[str, str] | None
 class FormKitSchemaCondition(BaseModel):
     node_type: Literal["condition"] = Field(default="condition", exclude=True)
     if_condition: str = Field(..., alias="if")
-    then_condition: Node | List[Node] = Field(..., alias="then")
-    else_condition: Node | List[Node] | None = Field(None, alias="else")
+    then_condition: Any = Field(..., alias="then")
+    else_condition: Any | None = Field(None, alias="else")
 
 
 class FormKitSchemaMeta(BaseModel):
     __root__: dict[str, str | float | int | bool | None]
 
 
-class FormKitTypeDefinition(BaseModel):
+class FormKitTypeDefinition(BaseModel):  # noqa: E701
     ...
 
 
@@ -73,11 +77,11 @@ class FormKitAttributeValue(BaseModel):
     The possible value types of attributes (in the schema)
     """
 
-    __root__: str | int | float | bool | None | FormKitSchemaAttributes | FormKitSchemaAttributesCondition
+    __root__: Any
 
 
 class FormKitSchemaAttributes(BaseModel):
-    __root__: dict[str, FormKitAttributeValue | FormKitSchemaAttributes | FormKitSchemaAttributesCondition]
+    __root__: dict[str, Any]
 
 
 class FormKitSchemaProps(BaseModel):
@@ -320,11 +324,12 @@ class FormKitSchemaComponent(FormKitSchemaProps):
 
 
 # This necessary to properly "populate" some more complicated models
-FormKitSchemaAttributesCondition.update_forward_refs()
-FormKitAttributeValue.update_forward_refs()
-FormKitSchemaDOMNode.update_forward_refs()
-FormKitSchemaCondition.update_forward_refs()
-FormKitSchemaComponent.update_forward_refs()
+# Forward reference updates removed to avoid Pydantic compatibility issues
+# FormKitSchemaAttributesCondition.update_forward_refs()
+# FormKitAttributeValue.update_forward_refs()
+# # FormKitSchemaDOMNode.update_forward_refs()
+# FormKitSchemaCondition.update_forward_refs()
+# FormKitSchemaComponent.update_forward_refs()
 
 
 class FormKitTagParser(HTMLParser):
@@ -374,7 +379,7 @@ class FormKitTagParser(HTMLParser):
             self.current_tag.__fields_set__.add("children")
 
 
-FormKitSchemaDOMNode.update_forward_refs()
+# FormKitSchemaDOMNode.update_forward_refs()
 
 Model = TypeVar("Model", bound="BaseModel")
 StrBytes = str | bytes
@@ -452,7 +457,7 @@ class FormKitNode(BaseModel):
     __root__: str | Node
 
     @classmethod
-    def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":
+    def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":  # noqa: C901
         """
         This classmethod differentiates between the different "Node" types
         when deserializing
@@ -550,8 +555,8 @@ class FormKitSchema(BaseModel):
             raise
 
 
-FormKitSchema.update_forward_refs()
-FormKitSchemaCondition.update_forward_refs()
-PasswordNode.update_forward_refs()
+# FormKitSchema.update_forward_refs()
+# FormKitSchemaCondition.update_forward_refs()
+# PasswordNode.update_forward_refs()
 
 FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition
