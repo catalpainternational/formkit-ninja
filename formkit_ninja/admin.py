@@ -30,7 +30,10 @@ class ItemAdmin(admin.ModelAdmin):
 class JsonDecoratedFormBase(forms.ModelForm):
     """
     Adds additional fields to the admin where a model has a JSON field
-    and some appropriate (tbc?) field parameters
+    and some appropriate (tbc?) field parameters.
+
+    Also provides helpers to map nested JSON attributes to flat
+    form fields (e.g. "attrs__class" <-> node["attrs"]["class"]).
     """
 
     # extra = forms.CharField(label="Extra", max_length=128, required=False)
@@ -45,6 +48,54 @@ class JsonDecoratedFormBase(forms.ModelForm):
         Custom which json fields will be included in the return
         """
         return self._json_fields
+
+    def _extract_field_value(self, values: dict, json_field: str):
+        """
+        Extract a value from a JSON dict, handling nested field notation.
+        """
+        if "__" in json_field:
+            nested_field_name, nested_key = json_field.split("__", 1)
+            nested = values.get(nested_field_name)
+            if isinstance(nested, dict):
+                return nested.get(nested_key)
+            return None
+        return values.get(json_field)
+
+    def _populate_form_field(self, form_field: str, json_field: str, values: dict) -> None:
+        """
+        Populate a single form field's initial value from JSON data.
+        """
+        field = self.fields.get(form_field)
+        if not field:
+            warnings.warn(f"The field {form_field} was not found on the form")
+            return
+        field.initial = self._extract_field_value(values, json_field)
+
+    def _build_json_data(self, keys: tuple, existing_data: dict) -> dict:
+        """
+        Build JSON data dict from cleaned form data, preserving unmapped keys
+        and allowing falsy values such as 0/False/"".
+        """
+        data = existing_data.copy() if isinstance(existing_data, dict) else {}
+        for key in keys:
+            if isinstance(key, str):
+                form_field = key
+                json_field = key
+            else:
+                form_field, json_field = key
+
+            if form_field not in self.cleaned_data:
+                continue
+            field_value = self.cleaned_data[form_field]
+
+            if "__" in json_field:
+                nested_field_name, nested_key = json_field.split("__", 1)
+                if not isinstance(data.get(nested_field_name), dict):
+                    data[nested_field_name] = {}
+                data[nested_field_name][nested_key] = field_value
+            else:
+                data[json_field] = field_value
+        return data
 
     def _field_check(self):
         """
@@ -89,13 +140,9 @@ class JsonDecoratedFormBase(forms.ModelForm):
         Assign JSON field content to Form fields
         """
         for field, keys in self.get_json_fields().items():
-            # Extract the dict of JSON values from the model instance if supplied
-            values = getattr(instance, field, {}) or {}  # Don't allow none:
-            # field_name is the property on the ModelForm to use.
-            # This allows "aliasing" so that fields on the model / JSON are not shadowed.
+            values = getattr(instance, field, {}) or {}
 
-            fields_from_json = set()
-
+            fields_from_json: set[str] = set()
             for key in keys:
                 if isinstance(key, str):
                     form_field = key
@@ -103,24 +150,11 @@ class JsonDecoratedFormBase(forms.ModelForm):
                 else:
                     form_field, json_field = key
                 fields_from_json.add(json_field)
-                field = self.fields.get(form_field)
-                if not field:
-                    warnings.warn(f"The field {form_field} was not found on the form")
-                else:
-                    # The value, extracted from the JSON value in the database
-                    # If there's an underscore do a Django-style "lookup"
-                    # e.g. `formkit__name` -> `formkit["name"]`
-                    if "__" in json_field:
-                        nested_field_name = json_field.split("__")[0]
-                        if nested_field_name in values:
-                            field_value = values[nested_field_name].get(json_field.split("__")[1], None)
-                    field_value = values.get(json_field, None)
-                    # The initial value of the admin form is set to the value of the JSON attrib
-                    field = self.fields.get(form_field).initial = field_value
+                self._populate_form_field(form_field, json_field, values)
 
-            # Here we can warn if there are any "hidden" JSON fields
-            # Todo: Handle 'nested' values such as `attrs__classes`
-            if missing := list(set(values) - fields_from_json - {"node_type"}):
+            # Avoid warning for nested parent keys that are intentionally partially mapped
+            nested_parents = {k.split("__", 1)[0] for k in fields_from_json if "__" in k}
+            if missing := list(set(values) - fields_from_json - nested_parents - {"node_type"}):
                 warnings.warn(f"Some JSON fields were hidden: {','.join(missing)}")
                 warnings.warn(f"Consider adding fields {missing} to {self.__class__.__name__}")
 
@@ -130,34 +164,41 @@ class JsonDecoratedFormBase(forms.ModelForm):
         can be populated from a JSON data field.
         """
         super().__init__(*args, **kwargs)
-        if instance := kwargs["instance"]:
+        # Capture original JSONField values before form cleaning mutates the instance
+        self._original_json_fields: dict[str, dict | list | None] = {}
+        if instance := kwargs.get("instance"):
+            for f in instance._meta.get_fields():
+                if isinstance(f, JSONField):
+                    self._original_json_fields[f.name] = getattr(instance, f.name, None)
             self._set_json_fields(instance)
 
     def save(self, commit=True):
         """
         Updates the JSON field(s) from the fields specified in the `_json_fields` dict
+        preserving unmapped keys and allowing falsy values.
+        Also preserves existing JSONField values on the model if the field
+        is not present in form data (e.g., `additional_props`).
         """
+        # Use original JSONField values captured at __init__ time
+        original_json_fields: dict[str, dict | list | None] = getattr(self, "_original_json_fields", {})
 
+        instance = super().save(commit=False)
+
+        # Only update declared JSON mappings
         for field, keys in self.get_json_fields().items():
-            # Populate a JSON field in a model named "form"
-            # from a set of standard form elements
-            data = {}
-            for key in keys:
-                if isinstance(key, str):
-                    form_field = key
-                    json_field = key
-                else:
-                    form_field, json_field = key
-                if field_value := self.cleaned_data.get(form_field, None):
-                    if "__" in json_field:
-                        if json_field.split("__")[0] in data:
-                            data[json_field.split("__")[0]][json_field.split("__")[1]] = field_value
-                        else:
-                            data[json_field.split("__")[0]] = {json_field.split("__")[1]: field_value}
-                    else:
-                        data[json_field] = field_value
-        setattr(self.instance, field, data)
-        return super().save(commit=commit)
+            existing = getattr(instance, field, {}) or {}
+            data = self._build_json_data(keys, existing)
+            setattr(instance, field, data)
+
+        # Restore any JSONField not managed by this form's JSON mapping
+        managed_json_fields = set(self.get_json_fields().keys())
+        for field_name, original_value in original_json_fields.items():
+            if field_name not in managed_json_fields:
+                setattr(instance, field_name, original_value)
+
+        if commit:
+            instance.save()
+        return instance
 
 
 class NewFormKitForm(forms.ModelForm):
@@ -240,7 +281,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
             "max",
             "step",
             ("html_id", "id"),
-            ("onchange", "onChange")
+            ("onchange", "onChange"),
         )
     }
 
@@ -420,7 +461,17 @@ class FormKitSchemaForm(forms.ModelForm):
 
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(admin.ModelAdmin):
-    list_display = ("label", "is_active", "id", "node_type", "option_group", "formkit_or_el_type", "track_change", "key_is_valid", "protected")
+    list_display = (
+        "label",
+        "is_active",
+        "id",
+        "node_type",
+        "option_group",
+        "formkit_or_el_type",
+        "track_change",
+        "key_is_valid",
+        "protected",
+    )
     list_filter = ("node_type", "is_active", "protected")
     readonly_fields = ("track_change",)
     search_fields = ["label", "description", "node", "node__el"]
@@ -435,10 +486,10 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             return True
         if not isinstance(obj.node, dict):
             return True
-        if 'name' not in obj.node:
+        if "name" not in obj.node:
             return True
         try:
-            key = obj.node.get('name')
+            key = obj.node.get("name")
             if not isinstance(key, str):
                 raise TypeError
             models.check_valid_django_id(key)

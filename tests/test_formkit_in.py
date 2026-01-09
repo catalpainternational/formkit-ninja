@@ -1,13 +1,14 @@
 # ruff: noqa: F401 F811
 # flake8: noqa: F401 F811
 
-from django.test import Client
-from django.urls import reverse
-import pytest
 from http import HTTPStatus
 
-from formkit_ninja.api import FormKitNodeIn
+import pytest
+from django.test import Client
+from django.urls import reverse
 from pytest_django.fixtures import admin_client
+
+from formkit_ninja.api import FormKitNodeIn
 
 
 @pytest.mark.django_db
@@ -19,9 +20,7 @@ def test_node_create(admin_client: Client):
     # Add a group node
     # This is a 'partisipa' type group node with
     # an icon and a label
-    group = FormKitNodeIn(
-        **{"$formkit": "group", "icon": "fa fa-user", "label": "Partisipa"}
-    )
+    group = FormKitNodeIn(**{"$formkit": "group", "icon": "fa fa-user", "label": "Partisipa"})
     data = group.json(exclude_none=True)
 
     response = admin_client.post(
@@ -100,9 +99,7 @@ def test_textarea_create(admin_client: Client):
     # Add a group node
     # This is a 'partisipa' type group node with
     # an icon and a label
-    group = FormKitNodeIn(
-        **{"$formkit": "textarea"}
-    )
+    group = FormKitNodeIn(**{"$formkit": "textarea"})
     data = group.json(exclude_none=True)
 
     response = admin_client.post(

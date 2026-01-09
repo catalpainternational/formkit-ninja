@@ -1,8 +1,8 @@
-from functools import cached_property
 import importlib
+import re
+from functools import cached_property
 from http import HTTPStatus
 from importlib.util import find_spec
-import re
 from types import ModuleType
 from typing import Sequence
 from uuid import UUID, uuid4
@@ -145,17 +145,13 @@ def get_list_schemas(request):
 
 
 @router.get("list-nodes", response=NodeQSResponse, by_alias=True, exclude_none=True)
-def get_formkit_nodes(
-    request: HttpRequest, response: HttpResponse, latest_change: int | None = -1
-):
+def get_formkit_nodes(request: HttpRequest, response: HttpResponse, latest_change: int | None = -1):
     """
     Get all of the FormKit nodes in the database
     """
     objects: models.NodeQS = models.FormKitSchemaNode.objects
     nodes = objects.from_change(latest_change)
-    response["latest_change"] = (
-        nodes.aggregate(_=Max("track_change"))["_"] or latest_change
-    )
+    response["latest_change"] = nodes.aggregate(_=Max("track_change"))["_"] or latest_change
     add_never_cache_headers(response)
     return node_queryset_response(nodes)
 
@@ -197,9 +193,7 @@ def get_schemas(request, schema_id: UUID):
     """
     Get a schema based on its UUID
     """
-    schema: models.FormKitSchema = get_object_or_404(
-        models.FormKitSchema.objects, id=schema_id
-    )
+    schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, id=schema_id)
     model = schema.to_pydantic()
     return model
 
@@ -229,9 +223,7 @@ def get_schema_by_label(request, label: str):
     """
     Get a schema based on its label
     """
-    schema: models.FormKitSchema = get_object_or_404(
-        models.FormKitSchema.objects, label=label
-    )
+    schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, label=label)
     model = schema.to_pydantic()
     return model
 
@@ -246,9 +238,7 @@ def get_node(request, node_id: UUID):
     """
     Gets a node based on its UUID
     """
-    node: models.FormKitSchemaNode = get_object_or_404(
-        models.FormKitSchemaNode.objects, id=node_id
-    )
+    node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
     instance = node.get_node()
     return instance
 
@@ -272,9 +262,7 @@ def delete_node(request, node_id: UUID):
     Delete a node based on its UUID
     """
     with transaction.atomic():
-        node: models.FormKitSchemaNode = get_object_or_404(
-            models.FormKitSchemaNode.objects, id=node_id
-        )
+        node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
         node.delete()
         # node.refresh_from_db()
         objects: models.NodeQS = models.FormKitSchemaNode.objects
@@ -336,11 +324,7 @@ class FormKitNodeIn(Schema):
         parent, parent_errors = self.parent
         if self.parent[0] and self.child:
             # Ensures that names are not "overwritten"
-            return set(
-                parent.children.exclude(pk=self.child.pk).values_list(
-                    "node__name", flat=True
-                )
-            )
+            return set(parent.children.exclude(pk=self.child.pk).values_list("node__name", flat=True))
         elif self.parent[0]:
             return set(parent.children.values_list("node__name", flat=True))
         else:
@@ -385,14 +369,11 @@ def create_or_update_child_node(payload: FormKitNodeIn):
     values = payload.dict(
         by_alias=True,
         exclude_none=True,
-        exclude={"parent_id", "uuid"}
-        | {"parent", "child", "preferred_name", "parent_names"},
+        exclude={"parent_id", "uuid"} | {"parent", "child", "preferred_name", "parent_names"},
     )
     # Ensure the name is unique and suitable
     # Do not replace existing names though
-    existing_name = (
-        child.node.get("name", None) if isinstance(child.node, dict) else None
-    )
+    existing_name = child.node.get("name", None) if isinstance(child.node, dict) else None
     if existing_name is None:
         values["name"] = payload.preferred_name
     child.node.update(values)
@@ -478,68 +459,4 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     if error_response.errors or error_response.field_errors:
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
-    return node_queryset_response(
-        models.FormKitSchemaNode.objects.filter(pk__in=[child.pk])
-    )[0]
-
-
-@router.post(
-    "reorder_node_children",
-    response={
-        HTTPStatus.OK: NodeChildrenOut,
-        HTTPStatus.CONFLICT: FormKitErrors,
-        HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors,
-    },
-    exclude_none=True,
-    by_alias=True,
-)
-def reorder_node_children(request, response: HttpResponse, payload: NodeChildrenIn):
-    """
-    Creates or updates a NodeChildern  model.
-
-
-    Args:
-        request: The request object.
-        response (HttpResponse): The HttpResponse object.
-        payload (NodeChildrenIn): The payload containing the data for the node to be created or updated.
-
-    Returns:
-        200: NodeChildrenIn: The new nodechildren object
-        500: FormKitErrors: The errors encountered during the process, if any.
-    """
-
-    error_response = FormKitErrors()
-
-    # validate the value of latest_change
-    chnge = models.NodeChildren.objects.latest_change()
-    if payload.latest_change != chnge:
-        error_response.errors = ['change conflict']
-        return HTTPStatus.CONFLICT, error_response
-
-    try:
-        reorder_children(payload)
-    except Exception as E:
-        error_response.errors.append(f"{E}")
-
-    if error_response.errors or error_response.field_errors:
-        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
-
-    updated_change = models.NodeChildren.objects.latest_change()
-    payload.latest_change = updated_change
-    return payload
-
-
-def reorder_children(payload: NodeChildrenIn):
-    # Logic to reorder children based on the payload
-    existing_children = models.NodeChildren.objects.filter(parent=payload.parent_id)
-    # validate the children are the same in number and id
-    if existing_children.count() != len(payload.children):
-        return None, 'Children do not match'
-    if set(existing_children.values_list('child_id', flat=True)) != set(payload.children):
-        return None, 'Children do not match'
-    for id in payload.children:
-        new_index = payload.children.index(id) + 1
-        child = existing_children.get(child_id=id)
-        if child.order != new_index:
-            child.order = new_index
-            child.save()
+    return node_queryset_response(models.FormKitSchemaNode.objects.filter(pk__in=[child.pk]))[0]

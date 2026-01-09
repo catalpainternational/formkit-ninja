@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import itertools
-from keyword import iskeyword, issoftkeyword
 import logging
 import uuid
 import warnings
+from keyword import iskeyword, issoftkeyword
 from typing import Iterable, TypedDict, get_args
 
 import pghistory
@@ -25,12 +25,13 @@ log = console.log
 
 logger = logging.getLogger()
 
+
 def check_valid_django_id(key: str):
     if not key.isidentifier() or iskeyword(key) or issoftkeyword(key):
         raise TypeError(f"{key} cannot be used as a keyword. Should be a valid python identifier")
     if key[0].isdigit():
         raise TypeError(f"{key} is not valid, it cannot start with a digit")
-    if key[-1] == '_':
+    if key[-1] == "_":
         raise TypeError(f"{key} is not valid, it cannot end with an underscore")
 
 
@@ -78,7 +79,10 @@ class OptionGroup(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="This is an optional reference to the original source object for this set of options (typically a table from which we copy options)",
+        help_text=(
+            "This is an optional reference to the original source object "
+            "for this set of options (typically a table from which we copy options)"
+        ),
     )
 
     # If the object is a "Content Type" we expect it to have a similar layout to this
@@ -149,7 +153,10 @@ class Option(UuidIdModel):
     object_id = models.IntegerField(
         null=True,
         blank=True,
-        help_text="This is a reference to the primary key of the original source object (typically a PNDS ztable ID) or a user-specified ID for a new group",
+        help_text=(
+            "This is a reference to the primary key of the original source object "
+            "(typically a PNDS ztable ID) or a user-specified ID for a new group"
+        ),
     )
     last_updated = models.DateTimeField(auto_now=True)
     group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE, null=True, blank=True)
@@ -321,15 +328,15 @@ class NodeQS(models.QuerySet):
 @pgtrigger.register(
     pgtrigger.Protect(
         # If the node is protected, delete is not allowed
-        name='protect_node_deletes_and_updates',
+        name="protect_node_deletes_and_updates",
         operation=pgtrigger.Delete,
-        condition=pgtrigger.Q(old__protected=True)
+        condition=pgtrigger.Q(old__protected=True),
     ),
     pgtrigger.Protect(
         # If both new and old values are "protected", updates are not allowed
-        name='protect_node_updates',
+        name="protect_node_updates",
         operation=pgtrigger.Update,
-        condition=pgtrigger.Q(old__protected=True) & pgtrigger.Q(new__protected=True)
+        condition=pgtrigger.Q(old__protected=True) & pgtrigger.Q(new__protected=True),
     ),
     pgtrigger.SoftDelete(name="soft_delete", field="is_active"),
     triggers.bump_sequence_value("track_change", triggers.NODE_CHANGE_ID),
@@ -401,8 +408,8 @@ class FormKitSchemaNode(UuidIdModel):
         # We're also going to verify that the 'key' is a valid identifier
         # Keep in mind that the `key` may be used as part of a model so
         # should be valid Django fieldname too
-        if isinstance(self.node, dict) and 'name' in self.node:
-            key: str = self.node.get('name', None)
+        if isinstance(self.node, dict) and "name" in self.node:
+            key: str = self.node.get("name", None)
             check_valid_django_id(key)
         return super().save(*args, **kwargs)
 
@@ -473,7 +480,7 @@ class FormKitSchemaNode(UuidIdModel):
         return formkit_node.__root__
 
     @classmethod
-    def from_pydantic(
+    def from_pydantic(  # noqa: C901
         cls, input_models: formkit_schema.FormKitSchemaProps | Iterable[formkit_schema.FormKitSchemaProps]
     ) -> Iterable["FormKitSchemaNode"]:
         if isinstance(input_models, str):

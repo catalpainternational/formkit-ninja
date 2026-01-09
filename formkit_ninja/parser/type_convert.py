@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import warnings
 from keyword import iskeyword
 from typing import Iterable, Literal
-import warnings
 
 from formkit_ninja import formkit_schema
 from formkit_ninja.formkit_schema import FormKitNode, GroupNode, RepeaterNode
 
 FormKitType = formkit_schema.FormKitType
+
 
 def make_valid_identifier(input_string: str):
     """
@@ -25,15 +26,16 @@ def make_valid_identifier(input_string: str):
         while output[0].isdigit():
             output = output[1:]
 
-        while output[-1] == '_':
+        while output[-1] == "_":
             output = output[:-1]
 
-        while output[0] == '_':
+        while output[0] == "_":
             output = output[1:]
     except IndexError:
         raise TypeError(f"The name {input_string} couldn't be used as an identifier")
 
     return output.lower()
+
 
 class NodePath:
     """

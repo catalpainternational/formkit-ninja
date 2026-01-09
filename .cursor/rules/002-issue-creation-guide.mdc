@@ -1,0 +1,313 @@
+---
+description: AI instructions for creating well-structured GitHub issues
+globs: "**/*"
+tags: [ai, github, workflow, automation]
+priority: 2
+version: 1.0.0
+---
+
+# AI-Assisted GitHub Issue Creation Guide
+
+## When to Create an Issue
+
+The AI should suggest creating an issue when:
+
+1. **Bug Discovery**: Code analysis reveals a bug
+2. **Feature Discussion**: User mentions wanting new functionality  
+3. **Refactoring Need**: Technical debt is identified
+4. **Documentation Gap**: Missing or outdated docs found
+5. **User Request**: User explicitly asks to create an issue
+
+## Pre-Creation Research
+
+Before creating an issue, the AI must:
+
+### 1. Search Existing Issues
+```bash
+# Search for similar issues
+gh issue list --search "admin JSON fields" --state all
+```
+
+### 2. Gather Technical Details
+- Run relevant code
+- Check error logs
+- Review related files
+- Identify root cause (if possible)
+- Test proposed solutions
+
+### 3. Assess Impact
+- Who is affected?
+- How severe is it?
+- Is there a workaround?
+- What's the urgency?
+
+## Issue Creation Process
+
+### Step 1: Determine Type
+
+Ask yourself:
+- **Is something broken?** → Bug report
+- **Is this new functionality?** → Feature request
+- **Is this maintenance/improvement?** → Task/Chore
+
+### Step 2: Craft the Title
+
+**Formula**: `[Type] Subject + Impact/Component`
+
+**Templates:**
+- Bug: `[Bug] {Component} {specific problem} causing {impact}`
+- Feature: `[Feature] Add {capability} for {use case}`
+- Task: `[Task] {Action} {component} to {goal}`
+
+**Good Titles:**
+- `[Bug] Admin JSON fields not saving causing data loss`
+- `[Feature] Add data cleanup command for Partisipa migration`
+- `[Task] Refactor JsonDecoratedFormBase for maintainability`
+
+**Bad Titles:**
+- ❌ `Fix admin` - Too vague
+- ❌ `This is broken!!!` - No specifics
+- ❌ `Question about the thing` - Not an issue, should be discussion
+
+### Step 3: Write the Description
+
+Use this structure:
+
+```markdown
+## Summary
+[1-2 sentences: What + Why + Impact]
+
+## [Context Section - varies by type]
+For bugs: Steps to Reproduce
+For features: Problem Statement
+For tasks: Motivation
+
+## Details
+[Technical details, code samples, logs]
+
+## Proposed Solution
+[Specific, actionable approach]
+
+## Acceptance Criteria
+- [ ] Specific testable requirement
+- [ ] Another testable requirement
+
+## Additional Context
+[Environment, related issues, screenshots]
+```
+
+### Step 4: Add Code Examples
+
+**Best Practices:**
+- Always include file paths: `admin.py:179`
+- Show before/after for bugs
+- Highlight the problem with comments
+- Keep examples focused and minimal
+- Use syntax highlighting
+
+**Template:**
+```markdown
+**Current code** (`src/module/file.py:42-48`):
+```python
+def problematic_function():
+    value = get_value()
+    value = None  # ❌ Bug: overwrites the value!
+    return value
+```
+
+**Should be:**
+```python
+def problematic_function():
+    value = get_value()
+    # ✅ Don't overwrite
+    return value
+```
+```
+
+### Step 5: Suggest Labels
+
+Based on the issue content, suggest labels:
+
+```markdown
+**Suggested Labels:**
+- `bug`, `priority: high`, `component: admin`
+- `good first issue` (if suitable for newcomers)
+- `needs-investigation` (if root cause unclear)
+```
+
+### Step 6: Link Related Items
+
+Always check and include:
+- Related issues: `Related to #123`
+- Blocking issues: `Blocked by #456`
+- Duplicate check: `Possibly duplicate of #789 (but different because...)`
+
+## Quality Checklist
+
+Before finalizing an issue, verify:
+
+- [ ] Title is clear and specific (<72 chars)
+- [ ] Description includes all required sections
+- [ ] Steps to reproduce are numbered and complete (bugs)
+- [ ] Expected vs actual behavior is clear (bugs)
+- [ ] User stories included (features)
+- [ ] Acceptance criteria are testable
+- [ ] Code examples include file paths and line numbers
+- [ ] Environment info included (if relevant)
+- [ ] Labels suggested
+- [ ] Related issues linked
+- [ ] Tone is professional and objective
+- [ ] Formatting uses headers, lists, code blocks
+- [ ] No sensitive data included
+
+## Issue Templates
+
+### Quick Bug Template
+
+```markdown
+**Bug**: [One sentence description]
+
+**Reproduce:**
+1. [Step 1]
+2. [Step 2]
+
+**Expected:** [Should do X]
+**Actual:** [Does Y instead]
+
+**Fix:** [Code location and proposed change]
+
+**Environment:** Python X.Y, Package Z
+```
+
+### Quick Feature Template
+
+```markdown
+**Feature**: [One sentence description]
+
+**Problem:** [What user need isn't met?]
+
+**Solution:** [How should it work?]
+
+**Criteria:**
+- [ ] [Requirement 1]
+- [ ] [Requirement 2]
+
+**Priority:** [Low/Medium/High]
+```
+
+## Common Mistakes to Avoid
+
+### ❌ Too Vague
+**Bad:** "The admin doesn't work"
+**Good:** "JsonDecoratedFormBase.save() doesn't persist changes to additional_props field"
+
+### ❌ Multiple Issues in One
+**Bad:** "Fix admin bugs and add tests and refactor code"
+**Good:** Three separate issues with dependencies noted
+
+### ❌ Missing Reproduction Steps
+**Bad:** "JSON fields are broken"
+**Good:** Exact steps to reproduce, starting from clean state
+
+### ❌ No Acceptance Criteria
+**Bad:** "Make the admin better"
+**Good:** Specific checklist of what "done" means
+
+### ❌ Solution Without Problem
+**Bad:** "We should use queryset.update()"
+**Good:** "Problem: X. Solution: Use queryset.update() because Y"
+
+## AI Communication Pattern
+
+When creating an issue, the AI should:
+
+1. **Announce intention**: "I'll create a GitHub issue for this..."
+2. **Show draft**: Present the issue for review
+3. **Explain choices**: "I categorized this as 'high priority' because..."
+4. **Ask for input**: "Should I also mention X in the issue?"
+5. **Provide command**: Show the `gh` command to create it
+
+**Example:**
+```
+I'll create a GitHub issue for the data cleanup task. Here's the draft:
+
+[Shows formatted issue]
+
+I've categorized this as:
+- Type: Feature (new cleanup command)
+- Priority: Medium (not blocking but important)
+- Component: Data migration
+
+Would you like me to:
+1. Create this issue now?
+2. Adjust anything first?
+3. Add it to a milestone or project?
+```
+
+## Special Cases
+
+### Security Issues
+- **DON'T** create public issues for security vulnerabilities
+- **DO** suggest contacting maintainers privately
+- **DO** include severity assessment
+
+### Sensitive Data
+- **DON'T** include passwords, API keys, personal data
+- **DO** redact or anonymize examples
+- **DO** mention "Example data redacted for security"
+
+### Duplicate Issues
+If similar issue exists:
+- **DO** comment on existing issue with new info
+- **DON'T** create duplicate
+- **DO** note: "Adding to #123 instead of creating new issue"
+
+## Issue Lifecycle
+
+After creation, the AI should be able to:
+
+1. **Track**: Monitor comments and updates
+2. **Update**: Add new information as discovered
+3. **Close**: When resolved, comment with summary
+4. **Link PRs**: Reference the fix when implemented
+
+## Examples by Complexity
+
+### Simple Bug (Lines: 15-20)
+Focus on: Title, Steps, Expected/Actual, Environment
+
+### Medium Feature (Lines: 30-50)
+Include: Problem, Solution, User Stories, Criteria, Alternatives
+
+### Complex Refactoring (Lines: 50-100)
+Add: Architecture diagrams, Migration plan, Risk assessment, Rollback strategy
+
+## Metrics for Success
+
+A well-written issue enables:
+- ✅ Anyone to understand the problem in <2 minutes
+- ✅ Developer to start working immediately
+- ✅ Clear definition of "done"
+- ✅ Easy triage and prioritization
+- ✅ Knowledge sharing for future reference
+
+## Integration with AI Workflow
+
+When working on code and discovering issues:
+
+```markdown
+# Discovery Phase
+AI: "I've found 4 bugs in the admin code..."
+AI: "Should I create issues for these?"
+
+# Creation Phase  
+AI: "Creating issue 1/4: Nested field overwrite bug..."
+AI: [Shows draft for review]
+
+# Implementation Phase
+AI: "I've fixed the bug. Shall I reference this in the commit?"
+AI: "Commit message: 'fix: nested JSON fields now save correctly (fixes #123)'"
+
+# Follow-up Phase
+AI: "Issue #123 can be closed. I'll add a summary comment."
+```

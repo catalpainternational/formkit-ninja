@@ -6,7 +6,7 @@ import pytest
 from formkit_ninja import formkit_schema, models, samples
 from formkit_ninja.formkit_schema import FormKitNode, FormKitSchemaDOMNode
 from formkit_ninja.schemas import Schemas
-from tests.fixtures import SF_1_1, el_priority, formkit_text_node, simple_text_node
+from tests.fixtures import SF_1_1, el_priority, formkit_text_node, simple_text_node  # noqa: F401
 
 
 def _read_file(filename: str):
@@ -30,7 +30,7 @@ def test_node_parse():
 
 @pytest.mark.django_db()
 def test_create_schema():
-    c = models.FormKitSchema.objects.create()
+    _ = models.FormKitSchema.objects.create()
 
 
 @pytest.mark.django_db()
@@ -59,7 +59,7 @@ def test_create_from_schema(element_schema):
 
 
 @pytest.mark.django_db()
-def test_parse_el_priority(el_priority: dict):
+def test_parse_el_priority(el_priority: dict):  # noqa: F811
     """
     Regression test for missing text content
 
@@ -98,7 +98,7 @@ def test_parse_el_priority(el_priority: dict):
 
 
 @pytest.mark.django_db()
-def test_parse_simple_text_node(simple_text_node: dict):
+def test_parse_simple_text_node(simple_text_node: dict):  # noqa: F811
     node: FormKitNode = FormKitNode.parse_obj(simple_text_node)
     parsed_node: FormKitSchemaDOMNode = node.__root__
     # Before the fix, this was breaking into individual letters
@@ -106,7 +106,7 @@ def test_parse_simple_text_node(simple_text_node: dict):
 
 
 @pytest.mark.django_db()
-def test_additional_props(formkit_text_node: dict):
+def test_additional_props(formkit_text_node: dict):  # noqa: F811
     """
     This ensures that custom attributes are maintained
     from JSON to Pydantic,
@@ -198,7 +198,7 @@ def test_schemas(schema: dict):
 
 
 @pytest.mark.django_db()
-def test_protected_model(formkit_text_node: dict):
+def test_protected_model(formkit_text_node: dict):  # noqa: F811
     """
     A 'protected' node cannot be deleted
     This works right at the database level, not through the API
@@ -210,5 +210,6 @@ def test_protected_model(formkit_text_node: dict):
     node_in_the_db.protected = True
     node_in_the_db.save()
     from django.db.utils import InternalError
+
     with pytest.raises(InternalError):
         node_in_the_db.delete()

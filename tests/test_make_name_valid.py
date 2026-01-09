@@ -1,4 +1,4 @@
-from formkit_ninja.api import make_name_valid_id, disambiguate_name
+from formkit_ninja.api import disambiguate_name, make_name_valid_id
 
 
 def test_disambiguate_name():
