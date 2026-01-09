@@ -77,8 +77,11 @@ class NodeChildrenOut(ModelSchema):
         model_fields = ("parent",)
 
 class NodeChildrenIn(Schema):
+    # UUIDS of the children in the new order
     children: list[UUID] = []
+    # latest_change is used to validate that the client is working with the most up to date version of the children
     latest_change: int | None = None
+    # The parent_id is used to identify which node's children are being reordered
     parent_id: UUID
 
 class NodeReturnType(BaseModel):
@@ -518,9 +521,6 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
     """
 
     error_response = FormKitErrors()
-    # Update the payload "name"
-    # When label is provided, use the label to generate the name
-    # Fetch parent node, if it exists, and check that it is a group or repeater
 
     # validate the value of latest_change
     chnge = models.NodeChildren.objects.latest_change()
