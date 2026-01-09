@@ -1,6 +1,6 @@
-from formkit_ninja.formkit_schema import FormKitSchema
 import pytest
 
+from formkit_ninja.formkit_schema import FormKitSchema
 from formkit_ninja.schemas import Schemas
 
 """
