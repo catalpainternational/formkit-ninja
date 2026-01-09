@@ -1,3 +1,4 @@
+from formkit_ninja.formkit_schema import FormKitSchema
 import pytest
 
 from formkit_ninja.schemas import Schemas
@@ -116,3 +117,11 @@ def formkit_text_node():
         "class": "red",
         "options": [{"value": "1", "label": "Training"}, {"value": "2", "label": "Meeting"}],
     }
+
+
+@pytest.fixture
+def tf_611_in_db():
+    from formkit_ninja import models
+    tf_611 = schemas.as_json("TF_6_1_1")
+    tf_611_schema = FormKitSchema.parse_obj(tf_611)
+    return models.FormKitSchema.from_pydantic(tf_611_schema)

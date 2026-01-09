@@ -30,7 +30,7 @@ Pull the repo:
 
 `gh repo clone catalpainternational/formkit-ninja`
 `cd formkit-ninja`
-`poetry install`
+`poetry install --with dev`
 `poetry run pytest`
 
 ## Lint
