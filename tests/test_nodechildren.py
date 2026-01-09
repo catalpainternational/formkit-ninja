@@ -38,7 +38,30 @@ def test_node_children_no_change(admin_client: Client, tf_611_in_db):
     response_data = response.json()
     assert response_data["latest_change"] == latest_change
 
+@pytest.mark.django_db
+def test_node_children_conflict(admin_client: Client, tf_611_in_db):
+    """
+    Test reordering of Formkit nodes through the API fails if the latest_change value is outdated
+    """
+    
+    root = tf_611_in_db.nodes.first()
+    root_node_children = root.children.all().values_list('id', flat=True)
 
+    path = reverse("api-1.0.0:reorder_node_children")
+
+    reversed = list(root_node_children)
+    data = NodeChildrenIn(
+        children=reversed,
+        parent_id=root.id,
+        latest_change=-1
+    )
+
+    response = admin_client.post(
+        path=path,
+        data=data.dict(),
+        content_type="application/json",
+    )
+    assert response.status_code == HTTPStatus.CONFLICT
 
 @pytest.mark.django_db
 def test_node_children_change(admin_client: Client, tf_611_in_db):
