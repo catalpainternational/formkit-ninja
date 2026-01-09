@@ -76,6 +76,7 @@ class NodeChildrenOut(ModelSchema):
         model = models.NodeChildren
         model_fields = ("parent",)
 
+
 class NodeChildrenIn(Schema):
     # UUIDS of the children in the new order
     children: list[UUID] = []
@@ -83,6 +84,7 @@ class NodeChildrenIn(Schema):
     latest_change: int | None = None
     # The parent_id is used to identify which node's children are being reordered
     parent_id: UUID
+
 
 class NodeReturnType(BaseModel):
     key: UUID
@@ -460,3 +462,65 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
     return node_queryset_response(models.FormKitSchemaNode.objects.filter(pk__in=[child.pk]))[0]
+
+
+@router.post(
+    "reorder_node_children",
+    response={
+        HTTPStatus.OK: NodeChildrenOut,
+        HTTPStatus.CONFLICT: FormKitErrors,
+        HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors,
+    },
+    exclude_none=True,
+    by_alias=True,
+)
+def reorder_node_children(request, response: HttpResponse, payload: NodeChildrenIn):
+    """
+    Creates or updates a NodeChildern  model.
+
+
+    Args:
+        request: The request object.
+        response (HttpResponse): The HttpResponse object.
+        payload (NodeChildrenIn): The payload containing the data for the node to be created or updated.
+
+    Returns:
+        200: NodeChildrenIn: The new nodechildren object
+        500: FormKitErrors: The errors encountered during the process, if any.
+    """
+
+    error_response = FormKitErrors()
+
+    # validate the value of latest_change
+    chnge = models.NodeChildren.objects.latest_change()
+    if payload.latest_change != chnge:
+        error_response.errors = ["change conflict"]
+        return HTTPStatus.CONFLICT, error_response
+
+    try:
+        reorder_children(payload)
+    except Exception as E:
+        error_response.errors.append(f"{E}")
+
+    if error_response.errors or error_response.field_errors:
+        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+
+    updated_change = models.NodeChildren.objects.latest_change()
+    payload.latest_change = updated_change
+    return payload
+
+
+def reorder_children(payload: NodeChildrenIn):
+    # Logic to reorder children based on the payload
+    existing_children = models.NodeChildren.objects.filter(parent=payload.parent_id)
+    # validate the children are the same in number and id
+    if existing_children.count() != len(payload.children):
+        return None, "Children do not match"
+    if set(existing_children.values_list("child_id", flat=True)) != set(payload.children):
+        return None, "Children do not match"
+    for id in payload.children:
+        new_index = payload.children.index(id) + 1
+        child = existing_children.get(child_id=id)
+        if child.order != new_index:
+            child.order = new_index
+            child.save()
