@@ -1,3 +1,4 @@
+from formkit_ninja.formkit_schema import FormKitSchema
 import pytest
 
 from formkit_ninja import models
@@ -564,3 +565,11 @@ def example_schema_factory(db):
     models.FormComponents.objects.create(schema=schema, node=group2, order=1, label="Group 2")
     models.FormComponents.objects.create(schema=schema, node=sector_select, order=2, label="Sector Select")
     return schema
+
+
+@pytest.fixture
+def tf_611_in_db():
+    from formkit_ninja import models
+    tf_611 = schemas.as_json("TF_6_1_1")
+    tf_611_schema = FormKitSchema.parse_obj(tf_611)
+    return models.FormKitSchema.from_pydantic(tf_611_schema)
