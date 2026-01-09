@@ -570,6 +570,7 @@ def example_schema_factory(db):
 @pytest.fixture
 def tf_611_in_db():
     from formkit_ninja import models
+
     tf_611 = schemas.as_json("TF_6_1_1")
     tf_611_schema = FormKitSchema.parse_obj(tf_611)
     return models.FormKitSchema.from_pydantic(tf_611_schema)

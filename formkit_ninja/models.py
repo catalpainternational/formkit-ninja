@@ -277,6 +277,7 @@ class NodeChildrenManager(models.Manager):
         all = self.aggregate_changes_table().aggregate(Max("track_change"))
         return all["track_change__max"]
 
+
 class NodeChildren(models.Model):
     """
     This is an ordered m2m model representing
