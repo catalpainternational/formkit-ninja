@@ -388,6 +388,9 @@ class FormKitSchemaNode(UuidIdModel):
     )
     icon = models.CharField(max_length=256, null=True, blank=True)
     title = models.CharField(max_length=1024, null=True, blank=True)
+    readonly = models.BooleanField(default=False)
+    sections_schema = models.JSONField(null=True, blank=True, help_text="Schema for the sections")
+    min = models.CharField(max_length=256, null=True, blank=True)
 
     text_content = models.TextField(
         null=True, blank=True, help_text="Content for a text element, for children of an $el type component"
@@ -413,9 +416,18 @@ class FormKitSchemaNode(UuidIdModel):
         
         # Auto-promote common props
         if self.additional_props:
-            for field in ("icon", "title"):
-                if field in self.additional_props and not getattr(self, field):
-                    setattr(self, field, self.additional_props.pop(field))
+            for field in ("icon", "title", "readonly", "sectionsSchema", "min"):
+                if field in self.additional_props:
+                    if field == "sectionsSchema":
+                        # Special handling for camelCase -> snake_case
+                        target_field = "sections_schema"
+                    else:
+                        target_field = field
+                    
+                    if not getattr(self, target_field):
+                         # If readonly is boolean in additional_props, it works fine for BooleanField
+                         # If min is int/str, it works fine for CharField (will be stringified)
+                         setattr(self, target_field, self.additional_props.pop(field))
         
         return super().save(*args, **kwargs)
 
@@ -460,6 +472,16 @@ class FormKitSchemaNode(UuidIdModel):
             values["icon"] = self.icon
         if self.title:
             values["title"] = self.title
+        if self.readonly:
+            values["readonly"] = self.readonly
+        if self.sections_schema:
+            values["sectionsSchema"] = self.sections_schema
+        if self.min:
+            values["min"] = self.min
+            # Try to convert to int if it looks like one, to match original type if possible?
+            # Or just leave as string? FormKit handles string "0" fine usually.
+            # But let's leave it as is from DB (CharField)
+        
         if self.additional_props and len(self.additional_props) > 0:
             values["additional_props"] = self.additional_props
 
@@ -516,6 +538,12 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.icon = icon
             if title := getattr(input_model, "title", None):
                 instance.title = title
+            if readonly := getattr(input_model, "readonly", None):
+                instance.readonly = readonly
+            if sections_schema := getattr(input_model, "sectionsSchema", None):
+                instance.sections_schema = sections_schema
+            if min_val := getattr(input_model, "min", None):
+                instance.min = str(min_val)
 
             try:
                 node_type = getattr(input_model, "node_type")
@@ -541,6 +569,9 @@ class FormKitSchemaNode(UuidIdModel):
                     "node_type",
                     "icon",
                     "title",
+                    "readonly",
+                    "sectionsSchema",
+                    "min",
                 },
                 exclude_none=True,
                 exclude_unset=True,
