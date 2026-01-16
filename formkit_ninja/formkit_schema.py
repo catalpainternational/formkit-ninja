@@ -149,6 +149,7 @@ class TextNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["text"] = Field(default="text", alias="$formkit")
     text: str | None
+    maxLength: int | None = Field(None, description="Maximum length of the text input")
 
 
 class TextAreaNode(TextNode):
@@ -174,6 +175,9 @@ class DatePickerNode(TextNode):
     format: str = "DD/MM/YY"
     nextIcon: str = "angleRight"
     prevIcon: str = "angleLeft"
+    minDateSource: str | None = Field(None, alias="_minDateSource", description="Field to use as min date")
+    maxDateSource: str | None = Field(None, alias="_maxDateSource", description="Field to use as max date")
+    disabledDays: str | None = Field(None, description="Function to disable days")
 
 
 class CheckBoxNode(TextNode):
@@ -232,9 +236,14 @@ class DropDownNode(TextNode):
 class RepeaterNode(TextNode):
     formkit: Literal["repeater"] = Field(default="repeater", alias="$formkit")
     name: str | None = None
-    upControl: bool | None = Field(default=True)
-    downControl: bool | None = Field(default=True)
-    addLabel: str | None = Field(default="Add another")
+    upControl: bool | None = Field(default=True, description="Show up control")
+    downControl: bool | None = Field(default=True, description="Show down control")
+    addLabel: str | None = Field(default="Add another", description="Label for the add button")
+    min: int | None = Field(None, description="Minimum number of items")
+    max: int | None = Field(None, description="Maximum number of items")
+    validationRules: str | None = Field(None, description="Custom validation rules")
+    itemClass: str | None = Field(None, description="Class for each item")
+    itemsClass: str | None = Field(None, description="Class for the items wrapper")
 
 
 class GroupNode(TextNode):

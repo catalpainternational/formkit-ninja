@@ -614,7 +614,11 @@ class FormKitSchemaNode(UuidIdModel):
 
             # Fields that are valid Pydantic fields but not promoted to columns must be saved in additional_props
             # otherwise they are lost.
-            extra_fields = ["max", "rows", "cols", "prefixIcon", "classes", "value", "suffixIcon"]
+            extra_fields = [
+                "max", "rows", "cols", "prefixIcon", "classes", "value", "suffixIcon", "validationRules",
+                "maxLength", "itemClass", "itemsClass",
+                "_minDateSource", "_maxDateSource", "disabledDays"
+            ]
             # Ensure additional_props is a dict
             if instance.additional_props is None:
                 instance.additional_props = {}
