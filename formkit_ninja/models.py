@@ -386,6 +386,8 @@ class FormKitSchemaNode(UuidIdModel):
         blank=True,
         help_text="User space for additional, less used props",
     )
+    icon = models.CharField(max_length=256, null=True, blank=True)
+    title = models.CharField(max_length=1024, null=True, blank=True)
 
     text_content = models.TextField(
         null=True, blank=True, help_text="Content for a text element, for children of an $el type component"
@@ -408,6 +410,13 @@ class FormKitSchemaNode(UuidIdModel):
         if isinstance(self.node, dict) and "name" in self.node:
             key: str = self.node.get("name", None)
             check_valid_django_id(key)
+        
+        # Auto-promote common props
+        if self.additional_props:
+            for field in ("icon", "title"):
+                if field in self.additional_props and not getattr(self, field):
+                    setattr(self, field, self.additional_props.pop(field))
+        
         return super().save(*args, **kwargs)
 
     @property
@@ -447,6 +456,10 @@ class FormKitSchemaNode(UuidIdModel):
             children = [c.get_node_values() for c in self.children.order_by("nodechildren__order")]
             if children:
                 values["children"] = children
+        if self.icon:
+            values["icon"] = self.icon
+        if self.title:
+            values["title"] = self.title
         if self.additional_props and len(self.additional_props) > 0:
             values["additional_props"] = self.additional_props
 
@@ -498,6 +511,12 @@ class FormKitSchemaNode(UuidIdModel):
             # Node types
             if props := getattr(input_model, "additional_props", None):
                 instance.additional_props = props
+            
+            if icon := getattr(input_model, "icon", None):
+                instance.icon = icon
+            if title := getattr(input_model, "title", None):
+                instance.title = title
+
             try:
                 node_type = getattr(input_model, "node_type")
             except Exception as E:
@@ -520,6 +539,8 @@ class FormKitSchemaNode(UuidIdModel):
                     "children",
                     "additional_props",
                     "node_type",
+                    "icon",
+                    "title",
                 },
                 exclude_none=True,
                 exclude_unset=True,

@@ -115,6 +115,8 @@ class FormKitSchemaProps(BaseModel):
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
+    icon: str | None = Field(None)
+    title: str | None = Field(None)
     classes: str | dict[str, str] | None = Field(None)
 
     # FormKit allows arbitrary values, we do our best to represent these here
