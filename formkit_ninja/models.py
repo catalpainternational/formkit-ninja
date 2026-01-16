@@ -587,12 +587,11 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.min = str(min_val)
             if step := getattr(input_model, "step", None):
                 instance.step = str(step)
-            if add_label := getattr(input_model, "add_label", None):
-                # Note: alias is addLabel, but pydantic model field is add_label
+            if add_label := getattr(input_model, "addLabel", None):
                 instance.add_label = add_label
-            if up_control := getattr(input_model, "up_control", None):
+            if up_control := getattr(input_model, "upControl", None):
                 instance.up_control = up_control
-            if down_control := getattr(input_model, "down_control", None):
+            if down_control := getattr(input_model, "downControl", None):
                 instance.down_control = down_control
 
             try:

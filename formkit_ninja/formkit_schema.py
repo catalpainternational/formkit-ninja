@@ -120,11 +120,6 @@ class FormKitSchemaProps(BaseModel):
     classes: str | dict[str, str] | None = Field(None)
     readonly: bool | None = Field(None)
     sectionsSchema: dict[str, Any] | None = Field(None)
-    min: int | str | None = Field(None)
-    step: int | str | None = Field(None)
-    addLabel: str | None = Field(None)
-    upControl: bool | None = Field(None)
-    downControl: bool | None = Field(None)
 
     # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
@@ -189,8 +184,8 @@ class NumberNode(TextNode):
     formkit: Literal["number"] = Field(default="number", alias="$formkit")
     text: str | None
     max: int | None = None
-    min: int | None = None
-    step: str | None = None
+    min: int | str | None = None
+    step: int | str | None = None
 
 
 class PasswordNode(TextNode):
@@ -236,10 +231,10 @@ class DropDownNode(TextNode):
 
 class RepeaterNode(TextNode):
     formkit: Literal["repeater"] = Field(default="repeater", alias="$formkit")
-    up_control: bool | None = Field(default=True, alias="upControl")
-    down_control: bool | None = Field(default=True, alias="downControl")
-    add_label: str | None = Field(default="Add another", alias="addLabel")
     name: str | None = None
+    upControl: bool | None = Field(default=True)
+    downControl: bool | None = Field(default=True)
+    addLabel: str | None = Field(default="Add another")
 
 
 class GroupNode(TextNode):
