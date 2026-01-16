@@ -1,49 +1,48 @@
-[tool.poetry]
+[project]
 name = "formkit-ninja"
 version = "0.7.6"
 description = "A Django-Ninja backend to specify FormKit schemas"
-authors = ["Josh Brooks <josh@catalpa.io>"]
-license = "GPLv3"
 readme = "README.md"
-homepage = "https://github.com/catalpainternational/formkit-ninja"
-repository = "https://github.com/catalpainternational/formkit-ninja"
-packages = [{include = "formkit_ninja"}]
-exclude = ["tests", "formkit_ninja/samples"]
-
-[tool.poetry.dependencies]
-python = ">=3.10,<3.14"
-django-ninja = "<1"
-Django = "==4.*"
-pydantic = "1.10.16"
-django-pgtrigger = "==4.*"
-rich = "*"
-django-pghistory = "==3.*"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-pytest-django = "*"
-isort = "*"
-black = "*"
-flake8 = "*"
-django-extensions = "*"
-sqlparse = "*"
-mypy = "*"
-pre-commit = "*"
-mkdocs-material = "*"
-mkdocstrings = {extras = ["python"], version = "*"}
-pytest-cov = "^4.1.0"
-psycopg2-binary = "^2.9.7"
-factory-boy = "^3.3.0"
-django-stubs = "^4.2.6"
-pyyaml = "*"
-greenlet = ">=3.2.4"
+requires-python = ">=3.10,<3.14"
+authors = [
+    { name = "Josh Brooks", email = "josh@catalpa.io" }
+]
+dependencies = [
+    "django-ninja<1",
+    "Django==4.*",
+    "pydantic<2",
+    "django-pgtrigger==4.*",
+    "rich",
+    "django-pghistory==3.*",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-django",
+    "isort",
+    "black",
+    "flake8",
+    "django-extensions",
+    "sqlparse",
+    "mypy",
+    "pre-commit",
+    "playwright>=1.39.0",
+    "pytest-playwright",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "pytest-cov>=4.1.0",
+    "psycopg2-binary>=2.9.7",
+    "factory-boy>=3.3.0",
+    "django-stubs>=4.2.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["formkit_ninja"]
 
 [tool.pylint.format]
 max-line-length = "119"
