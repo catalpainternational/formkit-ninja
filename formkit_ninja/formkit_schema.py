@@ -121,6 +121,10 @@ class FormKitSchemaProps(BaseModel):
     readonly: bool | None = Field(None)
     sectionsSchema: dict[str, Any] | None = Field(None)
     min: int | str | None = Field(None)
+    step: int | str | None = Field(None)
+    addLabel: str | None = Field(None)
+    upControl: bool | None = Field(None)
+    downControl: bool | None = Field(None)
 
     # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure

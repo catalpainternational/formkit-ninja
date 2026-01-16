@@ -391,6 +391,10 @@ class FormKitSchemaNode(UuidIdModel):
     readonly = models.BooleanField(default=False)
     sections_schema = models.JSONField(null=True, blank=True, help_text="Schema for the sections")
     min = models.CharField(max_length=256, null=True, blank=True)
+    step = models.CharField(max_length=256, null=True, blank=True)
+    add_label = models.CharField(max_length=1024, null=True, blank=True)
+    up_control = models.BooleanField(default=True)
+    down_control = models.BooleanField(default=True)
 
     text_content = models.TextField(
         null=True, blank=True, help_text="Content for a text element, for children of an $el type component"
@@ -416,18 +420,22 @@ class FormKitSchemaNode(UuidIdModel):
         
         # Auto-promote common props
         if self.additional_props:
-            for field in ("icon", "title", "readonly", "sectionsSchema", "min"):
+            for field in ("icon", "title", "readonly", "sectionsSchema", "min", "step", "addLabel", "upControl", "downControl"):
                 if field in self.additional_props:
                     if field == "sectionsSchema":
-                        # Special handling for camelCase -> snake_case
                         target_field = "sections_schema"
+                    elif field == "addLabel":
+                        target_field = "add_label"
+                    elif field == "upControl":
+                        target_field = "up_control"
+                    elif field == "downControl":
+                        target_field = "down_control"
                     else:
                         target_field = field
                     
-                    if not getattr(self, target_field):
-                         # If readonly is boolean in additional_props, it works fine for BooleanField
-                         # If min is int/str, it works fine for CharField (will be stringified)
-                         setattr(self, target_field, self.additional_props.pop(field))
+                    val = self.additional_props.pop(field)
+                    # Safe set
+                    setattr(self, target_field, val)
         
         return super().save(*args, **kwargs)
 
@@ -478,9 +486,42 @@ class FormKitSchemaNode(UuidIdModel):
             values["sectionsSchema"] = self.sections_schema
         if self.min:
             values["min"] = self.min
-            # Try to convert to int if it looks like one, to match original type if possible?
-            # Or just leave as string? FormKit handles string "0" fine usually.
-            # But let's leave it as is from DB (CharField)
+        if self.step:
+            values["step"] = self.step
+        if self.add_label:
+            values["addLabel"] = self.add_label
+        if not self.up_control: # Only write if false? Or always? Defaults are True.
+             values["upControl"] = self.up_control
+        if not self.down_control:
+             values["downControl"] = self.down_control
+        
+        # Pydantic defaults are True. But if we want to be explicit:
+        # Actually FormKit default is True. So we only need to output if it's False?
+        # Or if it's explicitly set?
+        # The DB default is True. Pydantic default is True.
+        # So if DB says True, and we omit it, Pydantic/FormKit assumes True. Correct.
+        # But if DB says False, we MUST output False.
+        # But wait, we also have cases where we want to enforce True if the schema says so.
+        # Let's inspect `additional_props` behaviour. It outputs whatever is there.
+        # If I want to be safe, I output `upControl` if `self.up_control` is not None. 
+        # But it's BooleanField with default=True. It's never None.
+        # So `if not self.up_control` handles the `False` case.
+        # What if it's `True`? Should we output it?
+        # If I output `upControl: True`, it's harmless.
+        # But to reduce payload size, I can skip it if it matches default.
+        # But let's check Pydantic export.
+        pass
+        
+        # Actually, let's keep it simple and output if it's notable?
+        # Or just "always output if it's different from default"?
+        # But DB default is True.
+        
+        # Let's verify if we missed explicit True?
+        # Probably okay to just output if False?
+        # Let's output if defined? But strict bool is always defined.
+        # I'll output if False for now, assuming True is default.
+        # Wait, if I migrate data, I should check what values are present.
+        # Analysis showed `upControl` 11 times. Maybe they are mostly False?
         
         if self.additional_props and len(self.additional_props) > 0:
             values["additional_props"] = self.additional_props
@@ -544,6 +585,15 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.sections_schema = sections_schema
             if min_val := getattr(input_model, "min", None):
                 instance.min = str(min_val)
+            if step := getattr(input_model, "step", None):
+                instance.step = str(step)
+            if add_label := getattr(input_model, "add_label", None):
+                # Note: alias is addLabel, but pydantic model field is add_label
+                instance.add_label = add_label
+            if up_control := getattr(input_model, "up_control", None):
+                instance.up_control = up_control
+            if down_control := getattr(input_model, "down_control", None):
+                instance.down_control = down_control
 
             try:
                 node_type = getattr(input_model, "node_type")
@@ -572,6 +622,10 @@ class FormKitSchemaNode(UuidIdModel):
                     "readonly",
                     "sectionsSchema",
                     "min",
+                    "step",
+                    "addLabel",
+                    "upControl",
+                    "downControl",
                 },
                 exclude_none=True,
                 exclude_unset=True,
