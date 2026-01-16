@@ -1,0 +1,7 @@
+{
+  "name": "_gettext_municipality",
+  "label": "$gettext(Municipality)",
+  "validation": "required",
+  "$formkit": "dropdown",
+  "options": "$ida(munisipiu)"
+}

@@ -1,0 +1,35 @@
+{
+  "name": "date_exit_committee",
+  "label": "$gettext(\"Date of exit from the committee\")",
+  "$formkit": "datepicker",
+  "calendarIcon": "calendar",
+  "format": "DD/MM/YY",
+  "nextIcon": "angleRight",
+  "prevIcon": "angleLeft",
+  "valueFormat": "YYYY-MM-DD",
+  "_currentDate": "$getCurrentDate",
+  "sectionsSchema": {
+    "day": {
+      "children": [
+        "$day.getDate()",
+        {
+          "if": "$attrs._currentDate().day === $day.getDate()",
+          "children": [
+            {
+              "if": "$attrs._currentDate().month === $day.getMonth()",
+              "children": [
+                {
+                  "if": "$attrs._currentDate().year === $day.getFullYear()",
+                  "$el": "div",
+                  "attrs": {
+                    "class": "formkit-day-highlight"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

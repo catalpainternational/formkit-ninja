@@ -1,429 +1,444 @@
 {
- "$formkit": "group",
- "children": [
-  {
-   "$formkit": "group",
-   "children": [
+  "children": [
     {
-     "$formkit": "select",
-     "id": "district",
-     "key": "district",
-     "label": "$gettext(Municipality)",
-     "name": "district",
-     "options": "$getLocations()"
-    },
-    {
-     "$formkit": "select",
-     "id": "administrative_post",
-     "if": "$get(district).value",
-     "key": "administrative_post",
-     "label": "$gettext(\"Administrative Post\")",
-     "name": "administrative_post",
-     "options": "$getLocations($get(district).value)"
-    },
-    {
-     "$formkit": "select",
-     "id": "suco",
-     "if": "$get(administrative_post).value",
-     "key": "suco",
-     "label": "$gettext(Suco)",
-     "name": "suco",
-     "options": "$getLocations($get(district).value, $get(administrative_post).value)"
-    },
-    {
-     "$formkit": "datepicker",
-     "_currentDate": "$getCurrentDate",
-     "calendarIcon": "calendar",
-     "format": "DD/MM/YYYY",
-     "id": "date",
-     "key": "date",
-     "label": "$gettext(\"Date\")",
-     "name": "date",
-     "nextIcon": "angleRight",
-     "prevIcon": "angleLeft",
-     "sectionsSchema": {
-      "day": {
-       "children": [
-        "$day.getDate()",
+      "children": [
         {
-         "children": [
-          {
-           "children": [
-            {
-             "$el": "div",
-             "attrs": {
-              "class": "formkit-day-highlight"
-             },
-             "if": "$attrs._currentDate().year === $day.getFullYear()"
+          "key": "district",
+          "id": "district",
+          "name": "district",
+          "label": "$gettext(Municipality)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations()"
+        },
+        {
+          "key": "administrative_post",
+          "if": "$get(district).value",
+          "id": "administrative_post",
+          "name": "administrative_post",
+          "label": "$gettext(\"Administrative Post\")",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations($get(district).value)"
+        },
+        {
+          "key": "suco",
+          "if": "$get(administrative_post).value",
+          "id": "suco",
+          "name": "suco",
+          "label": "$gettext(Suco)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations($get(district).value, $get(administrative_post).value)"
+        },
+        {
+          "key": "date",
+          "id": "date",
+          "name": "date",
+          "label": "$gettext(\"Date\")",
+          "validation": "dateInPast",
+          "$formkit": "datepicker",
+          "calendarIcon": "calendar",
+          "format": "DD/MM/YY",
+          "nextIcon": "angleRight",
+          "prevIcon": "angleLeft",
+          "valueFormat": "YYYY-MM-DD",
+          "_currentDate": "$getCurrentDate",
+          "sectionsSchema": {
+            "day": {
+              "children": [
+                "$day.getDate()",
+                {
+                  "if": "$attrs._currentDate().day === $day.getDate()",
+                  "children": [
+                    {
+                      "if": "$attrs._currentDate().month === $day.getMonth()",
+                      "children": [
+                        {
+                          "if": "$attrs._currentDate().year === $day.getFullYear()",
+                          "$el": "div",
+                          "attrs": {
+                            "class": "formkit-day-highlight"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
-           ],
-           "if": "$attrs._currentDate().month === $day.getMonth()"
           }
-         ],
-         "if": "$attrs._currentDate().day === $day.getDate()"
+        },
+        {
+          "name": "month",
+          "label": "$gettext(\"Month\")",
+          "validation": "required",
+          "placeholder": "$gettext(\"Select month\")",
+          "$formkit": "select",
+          "options": "$ida(month)"
+        },
+        {
+          "name": "year",
+          "label": "$gettext(\"Year\")",
+          "validation": "required",
+          "placeholder": "$gettext(\"Select year\")",
+          "$formkit": "select",
+          "options": "$ida(year)"
         }
-       ]
-      }
-     }
+      ],
+      "id": "meetinginformation",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Location"
     },
     {
-     "$formkit": "select",
-     "label": "$gettext(\"Month\")",
-     "name": "month",
-     "options": "$ida(month)",
-     "placeholder": "$gettext(\"Select month\")"
+      "children": [
+        {
+          "children": [
+            "A. ",
+            "$gettext(\"Operational receipts\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+          }
+        },
+        {
+          "id": "operational_subsidy_1000",
+          "name": "operational_subsidy_1000",
+          "label": "$gettext(\"1000 - PNDS Operational subsidy (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "id": "last_year_balance_1001",
+          "name": "last_year_balance_1001",
+          "label": "$gettext(\"1001 - Last year balance (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "id": "interest_1002",
+          "name": "interest_1002",
+          "label": "$gettext(\"1002 - Interest (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "id": "other_1003",
+          "name": "other_1003",
+          "label": "$gettext(\"1003 - Others (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "children": [
+            "B. ",
+            "$gettext(\"Operational expenditures\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+          }
+        },
+        {
+          "id": "community_meetings_2000",
+          "name": "community_meetings_2000",
+          "label": "$gettext(\"2000 - Community meetings (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "id": "community_training_2001",
+          "name": "community_training_2001",
+          "label": "$gettext(\"2001 - ES-PNDS training (USD)\")",
+          "$formkit": "currency",
+          "min": 0
+        },
+        {
+          "id": "incentive_for_suku_2002",
+          "name": "incentive_for_suku_2002",
+          "label": "$gettext(\"2002 - Project Administration Costs (USD)\")",
+          "validation": "required",
+          "$formkit": "currency",
+          "min": 0
+        },
+        {
+          "id": "project_admin_cost_2003",
+          "name": "project_admin_cost_2003",
+          "label": "$gettext(\"2003 - Incentives for ES-PNDS (USD)\")",
+          "validation": "required",
+          "placeholder": "",
+          "$formkit": "currency",
+          "min": 0
+        },
+        {
+          "children": [
+            "C. ",
+            "$gettext(\"Operational funds balances\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+          }
+        },
+        {
+          "id": "cash",
+          "name": "cash",
+          "label": "$gettext(\"1. Cash (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "id": "bank",
+          "name": "bank",
+          "label": "$gettext(\"2. Bank (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        }
+      ],
+      "id": "operationalfundbudgetdetails",
+      "$formkit": "group",
+      "icon": "las la-money-bill",
+      "title": "Part 1 - Operational fund"
     },
     {
-     "$formkit": "select",
-     "label": "$gettext(\"Year\")",
-     "name": "year",
-     "options": "$ida(year)",
-     "placeholder": "$gettext(\"Select year\")"
+      "children": [
+        {
+          "children": [
+            "A. ",
+            "$gettext(\"Infrastructure receipts\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+          }
+        },
+        {
+          "id": "infrastructure_receipts_pnds_infrastructure_subsidy",
+          "name": "infrastructure_receipts_pnds_infrastructure_subsidy",
+          "label": "$gettext(\"1004 - PNDS Infrastructure subsidy (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "id": "infrastructure_receipts_last_year_balance",
+          "name": "infrastructure_receipts_last_year_balance",
+          "label": "$gettext(\"1005 - Last year balance (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "id": "infrastructure_receipts_interest",
+          "name": "infrastructure_receipts_interest",
+          "label": "$gettext(\"1006 - Interest (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "id": "infrastructure_receipts_others",
+          "name": "infrastructure_receipts_others",
+          "label": "$gettext(\"1007 - Others (USD)\")",
+          "$formkit": "currency",
+          "min": "0"
+        },
+        {
+          "children": [
+            "B. ",
+            "$gettext(\"Infrastructure expenditures\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5 mt-8"
+          }
+        },
+        {
+          "children": [
+            {
+              "name": "uuid",
+              "$formkit": "uuid",
+              "readonly": true
+            },
+            {
+              "children": [
+                "$gettext(\"Project\")",
+                {
+                  "children": [
+                    "$: ($index + 1)"
+                  ],
+                  "$el": "span",
+                  "attrs": {
+                    "class": "mx-1"
+                  }
+                }
+              ],
+              "$el": "div",
+              "attrs": {
+                "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+              }
+            },
+            {
+              "if": "$ida(project, \"suku_id=\"+ $get(\"suco\").value).length>0",
+              "name": "project",
+              "label": "Project",
+              "validation": "required",
+              "placeholder": "$gettext(\"Search project\")",
+              "$formkit": "autocomplete",
+              "options": "$ida(project, \"suku_id=\"+ $get(\"suco\").value)",
+              "inputClass": "!pl-10",
+              "prefixIcon": "search"
+            },
+            {
+              "id": "materials_3000",
+              "name": "materials_3000",
+              "label": "$gettext(\"3000 - Materials (USD)\")",
+              "$formkit": "currency",
+              "min": "0"
+            },
+            {
+              "id": "labour_incentive_3001",
+              "name": "labour_incentive_3001",
+              "label": "$gettext(\"3001 - Labour Incentive (USD)\")",
+              "$formkit": "currency",
+              "min": "0"
+            }
+          ],
+          "id": "repeaterInfrastructureFund",
+          "name": "repeaterInfrastructureFund",
+          "$formkit": "repeater",
+          "upControl": false,
+          "downControl": false,
+          "addLabel": "$gettext(\"Add project\")",
+          "itemClass": "repeater-children-index",
+          "itemsClass": "repeater",
+          "removeLabel": "$gettext(\"Remove\")",
+          "removeAction": "$repeaterRemoveAction",
+          "sectionsSchema": {
+            "remove": {
+              "children": [
+                {
+                  "if": "$value.length > 1",
+                  "$el": "button",
+                  "attrs": {
+                    "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
+                    "onClick": "$attrs.removeAction",
+                    "data-index": "$index",
+                    "data-repeaterid": "$id"
+                  },
+                  "children": [
+                    "$attrs.removeLabel"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "children": [
+            "C. ",
+            "$gettext(\"Balances\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5 mt-8"
+          }
+        },
+        {
+          "children": [
+            {
+              "name": "uuid",
+              "$formkit": "uuid",
+              "readonly": true
+            },
+            {
+              "children": [
+                "$gettext(\"Balance\")",
+                {
+                  "children": [
+                    " ",
+                    "$: ($index + 1)"
+                  ],
+                  "$el": "span"
+                }
+              ],
+              "$el": "div",
+              "attrs": {
+                "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+              }
+            },
+            {
+              "key": "activity",
+              "id": "activity",
+              "name": "activity",
+              "label": "$gettext(\"Activity name\")",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(cycle, 'current')"
+            },
+            {
+              "id": "balance_cash",
+              "name": "balance_cash",
+              "label": "$gettext(\"Cash (USD)\")",
+              "$formkit": "currency",
+              "min": "0"
+            },
+            {
+              "id": "balance_bank",
+              "name": "balance_bank",
+              "label": "$gettext(\"Bank (USD)\")",
+              "$formkit": "currency",
+              "min": "0"
+            }
+          ],
+          "id": "repeaterBalance",
+          "name": "repeaterBalance",
+          "$formkit": "repeater",
+          "upControl": false,
+          "downControl": false,
+          "addLabel": "$gettext(\"Add balance\")",
+          "removeLabel": "$gettext(\"Remove\")",
+          "removeAction": "$repeaterRemoveAction",
+          "sectionsSchema": {
+            "remove": {
+              "children": [
+                {
+                  "if": "$value.length > 1",
+                  "$el": "button",
+                  "attrs": {
+                    "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
+                    "onClick": "$attrs.removeAction",
+                    "data-index": "$index",
+                    "data-repeaterid": "$id"
+                  },
+                  "children": [
+                    "$attrs.removeLabel"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "key": "ff12_status",
+          "id": "ff12_status",
+          "name": "ff12_status",
+          "value": "",
+          "$formkit": "hidden"
+        },
+        {
+          "key": "submitted_from",
+          "id": "submitted_from",
+          "name": "submitted_from",
+          "value": "data-collection",
+          "$formkit": "hidden"
+        }
+      ],
+      "id": "infrastructurefund",
+      "$formkit": "group",
+      "icon": "las la-money-bill",
+      "title": "Part 2 - Infrastructure fund"
     }
-   ],
-   "icon": "las la-map-marked-alt",
-   "id": "meetinginformation",
-   "title": "Location"
-  },
-  {
-   "$formkit": "group",
-   "children": [
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-     },
-     "children": [
-      "A. ",
-      "$gettext(\"Operational receipts\")"
-     ]
-    },
-    {
-     "$formkit": "currency",
-     "id": "operational_subsidy_1000",
-     "label": "$gettext(\"1000 - PNDS Operational subsidy (USD)\")",
-     "min": "0",
-     "name": "operational_subsidy_1000"
-    },
-    {
-     "$formkit": "currency",
-     "id": "last_year_balance_1001",
-     "label": "$gettext(\"1001 - Last year balance (USD)\")",
-     "min": "0",
-     "name": "last_year_balance_1001"
-    },
-    {
-     "$formkit": "currency",
-     "id": "interest_1002",
-     "label": "$gettext(\"1002 - Interest (USD)\")",
-     "min": "0",
-     "name": "interest_1002"
-    },
-    {
-     "$formkit": "currency",
-     "id": "other_1003",
-     "label": "$gettext(\"1003 - Others (USD)\")",
-     "min": "0",
-     "name": "other_1003"
-    },
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-     },
-     "children": [
-      "B. ",
-      "$gettext(\"Operational expenditures\")"
-     ]
-    },
-    {
-     "$formkit": "currency",
-     "id": "community_meetings_2000",
-     "label": "$gettext(\"2000 - Community meetings (USD)\")",
-     "min": "0",
-     "name": "community_meetings_2000"
-    },
-    {
-     "$formkit": "currency",
-     "id": "community_training_2001",
-     "label": "$gettext(\"2001 - Community training (USD)\")",
-     "min": "0",
-     "name": "community_training_2001"
-    },
-    {
-     "$formkit": "currency",
-     "id": "incentive_for_suku_2002",
-     "label": "$gettext(\"2002 - Incentive for Suku team (USD)\")",
-     "min": "0",
-     "name": "incentive_for_suku_2002"
-    },
-    {
-     "$formkit": "currency",
-     "id": "project_admin_cost_2003",
-     "label": "$gettext(\"2003 - Project administration cost (USD)\")",
-     "min": "0",
-     "name": "project_admin_cost_2003"
-    },
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-     },
-     "children": [
-      "C. ",
-      "$gettext(\"Operational funds balances\")"
-     ]
-    },
-    {
-     "$formkit": "currency",
-     "id": "cash",
-     "label": "$gettext(\"1. Cash (USD)\")",
-     "min": "0",
-     "name": "cash"
-    },
-    {
-     "$formkit": "currency",
-     "id": "bank",
-     "label": "$gettext(\"2. Bank (USD)\")",
-     "min": "0",
-     "name": "bank"
-    }
-   ],
-   "icon": "las la-money-bill",
-   "id": "operationalfundbudgetdetails",
-   "title": "Part 1 - Operational fund"
-  },
-  {
-   "$formkit": "group",
-   "children": [
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-     },
-     "children": [
-      "A. ",
-      "$gettext(\"Infrastructure receipts\")"
-     ]
-    },
-    {
-     "$formkit": "currency",
-     "id": "infrastructure_receipts_pnds_infrastructure_subsidy",
-     "label": "$gettext(\"1004 - PNDS Infrastructure subsidy (USD)\")",
-     "min": "0",
-     "name": "infrastructure_receipts_pnds_infrastructure_subsidy"
-    },
-    {
-     "$formkit": "currency",
-     "id": "infrastructure_receipts_last_year_balance",
-     "label": "$gettext(\"1005 - Last year balance (USD)\")",
-     "min": "0",
-     "name": "infrastructure_receipts_last_year_balance"
-    },
-    {
-     "$formkit": "currency",
-     "id": "infrastructure_receipts_interest",
-     "label": "$gettext(\"1006 - Interest (USD)\")",
-     "min": "0",
-     "name": "infrastructure_receipts_interest"
-    },
-    {
-     "$formkit": "currency",
-     "id": "infrastructure_receipts_others",
-     "label": "$gettext(\"1007 - Others (USD)\")",
-     "min": "0",
-     "name": "infrastructure_receipts_others"
-    },
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5 mt-8"
-     },
-     "children": [
-      "B. ",
-      "$gettext(\"Infrastructure expenditures\")"
-     ]
-    },
-    {
-     "$formkit": "repeater",
-     "addLabel": "$gettext(\"Add project\")",
-     "children": [
-      {
-       "$formkit": "uuid",
-       "name": "uuid",
-       "readonly": true
-      },
-      {
-       "$el": "div",
-       "attrs": {
-        "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-       },
-       "children": [
-        "Project ",
-        {
-         "$el": "span",
-         "children": [
-          "$: ($index + 1)"
-         ]
-        }
-       ]
-      },
-      {
-       "$formkit": "select",
-       "id": "project_name",
-       "key": "project_name",
-       "label": "$gettext(\"Project name\")",
-       "name": "project_name",
-       "options": "$getoptions.tf1321.outputs($get(district).value, $get(administrative_post).value, $get(suco).value)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "currency",
-       "id": "materials_3000",
-       "label": "$gettext(\"3000 - Materials (USD)\")",
-       "min": "0",
-       "name": "materials_3000"
-      },
-      {
-       "$formkit": "currency",
-       "id": "labour_incentive_3001",
-       "label": "$gettext(\"3001 - Labour Incentive (USD)\")",
-       "min": "0",
-       "name": "labour_incentive_3001"
-      }
-     ],
-     "downControl": false,
-     "id": "repeaterInfrastructureFund",
-     "itemClass": "repeater-children-index",
-     "itemsClass": "repeater",
-     "name": "repeaterInfrastructureFund",
-     "removeAction": "$repeaterRemoveAction",
-     "removeLabel": "$gettext(\"Remove\")",
-     "sectionsSchema": {
-      "remove": {
-       "children": [
-        {
-         "$el": "button",
-         "attrs": {
-          "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
-          "data-index": "$index",
-          "data-repeaterid": "$id",
-          "onClick": "$attrs.removeAction"
-         },
-         "children": [
-          "$attrs.removeLabel"
-         ],
-         "if": "$value.length > 1"
-        }
-       ]
-      }
-     },
-     "upControl": false
-    },
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5 mt-8"
-     },
-     "children": [
-      "C. ",
-      "$gettext(\"Balances\")"
-     ]
-    },
-    {
-     "$formkit": "repeater",
-     "addLabel": "$gettext(\"Add balance\")",
-     "children": [
-      {
-       "$formkit": "uuid",
-       "name": "uuid",
-       "readonly": true
-      },
-      {
-       "$el": "div",
-       "attrs": {
-        "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-       },
-       "children": [
-        "$gettext(\"Balance\")",
-        {
-         "$el": "span",
-         "children": [
-          " ",
-          "$: ($index + 1)"
-         ]
-        }
-       ]
-      },
-      {
-       "$formkit": "select",
-       "id": "activity",
-       "key": "activity",
-       "label": "$gettext(\"Activity name\")",
-       "name": "activity",
-       "options": "$ida(cycle)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "currency",
-       "id": "balance_cash",
-       "label": "$gettext(\"Cash (USD)\")",
-       "min": "0",
-       "name": "balance_cash"
-      },
-      {
-       "$formkit": "currency",
-       "id": "balance_bank",
-       "label": "$gettext(\"Bank (USD)\")",
-       "min": "0",
-       "name": "balance_bank"
-      }
-     ],
-     "downControl": false,
-     "id": "repeaterBalance",
-     "name": "repeaterBalance",
-     "removeAction": "$repeaterRemoveAction",
-     "removeLabel": "$gettext(\"Remove\")",
-     "sectionsSchema": {
-      "remove": {
-       "children": [
-        {
-         "$el": "button",
-         "attrs": {
-          "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
-          "data-index": "$index",
-          "data-repeaterid": "$id",
-          "onClick": "$attrs.removeAction"
-         },
-         "children": [
-          "$attrs.removeLabel"
-         ],
-         "if": "$value.length > 1"
-        }
-       ]
-      }
-     },
-     "upControl": false
-    },
-    {
-     "$formkit": "hidden",
-     "id": "ff12_status",
-     "key": "ff12_status",
-     "name": "ff12_status",
-     "value": ""
-    },
-    {
-     "$formkit": "hidden",
-     "id": "submitted_from",
-     "key": "submitted_from",
-     "name": "submitted_from",
-     "value": "data-collection"
-    }
-   ],
-   "icon": "las la-money-bill",
-   "id": "infrastructurefund",
-   "title": "Part 2 - Infrastructure fund"
-  }
- ],
- "name": "CFM_12_FF_12"
+  ],
+  "name": "CFM_12_FF_12",
+  "$formkit": "group"
 }

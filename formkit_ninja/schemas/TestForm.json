@@ -1,0 +1,22 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "municipio",
+          "label": "Municipio",
+          "validation": "",
+          "$formkit": "select",
+          "options": "$ida(munisipiu)"
+        }
+      ],
+      "id": "8c8a49c77ed6e57cf8c3ccb62cfde5b35753ffb7",
+      "name": "_5eaf857e_unnamed",
+      "$formkit": "group",
+      "icon": "las la-info-circle",
+      "title": "Location"
+    }
+  ],
+  "name": "TestForm",
+  "$formkit": "group"
+}

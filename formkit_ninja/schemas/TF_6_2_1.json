@@ -1,0 +1,64 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "_gettext_municipality",
+          "label": "$gettext(Municipality)",
+          "$formkit": "text",
+          "options": "$ida(munisipiu)"
+        },
+        {
+          "name": "_gettext__administrative_post",
+          "label": "$gettext(\"Administrative Post\")",
+          "$formkit": "text"
+        },
+        {
+          "name": "_gettext_suco",
+          "label": "$gettext(Suco)",
+          "$formkit": "text"
+        },
+        {
+          "name": "_gettext_aldeia",
+          "label": "$gettext(Aldeia)",
+          "$formkit": "text"
+        }
+      ],
+      "id": "8c8272218929d1a60714887120849b7f9170ec0b",
+      "name": "c4794440_unnamed",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Location"
+    },
+    {
+      "id": "18bc28511f950dae8c469320b39a60a968c18901",
+      "name": "ba83675f_unnamed",
+      "$formkit": "group",
+      "icon": "las la-clock",
+      "title": "Project time frame"
+    },
+    {
+      "id": "cfe196514455cd87c2567516ac09c3f93c3870ec",
+      "name": "e83e9238_unnamed",
+      "$formkit": "group",
+      "icon": "las la-info-circle",
+      "title": "Project details"
+    },
+    {
+      "id": "0a7234c48f3d239705fff49545f2dc375a6f9cde",
+      "name": "ccc2446b_unnamed",
+      "$formkit": "group",
+      "icon": "las la-info-circle",
+      "title": "Project beneficiaries"
+    },
+    {
+      "id": "e72281ae02ab45ae21cf3dff8ea521cb7db3b83e",
+      "name": "e7832e50_unnamed",
+      "$formkit": "group",
+      "icon": "las la-users-cog",
+      "title": "Project outputs"
+    }
+  ],
+  "name": "TF_6_2_1",
+  "$formkit": "group"
+}

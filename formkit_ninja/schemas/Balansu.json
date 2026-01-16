@@ -1,0 +1,7 @@
+{
+  "name": "balansu_iha_banku",
+  "label": "Balansu ",
+  "help": "ezemplu: $500",
+  "placeholder": "favor hatama balansu osan iha banku no iha liman",
+  "$formkit": "currency"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "sex",
+  "label": "Sex_father",
+  "$formkit": "radio",
+  "options": "$ida(gender)"
+}

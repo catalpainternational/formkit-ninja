@@ -1,0 +1,22 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "orsamentu_doasaun",
+          "label": "Orsamentu doasaun:",
+          "help": "ezemplu: $500",
+          "placeholder": "favor prienxe montante (USD)",
+          "$formkit": "currency"
+        }
+      ],
+      "id": "c6fd12e96ea42e64b333fc3cbf18ccc5d0720162",
+      "name": "dc9af91f_unnamed",
+      "$formkit": "group",
+      "icon": "las la-money-bill",
+      "title": "Informasaun kona-ba Orsamentu"
+    }
+  ],
+  "name": "FF_3_3_3",
+  "$formkit": "group"
+}

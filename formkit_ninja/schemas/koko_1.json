@@ -1,0 +1,36 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "This is my Name",
+          "label": "Naran",
+          "$formkit": "text"
+        },
+        {
+          "id": "surname",
+          "name": "surname",
+          "label": "Surname",
+          "$formkit": "text"
+        },
+        {
+          "name": "currency",
+          "label": "currency",
+          "$formkit": "currency"
+        },
+        {
+          "name": "check_some_things",
+          "label": "This is another input",
+          "$formkit": "checkbox",
+          "options": "$ida(electionround)"
+        }
+      ],
+      "id": "Group",
+      "$formkit": "group",
+      "icon": "info-circle",
+      "title": "Group"
+    }
+  ],
+  "name": "koko_1",
+  "$formkit": "group"
+}

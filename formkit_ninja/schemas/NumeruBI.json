@@ -1,0 +1,7 @@
+{
+  "key": "",
+  "id": "personalIdnumber",
+  "name": "personalIdnumber",
+  "label": "Numeru BI",
+  "$formkit": "number"
+}

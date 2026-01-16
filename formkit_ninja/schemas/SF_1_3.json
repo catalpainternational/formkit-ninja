@@ -1,446 +1,561 @@
 {
- "$formkit": "group",
- "children": [
-  {
-   "$formkit": "group",
-   "children": [
+  "children": [
     {
-     "$formkit": "select",
-     "id": "district",
-     "key": "district",
-     "label": "$gettext(Municipality)",
-     "name": "district",
-     "options": "$getLocations()"
-    },
-    {
-     "$formkit": "select",
-     "id": "administrative_post",
-     "if": "$get(district).value",
-     "key": "administrative_post",
-     "label": "$gettext(\"Administrative Post\")",
-     "name": "administrative_post",
-     "options": "$getLocations($get(district).value)"
-    },
-    {
-     "$formkit": "select",
-     "id": "suco",
-     "if": "$get(administrative_post).value",
-     "key": "suco",
-     "label": "$gettext(Suco)",
-     "name": "suco",
-     "options": "$getLocations($get(district).value, $get(administrative_post).value)"
-    },
-    {
-     "$formkit": "datepicker",
-     "_currentDate": "$getCurrentDate",
-     "calendarIcon": "calendar",
-     "format": "DD/MM/YYYY",
-     "id": "date",
-     "key": "date",
-     "label": "$gettext(\"Date\")",
-     "name": "date",
-     "nextIcon": "angleRight",
-     "prevIcon": "angleLeft",
-     "sectionsSchema": {
-      "day": {
-       "children": [
-        "$day.getDate()",
+      "children": [
         {
-         "children": [
-          {
-           "children": [
-            {
-             "$el": "div",
-             "attrs": {
-              "class": "formkit-day-highlight"
-             },
-             "if": "$attrs._currentDate().year === $day.getFullYear()"
+          "key": "district",
+          "id": "district",
+          "name": "district",
+          "label": "$gettext(Municipality)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations()"
+        },
+        {
+          "key": "administrative_post",
+          "if": "$get(district).value",
+          "id": "administrative_post",
+          "name": "administrative_post",
+          "label": "$gettext(\"Administrative Post\")",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations($get(district).value)"
+        },
+        {
+          "key": "suco",
+          "if": "$get(administrative_post).value",
+          "id": "suco",
+          "name": "suco",
+          "label": "$gettext(Suco)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations($get(district).value, $get(administrative_post).value)"
+        },
+        {
+          "key": "date",
+          "id": "date",
+          "name": "date",
+          "label": "$gettext(\"Date\")",
+          "validation": "dateInPast",
+          "$formkit": "datepicker",
+          "calendarIcon": "calendar",
+          "format": "DD/MM/YYYY",
+          "nextIcon": "angleRight",
+          "prevIcon": "angleLeft",
+          "_currentDate": "$getCurrentDate",
+          "sectionsSchema": {
+            "day": {
+              "children": [
+                "$day.getDate()",
+                {
+                  "if": "$attrs._currentDate().day === $day.getDate()",
+                  "children": [
+                    {
+                      "if": "$attrs._currentDate().month === $day.getMonth()",
+                      "children": [
+                        {
+                          "if": "$attrs._currentDate().year === $day.getFullYear()",
+                          "$el": "div",
+                          "attrs": {
+                            "class": "formkit-day-highlight"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
-           ],
-           "if": "$attrs._currentDate().month === $day.getMonth()"
-          }
-         ],
-         "if": "$attrs._currentDate().day === $day.getDate()"
+          },
+          "valueFormat": "YYYY-MM-DD"
         }
-       ]
-      }
-     }
-    }
-   ],
-   "icon": "las la-map-marked-alt",
-   "id": "meetingInformation",
-   "title": "Location"
-  },
-  {
-   "$formkit": "group",
-   "children": [
+      ],
+      "id": "meetingInformation",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Location"
+    },
     {
-     "$formkit": "repeater",
-     "addLabel": "$gettext(\"Add another member\")",
-     "children": [
-      {
-       "$el": "div",
-       "attrs": {
-        "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-       },
-       "children": [
-        "Elected Member ",
+      "children": [
         {
-         "$el": "span",
-         "children": [
-          "$: ($index + 1)"
-         ]
-        },
-        " Project Implementation Team - EIP"
-       ]
-      },
-      {
-       "$formkit": "uuid",
-       "name": "uuid",
-       "readonly": true
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Round\")",
-       "name": "round",
-       "options": "$ida(electionround)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Position\")",
-       "name": "position",
-       "options": "$ida(teamposition, \"group_id=0\")",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "text",
-       "label": "$gettext(\"Name\")",
-       "name": "name",
-       "placeholder": "$gettext(\"Please enter\")"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Gender\")",
-       "name": "gender",
-       "options": "$ida(gender)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Person with a disability\")",
-       "name": "person_with_disability",
-       "options": "$ida(yesno)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "tel",
-       "label": "$gettext(\"Phone number\")",
-       "maxLength": 8,
-       "name": "phone_number",
-       "validation": "number|length:8,8"
-      },
-      {
-       "$formkit": "date",
-       "label": "$gettext(\"Date of exit from the committee\")",
-       "name": "date_exit_committee"
-      },
-      {
-       "$formkit": "text",
-       "label": "$gettext(\"Reason for exit\")",
-       "name": "exit_details"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Is active?\")",
-       "name": "active_status",
-       "options": "$ida(yesno)",
-       "value": "1"
-      }
-     ],
-     "downControl": false,
-     "id": "repeaterProjectTeam",
-     "itemClass": "repeater-children-index",
-     "itemsClass": "repeater",
-     "max": 3,
-     "min": 1,
-     "name": "repeaterProjectTeam",
-     "removeAction": "$repeaterRemoveAction",
-     "removeLabel": "$gettext(\"Remove\")",
-     "sectionsSchema": {
-      "remove": {
-       "children": [
-        {
-         "$el": "button",
-         "attrs": {
-          "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
-          "data-index": "$index",
-          "data-repeaterid": "$id",
-          "onClick": "$attrs.removeAction"
-         },
-         "children": [
-          "$attrs.removeLabel"
-         ],
-         "if": "$value.length > 1"
+          "children": [
+            {
+              "children": [
+                "$gettext(\"Elected Member\")",
+                {
+                  "children": [
+                    "$: ($index + 1)"
+                  ],
+                  "$el": "span",
+                  "attrs": {
+                    "class": "mx-1"
+                  }
+                },
+                "$gettext(\"Program Implementation Team - EIP\")"
+              ],
+              "name": "_gettext__elected_member____gettext__project_implementation_team___eip",
+              "label": "$gettext(\"Elected Member\") $gettext(\"Program Implementation Team - EIP\")",
+              "validation": "",
+              "$el": "div",
+              "attrs": {
+                "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+              }
+            },
+            {
+              "name": "uuid",
+              "$formkit": "uuid",
+              "readonly": true
+            },
+            {
+              "name": "position",
+              "label": "$gettext(\"Position\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(teamposition, \"group_id=0\")"
+            },
+            {
+              "name": "name",
+              "label": "$gettext(\"Name\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please enter\")",
+              "$formkit": "text"
+            },
+            {
+              "name": "gender",
+              "label": "$gettext(\"Gender\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(gender)"
+            },
+            {
+              "name": "person_with_disability",
+              "label": "$gettext(\"Person with a disability\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(yesno)"
+            },
+            {
+              "name": "phone_number",
+              "label": "$gettext(\"Phone number\")",
+              "validation": "number|length:8,8",
+              "$formkit": "tel",
+              "maxLength": 8
+            },
+            {
+              "name": "round",
+              "label": "$gettext(\"Round\")",
+              "validation": "",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(electionround)",
+              "outerClass": "hide-in-data-collection"
+            },
+            {
+              "name": "date_exit_committee",
+              "label": "$gettext(\"Date of exit from the committee\")",
+              "validation": "",
+              "$formkit": "datepicker",
+              "calendarIcon": "calendar",
+              "format": "DD/MM/YY",
+              "nextIcon": "angleRight",
+              "prevIcon": "angleLeft",
+              "outerClass": "hide-in-data-collection",
+              "valueFormat": "YYYY-MM-DD",
+              "_currentDate": "$getCurrentDate",
+              "sectionsSchema": {
+                "day": {
+                  "children": [
+                    "$day.getDate()",
+                    {
+                      "if": "$attrs._currentDate().day === $day.getDate()",
+                      "children": [
+                        {
+                          "if": "$attrs._currentDate().month === $day.getMonth()",
+                          "children": [
+                            {
+                              "if": "$attrs._currentDate().year === $day.getFullYear()",
+                              "$el": "div",
+                              "attrs": {
+                                "class": "formkit-day-highlight"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "exit_details",
+              "label": "$gettext(\"Reason for exit\")",
+              "validation": "",
+              "$formkit": "text",
+              "outerClass": "hide-in-data-collection"
+            }
+          ],
+          "id": "repeaterProjectTeam",
+          "name": "repeaterProjectTeam",
+          "$formkit": "repeater",
+          "upControl": false,
+          "downControl": false,
+          "addLabel": "$gettext(\"Add another member\")",
+          "max": 3,
+          "min": 1,
+          "itemClass": "repeater-children-index",
+          "itemsClass": "repeater",
+          "removeLabel": "$gettext(\"Remove\")",
+          "removeAction": "$repeaterRemoveAction",
+          "sectionsSchema": {
+            "remove": {
+              "children": [
+                {
+                  "if": "$value.length > 1",
+                  "$el": "button",
+                  "attrs": {
+                    "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
+                    "onClick": "$attrs.removeAction",
+                    "data-index": "$index",
+                    "data-repeaterid": "$id"
+                  },
+                  "children": [
+                    "$attrs.removeLabel"
+                  ]
+                }
+              ]
+            }
+          },
+          "validationRules": "validateProjectMember"
         }
-       ]
-      }
-     },
-     "upControl": false,
-     "validationRules": "validateProjectMember"
-    }
-   ],
-   "icon": "las la-users-cog",
-   "id": "projectteam",
-   "sectionTitle": "Election results",
-   "title": "Project implementation team"
-  },
-  {
-   "$formkit": "group",
-   "children": [
+      ],
+      "id": "projectteam",
+      "name": "projectteam",
+      "$formkit": "group",
+      "icon": "las la-users-cog",
+      "title": "Program implementation team",
+      "sectionTitle": "Election results"
+    },
     {
-     "$formkit": "repeater",
-     "addLabel": "$gettext(\"Add another member\")",
-     "children": [
-      {
-       "$el": "div",
-       "attrs": {
-        "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-       },
-       "children": [
-        "Elected Member ",
+      "children": [
         {
-         "$el": "span",
-         "children": [
-          "$: ($index + 1)"
-         ]
-        },
-        " Planning and Accountability Commission - KPA"
-       ]
-      },
-      {
-       "$formkit": "uuid",
-       "name": "uuid",
-       "readonly": true
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Round\")",
-       "name": "round",
-       "options":  "$ida(electionround)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Position\")",
-       "name": "position",
-       "options": "$ida(teamposition, \"group_id=1\")",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "text",
-       "label": "$gettext(\"Name\")",
-       "name": "name",
-       "placeholder": "$gettext(\"Please enter\")"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Gender\")",
-       "name": "gender",
-       "options": "$ida(gender)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Person with a disability\")",
-       "name": "person_with_disability",
-       "options": "$ida(yesno)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "tel",
-       "label": "$gettext(\"Phone number\")",
-       "maxLength": 8,
-       "name": "phone_number",
-       "validation": "number|length:8,8"
-      },
-      {
-       "$formkit": "date",
-       "label": "$gettext(\"Date of exit from the committee\")",
-       "name": "date_exit_committee"
-      },
-      {
-       "$formkit": "text",
-       "label": "$gettext(\"Reason for exit\")",
-       "name": "exit_details"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Is active?\")",
-       "name": "active_status",
-       "options": "$ida(yesno)",
-       "value": "1"
-      }
-     ],
-     "downControl": false,
-     "id": "repeaterPlanning",
-     "itemClass": "repeater-children-index",
-     "itemsClass": "repeater",
-     "max": 2,
-     "min": 1,
-     "name": "repeaterPlanning",
-     "removeAction": "$repeaterRemoveAction",
-     "removeLabel": "$gettext(\"Remove\")",
-     "sectionsSchema": {
-      "remove": {
-       "children": [
-        {
-         "$el": "button",
-         "attrs": {
-          "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
-          "data-index": "$index",
-          "data-repeaterid": "$id",
-          "onClick": "$attrs.removeAction"
-         },
-         "children": [
-          "$attrs.removeLabel"
-         ],
-         "if": "$value.length > 1"
+          "children": [
+            {
+              "children": [
+                "$gettext(\"Elected Member\")",
+                {
+                  "children": [
+                    "$: ($index + 1)"
+                  ],
+                  "$el": "span",
+                  "attrs": {
+                    "class": "mx-1"
+                  }
+                },
+                "$gettext(\"Planning and Accountability Commission - KPA\")"
+              ],
+              "$el": "span",
+              "attrs": {
+                "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5 block"
+              }
+            },
+            {
+              "name": "uuid",
+              "$formkit": "uuid",
+              "readonly": true
+            },
+            {
+              "name": "position",
+              "label": "$gettext(\"Position\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(teamposition, \"group_id=1\")"
+            },
+            {
+              "name": "name",
+              "label": "$gettext(\"Name\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please enter\")",
+              "$formkit": "text"
+            },
+            {
+              "name": "gender",
+              "label": "$gettext(\"Gender\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(gender)"
+            },
+            {
+              "name": "person_with_disability",
+              "label": "$gettext(\"Person with a disability\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(yesno)"
+            },
+            {
+              "name": "phone_number",
+              "label": "$gettext(\"Phone number\")",
+              "validation": "number|length:8,8",
+              "$formkit": "tel",
+              "maxLength": 8
+            },
+            {
+              "name": "round",
+              "label": "$gettext(\"Round\")",
+              "validation": "",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(electionround)",
+              "outerClass": "hide-in-data-collection"
+            },
+            {
+              "name": "date_exit_committee",
+              "label": "$gettext(\"Date of exit from the committee\")",
+              "$formkit": "datepicker",
+              "calendarIcon": "calendar",
+              "format": "DD/MM/YY",
+              "nextIcon": "angleRight",
+              "prevIcon": "angleLeft",
+              "outerClass": "hide-in-data-collection",
+              "valueFormat": "YYYY-MM-DD",
+              "_currentDate": "$getCurrentDate",
+              "sectionsSchema": {
+                "day": {
+                  "children": [
+                    "$day.getDate()",
+                    {
+                      "if": "$attrs._currentDate().day === $day.getDate()",
+                      "children": [
+                        {
+                          "if": "$attrs._currentDate().month === $day.getMonth()",
+                          "children": [
+                            {
+                              "if": "$attrs._currentDate().year === $day.getFullYear()",
+                              "$el": "div",
+                              "attrs": {
+                                "class": "formkit-day-highlight"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "exit_details",
+              "label": "$gettext(\"Reason for exit\")",
+              "$formkit": "text",
+              "outerClass": "hide-in-data-collection"
+            }
+          ],
+          "id": "repeaterPlanning",
+          "name": "repeaterPlanning",
+          "$formkit": "repeater",
+          "upControl": false,
+          "downControl": false,
+          "addLabel": "$gettext(\"Add another member\")",
+          "max": 2,
+          "min": 1,
+          "itemClass": "repeater-children-index",
+          "itemsClass": "repeater",
+          "removeLabel": "$gettext(\"Remove\")",
+          "removeAction": "$repeaterRemoveAction",
+          "sectionsSchema": {
+            "remove": {
+              "children": [
+                {
+                  "if": "$value.length > 1",
+                  "$el": "button",
+                  "attrs": {
+                    "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
+                    "onClick": "$attrs.removeAction",
+                    "data-index": "$index",
+                    "data-repeaterid": "$id"
+                  },
+                  "children": [
+                    "$attrs.removeLabel"
+                  ]
+                }
+              ]
+            }
+          },
+          "validationRules": "validatePlanningMember"
         }
-       ]
-      }
-     },
-     "upControl": false,
-     "validationRules": "validatePlanningMember"
-    }
-   ],
-   "icon": "las la-balance-scale",
-   "id": "planning",
-   "title": "Planning and Accountability Commision - KPA"
-  },
-  {
-   "$formkit": "group",
-   "children": [
+      ],
+      "id": "planning",
+      "name": "planning",
+      "$formkit": "group",
+      "icon": "las la-balance-scale",
+      "title": "Planning and Accountability Commision - KPR"
+    },
     {
-     "$formkit": "repeater",
-     "addLabel": "$gettext(\"Add another member\")",
-     "children": [
-      {
-       "$el": "div",
-       "attrs": {
-        "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-       },
-       "children": [
-        "Elected Member ",
+      "children": [
         {
-         "$el": "span",
-         "children": [
-          "$: ($index + 1)"
-         ]
-        },
-        " Suku facilitator"
-       ]
-      },
-      {
-       "$formkit": "uuid",
-       "name": "uuid",
-       "readonly": true
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Round\")",
-       "name": "round",
-       "options":  "$ida(electionround)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Position\")",
-       "name": "position",
-       "options": "$ida(teamposition, \"group_id=2\")",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "text",
-       "label": "$gettext(\"Name\")",
-       "name": "name",
-       "placeholder": "$gettext(\"Please enter\")"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Gender\")",
-       "name": "gender",
-       "options": "$ida(gender)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Person with a disability\")",
-       "name": "person_with_disability",
-       "options": "$ida(yesno)",
-       "placeholder": "$gettext(\"Please select\")"
-      },
-      {
-       "$formkit": "tel",
-       "label": "$gettext(\"Phone number\")",
-       "maxLength": 8,
-       "name": "phone_number",
-       "validation": "number|length:8,8"
-      },
-      {
-       "$formkit": "date",
-       "label": "$gettext(\"Date of exit from the committee\")",
-       "name": "date_exit_committee"
-      },
-      {
-       "$formkit": "text",
-       "label": "$gettext(\"Reason for exit\")",
-       "name": "exit_details"
-      },
-      {
-       "$formkit": "select",
-       "label": "$gettext(\"Is active?\")",
-       "name": "active_status",
-       "options": "$ida(yesno)",
-       "value": "1"
-      }
-     ],
-     "downControl": false,
-     "id": "repeaterSukus",
-     "itemClass": "repeater-children-index",
-     "itemsClass": "repeater",
-     "max": 2,
-     "min": 1,
-     "name": "repeaterSukus",
-     "removeAction": "$repeaterRemoveAction",
-     "removeLabel": "$gettext(\"Remove\")",
-     "sectionsSchema": {
-      "remove": {
-       "children": [
-        {
-         "$el": "button",
-         "attrs": {
-          "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
-          "data-index": "$index",
-          "data-repeaterid": "$id",
-          "onClick": "$attrs.removeAction"
-         },
-         "children": [
-          "$attrs.removeLabel"
-         ],
-         "if": "$value.length > 1"
+          "children": [
+            {
+              "children": [
+                "$gettext(\"Elected Member\")",
+                {
+                  "children": [
+                    "$: ($index + 1)"
+                  ],
+                  "$el": "span",
+                  "attrs": {
+                    "class": "mx-1"
+                  }
+                },
+                "$gettext(\"Team facilitator\")"
+              ],
+              "$el": "div",
+              "attrs": {
+                "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
+              }
+            },
+            {
+              "name": "uuid",
+              "$formkit": "uuid",
+              "readonly": true
+            },
+            {
+              "name": "position",
+              "label": "$gettext(\"Position\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(teamposition, \"group_id=2\")"
+            },
+            {
+              "name": "name",
+              "label": "$gettext(\"Name\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please enter\")",
+              "$formkit": "text"
+            },
+            {
+              "name": "gender",
+              "label": "$gettext(\"Gender\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(gender)"
+            },
+            {
+              "name": "person_with_disability",
+              "label": "$gettext(\"Person with a disability\")",
+              "validation": "required",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(yesno)"
+            },
+            {
+              "name": "phone_number",
+              "label": "$gettext(\"Phone number\")",
+              "validation": "number|length:8,8",
+              "$formkit": "tel",
+              "maxLength": 8
+            },
+            {
+              "name": "round",
+              "label": "$gettext(\"Round\")",
+              "validation": "",
+              "placeholder": "$gettext(\"Please select\")",
+              "$formkit": "select",
+              "options": "$ida(electionround)",
+              "outerClass": "hide-in-data-collection"
+            },
+            {
+              "name": "date_exit_committee",
+              "label": "$gettext(\"Date of exit from the committee\")",
+              "$formkit": "datepicker",
+              "calendarIcon": "calendar",
+              "format": "DD/MM/YY",
+              "nextIcon": "angleRight",
+              "prevIcon": "angleLeft",
+              "outerClass": "hide-in-data-collection",
+              "valueFormat": "YYYY-MM-DD",
+              "_currentDate": "$getCurrentDate",
+              "sectionsSchema": {
+                "day": {
+                  "children": [
+                    "$day.getDate()",
+                    {
+                      "if": "$attrs._currentDate().day === $day.getDate()",
+                      "children": [
+                        {
+                          "if": "$attrs._currentDate().month === $day.getMonth()",
+                          "children": [
+                            {
+                              "if": "$attrs._currentDate().year === $day.getFullYear()",
+                              "$el": "div",
+                              "attrs": {
+                                "class": "formkit-day-highlight"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "exit_details",
+              "label": "$gettext(\"Reason for exit\")",
+              "$formkit": "text",
+              "outerClass": "hide-in-data-collection"
+            }
+          ],
+          "id": "repeaterSukus",
+          "name": "repeaterSukus",
+          "$formkit": "repeater",
+          "upControl": false,
+          "downControl": false,
+          "addLabel": "$gettext(\"Add another member\")",
+          "max": 2,
+          "min": 1,
+          "itemClass": "repeater-children-index",
+          "itemsClass": "repeater",
+          "removeLabel": "$gettext(\"Remove\")",
+          "removeAction": "$repeaterRemoveAction",
+          "sectionsSchema": {
+            "remove": {
+              "children": [
+                {
+                  "if": "$value.length > 1",
+                  "$el": "button",
+                  "attrs": {
+                    "class": "disabled:hidden cursor-pointer flex items-center justify-center flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white border-2 border-solid border-emerald-600 text-zinc-900 hover:bg-emerald-600 hover:text-white font-bold text-base",
+                    "onClick": "$attrs.removeAction",
+                    "data-index": "$index",
+                    "data-repeaterid": "$id"
+                  },
+                  "children": [
+                    "$attrs.removeLabel"
+                  ]
+                }
+              ]
+            }
+          },
+          "validationRules": "validateSukuFacilitators"
         }
-       ]
-      }
-     },
-     "upControl": false,
-     "validationRules": "validateSukuFacilitators"
+      ],
+      "id": "sukus",
+      "name": "sukus",
+      "$formkit": "group",
+      "icon": "las la-balance-scale",
+      "title": "Team facilitators"
     }
-   ],
-   "icon": "las la-balance-scale",
-   "id": "sukus",
-   "title": "Suku facilitators"
-  }
- ],
- "name": "SF_1_3"
+  ],
+  "name": "SF_1_3",
+  "$formkit": "group"
 }

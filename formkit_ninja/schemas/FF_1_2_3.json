@@ -1,0 +1,46 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "munisipiu",
+          "label": "Munisipiu",
+          "help": "hili munisipiu ba implementasaun projetu",
+          "placeholder": "Favor hili munisipiu ida",
+          "$formkit": "text"
+        }
+      ],
+      "id": "Munisipiu",
+      "name": "Munisipiu",
+      "$formkit": "group",
+      "icon": "las la-address-book",
+      "title": "Location"
+    },
+    {
+      "children": [
+        {
+          "name": "orsamentu",
+          "label": "Orsamentu PNDS",
+          "help": "test",
+          "placeholder": "Mensiona orsamentu hira mka PNDS gasta ba atividade nee",
+          "$formkit": "currency"
+        },
+        {
+          "name": "tinan",
+          "label": "Tinan",
+          "help": "ezemplu: 2020",
+          "placeholder": "hili tinan atividade nian",
+          "$formkit": "dropdown",
+          "options": "$ida(year)"
+        }
+      ],
+      "id": "orsamentu",
+      "name": "orsamentu",
+      "$formkit": "group",
+      "icon": "las la-money-bill",
+      "title": "Orsamentu"
+    }
+  ],
+  "name": "FF_1_2_3",
+  "$formkit": "group"
+}

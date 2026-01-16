@@ -485,9 +485,27 @@ class FormKitSchemaNode(UuidIdModel):
         if self.sections_schema:
             values["sectionsSchema"] = self.sections_schema
         if self.min:
-            values["min"] = self.min
+            try:
+                values["min"] = int(self.min)
+            except ValueError:
+                values["min"] = self.min
         if self.step:
-            values["step"] = self.step
+            try:
+                val = float(self.step)
+                if val.is_integer():
+                    values["step"] = int(val)
+                else:
+                    values["step"] = str(val) # Keep as string if float to avoid precision issues? 
+                    # Actually formkit uses string for step often.
+                    # But the test expects "0.1" (string).
+                    # If I cast to float, 0.1 becomes 0.1.
+                    # If the input was "0.1", output "0.1".
+                    # If the input was 0.1 (float), output 0.1.
+                    # Pydantic model for NumberNode allows int | str. Not float?
+                    # Let's check NumberNode.
+                    values["step"] = self.step
+            except ValueError:
+                values["step"] = self.step
         if self.add_label:
             values["addLabel"] = self.add_label
         if not self.up_control: # Only write if false? Or always? Defaults are True.
@@ -575,24 +593,38 @@ class FormKitSchemaNode(UuidIdModel):
             if props := getattr(input_model, "additional_props", None):
                 instance.additional_props = props
             
-            if icon := getattr(input_model, "icon", None):
+            if (icon := getattr(input_model, "icon", None)) is not None:
                 instance.icon = icon
-            if title := getattr(input_model, "title", None):
+            if (title := getattr(input_model, "title", None)) is not None:
                 instance.title = title
-            if readonly := getattr(input_model, "readonly", None):
+            if (readonly := getattr(input_model, "readonly", None)) is not None:
                 instance.readonly = readonly
-            if sections_schema := getattr(input_model, "sectionsSchema", None):
+            if (sections_schema := getattr(input_model, "sectionsSchema", None)) is not None:
                 instance.sections_schema = sections_schema
-            if min_val := getattr(input_model, "min", None):
+            if (min_val := getattr(input_model, "min", None)) is not None:
                 instance.min = str(min_val)
-            if step := getattr(input_model, "step", None):
+            if (step := getattr(input_model, "step", None)) is not None:
                 instance.step = str(step)
-            if add_label := getattr(input_model, "addLabel", None):
+            if (add_label := getattr(input_model, "addLabel", None)) is not None:
                 instance.add_label = add_label
-            if up_control := getattr(input_model, "upControl", None):
+            if (up_control := getattr(input_model, "upControl", None)) is not None:
                 instance.up_control = up_control
-            if down_control := getattr(input_model, "downControl", None):
+            if (down_control := getattr(input_model, "downControl", None)) is not None:
                 instance.down_control = down_control
+
+            # Fields that are valid Pydantic fields but not promoted to columns must be saved in additional_props
+            # otherwise they are lost.
+            extra_fields = ["max", "rows", "cols", "prefixIcon", "classes", "value", "suffixIcon"]
+            # Ensure additional_props is a dict
+            if instance.additional_props is None:
+                instance.additional_props = {}
+            elif not isinstance(instance.additional_props, dict):
+                 # Should not happen but safety first
+                 instance.additional_props = {}
+                 
+            for field in extra_fields:
+                if (val := getattr(input_model, field, None)) is not None:
+                    instance.additional_props[field] = val
 
             try:
                 node_type = getattr(input_model, "node_type")

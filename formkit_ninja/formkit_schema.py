@@ -114,7 +114,7 @@ class FormKitSchemaProps(BaseModel):
     validationMessages: str | dict[str, str] = Field(None, alias="validation-messages")
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
-    prefixIcon: str | None = Field(None, alias="prefix-icon")
+    prefixIcon: str | None = Field(None)
     icon: str | None = Field(None)
     title: str | None = Field(None)
     classes: str | dict[str, str] | None = Field(None)

@@ -1,0 +1,114 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "_gettext_municipality",
+          "label": "$gettext(Municipality)",
+          "validation": "required",
+          "placeholder": "Municipality",
+          "$formkit": "select",
+          "options": "$ida(munisipiu)"
+        },
+        {
+          "name": "post_administrative",
+          "label": "Post Administrative",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$ida(postuadministrativu)"
+        },
+        {
+          "name": "suco",
+          "label": "Suco",
+          "validation": "required",
+          "placeholder": "Suco",
+          "$formkit": "select",
+          "options": "$ida(suku)"
+        }
+      ],
+      "id": "e9f7993642efc5a8c9aa46cfde3cdbf7b5409689",
+      "name": "_5a79bf1a_unnamed",
+      "$formkit": "group",
+      "icon": "las la-address-book",
+      "title": "Fatin"
+    },
+    {
+      "children": [
+        {
+          "name": "material_saida_atu_fornese",
+          "label": "material saida atu fornese",
+          "validation": "required",
+          "$formkit": "dropdown",
+          "options": "$ida(activity)"
+        }
+      ],
+      "id": "08b6df92dd2ff283b57b68c074f1c343358a8639",
+      "name": "_3aabac67_unnamed",
+      "$formkit": "group",
+      "icon": "las la-address-book",
+      "title": "Fornese material"
+    },
+    {
+      "children": [
+        {
+          "name": "_gettext_name",
+          "label": "$gettext(Naran Fornesidor)",
+          "validation": "required",
+          "placeholder": "Naran Fornesidor",
+          "$formkit": "text"
+        },
+        {
+          "name": "_gettext_nain",
+          "label": "$gettext(Nain nia naran)",
+          "validation": "required",
+          "placeholder": "Na'in nia naran",
+          "$formkit": "text"
+        },
+        {
+          "name": "_gettext_enderesu",
+          "label": "$gettext(Enderesu)",
+          "validation": "",
+          "placeholder": "Enderesu",
+          "$formkit": "textarea"
+        },
+        {
+          "name": "numeru_kontaktu",
+          "label": "Numeru Kontaktu",
+          "validation": "required",
+          "placeholder": "Numeru Kontaktu",
+          "$formkit": "number"
+        },
+        {
+          "name": "email",
+          "label": "Email",
+          "validation": "",
+          "placeholder": "Email",
+          "$formkit": "email"
+        },
+        {
+          "name": "tipu_fornesidor",
+          "label": "Tipu Fornesidor",
+          "validation": "required",
+          "placeholder": "Tipu Fornesidor",
+          "$formkit": "dropdown",
+          "options": "$ida(activity)"
+        },
+        {
+          "name": "fatin_fornesidor",
+          "label": "Fatin Fornesidor",
+          "validation": "required",
+          "placeholder": "Fatin Fonesidor",
+          "$formkit": "dropdown",
+          "options": "$ida(output)"
+        }
+      ],
+      "id": "04e61397a3be6b8744720a3362d693b80e1ac488",
+      "name": "_5f82ffb6_unnamed",
+      "$formkit": "group",
+      "icon": "las la-info-circle",
+      "title": "Detalle Fornesidor"
+    }
+  ],
+  "name": "FS5",
+  "$formkit": "group"
+}

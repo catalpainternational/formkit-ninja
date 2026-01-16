@@ -1,0 +1,43 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "munisipality",
+          "label": "Municipality",
+          "placeholder": "Select",
+          "$formkit": "dropdown",
+          "options": "$ida(indicator)"
+        }
+      ],
+      "id": "47f56bd2d171b20e724df4ef9035b31f38bb3817",
+      "name": "d46c2d8d_unnamed",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Location"
+    },
+    {
+      "children": [
+        {
+          "name": "no__of_household",
+          "label": "No. of Household",
+          "$formkit": "number"
+        },
+        {
+          "name": "no__of_men",
+          "label": "No. of Men",
+          "help": "adfasd",
+          "placeholder": "dfasd",
+          "$formkit": "text"
+        }
+      ],
+      "id": "b2d5b8f0f8cb6e5358dc356d5d06392ed351001f",
+      "name": "b2d5b8f0f8cb6e5358dc356d5d06392ed351001f",
+      "$formkit": "group",
+      "icon": "las la-info-circle",
+      "title": "Project beneficiaries"
+    }
+  ],
+  "name": "TF_6_2_2",
+  "$formkit": "group"
+}

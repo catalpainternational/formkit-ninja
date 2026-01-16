@@ -1,0 +1,10 @@
+{
+  "key": "project_name",
+  "id": "project_name",
+  "name": "project_name",
+  "label": "$gettext(\"Project name\")",
+  "validation": "",
+  "placeholder": "$gettext(\"Please select\")",
+  "$formkit": "select",
+  "options": "$getoptions.tf1321.outputs($get(district).value, $get(administrative_post).value, $get(sukus + $index).value)"
+}

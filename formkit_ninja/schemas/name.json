@@ -1,0 +1,6 @@
+{
+  "name": "name",
+  "label": "name",
+  "placeholder": "name",
+  "$formkit": "text"
+}

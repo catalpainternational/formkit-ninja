@@ -1,0 +1,10 @@
+{
+  "name": "date_of_exit_from_the_committee",
+  "label": "Date of exit from the committee",
+  "$formkit": "datepicker",
+  "calendarIcon": "calendar",
+  "format": "DD/MM/YY",
+  "nextIcon": "angleRight",
+  "prevIcon": "angleLeft",
+  "valueFormat": "YYYY-MM-DD"
+}

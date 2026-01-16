@@ -30,14 +30,19 @@ Pull the repo:
 
 `gh repo clone catalpainternational/formkit-ninja`
 `cd formkit-ninja`
-`poetry install`
-`poetry run pytest`
+`uv sync`
+`uv run pytest`
+
+### Playwright
+
+Some tests require playwright. Do:
+`uv run playwright install`
 
 ## Lint
 
-`poetry run black --check .`
-`poetry run isort --check .`
-`poetry run flake8 .`
+`uv run black --check .`
+`uv run isort --check .`
+`uv run flake8 .`
 
 # Updating 'Protected' Nodes
 

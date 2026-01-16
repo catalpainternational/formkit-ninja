@@ -1,0 +1,6 @@
+{
+  "id": "My number",
+  "name": "My number",
+  "label": "Enter a sensible number",
+  "$formkit": "number"
+}

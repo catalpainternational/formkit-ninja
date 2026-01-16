@@ -1,126 +1,126 @@
 {
- "$formkit": "group",
- "children": [
-  {
-   "$formkit": "group",
-   "children": [
+  "children": [
     {
-     "$formkit": "radio",
-     "id": "sector_id",
-     "key": "sector",
-     "label": "$gettext(Sector)",
-     "name": "sector",
-     "options": "$ida(sector)"
+      "children": [
+        {
+          "key": "sector",
+          "id": "sector_id",
+          "name": "sector",
+          "label": "$gettext(Sector)",
+          "$formkit": "radio",
+          "options": "$ida(sector)"
+        },
+        {
+          "key": "subsector",
+          "if": "$get(sector_id).value",
+          "id": "subsector_id",
+          "name": "subsector",
+          "label": "$gettext(Subsector)",
+          "$formkit": "radio",
+          "options": "$ida(subsector, \"sector_id=\"+$get(sector_id).value)"
+        },
+        {
+          "key": "output",
+          "if": "$get(subsector_id).value",
+          "id": "output_id",
+          "name": "output",
+          "label": "$gettext(output)",
+          "$formkit": "radio",
+          "options": "$ida(output, \"subsector_id=\"+$get(subsector_id).value)"
+        },
+        {
+          "key": "objective",
+          "if": "$get(output_id).value",
+          "id": "objective_id",
+          "name": "objective",
+          "label": "$gettext(objective)",
+          "$formkit": "radio",
+          "options": "$ida(objective, \"output_ids=\"+$get(output_id).value)"
+        },
+        {
+          "key": "unit",
+          "if": "$get(output_id).value",
+          "id": "unit_id",
+          "name": "unit",
+          "label": "$gettext(unit)",
+          "$formkit": "radio",
+          "options": "$ida(unit)"
+        },
+        {
+          "key": "activity",
+          "id": "activity_id",
+          "name": "activity",
+          "label": "$gettext(activity)",
+          "$formkit": "radio",
+          "options": "$ida(activity)"
+        }
+      ],
+      "id": "meetingInformation",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Radio Buttons"
     },
     {
-     "$formkit": "radio",
-     "id": "subsector_id",
-     "if": "$get(sector_id).value",
-     "key": "subsector",
-     "label": "$gettext(Subsector)",
-     "name": "subsector",
-     "options": "$ida(subsector, \"sector_id=\"+$get(sector_id).value)"
-    },
-    {
-     "$formkit": "radio",
-     "id": "output_id",
-     "if": "$get(subsector_id).value",
-     "key": "output",
-     "label": "$gettext(output)",
-     "name": "output",
-     "options": "$ida(output, \"subsector_id=\"+$get(subsector_id).value)"
-    },
-    {
-     "$formkit": "radio",
-     "id": "objective_id",
-     "if": "$get(output_id).value",
-     "key": "objective",
-     "label": "$gettext(objective)",
-     "name": "objective",
-     "options": "$ida(objective, \"output_ids=\"+$get(output_id).value)"
-    },
-    {
-     "$formkit": "radio",
-     "id": "unit_id",
-     "if": "$get(output_id).value",
-     "key": "unit",
-     "label": "$gettext(unit)",
-     "name": "unit",
-     "options": "$ida(unit)"
-    },
-    {
-     "$formkit": "radio",
-     "id": "activity_id",
-     "key": "activity",
-     "label": "$gettext(activity)",
-     "name": "activity",
-     "options": "$ida(activity)"
+      "children": [
+        {
+          "key": "sector",
+          "id": "sector_id_dropdown",
+          "name": "sector",
+          "label": "$gettext(Sector)",
+          "$formkit": "select",
+          "options": "$ida(sector)"
+        },
+        {
+          "key": "subsector",
+          "if": "$get(sector_id_dropdown).value",
+          "id": "subsector_id_dropdown",
+          "name": "subsector",
+          "label": "$gettext(Subsector)",
+          "$formkit": "select",
+          "options": "$ida(subsector, \"sector_id=\"+$get(sector_id_dropdown).value)"
+        },
+        {
+          "key": "output",
+          "if": "$get(subsector_id_dropdown).value",
+          "id": "output_id_dropdown",
+          "name": "output",
+          "label": "$gettext(output)",
+          "$formkit": "select",
+          "options": "$ida(output, \"subsector_id=\"+$get(subsector_id_dropdown).value)"
+        },
+        {
+          "key": "objective",
+          "if": "$get(output_id_dropdown).value",
+          "id": "objective_id_dropdown",
+          "name": "objective",
+          "label": "$gettext(objective)",
+          "$formkit": "select",
+          "options": "$ida(objective, \"output_ids=\"+$get(output_id_dropdown).value)"
+        },
+        {
+          "key": "unit",
+          "if": "$get(output_id_dropdown).value",
+          "id": "unit_id_dropdown",
+          "name": "unit",
+          "label": "$gettext(unit)",
+          "$formkit": "select",
+          "options": "$ida(unit)"
+        },
+        {
+          "key": "activity",
+          "id": "activity_id_dropdown",
+          "name": "activity",
+          "label": "$gettext(activity)",
+          "$formkit": "select",
+          "options": "$ida(activity)"
+        }
+      ],
+      "id": "meetingInformation2",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Dropdowns"
     }
-   ],
-   "icon": "las la-map-marked-alt",
-   "id": "meetingInformation",
-   "title": "Radio Buttons"
-  },
-  {
-   "$formkit": "group",
-   "children": [
-    {
-     "$formkit": "select",
-     "id": "sector_id_dropdown",
-     "key": "sector",
-     "label": "$gettext(Sector)",
-     "name": "sector",
-     "options": "$ida(sector)"
-    },
-    {
-     "$formkit": "select",
-     "id": "subsector_id_dropdown",
-     "if": "$get(sector_id_dropdown).value",
-     "key": "subsector",
-     "label": "$gettext(Subsector)",
-     "name": "subsector",
-     "options": "$ida(subsector, \"sector_id=\"+$get(sector_id_dropdown).value)"
-    },
-    {
-     "$formkit": "select",
-     "id": "output_id_dropdown",
-     "if": "$get(subsector_id_dropdown).value",
-     "key": "output",
-     "label": "$gettext(output)",
-     "name": "output",
-     "options": "$ida(output, \"subsector_id=\"+$get(subsector_id_dropdown).value)"
-    },
-    {
-     "$formkit": "select",
-     "id": "objective_id_dropdown",
-     "if": "$get(output_id_dropdown).value",
-     "key": "objective",
-     "label": "$gettext(objective)",
-     "name": "objective",
-     "options": "$ida(objective, \"output_ids=\"+$get(output_id_dropdown).value)"
-    },
-    {
-     "$formkit": "select",
-     "id": "unit_id_dropdown",
-     "if": "$get(output_id_dropdown).value",
-     "key": "unit",
-     "label": "$gettext(unit)",
-     "name": "unit",
-     "options": "$ida(unit)"
-    },
-    {
-     "$formkit": "select",
-     "id": "activity_id_dropdown",
-     "key": "activity",
-     "label": "$gettext(activity)",
-     "name": "activity",
-     "options": "$ida(activity)"
-    }
-   ],
-   "icon": "las la-map-marked-alt",
-   "id": "meetingInformation2",
-   "title": "Dropdowns"
-  }
- ],
- "name": "EXAMPLE"
+  ],
+  "name": "EXAMPLE",
+  "$formkit": "group"
 }

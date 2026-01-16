@@ -1,0 +1,9 @@
+{
+  "key": "$: (project + $index)",
+  "if": "$ida(project, \"suku_id=\"+ $get(\"sukus\"+ $index).value).length>0",
+  "id": "$: (project + $index)",
+  "name": "project_1",
+  "label": "Project",
+  "$formkit": "autocomplete",
+  "options": "$ida(project, \"suku_id=\"+ $get(\"sukus\"+ $index).value)"
+}

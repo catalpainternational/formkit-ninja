@@ -1,0 +1,60 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "munisipiu",
+          "label": "Munisipiu",
+          "help": "ezemplu: Dili",
+          "placeholder": "Favor hili munisipiu ida",
+          "$formkit": "dropdown",
+          "options": "$ida(munisipiu)"
+        }
+      ],
+      "id": "Munisipiu",
+      "name": "Munisipiu",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Fatin"
+    },
+    {
+      "children": [
+        {
+          "name": "orsamentu_operasional",
+          "label": "Orsamentu operasional",
+          "help": "ezemplu: $500",
+          "placeholder": "Favor hatama montante orsamentu operasional nian ba rojetu",
+          "$formkit": "currency"
+        },
+        {
+          "name": "orsamentu_infraestrutura",
+          "label": "Orsamentu Infraestrutura",
+          "help": "ezemplu: $1000",
+          "placeholder": "Favor hatama montante orsamentu infraestrutura nian ba rojetu",
+          "$formkit": "currency"
+        },
+        {
+          "name": "gastus_operasional",
+          "label": "Gastus Operasional",
+          "help": "ezemplu: $500",
+          "placeholder": "Favor hatama montante gastus operasional nian ba projetu",
+          "$formkit": "currency"
+        },
+        {
+          "name": "gastus_infraestrutura",
+          "label": "Gastus Infraestrutura",
+          "help": "ezemplu: $1000",
+          "placeholder": "Favor hatama montante gastus infraestrutura nian ba projetu",
+          "$formkit": "currency"
+        }
+      ],
+      "id": "Orsamentu Operasional",
+      "name": "orsamentu_operasional",
+      "$formkit": "group",
+      "icon": "las la-money-bill",
+      "title": "Orsamentu"
+    }
+  ],
+  "name": "FF_5_3_3",
+  "$formkit": "group"
+}

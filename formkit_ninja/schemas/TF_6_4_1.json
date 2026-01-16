@@ -1,0 +1,50 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "_gettext_municipality",
+          "label": "$gettext(Municipality)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$ida(munisipiu)"
+        },
+        {
+          "name": "_gettext__administrative_post",
+          "label": "$gettext(\"Administrative Post\")",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$ida(postuadministrativu)"
+        },
+        {
+          "name": "_gettext_suco",
+          "label": "$gettext(Suco)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$ida(suku)"
+        },
+        {
+          "name": "_gettext_aldeia",
+          "label": "$gettext(Aldeia)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$ida(aldeia)"
+        }
+      ],
+      "id": "87e050868cc5f97335efd79250580d05a4383c09",
+      "name": "a3f8a82a_unnamed",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Location"
+    },
+    {
+      "id": "df1497d2688a26153543eab7c297cca457f9df02",
+      "name": "_70f5bd7b_unnamed",
+      "$formkit": "group",
+      "icon": "las la-address-book",
+      "title": "Fatin"
+    }
+  ],
+  "name": "TF_6_4_1",
+  "$formkit": "group"
+}
