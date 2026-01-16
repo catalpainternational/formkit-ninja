@@ -277,12 +277,32 @@ class FormKitNodeIn(Schema):
     help: str | None = None
 
     # Fields from "number"
-    max: int | None = None
-    min: int | None = None
+    max: int | str | None = None
+    min: int | str | None = None
     step: str | None = None
 
     # Field from dropdown/select/autocomplete/radio/checkbox
     options: str | None = None
+
+    # Repeater-specific properties
+    addLabel: str | None = None
+    itemClass: str | None = None
+    itemsClass: str | None = None
+    upControl: bool | None = None
+    downControl: bool | None = None
+
+    # Conditional logic
+    if_condition: str | None = Field(default=None, alias="if")
+
+    # Validation
+    validationRules: str | None = None
+    validation: str | list[str] | None = None
+
+    # Field Constraints
+    maxLength: int | None = None
+    _minDateSource: str | None = None
+    _maxDateSource: str | None = None
+    disabledDays: str | None = None
 
     # Used for Creates
     parent_id: UUID | None = None
