@@ -398,7 +398,7 @@ All nodes with an order higher than the deleted or deactivated node's order shou
             SET "order" = "order" - 1
             WHERE schema_id = OLD.schema_id
             AND "order" > OLD."order";
-            RETURN OLD;
+            RETURN NEW;
         """,
     ),
 )

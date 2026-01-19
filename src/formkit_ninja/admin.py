@@ -8,6 +8,7 @@ from collections import Counter
 from functools import reduce
 
 import django.core.exceptions
+import pgtrigger
 from django import forms
 from django.contrib import admin
 from django.db import connection
@@ -267,21 +268,6 @@ class JsonDecoratedFormBase(forms.ModelForm):
         # Get the instance without saving to DB yet
         instance = super().save(commit=False)
 
-        # Explicitly set model fields from cleaned_data
-        # This ensures fields defined explicitly on the form are properly saved
-        if hasattr(self._meta, "fields") and self._meta.fields:
-            model_opts = instance._meta
-            json_field_names = set(self.get_json_fields().keys())
-            for field_name in self._meta.fields:
-                if field_name in self.cleaned_data and field_name not in json_field_names:
-                    try:
-                        model_field = model_opts.get_field(field_name)
-                        # Only set concrete fields (not M2M or reverse relations)
-                        if model_field.concrete and not model_field.many_to_many:
-                            setattr(instance, field_name, self.cleaned_data[field_name])
-                    except Exception:
-                        pass
-
         # Update JSON fields on the instance
         for field, keys in self.get_json_fields().items():
             # Get existing JSON data to preserve unmanaged fields
@@ -295,31 +281,10 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
         # Save to database if requested
         if commit:
-            # First save the instance with regular model fields
-            # This ensures pk exists and model fields are saved
-            instance.save()
-            # Handle many-to-many relationships
+            # Use pgtrigger.ignore() to bypass protection triggers during admin saves
+            with pgtrigger.ignore("formkit_ninja.FormKitSchemaNode:protect_node_updates"):
+                instance.save()
             self.save_m2m()
-
-            # Now explicitly update fields using a queryset update
-            # This ensures both JSON fields and model fields are persisted
-            json_field_names = set(self.get_json_fields().keys())
-            update_dict = {field: getattr(instance, field) for field in json_field_names}
-
-            # Also add model fields from cleaned_data
-            if hasattr(self._meta, "fields") and self._meta.fields:
-                model_opts = instance._meta
-                for field_name in self._meta.fields:
-                    if field_name in self.cleaned_data and field_name not in json_field_names:
-                        try:
-                            model_field = model_opts.get_field(field_name)
-                            if model_field.concrete and not model_field.many_to_many:
-                                update_dict[field_name] = self.cleaned_data[field_name]
-                        except Exception:
-                            pass
-
-            if update_dict and instance.pk:
-                type(instance).objects.filter(pk=instance.pk).update(**update_dict)
 
         return instance
 
