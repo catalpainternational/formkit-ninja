@@ -13,7 +13,7 @@ from django.db.models.aggregates import Max
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.cache import add_never_cache_headers
-from ninja import Field, ModelSchema, NinjaAPI, Router, Schema
+from ninja import Field, ModelSchema, Router, Schema
 from pydantic import BaseModel
 
 from formkit_ninja import formkit_schema, models

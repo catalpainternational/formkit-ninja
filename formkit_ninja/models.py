@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import itertools
 import logging
 import uuid
 import warnings
 from keyword import iskeyword, issoftkeyword
-from typing import Any, Iterable, TypedDict, cast, get_args
+from typing import Any, Iterable, TypedDict, get_args
 
 import pghistory
 import pgtrigger
@@ -13,7 +12,7 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import models, transaction
-from django.db.models import F, Q
+from django.db.models import Q
 from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
 from rich.console import Console
@@ -102,7 +101,9 @@ class OptionGroup(models.Model):
         return f"{self.group}"
 
     @classmethod
-    def copy_table(cls, model: type[models.Model], field: str, language: str | None = "en", group_name: str | None = None):
+    def copy_table(
+        cls, model: type[models.Model], field: str, language: str | None = "en", group_name: str | None = None
+    ):
         """
         Copy an existing table of options into this OptionGroup
         """
@@ -114,6 +115,7 @@ class OptionGroup(models.Model):
             log(group_obj)
 
             from typing import Any, cast
+
             for obj in cast(Any, model).objects.values("pk", field):
                 option, option_created = Option.objects.get_or_create(
                     object_id=obj["pk"],

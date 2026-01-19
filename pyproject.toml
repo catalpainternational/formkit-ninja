@@ -37,6 +37,7 @@ dev = [
     "psycopg2-binary>=2.9.7",
     "factory-boy>=3.3.0",
     "django-stubs>=4.2.6",
+    "ty>=0.0.12",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import warnings
 from html.parser import HTMLParser
-from typing import Annotated, Any, Iterable, Literal, Type, TypeAlias, TypedDict, TypeVar, Union
+from typing import Annotated, Any, Literal, Type, TypeAlias, TypedDict, TypeVar, Union
 
 # Configure Pydantic to avoid forward reference issues
 import pydantic

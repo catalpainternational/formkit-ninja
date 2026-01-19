@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from keyword import iskeyword
-from typing import Iterable, Literal, cast, Generator
+from typing import Generator, Iterable, Literal, cast
 
 from formkit_ninja import formkit_schema
 from formkit_ninja.formkit_schema import FormKitNode, GroupNode, RepeaterNode
