@@ -298,16 +298,33 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
         # Save to database if requested
         if commit:
-            # Save the instance - this saves model fields
+            # Save the instance first to ensure pk exists
             instance.save()
             # Handle many-to-many relationships
             self.save_m2m()
 
-            # Explicitly update JSON fields using a queryset update
-            # This ensures JSON fields are persisted correctly
-            json_field_names = list(self.get_json_fields().keys())
-            if json_field_names and instance.pk:
-                update_dict = {field: getattr(instance, field) for field in json_field_names}
+            # Build update dict with all fields that need to be persisted
+            update_dict = {}
+
+            # Add JSON fields
+            for field in self.get_json_fields().keys():
+                update_dict[field] = getattr(instance, field)
+
+            # Add model fields from Meta.fields (excluding M2M and relations)
+            if hasattr(self, "Meta") and hasattr(self.Meta, "fields"):
+                model_opts = instance._meta
+                for field_name in self.Meta.fields:
+                    if field_name in self.cleaned_data and field_name not in self.get_json_fields():
+                        try:
+                            model_field = model_opts.get_field(field_name)
+                            # Skip M2M and reverse relations
+                            if not model_field.many_to_many and not model_field.one_to_many:
+                                update_dict[field_name] = getattr(instance, field_name)
+                        except Exception:
+                            pass
+
+            # Update all fields in one query
+            if update_dict and instance.pk:
                 type(instance).objects.filter(pk=instance.pk).update(**update_dict)
 
         return instance
