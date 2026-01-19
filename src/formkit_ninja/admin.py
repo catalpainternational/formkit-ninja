@@ -285,7 +285,9 @@ class JsonDecoratedFormBase(forms.ModelForm):
                     if field_name not in self.get_json_fields():
                         setattr(instance, field_name, self.cleaned_data[field_name])
 
-        # Update JSON fields on the instance
+        # Build the update dict for JSON fields before saving
+        # This ensures we capture the correct values
+        json_updates = {}
         for field, keys in self.get_json_fields().items():
             # Get existing JSON data to preserve unmanaged fields
             existing_data = getattr(instance, field, {}) or {}
@@ -296,29 +298,33 @@ class JsonDecoratedFormBase(forms.ModelForm):
             # Set on the instance
             setattr(instance, field, data)
 
+            # Store for update query
+            json_updates[field] = data
+
         # Save to database if requested
         if commit:
-            # Save the instance first to ensure pk exists and model fields are saved
+            # Save the instance first to ensure pk exists
             instance.save()
             # Handle many-to-many relationships
             self.save_m2m()
 
-            # Explicitly update JSON fields using a queryset update
-            # This ensures JSON fields are persisted correctly
-            json_field_names = list(self.get_json_fields().keys())
-            if json_field_names and instance.pk:
-                update_dict = {field: getattr(instance, field) for field in json_field_names}
-                # Also add model fields from cleaned_data
-                if hasattr(self, "Meta") and hasattr(self.Meta, "fields"):
-                    for field_name in self.Meta.fields:
-                        if field_name in self.cleaned_data and field_name not in json_field_names:
-                            # Check it's a concrete field (not M2M or reverse relation)
-                            try:
-                                model_field = instance._meta.get_field(field_name)
-                                if hasattr(model_field, "column") and model_field.column:
-                                    update_dict[field_name] = self.cleaned_data[field_name]
-                            except Exception:
-                                pass
+            # Build final update dict
+            update_dict = dict(json_updates)
+
+            # Add model fields from cleaned_data
+            if hasattr(self, "Meta") and hasattr(self.Meta, "fields"):
+                for field_name in self.Meta.fields:
+                    if field_name in self.cleaned_data and field_name not in update_dict:
+                        # Check it's a concrete field (not M2M or reverse relation)
+                        try:
+                            model_field = instance._meta.get_field(field_name)
+                            if hasattr(model_field, "column") and model_field.column:
+                                update_dict[field_name] = self.cleaned_data[field_name]
+                        except Exception:
+                            pass
+
+            # Explicitly update all fields using a queryset update
+            if update_dict and instance.pk:
                 type(instance).objects.filter(pk=instance.pk).update(**update_dict)
 
         return instance
