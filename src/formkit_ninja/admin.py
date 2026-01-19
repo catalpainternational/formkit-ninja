@@ -221,6 +221,14 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
             field_value = self.cleaned_data[form_field]
 
+            # Determine the actual JSON key for checking existence
+            actual_json_key = json_field.split("__")[0] if "__" in json_field else json_field
+
+            # Skip empty/None values for fields that don't already exist in the data
+            # This prevents accidentally adding invalid empty values to JSON
+            if field_value in (None, "") and actual_json_key not in existing_data:
+                continue
+
             if "__" in json_field:
                 # Handle nested fields like 'attrs__class'
                 nested_field_name = json_field.split("__")[0]
