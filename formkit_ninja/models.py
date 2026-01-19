@@ -5,7 +5,7 @@ import logging
 import uuid
 import warnings
 from keyword import iskeyword, issoftkeyword
-from typing import Iterable, TypedDict, get_args
+from typing import Any, Iterable, TypedDict, cast, get_args
 
 import pghistory
 import pgtrigger
@@ -102,21 +102,22 @@ class OptionGroup(models.Model):
         return f"{self.group}"
 
     @classmethod
-    def copy_table(cls, model: models.Model, field: str, language: str | None = "en", group: str | None = None):
+    def copy_table(cls, model: type[models.Model], field: str, language: str | None = "en", group_name: str | None = None):
         """
         Copy an existing table of options into this OptionGroup
         """
 
         with transaction.atomic():
-            group, group_created = cls.objects.get_or_create(
-                group=group, content_type=ContentType.objects.get_for_model(model)
+            group_obj, group_created = cls.objects.get_or_create(
+                group=group_name, content_type=ContentType.objects.get_for_model(model)
             )
-            log(group)
+            log(group_obj)
 
-            for obj in model.objects.values("pk", field):
+            from typing import Any, cast
+            for obj in cast(Any, model).objects.values("pk", field):
                 option, option_created = Option.objects.get_or_create(
                     object_id=obj["pk"],
-                    group=group,
+                    group=group_obj,
                     value=obj["pk"],
                 )
                 OptionLabel.objects.get_or_create(option=option, label=obj[field] or "", lang=language)
@@ -258,7 +259,7 @@ class NodeChildrenManager(models.Manager):
             self.get_queryset()
             .values("parent_id")
             .annotate(
-                children=ArrayAgg("child", ordering=F("order")),
+                children=ArrayAgg("child", ordering="order"),
             )
             .annotate(Max("child__track_change"))
             .annotate(latest_change=Greatest("child__track_change__max", "parent__track_change"))
@@ -303,7 +304,7 @@ class NodeQS(models.QuerySet):
 
     def to_response(
         self, ignore_errors: bool = True, options: bool = True
-    ) -> Iterable[tuple[uuid.UUID, int, formkit_schema.Node | str | None, bool]]:
+    ) -> Iterable[tuple[uuid.UUID, int | None, formkit_schema.Node | str | None, bool]]:
         """
         Return a set of FormKit nodes
         """
@@ -577,13 +578,15 @@ class FormKitSchemaNode(UuidIdModel):
             return self.text_content or ""
         if self.node == {} or self.node is None:
             if self.node_type == "$el":
-                node_content = {"$el": "span"}
+                node_content_dict: dict[str, Any] = {"$el": "span"}
             elif self.node_type == "$formkit":
-                node_content = {"$formkit": "text"}
+                node_content_dict = {"$formkit": "text"}
+            else:
+                node_content_dict = {}
         else:
-            node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
+            node_content_dict = self.get_node_values(**kwargs, recursive=recursive, options=options)  # type: ignore[assignment]
 
-        formkit_node = formkit_schema.FormKitNode.parse_obj(node_content, recursive=recursive)
+        formkit_node = formkit_schema.FormKitNode.parse_obj(node_content_dict, recursive=recursive)
         return formkit_node.__root__
 
     @classmethod
@@ -594,7 +597,8 @@ class FormKitSchemaNode(UuidIdModel):
             yield cls.objects.create(node_type="text", label=input_models, text_content=input_models)
 
         elif isinstance(input_models, Iterable) and not isinstance(input_models, formkit_schema.FormKitSchemaProps):
-            yield from (cls.from_pydantic(n) for n in input_models)
+            for n in input_models:
+                yield from cls.from_pydantic(n)
 
         elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
             input_model = input_models
@@ -714,7 +718,7 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.option_group = OptionGroup.objects.create(
                     group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}"
                 )
-                for option in Option.from_pydantic(options, group=instance.option_group):
+                for option in Option.from_pydantic(options, group=instance.option_group):  # type: ignore[arg-type]
                     pass
                 instance.save()
 
@@ -787,7 +791,9 @@ class FormKitSchema(UuidIdModel):
         to Django database fields
         """
         instance = cls.objects.create(label=label)
-        for node in itertools.chain.from_iterable(FormKitSchemaNode.from_pydantic(input_model.__root__)):
+        node: FormKitSchemaNode
+        nodes: Iterable[FormKitSchemaNode] = FormKitSchemaNode.from_pydantic(input_model.__root__)  # type: ignore
+        for node in nodes:
             log(f"[yellow]Saving {node}")
             node.save()
             FormComponents.objects.create(schema=instance, node=node, label=str(f"{str(instance)} {str(node)}"))

@@ -322,7 +322,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
         Customise the returned fields based on the type
         of formkit node
         """
-        return super().get_fields(request, obj)
+        return super().get_fields(request, obj)  # type: ignore[misc]
 
 
 class FormKitNodeRepeaterForm(FormKitNodeForm):
@@ -517,7 +517,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         fieldsets is a list of two-tuples, in which each two-tuple represents a <fieldset>
         on the admin form page. (A <fieldset> is a “section” of the form.)
         """
-        fieldsets: list[tuple[str, dict]] = []
+        fieldsets: list[tuple[str | None, dict[str, Any]]] = []
         if not getattr(obj, "node_type", None):
             warnings.warn("Expected a 'Node' with a 'NodeType' in the admin form")
 
@@ -570,9 +570,9 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     def get_form(
         self,
         request: HttpRequest,
-        obj: models.FormKitSchemaNode | None,
-        change: bool | None = None,
-        **kwargs,
+        obj: Any | None = None,
+        change: bool = False,
+        **kwargs: Any,
     ) -> type[forms.ModelForm[Any]]:
         if not obj:
             return NewFormKitForm
