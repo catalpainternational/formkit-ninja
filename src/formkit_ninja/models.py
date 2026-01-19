@@ -496,7 +496,9 @@ class FormKitSchemaNode(UuidIdModel):
         # should be valid Django fieldname too
         if isinstance(self.node, dict) and "name" in self.node:
             key: str = self.node.get("name", None)
-            check_valid_django_id(key)
+            # Only validate non-empty name values
+            if key:
+                check_valid_django_id(key)
         return super().save(*args, **kwargs)
 
     @property
