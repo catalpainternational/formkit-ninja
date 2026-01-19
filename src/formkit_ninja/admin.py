@@ -143,7 +143,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
                 fields_in_model.update((k[0] for k in json_keys if not isinstance(k, str)))
 
             # Duplicate fields raise an exception
-            duplicates = list(((k, v) for k, v in fields_in_model.items() if v > 1))
+            duplicates = [k for k, v in fields_in_model.items() if v > 1]
             if duplicates:
                 raise KeyError(f"Some fields were duplicated: {','.join(duplicates)}")
 
@@ -265,6 +265,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
             The saved model instance
         """
         # Get the instance without saving to DB yet
+        # This applies cleaned_data to model fields via construct_instance
         instance = super().save(commit=False)
 
         # Update JSON fields on the instance
@@ -280,16 +281,10 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
         # Save to database if requested
         if commit:
-            # First save the instance with regular model fields
-            # This ensures pk exists and model fields are saved
+            # Save the instance - this saves ALL fields including model fields and JSON fields
             instance.save()
-
-            # Now explicitly update JSON fields using a queryset update
-            # This bypasses the model's save() method which might interfere
-            json_field_names = self.get_json_fields().keys()
-            if json_field_names and instance.pk:
-                update_dict = {field: getattr(instance, field) for field in json_field_names}
-                type(instance).objects.filter(pk=instance.pk).update(**update_dict)
+            # Handle many-to-many relationships
+            self.save_m2m()
 
         return instance
 
