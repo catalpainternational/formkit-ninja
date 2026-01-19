@@ -268,6 +268,15 @@ class JsonDecoratedFormBase(forms.ModelForm):
         # This applies cleaned_data to model fields via construct_instance
         instance = super().save(commit=False)
 
+        # Explicitly apply model field values from cleaned_data
+        # This handles fields that are explicitly defined on the form
+        if hasattr(self, "Meta") and hasattr(self.Meta, "fields"):
+            for field_name in self.Meta.fields:
+                if field_name in self.cleaned_data:
+                    # Skip JSON fields - they're handled separately
+                    if field_name not in self.get_json_fields():
+                        setattr(instance, field_name, self.cleaned_data[field_name])
+
         # Update JSON fields on the instance
         for field, keys in self.get_json_fields().items():
             # Get existing JSON data to preserve unmanaged fields
@@ -281,10 +290,17 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
         # Save to database if requested
         if commit:
-            # Save the instance - this saves ALL fields including model fields and JSON fields
+            # Save the instance - this saves model fields
             instance.save()
             # Handle many-to-many relationships
             self.save_m2m()
+
+            # Explicitly update JSON fields using a queryset update
+            # This ensures JSON fields are persisted correctly
+            json_field_names = list(self.get_json_fields().keys())
+            if json_field_names and instance.pk:
+                update_dict = {field: getattr(instance, field) for field in json_field_names}
+                type(instance).objects.filter(pk=instance.pk).update(**update_dict)
 
         return instance
 
