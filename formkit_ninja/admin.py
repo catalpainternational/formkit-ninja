@@ -559,7 +559,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                     )
                 )
 
-        grouped_fields = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
+        grouped_fields: set[str] = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
         # Add 'ungrouped' fields
         fieldsets.insert(
             0, (None, {"fields": [field for field in self.get_fields(request, obj) if field not in grouped_fields]})
