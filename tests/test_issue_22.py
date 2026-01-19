@@ -115,3 +115,126 @@ def test_issue_22_enhanced_fields():
     const_child.refresh_from_db()
     assert const_child.node["maxLength"] == 10
     assert const_child.node["disabledDays"] == "return true"
+
+
+@pytest.mark.django_db
+def test_import_old_format_repeater_via_pydantic():
+    """
+    Test importing old-format repeater JSON where properties are at top level
+    (not yet in dedicated model fields). Verifies Pydantic → DB conversion works.
+    """
+    from formkit_ninja import formkit_schema
+
+    # Old format: properties at top level in JSON
+    old_format_json = {
+        "$formkit": "repeater",
+        "name": "oldRepeater",
+        "label": "Old Format Repeater",
+        "addLabel": "Add Item (Old)",  # Should be handled
+        "upControl": True,
+        "downControl": False,
+        "step": "5",
+        "children": [],
+    }
+
+    # Parse via Pydantic (as if importing from external source)
+    node = formkit_schema.FormKitNode.parse_obj(old_format_json)
+
+    # Save to DB
+    db_nodes = list(models.FormKitSchemaNode.from_pydantic(node.__root__))
+    assert len(db_nodes) == 1
+
+    # Verify the fields are correctly stored in the model
+    db_node = db_nodes[0]
+    db_node.refresh_from_db()
+
+    # Check node structure
+    assert db_node.node["$formkit"] == "repeater"
+    
+    # Promoted fields are stored in model fields, NOT in node JSON
+    # (they're excluded from node dict in from_pydantic, lines 670-688 models.py)
+    assert "addLabel" not in db_node.node  # Excluded from JSON
+    assert "upControl" not in db_node.node  # Excluded from JSON
+
+    # Verify model fields populated correctly
+    assert db_node.add_label == "Add Item (Old)"
+    assert db_node.up_control is True
+    assert db_node.down_control is False
+
+
+
+@pytest.mark.django_db
+def test_import_mixed_format_schema():
+    """
+    Test importing a schema containing both:
+    - Old-style nodes (properties in top-level JSON/additional_props)
+    - New-style nodes (properties as dedicated model fields)
+    """
+    from formkit_ninja import formkit_schema
+
+    mixed_schema = [
+        {
+            "$formkit": "group",
+            "name": "mixedGroup",
+            "label": "Mixed Format Group",
+            "children": [
+                # Old format repeater
+                {
+                    "$formkit": "repeater",
+                    "name": "oldRepeater",
+                    "addLabel": "Old Add",  # Old format
+                    "upControl": "true",
+                    "children": [],
+                },
+                # New format text (no special props to promote)
+                {"$formkit": "text", "name": "newText", "label": "New Text", "maxLength": 50},
+            ],
+        }
+    ]
+
+    # Parse the whole schema
+    schema = formkit_schema.FormKitSchema.parse_obj(mixed_schema)
+
+    # Save to DB
+    for node in schema.__root__:
+        db_nodes = list(models.FormKitSchemaNode.from_pydantic(node))
+
+        # Find the repeater node
+        for db_node in db_nodes:
+            if db_node.node.get("$formkit") == "repeater":
+                assert db_node.add_label == "Old Add"
+                assert db_node.up_control is True
+
+            # Find the text node
+            if db_node.node.get("name") == "newText":
+                assert db_node.node["maxLength"] == 50
+
+
+@pytest.mark.django_db
+def test_edge_case_bool_string_conversions():
+    """
+    Test that various bool representations are handled consistently.
+    """
+    from formkit_ninja import formkit_schema
+
+    test_cases = [
+        (True, True),
+        (False, False),
+        ("true", True),  # String representations
+        ("false", False),
+    ]
+
+    for input_val, expected_val in test_cases:
+        json_data = {
+            "$formkit": "repeater",
+            "name": f"test_{input_val}",
+            "upControl": input_val,
+            "children": [],
+        }
+
+        node = formkit_schema.FormKitNode.parse_obj(json_data)
+        db_nodes = list(models.FormKitSchemaNode.from_pydantic(node.__root__))
+
+        assert len(db_nodes) == 1
+        # Promoted fields are stored in model fields, not in node JSON
+        assert db_nodes[0].up_control == expected_val
