@@ -143,6 +143,10 @@ jobs:
             sleep 2
           done
 
+      - name: Install Playwright Browsers
+        run: |
+          uv run playwright install --with-deps chromium
+
       - name: Run tests with pytest
         env:
           POSTGRES_DB: postgres
