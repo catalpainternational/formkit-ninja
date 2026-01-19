@@ -239,9 +239,9 @@ class NodePath:
             case "tel":
                 return "int"
             case "group":
-                return self.classname
+                return f'"{self.classname}"'
             case "repeater":
-                return f"list[{self.classname}]"
+                return f'list["{self.classname}"]'
             case "hidden":
                 return "str"
         return "str"
@@ -300,7 +300,7 @@ class NodePath:
 
     def to_django_args(self) -> str:
         if self.is_group:
-            return f"{self.classname}, on_delete=models.CASCADE"
+            return f'"{self.classname}", on_delete=models.CASCADE'
 
         match self.to_pydantic_type():
             case "bool":

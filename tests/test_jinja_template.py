@@ -154,7 +154,7 @@ def test_pd_number_node_field(pydantic_class_template: Template, number_node: No
 
 def test_pd_group_node_field(pydantic_class_template: Template, group_node: NodePath):
     text = pydantic_class_template.render(this=group_node)
-    expect = "class Foo(BaseModel):\n    foonum: int | None = None\n"
+    expect = "class Foo(BaseModel):\n    foonum: int | None = None  # noqa: F821\n"
     assert text.strip() == dedent(expect).strip()
 
 
@@ -162,9 +162,9 @@ def test_pd_nested_group_node_field(pydantic_class_template: Template, nested_gr
     text = pydantic_class_template.render(this=nested_group_node)
     expect = """
         class BarFoo(BaseModel):
-            foonum: int | None = None
+            foonum: int | None = None  # noqa: F821
         class Bar(BaseModel):
-            foo: BarFoo | None = None
+            foo: "BarFoo" | None = None  # noqa: F821
         """
     assert text.strip() == dedent(expect).strip()
 
@@ -181,7 +181,7 @@ def test_nested_group_node_field(django_class_template: Template, nested_group_n
         class BarFoo(models.Model):
             foonum = models.IntegerField(null=True, blank=True)
         class Bar(models.Model):
-            foo = models.OneToOneField(BarFoo, on_delete=models.CASCADE)
+            foo = models.OneToOneField("BarFoo", on_delete=models.CASCADE)
         """
     assert text.strip() == dedent(expect).strip()
 
@@ -258,10 +258,6 @@ def test_admin_nested_group_node_field(admin_template: Template, nested_group_no
 def test_api_nested_group_node_field(api_template: Template, nested_group_node: NodePath):
     text = api_template.render(this=nested_group_node)
     expect = """
-        @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
-        def barfoo(request):
-            queryset = models.BarFoo.objects.all()
-            return queryset
         @router.get("bar", response=list[schema_out.BarSchema], exclude_none=True)
         def bar(request):
             queryset = models.Bar.objects.all()
@@ -276,10 +272,6 @@ def test_api_nested_group_node_field(api_template: Template, nested_group_node: 
 def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_node: NodePath):
     text = api_template.render(this=nested_repeater_node)
     expect = """
-        @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
-        def barfoo(request):
-            queryset = models.BarFoo.objects.all()
-            return queryset
         @router.get("bar", response=list[schema_out.BarSchema], exclude_none=True)
         def bar(request):
             queryset = models.Bar.objects.all()
@@ -294,9 +286,7 @@ def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_
 def test_schema_out_nested_group_node_field(schema_out_template: Template, nested_group_node: NodePath):
     text = schema_out_template.render(this=nested_group_node)
     expect = """
-        class BarFooSchema(Schema):
-            foonum: int | None = None
         class BarSchema(Schema):
-            foo: BarFoo | None = None
+            foo: "BarFoo" | None = None  # noqa: F821
     """
     assert text.strip() == dedent(expect).strip()

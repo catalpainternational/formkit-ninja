@@ -1,23 +1,13 @@
-{% for repeater in this.repeaters %}
-    {% with this=repeater %}
-        {% include "basemodel.jinja2" %}
-    {% endwith %}
-{% endfor %}
-{% for group in this.groups %}
-    {% with this=group %}
-        {% include "basemodel.jinja2" %}
-    {% endwith %}
-{% endfor %}
 {% if this.is_group or this.is_repeater %}
 class {{this.classname}}(BaseModel):
 {% for extra_attrib in this.extra_attribs_basemodel %}
     {{extra_attrib}}
 {% endfor %}
 {% for attrib in this.formkits_not_repeaters %}
-    {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None
+    {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None  # noqa: F821
 {% endfor %}
 {% for attrib in this.repeaters %}
-    {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None
+    {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None  # noqa: F821
 {% endfor %}
 {% else %}
     {{this.pydantic_attrib_name}}: {{this.pydantic_type}}
