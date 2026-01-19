@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import warnings
 from html.parser import HTMLParser
-from typing import Annotated, Any, Literal, Type, TypedDict, TypeVar, Union
+from typing import Annotated, Any, Iterable, Literal, Type, TypeAlias, TypedDict, TypeVar, Union
 
 # Configure Pydantic to avoid forward reference issues
 import pydantic
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 HtmlAttrs = dict[str, str | dict[str, str]]
 
 
-Node = "Node"
+# Node is defined below as a TypeAlias
 
 # Radio, Select, Autocomplete and Dropdown nodes have
 # these options
@@ -151,24 +151,29 @@ class TextNode(FormKitSchemaProps):
     maxLength: int | None = Field(None, description="Maximum length of the text input")
 
 
-class TextAreaNode(TextNode):
+class TextAreaNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["textarea"] = Field(default="textarea", alias="$formkit")
     text: str | None
 
 
-class DateNode(TextNode):
+class DateNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["date"] = Field(default="date", alias="$formkit")
 
 
-class CurrencyNode(TextNode):
+class CurrencyNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["currency"] = Field(default="currency", alias="$formkit")
 
 
-class UuidNode(TextNode):
+class UuidNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["uuid"] = Field(default="uuid", alias="$formkit")
 
 
-class DatePickerNode(TextNode):
+class DatePickerNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["datepicker"] = Field(default="datepicker", alias="$formkit")
     calendarIcon: str = "calendar"
     format: str = "DD/MM/YY"
@@ -179,11 +184,13 @@ class DatePickerNode(TextNode):
     disabledDays: str | None = Field(None, description="Function to disable days")
 
 
-class CheckBoxNode(TextNode):
+class CheckBoxNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["checkbox"] = Field(default="checkbox", alias="$formkit")
 
 
-class NumberNode(TextNode):
+class NumberNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["number"] = Field(default="number", alias="$formkit")
     text: str | None
     max: int | None = None
@@ -191,40 +198,48 @@ class NumberNode(TextNode):
     step: int | str | None = None
 
 
-class PasswordNode(TextNode):
+class PasswordNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["password"] = Field(default="password", alias="$formkit")
     name: str | None
 
 
-class HiddenNode(TextNode):
+class HiddenNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["hidden"] = Field(default="hidden", alias="$formkit")
 
 
-class RadioNode(TextNode):
+class RadioNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["radio"] = Field(default="radio", alias="$formkit")
     name: str | None
     options: OptionsType = Field(None)
 
 
-class SelectNode(TextNode):
+class SelectNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["select"] = Field(default="select", alias="$formkit")
     options: OptionsType = Field(None)
 
 
-class AutocompleteNode(TextNode):
+class AutocompleteNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["autocomplete"] = Field(default="autocomplete", alias="$formkit")
     options: OptionsType = Field(None)
 
 
-class EmailNode(TextNode):
+class EmailNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["email"] = Field(default="email", alias="$formkit")
 
 
-class TelNode(TextNode):
+class TelNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["tel"] = Field(default="tel", alias="$formkit")
 
 
-class DropDownNode(TextNode):
+class DropDownNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["dropdown"] = Field(default="dropdown", alias="$formkit")
     options: OptionsType = Field(None)
     empty_message: str | None = Field(None, alias="empty-message")
@@ -232,7 +247,8 @@ class DropDownNode(TextNode):
     placeholder: str | None
 
 
-class RepeaterNode(TextNode):
+class RepeaterNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["repeater"] = Field(default="repeater", alias="$formkit")
     name: str | None = None
     upControl: bool | None = Field(default=True, description="Show up control")
@@ -245,7 +261,8 @@ class RepeaterNode(TextNode):
     itemsClass: str | None = Field(None, description="Class for the items wrapper")
 
 
-class GroupNode(TextNode):
+class GroupNode(FormKitSchemaProps):
+    node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["group"] = Field(default="group", alias="$formkit")
     text: str | None
 
@@ -396,7 +413,7 @@ class FormKitTagParser(HTMLParser):
 Model = TypeVar("Model", bound="BaseModel")
 StrBytes = str | bytes
 
-Node = Annotated[
+Node: TypeAlias = Annotated[
     Union[
         FormKitSchemaFormKit,
         FormKitSchemaDOMNode,
@@ -436,21 +453,21 @@ class Discriminators(TypedDict, total=False):
     formkit: FORMKIT_TYPE
 
 
-def get_node_type(obj: dict) -> Discriminators:
+def get_node_type(obj: str | dict) -> Discriminators:
     """
     Pydantic requires nodes to be "differentiated" by a field value
     when used in a Union type situation.
     This function should return the 'node_type' values and if present 'Formkit' value
     which corresponds to the object being inspected.
     """
+    if isinstance(obj, str):
+        return {"node_type": "element"}
+
     if "__root__" in obj:
         return get_node_type(obj["__root__"])
 
-    if isinstance(obj, str):
-        return "text"
-
     if isinstance(obj, dict) and len(obj.keys()) == 0:
-        return "text"
+        return {"node_type": "element"}
 
     for key, return_value in (
         ("$el", "element"),
@@ -458,7 +475,7 @@ def get_node_type(obj: dict) -> Discriminators:
         ("$cmp", "component"),
     ):
         if key in obj:
-            return return_value
+            return {"node_type": return_value}  # type: ignore
     raise KeyError(f"Could not determine node type for {obj}")
 
 
@@ -502,6 +519,8 @@ class FormKitNode(BaseModel):
             }
             # Merge "additional props" from the input object
             # with any "unknown" params we received
+            # obj is a dict here because of the earlier check
+            assert isinstance(obj, dict)
             props: dict[str, Any] = object_in.get("additional_props", {})
             props.update({k: obj[k] for k in object_in.keys() - exclude - set_handled_keys})
             return props
@@ -517,7 +536,7 @@ class FormKitNode(BaseModel):
                         children_out.append(n)
                     else:
                         try:
-                            children_out.append(cls.parse_obj(n).__root__)
+                            children_out.append(cls.parse_obj(n).__root__)  # type: ignore
                         except Exception as E:
                             warnings.warn(f"{E}")
                 return children_out
@@ -525,7 +544,7 @@ class FormKitNode(BaseModel):
                 return None
 
         if isinstance(obj, str):
-            return obj
+            return cls(__root__=obj)
 
         # There's a discriminator step which needs assisance: `node_type`
         # must be set on the input object
@@ -535,17 +554,20 @@ class FormKitNode(BaseModel):
             raise KeyError(f"Node type couln't be determined: {obj}") from E
 
         try:
-            parsed = super().parse_obj({**obj, "node_type": node_type})
-            node: NodeTypes = parsed.__root__
+            parsed = super().parse_obj({**obj, "node_type": node_type["node_type"]})
+            node: NodeTypes = parsed.__root__  # type: ignore
         except KeyError as E:
             raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
         if additional_props := get_additional_props(obj, exclude=set(node.__fields__)):
-            node.additional_props = additional_props
+            if hasattr(node, "additional_props"):
+                node.additional_props = additional_props
         # Recursively parse 'child' nodes back to Pydantic models for 'children'
         if recursive:
-            node.children = get_children(obj)
+            if hasattr(node, "children"):
+                node.children = get_children(obj)
         else:
-            node.children = None
+            if hasattr(node, "children"):
+                node.children = None
         return parsed
 
 
