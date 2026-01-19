@@ -396,7 +396,7 @@ class FormKitTagParser(HTMLParser):
 Model = TypeVar("Model", bound="BaseModel")
 StrBytes = str | bytes
 
-Node = Annotated[
+Node: TypeAlias = Annotated[
     Union[
         FormKitSchemaFormKit,
         FormKitSchemaDOMNode,

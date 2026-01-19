@@ -456,7 +456,7 @@ class FormKitSchemaNode(UuidIdModel):
         separately stored, this step is necessary to
         reinstate them
         """
-        if opts := self.node.get("options"):
+        if self.node and (opts := self.node.get("options")):
             return opts
 
         if not self.option_group:
@@ -464,7 +464,13 @@ class FormKitSchemaNode(UuidIdModel):
         options = self.option_group.option_set.all().prefetch_related("optionlabel_set")
         # options: Iterable[Option] = self.option_set.all().prefetch_related("optionlabel_set")
         # TODO: This is horribly slow
-        return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
+        return [
+            {
+                "value": option.value,
+                "label": f"{label_obj.label if (label_obj := option.optionlabel_set.first()) else ''}",
+            }
+            for option in options
+        ]
 
     def get_node_values(self, recursive: bool = True, options: bool = True) -> str | dict:
         """
