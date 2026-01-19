@@ -368,9 +368,7 @@ class TestFormKitNodeForm:
 
     def test_element_form_nested_attrs(self):
         """Test FormKitElementForm with nested attrs."""
-        node = models.FormKitSchemaNode.objects.create(
-            node_type="$el", label="Element", node={"$el": "span"}
-        )
+        node = models.FormKitSchemaNode.objects.create(node_type="$el", label="Element", node={"$el": "span"})
 
         form_data = {
             "label": "Element",

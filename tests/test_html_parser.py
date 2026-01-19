@@ -6,6 +6,4 @@ def test_basic_example():
     <formkit type="text" />
     """
     parser = FormKitTagParser(html_content)
-    assert parser.tags[0].model_dump(exclude_none=True, by_alias=True) == {
-        "$formkit": "text"
-    }
+    assert parser.tags[0].model_dump(exclude_none=True, by_alias=True) == {"$formkit": "text"}

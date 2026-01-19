@@ -55,9 +55,7 @@ def test_nested_group_adapter():
 
 
 def test_node_type():
-    assert isinstance(
-        DiscriminatedNodeType.model_validate({"$formkit": "text"}).root, TextNode
-    )
+    assert isinstance(DiscriminatedNodeType.model_validate({"$formkit": "text"}).root, TextNode)
     assert isinstance(
         DiscriminatedNodeType.model_validate({"$formkit": "textarea"}).root,
         TextAreaNode,
@@ -193,9 +191,7 @@ sf_repeater = {
     "children": [
         {
             "$el": "div",
-            "attrs": {
-                "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-            },
+            "attrs": {"class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"},
             "children": [
                 {"$el": "span", "children": ["$: ($index + 1)"]},
                 " Suku facilitator",
@@ -407,9 +403,7 @@ def test_el():
 def test_roundtrip_on_database(schema: dict):
     m = DiscriminatedNodeType.model_validate(schema)
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(m.root))[0]
-    schema_from_db: FormKitNode = node_in_the_db.to_pydantic(
-        recursive=True, options=True
-    )
+    schema_from_db: FormKitNode = node_in_the_db.to_pydantic(recursive=True, options=True)
 
     schema_out = schema_from_db.model_dump(by_alias=True, exclude_none=True)
 
@@ -429,9 +423,7 @@ def test_formkit_value_on_children():
 
     assert t.formkit == "text"
     assert t.node_type == "formkit"
-    assert f.root.children[0].model_dump(by_alias=True, exclude_none=True) == {
-        "$formkit": "text"
-    }
+    assert f.root.children[0].model_dump(by_alias=True, exclude_none=True) == {"$formkit": "text"}
     assert f.root.children[0].formkit == "text"
     assert "$formkit" in value["children"][0]
     assert value["children"][0]["$formkit"] == "text"

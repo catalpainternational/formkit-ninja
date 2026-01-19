@@ -21,9 +21,7 @@ def test_node_create(admin_client: Client):
     # Add a group node
     # This is a 'partisipa' type group node with
     # an icon and a label
-    group_in: Mapping[str, str] = dict(
-        **{"$formkit": "group", "icon": "fa fa-user", "label": "Partisipa"}
-    )
+    group_in: Mapping[str, str] = dict(**{"$formkit": "group", "icon": "fa fa-user", "label": "Partisipa"})
     group = FormKitNodeIn(**group_in)
     data = group.model_dump_json(exclude_none=True)
 
@@ -57,7 +55,11 @@ def test_node_create(admin_client: Client):
 
     # If we post this again, we should have another input with a deconflicted name
     field_2 = FormKitNodeIn(
-        **{"parent_id": parent_reponse_json["key"], "$formkit": "text", "label": "Name of my Input"},
+        **{
+            "parent_id": parent_reponse_json["key"],
+            "$formkit": "text",
+            "label": "Name of my Input",
+        },
     )
 
     node_post_2 = admin_client.post(
@@ -71,7 +73,11 @@ def test_node_create(admin_client: Client):
     # and the name should not change
     field_3 = FormKitNodeIn(
         uuid=node_uuid,
-        **{"parent_id": parent_reponse_json["key"], "$formkit": "text", "label": "Name of my Input"},
+        **{
+            "parent_id": parent_reponse_json["key"],
+            "$formkit": "text",
+            "label": "Name of my Input",
+        },
     )
     node_post_3 = admin_client.post(
         path=path,

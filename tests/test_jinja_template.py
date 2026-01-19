@@ -45,9 +45,7 @@ def test_pd_group_node_field(pydantic_class_template: Template, group_node: Node
     assert text.strip() == dedent(expect).strip()
 
 
-def test_pd_nested_group_node_field(
-    pydantic_class_template: Template, nested_group_node: NodePath
-):
+def test_pd_nested_group_node_field(pydantic_class_template: Template, nested_group_node: NodePath):
     text = pydantic_class_template.render(this=nested_group_node)
     expect = """
         class BarFoo(BaseModel):
@@ -64,7 +62,7 @@ def test_group_node_field(django_class_template: Template, group_node: NodePath)
 
     class_def: ast.ClassDef = tree.body[0]
     body: ast.Assign = class_def.body[0]
-    
+
     field_def: ast.Name = body.targets[0]
     field_call: ast.Call = body.value
 
@@ -73,8 +71,8 @@ def test_group_node_field(django_class_template: Template, group_node: NodePath)
     assert attribute.attr == "Model"
     attribute_value: ast.Name = attribute.value
     assert attribute_value.id == "models"
-    
-    assert field_def.id == 'foonum'
+
+    assert field_def.id == "foonum"
 
     assert field_call.keywords[0].arg == "null"
     assert field_call.func.attr == "IntegerField"
@@ -111,9 +109,7 @@ class FooAdmin(admin.ModelAdmin):
     assert text.strip() == dedent(expect).strip()
 
 
-def test_admin_nested_group_node_field(
-    admin_template: Template, nested_group_node: NodePath
-):
+def test_admin_nested_group_node_field(admin_template: Template, nested_group_node: NodePath):
     text = admin_template.render(this=nested_group_node)
     expect = """
         @admin.register(models.BarFoo)
@@ -136,9 +132,7 @@ def test_admin_nested_group_node_field(
     assert text.strip() == dedent(expect).strip()
 
 
-def test_api_nested_group_node_field(
-    api_template: Template, nested_group_node: NodePath
-):
+def test_api_nested_group_node_field(api_template: Template, nested_group_node: NodePath):
     text = api_template.render(this=nested_group_node)
     expect = """
         @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
@@ -156,9 +150,7 @@ def test_api_nested_group_node_field(
     assert text.strip() == dedent(expect).strip()
 
 
-def test_api_nested_repeater_node_field(
-    api_template: Template, nested_repeater_node: NodePath
-):
+def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_node: NodePath):
     text = api_template.render(this=nested_repeater_node)
     expect = """
         @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
@@ -176,9 +168,7 @@ def test_api_nested_repeater_node_field(
     assert text.strip() == dedent(expect).strip()
 
 
-def test_schema_out_nested_group_node_field(
-    schema_out_template: Template, nested_group_node: NodePath
-):
+def test_schema_out_nested_group_node_field(schema_out_template: Template, nested_group_node: NodePath):
     text = schema_out_template.render(this=nested_group_node)
     expect = """
         class BarFooSchema(Schema):
@@ -238,48 +228,48 @@ def test_hidden_node_field(pydantic_class_template: Template, hidden_node: NodeP
 
 
 def test_checkbox_node_django_field(django_class_template: Template, checkbox_node: NodePath):
-    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =checkbox_node)
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node=checkbox_node)
     expect = "is_active = models.BooleanField(null=True, blank=True)\n"
     assert text.strip() == dedent(expect).strip()
 
 
 def test_currency_node_django_field(django_class_template: Template, currency_node: NodePath):
-    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =currency_node)
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node=currency_node)
     expect = "amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)\n"
     assert text.strip() == dedent(expect).strip()
 
 
 def test_uuid_node_django_field(django_class_template: Template, uuid_node: NodePath):
-    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =uuid_node)
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node=uuid_node)
     expect = "id = models.UUIDField(editable=False, null=True, blank=True)\n"
     assert text.strip() == dedent(expect).strip()
 
 
 def test_date_node_django_field(django_class_template: Template, date_node: NodePath):
-    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =date_node)
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node=date_node)
     expect = "birth_date = models.DateField(null=True, blank=True)\n"
     assert text.strip() == dedent(expect).strip()
 
 
 def test_datepicker_node_django_field(django_class_template: Template, datepicker_node: NodePath):
-    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =datepicker_node)
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node=datepicker_node)
     expect = "meeting_time = models.DateTimeField(null=True, blank=True)\n"
     assert text.strip() == dedent(expect).strip()
 
 
 def test_tel_node_django_field(django_class_template: Template, tel_node: NodePath):
-    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =tel_node)
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node=tel_node)
     expect = "phone = models.IntegerField(null=True, blank=True)\n"
     assert text.strip() == dedent(expect).strip()
 
 
 def test_select_node_django_field(django_class_template: Template, select_node: NodePath):
-    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =select_node)
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node=select_node)
     expect = "country = models.TextField(null=True, blank=True)\n"
     assert text.strip() == dedent(expect).strip()
 
 
 def test_hidden_node_django_field(django_class_template: Template, hidden_node: NodePath):
-    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node =hidden_node)
+    text = "{node.django_attrib_name} = models.{node.django_type}({node.django_args})".format(node=hidden_node)
     expect = "token = models.TextField(null=True, blank=True)\n"
     assert text.strip() == dedent(expect).strip()

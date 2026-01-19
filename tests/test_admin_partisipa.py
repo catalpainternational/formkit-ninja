@@ -29,14 +29,10 @@ class TestPartisipaData:
         assert node_count > 0, "No nodes were loaded from fixture"
 
         # Check we have different node types
-        group_nodes = models.FormKitSchemaNode.objects.filter(
-            node__contains={"$formkit": "group"}
-        )
+        group_nodes = models.FormKitSchemaNode.objects.filter(node__contains={"$formkit": "group"})
         assert group_nodes.count() > 0, "No group nodes found"
 
-        repeater_nodes = models.FormKitSchemaNode.objects.filter(
-            node__contains={"$formkit": "repeater"}
-        )
+        repeater_nodes = models.FormKitSchemaNode.objects.filter(node__contains={"$formkit": "repeater"})
         assert repeater_nodes.count() > 0, "No repeater nodes found"
 
     def test_edit_partisipa_group_node(self):
@@ -44,9 +40,7 @@ class TestPartisipaData:
         from formkit_ninja.admin import FormKitNodeGroupForm
 
         # Get a group node
-        node = models.FormKitSchemaNode.objects.filter(
-            node__contains={"$formkit": "group"}
-        ).first()
+        node = models.FormKitSchemaNode.objects.filter(node__contains={"$formkit": "group"}).first()
         assert node is not None, "No group node found"
 
         original_name = node.node.get("name")
@@ -83,9 +77,7 @@ class TestPartisipaData:
 
     def test_edit_partisipa_repeater_node(self):
         """Test editing a real Partisipa repeater node."""
-        node = models.FormKitSchemaNode.objects.filter(
-            node__contains={"$formkit": "repeater"}
-        ).first()
+        node = models.FormKitSchemaNode.objects.filter(node__contains={"$formkit": "repeater"}).first()
         assert node is not None, "No repeater node found"
 
         # Load in admin form
@@ -119,9 +111,7 @@ class TestPartisipaData:
         """
         # Find a node with additional_props
         node = (
-            models.FormKitSchemaNode.objects.exclude(additional_props__isnull=True)
-            .exclude(additional_props={})
-            .first()
+            models.FormKitSchemaNode.objects.exclude(additional_props__isnull=True).exclude(additional_props={}).first()
         )
         if not node:
             pytest.skip("No nodes with additional_props found")
@@ -244,9 +234,7 @@ class TestPartisipaEdgeCases:
 
     def test_nodes_with_null_fields(self):
         """Test nodes with null description, label, etc."""
-        nodes_with_nulls = models.FormKitSchemaNode.objects.filter(
-            description__isnull=True
-        )
+        nodes_with_nulls = models.FormKitSchemaNode.objects.filter(description__isnull=True)
 
         if nodes_with_nulls.count() == 0:
             pytest.skip("No nodes with null fields in fixture")

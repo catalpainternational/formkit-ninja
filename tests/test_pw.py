@@ -79,16 +79,8 @@ def test_import_sf11(SF_1_1):
     partA_out = [n.model_dump() for n in partA_schema]
 
     # Nested (children) should retain their order
-    assert (
-        [n["key"] for n in partA_in]
-        == [n.key for n in partA_schema]
-        == [n["key"] for n in partA_out]
-    )
-    assert (
-        [n["label"] for n in partA_in]
-        == [n.label for n in partA_schema]
-        == [n["label"] for n in partA_out]
-    )
+    assert [n["key"] for n in partA_in] == [n.key for n in partA_schema] == [n["key"] for n in partA_out]
+    assert [n["label"] for n in partA_in] == [n.label for n in partA_schema] == [n["label"] for n in partA_out]
 
     assert partA_in[0]["key"] == partA_schema[0].key
     assert partA_in[0]["name"] == partA_schema[0].name
