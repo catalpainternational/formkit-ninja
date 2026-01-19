@@ -417,10 +417,20 @@ class FormKitSchemaNode(UuidIdModel):
         if isinstance(self.node, dict) and "name" in self.node:
             key: str = self.node.get("name", None)
             check_valid_django_id(key)
-        
+
         # Auto-promote common props
         if self.additional_props:
-            for field in ("icon", "title", "readonly", "sectionsSchema", "min", "step", "addLabel", "upControl", "downControl"):
+            for field in (
+                "icon",
+                "title",
+                "readonly",
+                "sectionsSchema",
+                "min",
+                "step",
+                "addLabel",
+                "upControl",
+                "downControl",
+            ):
                 if field in self.additional_props:
                     if field == "sectionsSchema":
                         target_field = "sections_schema"
@@ -432,11 +442,11 @@ class FormKitSchemaNode(UuidIdModel):
                         target_field = "down_control"
                     else:
                         target_field = field
-                    
+
                     val = self.additional_props.pop(field)
                     # Safe set
                     setattr(self, target_field, val)
-        
+
         return super().save(*args, **kwargs)
 
     @property
@@ -495,7 +505,7 @@ class FormKitSchemaNode(UuidIdModel):
                 if val.is_integer():
                     values["step"] = int(val)
                 else:
-                    values["step"] = str(val) # Keep as string if float to avoid precision issues? 
+                    values["step"] = str(val)  # Keep as string if float to avoid precision issues?
                     # Actually formkit uses string for step often.
                     # But the test expects "0.1" (string).
                     # If I cast to float, 0.1 becomes 0.1.
@@ -508,11 +518,11 @@ class FormKitSchemaNode(UuidIdModel):
                 values["step"] = self.step
         if self.add_label:
             values["addLabel"] = self.add_label
-        if not self.up_control: # Only write if false? Or always? Defaults are True.
-             values["upControl"] = self.up_control
+        if not self.up_control:  # Only write if false? Or always? Defaults are True.
+            values["upControl"] = self.up_control
         if not self.down_control:
-             values["downControl"] = self.down_control
-        
+            values["downControl"] = self.down_control
+
         # Pydantic defaults are True. But if we want to be explicit:
         # Actually FormKit default is True. So we only need to output if it's False?
         # Or if it's explicitly set?
@@ -521,7 +531,7 @@ class FormKitSchemaNode(UuidIdModel):
         # But if DB says False, we MUST output False.
         # But wait, we also have cases where we want to enforce True if the schema says so.
         # Let's inspect `additional_props` behaviour. It outputs whatever is there.
-        # If I want to be safe, I output `upControl` if `self.up_control` is not None. 
+        # If I want to be safe, I output `upControl` if `self.up_control` is not None.
         # But it's BooleanField with default=True. It's never None.
         # So `if not self.up_control` handles the `False` case.
         # What if it's `True`? Should we output it?
@@ -529,18 +539,18 @@ class FormKitSchemaNode(UuidIdModel):
         # But to reduce payload size, I can skip it if it matches default.
         # But let's check Pydantic export.
         pass
-        
+
         # Actually, let's keep it simple and output if it's notable?
         # Or just "always output if it's different from default"?
         # But DB default is True.
-        
+
         # Let's verify if we missed explicit True?
         # Probably okay to just output if False?
         # Let's output if defined? But strict bool is always defined.
         # I'll output if False for now, assuming True is default.
         # Wait, if I migrate data, I should check what values are present.
         # Analysis showed `upControl` 11 times. Maybe they are mostly False?
-        
+
         if self.additional_props and len(self.additional_props) > 0:
             values["additional_props"] = self.additional_props
 
@@ -592,7 +602,7 @@ class FormKitSchemaNode(UuidIdModel):
             # Node types
             if props := getattr(input_model, "additional_props", None):
                 instance.additional_props = props
-            
+
             if (icon := getattr(input_model, "icon", None)) is not None:
                 instance.icon = icon
             if (title := getattr(input_model, "title", None)) is not None:
@@ -615,17 +625,28 @@ class FormKitSchemaNode(UuidIdModel):
             # Fields that are valid Pydantic fields but not promoted to columns must be saved in additional_props
             # otherwise they are lost.
             extra_fields = [
-                "max", "rows", "cols", "prefixIcon", "classes", "value", "suffixIcon", "validationRules",
-                "maxLength", "itemClass", "itemsClass",
-                "_minDateSource", "_maxDateSource", "disabledDays"
+                "max",
+                "rows",
+                "cols",
+                "prefixIcon",
+                "classes",
+                "value",
+                "suffixIcon",
+                "validationRules",
+                "maxLength",
+                "itemClass",
+                "itemsClass",
+                "_minDateSource",
+                "_maxDateSource",
+                "disabledDays",
             ]
             # Ensure additional_props is a dict
             if instance.additional_props is None:
                 instance.additional_props = {}
             elif not isinstance(instance.additional_props, dict):
-                 # Should not happen but safety first
-                 instance.additional_props = {}
-                 
+                # Should not happen but safety first
+                instance.additional_props = {}
+
             for field in extra_fields:
                 if (val := getattr(input_model, field, None)) is not None:
                     instance.additional_props[field] = val

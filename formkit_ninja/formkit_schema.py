@@ -40,8 +40,7 @@ class FormKitSchemaMeta(BaseModel):
     __root__: dict[str, str | float | int | bool | None]
 
 
-class FormKitTypeDefinition(BaseModel):  # noqa: E701
-    ...
+class FormKitTypeDefinition(BaseModel): ...
 
 
 class FormKitContextShape(BaseModel):

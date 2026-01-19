@@ -178,12 +178,14 @@ def schema_are_same(in_: dict | str, out_: dict | str):
     for key in in_.keys():
         if key in {"options", "children"}:
             continue
-        
+
         # Relax min/step comparison (int vs str)
         if key in ("min", "step") and str(in_[key]) == str(out_[key]):
             continue
-            
-        assert in_[key] == out_[key], f"Key '{key}': {in_[key]!r} (type {type(in_[key])}) != {out_[key]!r} (type {type(out_[key])})"
+
+        assert in_[key] == out_[key], (
+            f"Key '{key}': {in_[key]!r} (type {type(in_[key])}) != {out_[key]!r} (type {type(out_[key])})"
+        )
     if "children" in in_:
         for c_in, c_out in zip(in_.get("children", []), out_.get("children", [])):
             schema_are_same(c_in, c_out)
@@ -192,20 +194,29 @@ def schema_are_same(in_: dict | str, out_: dict | str):
 @pytest.mark.django_db()
 def test_schemas(schema: dict):
     # Skip schemas with invalid python identifiers as names
-    bad_names = {"koko_1", "test", "Enterasensiblenumber", "None", "Some invalid name", 
-                 "My number", "How many times?", "Sub-setor", "This is my Name"}
-    
+    bad_names = {
+        "koko_1",
+        "test",
+        "Enterasensiblenumber",
+        "None",
+        "Some invalid name",
+        "My number",
+        "How many times?",
+        "Sub-setor",
+        "This is my Name",
+    }
+
     def has_bad_name(n: dict):
         if n.get("name") in bad_names:
             return n.get("name")
         for child in n.get("children", []):
             if isinstance(child, dict):
-                 if found := has_bad_name(child):
-                     return found
+                if found := has_bad_name(child):
+                    return found
         return None
 
     if bad := has_bad_name(schema):
-         pytest.skip(f"Schema has invalid python identifier as name: {bad}")
+        pytest.skip(f"Schema has invalid python identifier as name: {bad}")
 
     node: FormKitNode = FormKitNode.parse_obj(schema, recursive=True)
     parsed_node: formkit_schema.SelectNode = node.__root__

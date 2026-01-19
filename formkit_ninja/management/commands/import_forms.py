@@ -21,4 +21,4 @@ class Command(BaseCommand):
             schema = schemas.as_json(schema_name)
             node: FormKitNode = FormKitNode.parse_obj(schema)
             parsed_node: GroupNode = node.__root__
-            _ = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
+            list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]

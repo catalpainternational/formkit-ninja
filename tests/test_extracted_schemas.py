@@ -1,7 +1,8 @@
-
 import pytest
-from formkit_ninja.schemas import Schemas
+
 from formkit_ninja.formkit_schema import FormKitNode
+from formkit_ninja.schemas import Schemas
+
 
 def test_load_all_schemas():
     """
@@ -10,11 +11,11 @@ def test_load_all_schemas():
     schemas = Schemas()
     schema_names = schemas.list_schemas()
     assert len(schema_names) > 0, "No schemas found"
-    
+
     print(f"Testing {len(schema_names)} schemas")
-    
+
     failures = []
-    
+
     for name in schema_names:
         try:
             data = schemas.as_json(name)
@@ -23,6 +24,6 @@ def test_load_all_schemas():
             FormKitNode.parse_obj(data)
         except Exception as e:
             failures.append(f"{name}: {e}")
-            
+
     if failures:
         pytest.fail(f"Failed to parse {len(failures)} schemas:\n" + "\n".join(failures))

@@ -1,7 +1,9 @@
+from uuid import uuid4
 
 import pytest
-from formkit_ninja import models, api
-from uuid import uuid4
+
+from formkit_ninja import api, models
+
 
 @pytest.mark.django_db
 def test_issue_22_enhanced_fields():
@@ -11,9 +13,7 @@ def test_issue_22_enhanced_fields():
     # Create a parent schema and group
     schema = models.FormKitSchema.objects.create(label="Issue 22 Test Schema")
     group_node = models.FormKitSchemaNode.objects.create(
-        node_type="$formkit",
-        label="Group",
-        node={"$formkit": "group", "name": "testGroup"}
+        node_type="$formkit", label="Group", node={"$formkit": "group", "name": "testGroup"}
     )
     models.FormComponents.objects.create(schema=schema, node=group_node)
 
@@ -31,14 +31,14 @@ def test_issue_22_enhanced_fields():
         upControl=True,
         downControl=False,
         min=1,
-        max=5
+        max=5,
     )
-    
+
     # Simulate API call logic
     repeater_child, errors = api.create_or_update_child_node(repeater_payload)
     assert not errors
     assert repeater_child is not None
-    
+
     # Verify storage
     repeater_child.refresh_from_db()
     node_data = repeater_child.node
@@ -59,11 +59,11 @@ def test_issue_22_enhanced_fields():
         label="Conditional Field",
         name="conditionalField",
         parent_id=group_node.id,
-        if_condition="$get(myRepeater).value.length > 0"
+        if_condition="$get(myRepeater).value.length > 0",
     )
     cond_child, errors = api.create_or_update_child_node(conditional_payload)
     assert not errors
-    
+
     cond_child.refresh_from_db()
     assert cond_child.node["if"] == "$get(myRepeater).value.length > 0"
 
@@ -75,12 +75,12 @@ def test_issue_22_enhanced_fields():
         label="Select Field",
         name="selectField",
         parent_id=group_node.id,
-        options="$ida(group, \"filter=1\")"
+        options='$ida(group, "filter=1")',
     )
     select_child, errors = api.create_or_update_child_node(select_payload)
     assert not errors
     select_child.refresh_from_db()
-    assert select_child.node["options"] == "$ida(group, \"filter=1\")"
+    assert select_child.node["options"] == '$ida(group, "filter=1")'
 
     # 4. Custom Validation
     validation_uuid = uuid4()
@@ -91,7 +91,7 @@ def test_issue_22_enhanced_fields():
         name="validationField",
         parent_id=group_node.id,
         validationRules="myCustomRule",
-        validation="required|length:5"
+        validation="required|length:5",
     )
     val_child, errors = api.create_or_update_child_node(validation_payload)
     assert not errors
@@ -108,7 +108,7 @@ def test_issue_22_enhanced_fields():
         name="constraintsField",
         parent_id=group_node.id,
         maxLength=10,
-        disabledDays="return true"
+        disabledDays="return true",
     )
     const_child, errors = api.create_or_update_child_node(constraints_payload)
     assert not errors
