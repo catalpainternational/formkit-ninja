@@ -221,14 +221,6 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
             field_value = self.cleaned_data[form_field]
 
-            # Determine the actual JSON key for checking existence
-            actual_json_key = json_field.split("__")[0] if "__" in json_field else json_field
-
-            # Skip empty/None values for fields that don't already exist in the data
-            # This prevents accidentally adding invalid empty values to JSON
-            if field_value in (None, "") and actual_json_key not in existing_data:
-                continue
-
             if "__" in json_field:
                 # Handle nested fields like 'attrs__class'
                 nested_field_name = json_field.split("__")[0]
@@ -273,21 +265,9 @@ class JsonDecoratedFormBase(forms.ModelForm):
             The saved model instance
         """
         # Get the instance without saving to DB yet
-        # This applies cleaned_data to model fields via construct_instance
         instance = super().save(commit=False)
 
-        # Explicitly apply model field values from cleaned_data
-        # This handles fields that are explicitly defined on the form
-        if hasattr(self, "Meta") and hasattr(self.Meta, "fields"):
-            for field_name in self.Meta.fields:
-                if field_name in self.cleaned_data:
-                    # Skip JSON fields - they're handled separately
-                    if field_name not in self.get_json_fields():
-                        setattr(instance, field_name, self.cleaned_data[field_name])
-
-        # Build the update dict for JSON fields before saving
-        # This ensures we capture the correct values
-        json_updates = {}
+        # Update JSON fields on the instance
         for field, keys in self.get_json_fields().items():
             # Get existing JSON data to preserve unmanaged fields
             existing_data = getattr(instance, field, {}) or {}
@@ -298,33 +278,19 @@ class JsonDecoratedFormBase(forms.ModelForm):
             # Set on the instance
             setattr(instance, field, data)
 
-            # Store for update query
-            json_updates[field] = data
-
         # Save to database if requested
         if commit:
-            # Save the instance first to ensure pk exists
+            # First save the instance with regular model fields
+            # This ensures pk exists and model fields are saved
             instance.save()
             # Handle many-to-many relationships
             self.save_m2m()
 
-            # Build final update dict
-            update_dict = dict(json_updates)
-
-            # Add model fields from cleaned_data
-            if hasattr(self, "Meta") and hasattr(self.Meta, "fields"):
-                for field_name in self.Meta.fields:
-                    if field_name in self.cleaned_data and field_name not in update_dict:
-                        # Check it's a concrete field (not M2M or reverse relation)
-                        try:
-                            model_field = instance._meta.get_field(field_name)
-                            if hasattr(model_field, "column") and model_field.column:
-                                update_dict[field_name] = self.cleaned_data[field_name]
-                        except Exception:
-                            pass
-
-            # Explicitly update all fields using a queryset update
-            if update_dict and instance.pk:
+            # Now explicitly update JSON fields using a queryset update
+            # This bypasses the model's save() method which might interfere
+            json_field_names = self.get_json_fields().keys()
+            if json_field_names and instance.pk:
+                update_dict = {field: getattr(instance, field) for field in json_field_names}
                 type(instance).objects.filter(pk=instance.pk).update(**update_dict)
 
         return instance
