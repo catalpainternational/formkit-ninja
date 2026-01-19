@@ -301,11 +301,24 @@ class JsonDecoratedFormBase(forms.ModelForm):
             # Handle many-to-many relationships
             self.save_m2m()
 
-            # Now explicitly update JSON fields using a queryset update
-            # This bypasses the model's save() method which might interfere
-            json_field_names = self.get_json_fields().keys()
-            if json_field_names and instance.pk:
-                update_dict = {field: getattr(instance, field) for field in json_field_names}
+            # Now explicitly update fields using a queryset update
+            # This ensures both JSON fields and model fields are persisted
+            json_field_names = set(self.get_json_fields().keys())
+            update_dict = {field: getattr(instance, field) for field in json_field_names}
+
+            # Also add model fields from cleaned_data
+            if hasattr(self._meta, "fields") and self._meta.fields:
+                model_opts = instance._meta
+                for field_name in self._meta.fields:
+                    if field_name in self.cleaned_data and field_name not in json_field_names:
+                        try:
+                            model_field = model_opts.get_field(field_name)
+                            if model_field.concrete and not model_field.many_to_many:
+                                update_dict[field_name] = self.cleaned_data[field_name]
+                        except Exception:
+                            pass
+
+            if update_dict and instance.pk:
                 type(instance).objects.filter(pk=instance.pk).update(**update_dict)
 
         return instance
