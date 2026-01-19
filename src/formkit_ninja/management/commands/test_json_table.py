@@ -3,9 +3,9 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand
 from django.db import connection
-from submissionsdemo.models import Submission
 
 from formkit_ninja.models import FormKitSchema
+from submissionsdemo.models import Submission
 
 
 class Command(BaseCommand):
@@ -13,11 +13,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Load the registration schema
-        schema_file = (
-            Path(__file__).parent.parent.parent
-            / "schemas"
-            / "REGISTRATION_WITH_FAMILY.json"
-        )
+        schema_file = Path(__file__).parent.parent.parent / "schemas" / "REGISTRATION_WITH_FAMILY.json"
         with open(schema_file) as f:
             schema_data = json.load(f)
 

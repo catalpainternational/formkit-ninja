@@ -57,9 +57,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
     # key is the name of a `models.JSONField` on the model
     # value is a tuple of field names to get/set in that JSON field
     # Field names can be strings or tuples (form_field_name, json_field_name)
-    _json_fields: JsonFieldDefn = {
-        "my_json_field": ("formkit", "description", "name", "key", "id")
-    }
+    _json_fields: JsonFieldDefn = {"my_json_field": ("formkit", "description", "name", "key", "id")}
 
     def get_json_fields(self) -> JsonFieldDefn:
         """
@@ -91,9 +89,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
         if "__" in json_field:
             nested_field_name = json_field.split("__")[0]
             nested_key = json_field.split("__")[1]
-            if nested_field_name in values and isinstance(
-                values[nested_field_name], dict
-            ):
+            if nested_field_name in values and isinstance(values[nested_field_name], dict):
                 return values[nested_field_name].get(nested_key, None)
             return None
         else:
@@ -130,13 +126,9 @@ class JsonDecoratedFormBase(forms.ModelForm):
                 try:
                     model_field = self.Meta.model._meta.get_field(field)
                     if not isinstance(model_field, JSONField):
-                        raise KeyError(
-                            f"Expected a JSONField named {field} on the model"
-                        )
+                        raise KeyError(f"Expected a JSONField named {field} on the model")
                 except django.core.exceptions.FieldDoesNotExist as E:
-                    raise KeyError(
-                        f"Expected a JSONField named {field} on the model"
-                    ) from E
+                    raise KeyError(f"Expected a JSONField named {field} on the model") from E
 
         def check_no_duplicates():
             """
@@ -148,9 +140,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
             # These are all the fields we've "JSON"ified
             for json_keys in self.get_json_fields().values():
                 fields_in_model.update((k for k in json_keys if isinstance(k, str)))
-                fields_in_model.update(
-                    (k[0] for k in json_keys if not isinstance(k, str))
-                )
+                fields_in_model.update((k[0] for k in json_keys if not isinstance(k, str)))
 
             # Duplicate fields raise an exception
             duplicates = list(((k, v) for k, v in fields_in_model.items() if v > 1))
@@ -193,16 +183,10 @@ class JsonDecoratedFormBase(forms.ModelForm):
 
             # Warn about "hidden" JSON fields not exposed in the admin
             # Skip checking nested fields (with '__') as they're handled separately
-            nested_field_names = {
-                key.split("__")[0] for key in fields_from_json if "__" in key
-            }
-            if missing := list(
-                set(values) - fields_from_json - nested_field_names - {"node_type"}
-            ):
+            nested_field_names = {key.split("__")[0] for key in fields_from_json if "__" in key}
+            if missing := list(set(values) - fields_from_json - nested_field_names - {"node_type"}):
                 warnings.warn(f"Some JSON fields were hidden: {','.join(missing)}")
-                warnings.warn(
-                    f"Consider adding fields {missing} to {self.__class__.__name__}"
-                )
+                warnings.warn(f"Consider adding fields {missing} to {self.__class__.__name__}")
 
     def _build_json_data(self, keys: tuple, existing_data: dict) -> dict:
         """
@@ -304,9 +288,7 @@ class JsonDecoratedFormBase(forms.ModelForm):
             # This bypasses the model's save() method which might interfere
             json_field_names = self.get_json_fields().keys()
             if json_field_names and instance.pk:
-                update_dict = {
-                    field: getattr(instance, field) for field in json_field_names
-                }
+                update_dict = {field: getattr(instance, field) for field in json_field_names}
                 type(instance).objects.filter(pk=instance.pk).update(**update_dict)
 
         return instance
@@ -334,15 +316,10 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
     }
     html_id = forms.CharField(
         required=False,
-        help_text=(
-            "Use this ID if adding conditions to other fields "
-            "(hint: $get(my_field).value === 8)"
-        ),
+        help_text=("Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"),
     )
     name = forms.CharField(required=False)
-    formkit = forms.ChoiceField(
-        required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True
-    )
+    formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
     if_condition = forms.CharField(
         widget=forms.TextInput,
         required=False,
@@ -392,9 +369,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
         )
     }
 
-    formkit = forms.ChoiceField(
-        required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES
-    )
+    formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES)
     name = forms.CharField(required=False)
     if_condition = forms.CharField(widget=forms.TextInput, required=False)
     key = forms.CharField(required=False)
@@ -404,23 +379,15 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     help = forms.CharField(required=False)
     html_id = forms.CharField(
         required=False,
-        help_text=(
-            "Use this ID if adding conditions to other fields "
-            "(hint: $get(my_field).value === 8)"
-        ),
+        help_text=("Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"),
     )
     onchange = forms.CharField(
         required=False,
-        help_text=(
-            "Use this to trigger a function when the value of the field changes"
-        ),
+        help_text=("Use this to trigger a function when the value of the field changes"),
     )
     options = forms.CharField(
         required=False,
-        help_text=(
-            "Use this if adding Options using a JS function "
-            "(hint: $get(my_field).value )"
-        ),
+        help_text=("Use this if adding Options using a JS function (hint: $get(my_field).value )"),
     )
     validation = forms.CharField(required=False)
     validationLabel = forms.CharField(required=False)
@@ -428,10 +395,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
     validationMessages = forms.JSONField(required=False)
     validationRules = forms.CharField(
         required=False,
-        help_text=(
-            "A function for validation passed into the schema: "
-            "a key on `formSchemaData`"
-        ),
+        help_text=("A function for validation passed into the schema: a key on `formSchemaData`"),
     )
     prefixIcon = forms.CharField(required=False)
 
@@ -478,9 +442,7 @@ class FormKitElementForm(JsonDecoratedFormBase):
     _skip_translations = {"label", "placeholder"}
     _json_fields = {"node": (("el", "$el"), "name", "if_condition", "attrs__class")}
 
-    el = forms.ChoiceField(
-        required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES
-    )
+    el = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES)
     name = forms.CharField(
         required=False,
     )
@@ -725,13 +687,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         """
         return (
             None,
-            {
-                "fields": [
-                    field
-                    for field in self.get_fields(request, obj)
-                    if field not in grouped_fields
-                ]
-            },
+            {"fields": [field for field in self.get_fields(request, obj) if field not in grouped_fields]},
         )
 
     def get_fieldsets(
@@ -786,15 +742,11 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
 
         # Calculate which fields are already in grouped fieldsets
         grouped_fields = (
-            reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
-            if fieldsets
-            else set()
+            reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set()) if fieldsets else set()
         )
 
         # Add ungrouped fields at the top
-        fieldsets.insert(
-            0, self._build_ungrouped_fieldset(request, obj, grouped_fields)
-        )
+        fieldsets.insert(0, self._build_ungrouped_fieldset(request, obj, grouped_fields))
 
         logger.info(fieldsets)
         return fieldsets
@@ -988,16 +940,10 @@ class PublishedFormAdmin(admin.ModelAdmin):
         """View to display the results of the JSON table query"""
         obj: models.PublishedForm = self.get_object(request, object_id)
         if obj is None:
-            return self._get_obj_does_not_exist_redirect(
-                request, models.PublishedForm._meta, object_id
-            )
+            return self._get_obj_does_not_exist_redirect(request, models.PublishedForm._meta, object_id)
 
         # Get repeater fields from the schema
-        repeater_fields = [
-            node["name"]
-            for node in obj.published_schema
-            if node.get("$formkit") == "repeater"
-        ]
+        repeater_fields = [node["name"] for node in obj.published_schema if node.get("$formkit") == "repeater"]
 
         context = {
             **self.admin_site.each_context(request),
@@ -1018,9 +964,7 @@ class PublishedFormAdmin(admin.ModelAdmin):
                 cursor.execute(obj.get_json_table_query())
                 results = cursor.fetchall()
                 # Get column names from cursor description
-                columns = (
-                    [col[0] for col in cursor.description] if cursor.description else []
-                )
+                columns = [col[0] for col in cursor.description] if cursor.description else []
 
             context.update(
                 {
@@ -1041,9 +985,7 @@ class PublishedFormAdmin(admin.ModelAdmin):
         """View to display the results of a specific repeater query"""
         obj: models.PublishedForm = self.get_object(request, object_id)
         if obj is None:
-            return self._get_obj_does_not_exist_redirect(
-                request, models.PublishedForm._meta, object_id
-            )
+            return self._get_obj_does_not_exist_redirect(request, models.PublishedForm._meta, object_id)
 
         context = {
             **self.admin_site.each_context(request),
@@ -1064,9 +1006,7 @@ class PublishedFormAdmin(admin.ModelAdmin):
                 cursor.execute(obj.get_repeater_json_table_query(repeater_name))
                 results = cursor.fetchall()
                 # Get column names from cursor description
-                columns = (
-                    [col[0] for col in cursor.description] if cursor.description else []
-                )
+                columns = [col[0] for col in cursor.description] if cursor.description else []
 
             context.update(
                 {
@@ -1115,9 +1055,7 @@ class PublishedFormAdmin(admin.ModelAdmin):
             return mark_safe(f'<pre style="{pre_style}">{query}</pre>')
         return ""
 
-    json_table_query_with_validation.short_description = (
-        "JSON Table Query with Validation"
-    )
+    json_table_query_with_validation.short_description = "JSON Table Query with Validation"
 
     def has_add_permission(self, request):
         """Forms can only be published through the FormKitSchema admin"""

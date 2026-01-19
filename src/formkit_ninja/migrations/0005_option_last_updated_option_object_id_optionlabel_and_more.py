@@ -85,8 +85,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name="optionlabel",
-            constraint=models.UniqueConstraint(
-                fields=("option", "lang"), name="unique_option_label"
-            ),
+            constraint=models.UniqueConstraint(fields=("option", "lang"), name="unique_option_label"),
         ),
     ]

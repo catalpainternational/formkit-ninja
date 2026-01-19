@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('formkit_ninja', '0034_remove_publishedform_is_active'),
+        ("formkit_ninja", "0034_remove_publishedform_is_active"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='publishedform',
-            name='version',
+            model_name="publishedform",
+            name="version",
             field=models.IntegerField(default=1),
         ),
     ]

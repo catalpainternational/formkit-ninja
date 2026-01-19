@@ -98,17 +98,11 @@ def node_queryset_response(qs: models.NodeQS) -> NodeQSResponse:
     n: NodeStringType | NodeInactiveType | NodeReturnType
     for key, last_updated, node, protected in qs.to_response(ignore_errors=False):
         if isinstance(node, str):
-            n = NodeStringType(
-                key=key, last_updated=last_updated, protected=protected, node=node
-            )
+            n = NodeStringType(key=key, last_updated=last_updated, protected=protected, node=node)
         elif node is None:
-            n = NodeInactiveType(
-                key=key, last_updated=last_updated, protected=protected, is_active=False
-            )
+            n = NodeInactiveType(key=key, last_updated=last_updated, protected=protected, is_active=False)
         else:
-            n = NodeReturnType(
-                key=key, last_updated=last_updated, protected=protected, node=node
-            )
+            n = NodeReturnType(key=key, last_updated=last_updated, protected=protected, node=node)
         responses.append(n)
     return responses
 
@@ -135,17 +129,13 @@ def get_list_schemas(request):
 
 
 @router.get("list-nodes", response=NodeQSResponse, by_alias=True, exclude_none=True)
-def get_formkit_nodes(
-    request: HttpRequest, response: HttpResponse, latest_change: int | None = -1
-):
+def get_formkit_nodes(request: HttpRequest, response: HttpResponse, latest_change: int | None = -1):
     """
     Get all of the FormKit nodes in the database
     """
     objects: models.NodeQS = models.FormKitSchemaNode.objects
     nodes = objects.from_change(latest_change)
-    response["latest_change"] = (
-        nodes.aggregate(_=Max("track_change"))["_"] or latest_change
-    )
+    response["latest_change"] = nodes.aggregate(_=Max("track_change"))["_"] or latest_change
     add_never_cache_headers(response)
     return node_queryset_response(nodes)
 
@@ -175,9 +165,7 @@ def get_schemas(request, schema_id: UUID):
     """
     Get a schema based on its UUID
     """
-    schema: models.FormKitSchema = get_object_or_404(
-        models.FormKitSchema.objects, id=schema_id
-    )
+    schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, id=schema_id)
     model = schema.to_pydantic()
     return model
 
@@ -207,9 +195,7 @@ def get_schema_by_label(request, label: str):
     """
     Get a schema based on its label
     """
-    schema: models.FormKitSchema = get_object_or_404(
-        models.FormKitSchema.objects, label=label
-    )
+    schema: models.FormKitSchema = get_object_or_404(models.FormKitSchema.objects, label=label)
     model = schema.to_pydantic()
     return model
 
@@ -224,9 +210,7 @@ def get_node(request, node_id: UUID):
     """
     Gets a node based on its UUID
     """
-    node: models.FormKitSchemaNode = get_object_or_404(
-        models.FormKitSchemaNode.objects, id=node_id
-    )
+    node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
     instance = node.get_node()
     return instance
 
@@ -250,9 +234,7 @@ def delete_node(request, node_id: UUID):
     Delete a node based on its UUID
     """
     with transaction.atomic():
-        node: models.FormKitSchemaNode = get_object_or_404(
-            models.FormKitSchemaNode.objects, id=node_id
-        )
+        node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
         node.delete()
         # node.refresh_from_db()
         objects: models.NodeQS = models.FormKitSchemaNode.objects
@@ -314,11 +296,7 @@ class FormKitNodeIn(Schema):
         parent, parent_errors = self.parent
         if self.parent[0] and self.child:
             # Ensures that names are not "overwritten"
-            return set(
-                parent.children.exclude(pk=self.child.pk).values_list(
-                    "node__name", flat=True
-                )
-            )
+            return set(parent.children.exclude(pk=self.child.pk).values_list("node__name", flat=True))
         elif self.parent[0]:
             return set(parent.children.values_list("node__name", flat=True))
         else:
@@ -362,14 +340,11 @@ def create_or_update_child_node(payload: FormKitNodeIn):
     values = payload.dict(
         by_alias=True,
         exclude_none=True,
-        exclude={"parent_id", "uuid"}
-        | {"parent", "child", "preferred_name", "parent_names"},
+        exclude={"parent_id", "uuid"} | {"parent", "child", "preferred_name", "parent_names"},
     )
     # Ensure the name is unique and suitable
     # Do not replace existing names though
-    existing_name = (
-        child.node.get("name", None) if isinstance(child.node, dict) else None
-    )
+    existing_name = child.node.get("name", None) if isinstance(child.node, dict) else None
     if existing_name is None:
         values["name"] = payload.preferred_name
     child.node.update(values)
@@ -457,9 +432,7 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     if error_response.errors or error_response.field_errors:
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
-    return node_queryset_response(
-        models.FormKitSchemaNode.objects.filter(pk__in=[child.pk])
-    )[0]
+    return node_queryset_response(models.FormKitSchemaNode.objects.filter(pk__in=[child.pk]))[0]
 
 
 class PublishedFormListOut(ModelSchema):
@@ -516,6 +489,4 @@ def get_published_form(request, published_id: UUID, version: int = 1):
         published_id: The UUID of the form schema
         version: The version number to retrieve (default: 1)
     """
-    return get_object_or_404(
-        models.PublishedForm, schema_id=published_id, version=version
-    )
+    return get_object_or_404(models.PublishedForm, schema_id=published_id, version=version)

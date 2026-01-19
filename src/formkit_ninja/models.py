@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import json
 import logging
 import uuid
 import warnings
@@ -16,9 +17,8 @@ from django.db import models, transaction
 from django.db.models import F, Q
 from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
-from rich.console import Console
 from django.utils import timezone
-import json
+from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
 from formkit_ninja.formkit_schema import normalize_node
@@ -31,9 +31,7 @@ logger = logging.getLogger()
 
 def check_valid_django_id(key: str):
     if not key.isidentifier() or iskeyword(key) or issoftkeyword(key):
-        raise TypeError(
-            f"{key} cannot be used as a keyword. Should be a valid python identifier"
-        )
+        raise TypeError(f"{key} cannot be used as a keyword. Should be a valid python identifier")
     if key[0].isdigit():
         raise TypeError(f"{key} is not valid, it cannot start with a digit")
     if key[-1] == "_":
@@ -54,9 +52,7 @@ class UuidIdModel(models.Model):
     class Meta:
         abstract = True
 
-    id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, unique=True
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True)
     created_by = models.ForeignKey(
@@ -108,16 +104,10 @@ class OptionGroup(models.Model):
         if self.content_type:
             klass = self.content_type.model_class()
             try:
-                if klass._meta.get_field("value") is None or not hasattr(
-                    klass, "label_set"
-                ):
-                    raise ValueError(
-                        f"Expected {klass} to have a 'value' field and a 'label_set' attribute"
-                    )
+                if klass._meta.get_field("value") is None or not hasattr(klass, "label_set"):
+                    raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute")
             except Exception as E:
-                raise ValueError(
-                    f"Expected {klass} to have a 'value' field and a 'label_set' attribute"
-                ) from E
+                raise ValueError(f"Expected {klass} to have a 'value' field and a 'label_set' attribute") from E
         return super().save(*args, **kwargs)
 
     def __str__(self):
@@ -147,9 +137,7 @@ class OptionGroup(models.Model):
                     group=group_instance,
                     value=obj["pk"],
                 )
-                OptionLabel.objects.get_or_create(
-                    option=option, label=obj[field] or "", lang=language
-                )
+                OptionLabel.objects.get_or_create(option=option, label=obj[field] or "", lang=language)
 
 
 class OptionQuerySet(models.Manager):
@@ -165,15 +153,10 @@ class OptionQuerySet(models.Manager):
 
         label_model = OptionLabel
         annotated_fields = {
-            f"label_{lang}": label_model.objects.filter(
-                lang=lang, option=models.OuterRef("pk")
-            )
-            for lang in lang_codes
+            f"label_{lang}": label_model.objects.filter(lang=lang, option=models.OuterRef("pk")) for lang in lang_codes
         }
         annotated_fields_subquery = {
-            field: models.Subquery(
-                query.values("label")[:1], output_field=models.CharField()
-            )
+            field: models.Subquery(query.values("label")[:1], output_field=models.CharField())
             for field, query in annotated_fields.items()
         }
         return super().get_queryset().annotate(**annotated_fields_subquery)
@@ -191,19 +174,13 @@ class Option(UuidIdModel):
         help_text="This is a reference to the primary key of the original source object (typically a PNDS ztable ID) or a user-specified ID for a new group",
     )
     last_updated = models.DateTimeField(auto_now=True)
-    group = models.ForeignKey(
-        OptionGroup, on_delete=models.CASCADE, null=True, blank=True
-    )
+    group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE, null=True, blank=True)
     # is_active = models.BooleanField(default=True)
     order = models.IntegerField(null=True, blank=True)
 
     class Meta:
         triggers = triggers.update_or_insert_group_trigger("group_id")
-        constraints = [
-            models.UniqueConstraint(
-                fields=["group", "object_id"], name="unique_option_id"
-            )
-        ]
+        constraints = [models.UniqueConstraint(fields=["group", "object_id"], name="unique_option_id")]
         ordering = (
             "group",
             "order",
@@ -264,11 +241,7 @@ class OptionLabel(models.Model):
         return super().save(*args, **kwargs)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["option", "lang"], name="unique_option_label"
-            )
-        ]
+        constraints = [models.UniqueConstraint(fields=["option", "lang"], name="unique_option_label")]
 
 
 class NodeChildrenManager(models.Manager):
@@ -285,17 +258,10 @@ class NodeChildrenManager(models.Manager):
                 children=ArrayAgg("child", ordering=F("order")),
             )
             .annotate(Max("child__track_change"))
-            .annotate(
-                latest_change=Greatest(
-                    "child__track_change__max", "parent__track_change"
-                )
-            )
+            .annotate(latest_change=Greatest("child__track_change__max", "parent__track_change"))
         )
         if latest_change:
-            values = values.filter(
-                Q(latest_change__gt=latest_change)
-                | Q(parent__latest_change__gt=latest_change)
-            )
+            values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__latest_change__gt=latest_change))
         return values.values_list("parent_id", "latest_change", "children", named=True)
 
 
@@ -318,9 +284,7 @@ class NodeChildren(models.Model):
     class Meta:
         triggers = [
             *triggers.update_or_insert_group_trigger("parent_id"),
-            triggers.bump_sequence_value(
-                sequence_name=triggers.NODE_CHILDREN_CHANGE_ID
-            ),
+            triggers.bump_sequence_value(sequence_name=triggers.NODE_CHILDREN_CHANGE_ID),
         ]
         ordering = (
             "parent_id",
@@ -362,7 +326,7 @@ class NodeQS(models.QuerySet):
 """
 In this `FormKitSchemaNode` model we have a `schema` and an `order`.
 
-# Unique Together Constraint: 
+# Unique Together Constraint:
 The schema and order fields should be unique together, ensuring that no two nodes within the same schema can have the same order.
 
 # Order Assignment on Save:
@@ -488,12 +452,8 @@ class FormKitSchemaNode(UuidIdModel):
         null=True,
         blank=True,
     )
-    option_group = models.ForeignKey(
-        OptionGroup, null=True, blank=True, on_delete=models.PROTECT
-    )
-    children = models.ManyToManyField(
-        "self", through=NodeChildren, symmetrical=False, blank=True
-    )
+    option_group = models.ForeignKey(OptionGroup, null=True, blank=True, on_delete=models.PROTECT)
+    children = models.ManyToManyField("self", through=NodeChildren, symmetrical=False, blank=True)
     is_active = models.BooleanField(default=True)
     protected = models.BooleanField(default=False)
 
@@ -518,9 +478,7 @@ class FormKitSchemaNode(UuidIdModel):
 
     # Add a foreign key to "Schema", and an "Order" field
     # These will be unique_together
-    schema = models.ForeignKey(
-        "FormKitSchema", null=True, blank=True, on_delete=models.SET_NULL
-    )
+    schema = models.ForeignKey("FormKitSchema", null=True, blank=True, on_delete=models.SET_NULL)
     order = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
@@ -557,14 +515,9 @@ class FormKitSchemaNode(UuidIdModel):
         options = self.option_group.option_set.all().prefetch_related("optionlabel_set")
         # options: Iterable[Option] = self.option_set.all().prefetch_related("optionlabel_set")
         # TODO: This is horribly slow
-        return [
-            {"value": option.value, "label": f"{option.optionlabel_set.first().label}"}
-            for option in options
-        ]
+        return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
 
-    def get_node_values(
-        self, recursive: bool = True, options: bool = True
-    ) -> str | dict:
+    def get_node_values(self, recursive: bool = True, options: bool = True) -> str | dict:
         """
         Reify a 'dict' instance suitable for creating
         a FormKit Schema node from
@@ -581,10 +534,7 @@ class FormKitSchemaNode(UuidIdModel):
         if options and self.node_options:
             values["options"] = self.node_options
         if recursive:
-            children = [
-                c.get_node_values()
-                for c in self.children.order_by("nodechildren__order")
-            ]
+            children = [c.get_node_values() for c in self.children.order_by("nodechildren__order")]
             if children:
                 values["children"] = children
 
@@ -599,9 +549,7 @@ class FormKitSchemaNode(UuidIdModel):
 
         return values
 
-    def get_node(
-        self, recursive=False, options=False, **kwargs
-    ) -> formkit_schema.Node | str:
+    def get_node(self, recursive=False, options=False, **kwargs) -> formkit_schema.Node | str:
         """
         Return a "decorated" node instance
         with restored options and translated fields
@@ -614,9 +562,7 @@ class FormKitSchemaNode(UuidIdModel):
             elif self.node_type == "$formkit":
                 node_content = {"$formkit": "text"}
         else:
-            node_content = self.get_node_values(
-                **kwargs, recursive=recursive, options=options
-            )
+            node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
 
         formkit_node = formkit_schema.DiscriminatedNodeType.model_validate(node_content)
         return formkit_node.root
@@ -720,11 +666,7 @@ class FormKitSchemaNode(UuidIdModel):
     @classmethod
     def from_pydantic(
         cls,
-        input_models: (
-            formkit_schema.FormKitSchemaProps
-            | Iterable[formkit_schema.FormKitSchemaProps]
-            | str
-        ),
+        input_models: (formkit_schema.FormKitSchemaProps | Iterable[formkit_schema.FormKitSchemaProps] | str),
         schema: FormKitSchema | None = None,
         _depth=0,
     ) -> Iterable["FormKitSchemaNode"]:
@@ -741,27 +683,16 @@ class FormKitSchemaNode(UuidIdModel):
                 schema=schema,
             )
         if isinstance(input_models, formkit_schema.DiscriminatedNodeType):
-            yield from cls.from_pydantic(
-                input_models.root, schema=schema, _depth=_depth + 1
-            )
+            yield from cls.from_pydantic(input_models.root, schema=schema, _depth=_depth + 1)
         elif isinstance(input_models, formkit_schema.DiscriminatedNodeTypeSchema):
             for node in input_models.root:
                 yield from cls.from_pydantic(node, schema=schema, _depth=_depth + 1)
-        elif isinstance(input_models, Iterable) and not isinstance(
-            input_models, formkit_schema.FormKitSchemaProps
-        ):
-            yield from (
-                cls.from_pydantic(n, schema=schema, _depth=_depth + 1)
-                for n in input_models
-            )
+        elif isinstance(input_models, Iterable) and not isinstance(input_models, formkit_schema.FormKitSchemaProps):
+            yield from (cls.from_pydantic(n, schema=schema, _depth=_depth + 1) for n in input_models)
         elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
-            yield from cls._from_props_instance(
-                input_models, schema=schema, _depth=_depth + 1
-            )
+            yield from cls._from_props_instance(input_models, schema=schema, _depth=_depth + 1)
         else:
-            raise TypeError(
-                f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}"
-            )
+            raise TypeError(f"Expected FormKitNode or Iterable[FormKitNode], got {type(input_models)}")
 
     def to_pydantic(self, recursive=False, options=False, **kwargs):
         if self.text_content:
@@ -814,10 +745,7 @@ class FormKitSchema(UuidIdModel):
         """
         Create a "table view" of a schema
         """
-        data = [
-            n.get_node().model_dump(by_alias=True, exclude_none=True)
-            for n in self.ordered_nodes()
-        ]
+        data = [n.get_node().model_dump(by_alias=True, exclude_none=True) for n in self.ordered_nodes()]
 
         # Get intersection of keys
         keys: set[str] = set()
@@ -871,9 +799,7 @@ class FormKitSchema(UuidIdModel):
                 schema = cls.objects.create(label=label)
                 # Handle each node in the schema
                 _ = list(
-                    itertools.chain.from_iterable(
-                        FormKitSchemaNode.from_pydantic(input_model.root, schema=schema)
-                    )
+                    itertools.chain.from_iterable(FormKitSchemaNode.from_pydantic(input_model.root, schema=schema))
                 )
             return schema
         elif isinstance(input_model, formkit_schema.GroupNode):
@@ -883,9 +809,7 @@ class FormKitSchema(UuidIdModel):
             )
 
     @classmethod
-    def from_formkitschema(
-        cls, input_model: formkit_schema.FormKitSchema, label: str | None = None
-    ) -> "FormKitSchema":
+    def from_formkitschema(cls, input_model: formkit_schema.FormKitSchema, label: str | None = None) -> "FormKitSchema":
         """
         Converts a given Pydantic representation of a Schema
         to Django database fields
@@ -895,11 +819,7 @@ class FormKitSchema(UuidIdModel):
             DeprecationWarning,
         )
         instance = cls.objects.create(label=label)
-        _ = list(
-            itertools.chain.from_iterable(
-                FormKitSchemaNode.from_pydantic(input_model.root, schema=instance)
-            )
-        )
+        _ = list(itertools.chain.from_iterable(FormKitSchemaNode.from_pydantic(input_model.root, schema=instance)))
         logger.info("Schema load from JSON done")
         return instance
 
@@ -924,34 +844,26 @@ class FormKitSchema(UuidIdModel):
 
         _check_nesting(input_file)
         normalized = normalize_node(input_file)
-        schema_instance = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(
-            normalized
-        )
+        schema_instance = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(normalized)
         return cls.from_pydantic(schema_instance)
 
     def save_as_draft(self):
         """
         Save this schema as a draft
         """
-        return PublishedForm.objects.create(
-            schema=self, status=PublishedForm.Status.DRAFT
-        )
+        return PublishedForm.objects.create(schema=self, status=PublishedForm.Status.DRAFT)
 
     def publish(self):
         """
         Publish this schema
         """
-        return PublishedForm.objects.create(
-            schema=self, status=PublishedForm.Status.PUBLISHED
-        )
+        return PublishedForm.objects.create(schema=self, status=PublishedForm.Status.PUBLISHED)
 
     def get_published(self):
         """
         Get the published schema
         """
-        return PublishedForm.objects.get(
-            schema=self, status=PublishedForm.Status.PUBLISHED
-        )
+        return PublishedForm.objects.get(schema=self, status=PublishedForm.Status.PUBLISHED)
 
 
 class PublishedForm(models.Model):
@@ -983,11 +895,7 @@ class PublishedForm(models.Model):
     version = models.IntegerField(default=1, null=False, blank=False)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["schema", "version"], name="unique_schema_version"
-            )
-        ]
+        constraints = [models.UniqueConstraint(fields=["schema", "version"], name="unique_schema_version")]
 
     @property
     def name(self):
@@ -1007,16 +915,10 @@ class PublishedForm(models.Model):
         to_deactivate.update(replaced=timezone.now(), status=self.Status.REPLACED)
 
         # Hard coded schema avoids potential changes we don't intend to make
-        self.published_schema = list(
-            self.schema.get_schema_values(recursive=True, options=True)
-        )
+        self.published_schema = list(self.schema.get_schema_values(recursive=True, options=True))
 
         # Fetch the highest previous schema version, and increment by one
-        previous_version = (
-            self.__class__.objects.filter(schema=self.schema)
-            .order_by("-version")
-            .first()
-        )
+        previous_version = self.__class__.objects.filter(schema=self.schema).order_by("-version").first()
         if previous_version:
             self.version = previous_version.version + 1
         else:
@@ -1074,9 +976,7 @@ class PublishedForm(models.Model):
                 # Single node without children, wrap in list
                 schema_data = [schema_data]
         elif not isinstance(schema_data, list):
-            raise ValueError(
-                f"Invalid schema format in {json_path}. Expected list or dict with children."
-            )
+            raise ValueError(f"Invalid schema format in {json_path}. Expected list or dict with children.")
 
         # Create schema from JSON
         schema = FormKitSchema.from_json(schema_data)
@@ -1095,9 +995,7 @@ class PublishedForm(models.Model):
                 base += f" to {self.replaced.strftime('%Y-%m-%d')}"
         return base
 
-    def get_json_table_query(
-        self, table_name: str = "submissionsdemo_submission", json_column: str = "data"
-    ) -> str:
+    def get_json_table_query(self, table_name: str = "submissionsdemo_submission", json_column: str = "data") -> str:
         """
         Generate a PostgreSQL query using JSON_TABLE to extract all fields from form submissions.
         Requires PostgreSQL 17+.
@@ -1128,9 +1026,7 @@ class PublishedForm(models.Model):
                         ]:
                             field_name = f"{group_name}_{child['name']}"
                             field_type = self._get_postgres_type(child["$formkit"])
-                            columns.append(
-                                f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'"
-                            )
+                            columns.append(f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'")
                 elif node["$formkit"] != "repeater":
                     # Handle regular fields
                     field_name = node["name"]
@@ -1239,9 +1135,7 @@ class PublishedForm(models.Model):
                         ]:
                             field_name = f"{group_name}_{child['name']}"
                             field_type = self._get_postgres_type(child["$formkit"])
-                            columns.append(
-                                f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'"
-                            )
+                            columns.append(f"{field_name} {field_type} PATH '$.{group_name}.{child['name']}'")
                 elif node["$formkit"] != "repeater":
                     # Handle regular fields
                     field_name = node["name"]
@@ -1258,11 +1152,9 @@ class PublishedForm(models.Model):
                             "group",
                             "repeater",
                         ]:
-                            field_name = f"{repeater_name}_{i+1}_{child['name']}"
+                            field_name = f"{repeater_name}_{i + 1}_{child['name']}"
                             field_type = self._get_postgres_type(child["$formkit"])
-                            columns.append(
-                                f"{field_name} {field_type} PATH '$.{repeater_name}[{i}].{child['name']}'"
-                            )
+                            columns.append(f"{field_name} {field_type} PATH '$.{repeater_name}[{i}].{child['name']}'")
 
         # Create the JSON_TABLE query
         columns_str = ",\n    ".join(columns)

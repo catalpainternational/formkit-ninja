@@ -24,9 +24,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "order",
-                    models.PositiveIntegerField(
-                        db_index=True, editable=False, verbose_name="order"
-                    ),
+                    models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order"),
                 ),
                 (
                     "child",

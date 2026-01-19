@@ -4,6 +4,8 @@ import warnings
 from keyword import iskeyword
 from typing import Iterable, Literal, NamedTuple, Type
 
+from pydantic import BaseModel, EmailStr, Field, create_model
+
 from formkit_ninja import formkit_schema
 from formkit_ninja.formkit_schema import (
     DiscriminatedNodeType,
@@ -11,7 +13,6 @@ from formkit_ninja.formkit_schema import (
     NodeTypes,
     RepeaterNode,
 )
-from pydantic import BaseModel, EmailStr, create_model, Field
 
 FormKitType = formkit_schema.FormKitType
 
@@ -79,9 +80,7 @@ class NodePath:
         return model_name
 
     def suggest_class_name(self):
-        model_name = "".join(
-            map(lambda n: n.capitalize(), map(self.safe_node_name, self.nodes))
-        )
+        model_name = "".join(map(lambda n: n.capitalize(), map(self.safe_node_name, self.nodes)))
         return model_name
 
     def suggest_field_name(self):
@@ -464,9 +463,7 @@ class NodePath:
         ) AS jt
         """
 
-    def to_json_table_query_with_validation(
-        self, table_name: str, json_column: str
-    ) -> str:
+    def to_json_table_query_with_validation(self, table_name: str, json_column: str) -> str:
         """
         Generate a PostgreSQL query that includes validation of the JSON structure.
         This ensures the field exists and has the correct type.
@@ -496,9 +493,7 @@ class NodePath:
             case "tel":
                 type_validation = f"AND jt.{self.fieldname} ~ '^[0-9]+$'"
             case "date" | "datepicker":
-                type_validation = (
-                    f"AND jt.{self.fieldname} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}'"
-                )
+                type_validation = f"AND jt.{self.fieldname} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}'"
             case "uuid":
                 type_validation = f"AND jt.{self.fieldname} ~ '^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$'"
             case "checkbox":

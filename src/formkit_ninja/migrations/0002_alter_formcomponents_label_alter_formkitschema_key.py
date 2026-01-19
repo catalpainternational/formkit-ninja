@@ -12,9 +12,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="formcomponents",
             name="label",
-            field=models.CharField(
-                help_text="Used as a human-readable label", max_length=1024
-            ),
+            field=models.CharField(help_text="Used as a human-readable label", max_length=1024),
         ),
         migrations.AlterField(
             model_name="formkitschema",

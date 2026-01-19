@@ -21,9 +21,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formkitschema",
             name="label",
-            field=models.TextField(
-                blank=True, help_text="Used as a human-readable label", null=True
-            ),
+            field=models.TextField(blank=True, help_text="Used as a human-readable label", null=True),
         ),
         migrations.AlterField(
             model_name="formcomponents",

@@ -20,15 +20,11 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "order",
-                    models.PositiveIntegerField(
-                        db_index=True, editable=False, verbose_name="order"
-                    ),
+                    models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order"),
                 ),
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
@@ -61,9 +57,7 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
@@ -134,9 +128,7 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
@@ -158,15 +150,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "value",
-                    models.CharField(
-                        blank=True, editable=False, max_length=5000, null=True
-                    ),
+                    models.CharField(blank=True, editable=False, max_length=5000, null=True),
                 ),
                 (
                     "context",
-                    models.CharField(
-                        blank=True, editable=False, max_length=1024, null=True
-                    ),
+                    models.CharField(blank=True, editable=False, max_length=1024, null=True),
                 ),
                 ("msgstr", models.CharField(help_text="The string", max_length=5000)),
                 (
@@ -199,15 +187,11 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "order",
-                    models.PositiveIntegerField(
-                        db_index=True, editable=False, verbose_name="order"
-                    ),
+                    models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order"),
                 ),
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
@@ -252,15 +236,11 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "order",
-                    models.PositiveIntegerField(
-                        db_index=True, editable=False, verbose_name="order"
-                    ),
+                    models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order"),
                 ),
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
@@ -310,15 +290,11 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "order",
-                    models.PositiveIntegerField(
-                        db_index=True, editable=False, verbose_name="order"
-                    ),
+                    models.PositiveIntegerField(db_index=True, editable=False, verbose_name="order"),
                 ),
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
@@ -409,9 +385,7 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, primary_key=True, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False),
                 ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),

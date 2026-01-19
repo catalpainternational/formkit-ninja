@@ -4,27 +4,36 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('formkit_ninja', '0029_publishedform_replaced'),
+        ("formkit_ninja", "0029_publishedform_replaced"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='formkitschema',
-            name='nodes',
+            model_name="formkitschema",
+            name="nodes",
         ),
         migrations.AlterField(
-            model_name='formkitschemanode',
-            name='description',
-            field=models.CharField(blank=True, help_text='Describe the type of data / reason for this component', max_length=4000, null=True),
+            model_name="formkitschemanode",
+            name="description",
+            field=models.CharField(
+                blank=True,
+                help_text="Describe the type of data / reason for this component",
+                max_length=4000,
+                null=True,
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanodeevent',
-            name='description',
-            field=models.CharField(blank=True, help_text='Describe the type of data / reason for this component', max_length=4000, null=True),
+            model_name="formkitschemanodeevent",
+            name="description",
+            field=models.CharField(
+                blank=True,
+                help_text="Describe the type of data / reason for this component",
+                max_length=4000,
+                null=True,
+            ),
         ),
         migrations.DeleteModel(
-            name='FormComponents',
+            name="FormComponents",
         ),
     ]

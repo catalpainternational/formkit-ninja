@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('formkit_ninja', '0033_publishedform_status'),
+        ("formkit_ninja", "0033_publishedform_status"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='publishedform',
-            name='is_active',
+            model_name="publishedform",
+            name="is_active",
         ),
     ]
