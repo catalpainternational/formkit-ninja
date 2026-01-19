@@ -150,7 +150,7 @@ def test_import_old_format_repeater_via_pydantic():
 
     # Check node structure
     assert db_node.node["$formkit"] == "repeater"
-    
+
     # Promoted fields are stored in model fields, NOT in node JSON
     # (they're excluded from node dict in from_pydantic, lines 670-688 models.py)
     assert "addLabel" not in db_node.node  # Excluded from JSON
@@ -160,7 +160,6 @@ def test_import_old_format_repeater_via_pydantic():
     assert db_node.add_label == "Add Item (Old)"
     assert db_node.up_control is True
     assert db_node.down_control is False
-
 
 
 @pytest.mark.django_db
