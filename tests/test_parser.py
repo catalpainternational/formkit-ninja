@@ -2,6 +2,7 @@ import json
 from importlib.resources import files
 
 from formkit_ninja import formkit_schema, samples
+from tests.fixtures import dropdown_with_options, simple_repeater_node
 
 
 def test_node_parse():
