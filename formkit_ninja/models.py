@@ -514,14 +514,7 @@ class FormKitSchemaNode(UuidIdModel):
                 if val.is_integer():
                     values["step"] = int(val)
                 else:
-                    values["step"] = str(val)  # Keep as string if float to avoid precision issues?
-                    # Actually formkit uses string for step often.
-                    # But the test expects "0.1" (string).
-                    # If I cast to float, 0.1 becomes 0.1.
-                    # If the input was "0.1", output "0.1".
-                    # If the input was 0.1 (float), output 0.1.
-                    # Pydantic model for NumberNode allows int | str. Not float?
-                    # Let's check NumberNode.
+                    values["step"] = str(val)  # Keep as string if float to avoid precision issues
                     values["step"] = self.step
             except ValueError:
                 values["step"] = self.step
@@ -531,34 +524,7 @@ class FormKitSchemaNode(UuidIdModel):
             values["upControl"] = self.up_control
         if not self.down_control:
             values["downControl"] = self.down_control
-
-        # Pydantic defaults are True. But if we want to be explicit:
-        # Actually FormKit default is True. So we only need to output if it's False?
-        # Or if it's explicitly set?
-        # The DB default is True. Pydantic default is True.
-        # So if DB says True, and we omit it, Pydantic/FormKit assumes True. Correct.
-        # But if DB says False, we MUST output False.
-        # But wait, we also have cases where we want to enforce True if the schema says so.
-        # Let's inspect `additional_props` behaviour. It outputs whatever is there.
-        # If I want to be safe, I output `upControl` if `self.up_control` is not None.
-        # But it's BooleanField with default=True. It's never None.
-        # So `if not self.up_control` handles the `False` case.
-        # What if it's `True`? Should we output it?
-        # If I output `upControl: True`, it's harmless.
-        # But to reduce payload size, I can skip it if it matches default.
-        # But let's check Pydantic export.
         pass
-
-        # Actually, let's keep it simple and output if it's notable?
-        # Or just "always output if it's different from default"?
-        # But DB default is True.
-
-        # Let's verify if we missed explicit True?
-        # Probably okay to just output if False?
-        # Let's output if defined? But strict bool is always defined.
-        # I'll output if False for now, assuming True is default.
-        # Wait, if I migrate data, I should check what values are present.
-        # Analysis showed `upControl` 11 times. Maybe they are mostly False?
 
         if self.additional_props and len(self.additional_props) > 0:
             values["additional_props"] = self.additional_props

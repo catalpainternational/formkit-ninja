@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 
 from formkit_ninja import api, models
+from tests.factories import FormKitSchemaFactory, GroupNodeFactory
 
 
 @pytest.mark.django_db
@@ -10,11 +11,9 @@ def test_issue_22_enhanced_fields():
     """
     Verify that enhanced fields for Issue #22 are correctly stored and retrieved.
     """
-    # Create a parent schema and group
-    schema = models.FormKitSchema.objects.create(label="Issue 22 Test Schema")
-    group_node = models.FormKitSchemaNode.objects.create(
-        node_type="$formkit", label="Group", node={"$formkit": "group", "name": "testGroup"}
-    )
+    # Create a parent schema and group using factories
+    schema = FormKitSchemaFactory(label="Issue 22 Test Schema")
+    group_node = GroupNodeFactory(label="Group", node={"$formkit": "group", "name": "testGroup"})
     models.FormComponents.objects.create(schema=schema, node=group_node)
 
     # 1. Repeater with new properties
