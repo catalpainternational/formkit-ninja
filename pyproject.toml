@@ -37,7 +37,6 @@ dev = [
     "psycopg2-binary>=2.9.7",
     "factory-boy>=3.3.0",
     "django-stubs>=4.2.6",
-    "ty>=0.0.12",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -70,3 +69,24 @@ plugins = [
 
 [tool.django-stubs]
 django_settings_module = "testproject.settings"
+
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "testproject.settings"
+addopts = "--reuse-db --cov=formkit_ninja --cov-report=term-missing --cov-report=html --cov-branch"
+
+[tool.coverage.run]
+source = ["formkit_ninja"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
