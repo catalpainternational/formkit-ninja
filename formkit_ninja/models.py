@@ -11,6 +11,7 @@ import pgtrigger
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Q
 from django.db.models.aggregates import Max
@@ -26,12 +27,14 @@ logger = logging.getLogger()
 
 
 def check_valid_django_id(key: str):
-    if not key.isidentifier() or iskeyword(key) or issoftkeyword(key):
-        raise TypeError(f"{key} cannot be used as a keyword. Should be a valid python identifier")
+    if not key:
+        raise ValidationError("Name cannot be empty")
     if key[0].isdigit():
-        raise TypeError(f"{key} is not valid, it cannot start with a digit")
+        raise ValidationError(f"{key} is not valid, it cannot start with a digit")
+    if not key.isidentifier() or iskeyword(key) or issoftkeyword(key):
+        raise ValidationError(f"{key} cannot be used as a keyword. Should be a valid python identifier")
     if key[-1] == "_":
-        raise TypeError(f"{key} is not valid, it cannot end with an underscore")
+        raise ValidationError(f"{key} is not valid, it cannot end with an underscore")
 
 
 class UuidIdModel(models.Model):
@@ -417,12 +420,14 @@ class FormKitSchemaNode(UuidIdModel):
         # We're also going to verify that the 'key' is a valid identifier
         # Keep in mind that the `key` may be used as part of a model so
         # should be valid Django fieldname too
-        if isinstance(self.node, dict) and "name" in self.node:
-            key: str = self.node.get("name", None)
-            check_valid_django_id(key)
+        if isinstance(self.node, dict) and self.node_type in ("$formkit", "$el"):
+            if key := self.node.get("name"):
+                check_valid_django_id(key)
 
-        # Auto-promote common props
-        if self.additional_props:
+        # Auto-promote common props from both 'additional_props' and 'node'
+        for source in (self.additional_props, self.node):
+            if not isinstance(source, dict):
+                continue
             for field in (
                 "icon",
                 "title",
@@ -434,7 +439,7 @@ class FormKitSchemaNode(UuidIdModel):
                 "upControl",
                 "downControl",
             ):
-                if field in self.additional_props:
+                if field in source:
                     if field == "sectionsSchema":
                         target_field = "sections_schema"
                     elif field == "addLabel":
@@ -446,8 +451,7 @@ class FormKitSchemaNode(UuidIdModel):
                     else:
                         target_field = field
 
-                    val = self.additional_props.pop(field)
-                    # Safe set
+                    val = source.pop(field)
                     setattr(self, target_field, val)
 
         return super().save(*args, **kwargs)
