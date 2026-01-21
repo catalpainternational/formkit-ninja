@@ -49,7 +49,20 @@ class JSONMappingMixin:
             for key in keys:
                 form_field, json_field = key if isinstance(key, tuple) else (key, key)
                 if f := self.fields.get(form_field):
-                    f.initial = self._extract_field_value(values, json_field)
+                    val = self._extract_field_value(values, json_field)
+                    if val is None:
+                        # Fallback: check if the json_field corresponds to a model attribute
+                        # using the same promotion logic as in models.py
+                        mapping = {
+                            "addLabel": "add_label",
+                            "upControl": "up_control",
+                            "downControl": "down_control",
+                            "sectionsSchema": "sections_schema",
+                        }
+                        attr_name = mapping.get(json_field, json_field)
+                        if hasattr(instance, attr_name):
+                            val = getattr(instance, attr_name)
+                    f.initial = val
 
     def _build_json_data(self, keys: tuple, existing_data: dict) -> dict:
         data = existing_data.copy() if isinstance(existing_data, dict) else {}
@@ -243,7 +256,7 @@ class FormKitElementForm(FormKitBaseForm):
     _json_fields = {"node": (("el", "$el"), "name", "if_condition", "attrs__class")}
 
     el = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES)
-    name = forms.CharField(required=True)
+    name = forms.CharField(required=False)
     attrs__class = forms.CharField(required=False)
     if_condition = forms.CharField(widget=forms.TextInput, required=False)
 

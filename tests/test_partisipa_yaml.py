@@ -40,6 +40,7 @@ def test_yaml_preserve_additional_props_on_save():
         data={
             "label": instance.label,
             "description": "",
+            "additional_props": json.dumps(fields["additional_props"]),  # Preserve by including in form
             "option_group": "",
             "is_active": True,
             "protected": False,

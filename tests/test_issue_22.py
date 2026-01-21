@@ -42,13 +42,23 @@ def test_issue_22_enhanced_fields():
     repeater_child.refresh_from_db()
     node_data = repeater_child.node
     assert node_data["$formkit"] == "repeater"
+    # Basic data is in JSON
     assert node_data["addLabel"] == "Add Item"
-    assert node_data["itemClass"] == "my-item-class"
-    assert node_data["itemsClass"] == "my-items-class"
     assert node_data["upControl"] is True
     assert node_data["downControl"] is False
     assert node_data["min"] == 1
     assert node_data["max"] == 5
+
+    # Promoted fields are ALSO stored on model
+    assert repeater_child.add_label == "Add Item"
+    assert repeater_child.up_control is True
+    assert repeater_child.down_control is False
+    assert repeater_child.min == "1"
+    assert repeater_child.max == "5"
+
+    # Additional props are also available
+    assert node_data.get("itemClass") == "my-item-class"
+    assert node_data.get("itemsClass") == "my-items-class"
 
     # 2. Conditional Logic
     conditional_uuid = uuid4()
@@ -150,10 +160,10 @@ def test_import_old_format_repeater_via_pydantic():
     # Check node structure
     assert db_node.node["$formkit"] == "repeater"
 
-    # Promoted fields are stored in model fields, NOT in node JSON
-    # (they're excluded from node dict in from_pydantic, lines 670-688 models.py)
-    assert "addLabel" not in db_node.node  # Excluded from JSON
-    assert "upControl" not in db_node.node  # Excluded from JSON
+    # Promoted fields are stored in model fields AND in node JSON
+    assert db_node.node["addLabel"] == "Add Item (Old)"
+    assert db_node.node["upControl"] is True
+    assert db_node.node["downControl"] is False
 
     # Verify model fields populated correctly
     assert db_node.add_label == "Add Item (Old)"
@@ -234,5 +244,5 @@ def test_edge_case_bool_string_conversions():
         db_nodes = list(models.FormKitSchemaNode.from_pydantic(node.__root__))
 
         assert len(db_nodes) == 1
-        # Promoted fields are stored in model fields, not in node JSON
         assert db_nodes[0].up_control == expected_val
+        assert db_nodes[0].node["upControl"] == expected_val

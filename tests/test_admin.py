@@ -88,6 +88,7 @@ def test_admin_multiple_json_fields_saved():
     data = {
         "label": node.label,
         "description": "",
+        "additional_props": '{"a": 1}',  # Preserve existing props by including in form data
         "option_group": "",
         "is_active": True,
         "protected": False,

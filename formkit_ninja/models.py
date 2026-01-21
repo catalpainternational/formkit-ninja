@@ -397,6 +397,7 @@ class FormKitSchemaNode(UuidIdModel):
     readonly = models.BooleanField(default=False)
     sections_schema = models.JSONField(null=True, blank=True, help_text="Schema for the sections")
     min = models.CharField(max_length=256, null=True, blank=True)
+    max = models.CharField(max_length=256, null=True, blank=True)
     step = models.CharField(max_length=256, null=True, blank=True)
     add_label = models.CharField(max_length=1024, null=True, blank=True)
     up_control = models.BooleanField(default=True)
@@ -434,6 +435,7 @@ class FormKitSchemaNode(UuidIdModel):
                 "readonly",
                 "sectionsSchema",
                 "min",
+                "max",
                 "step",
                 "addLabel",
                 "upControl",
@@ -451,7 +453,9 @@ class FormKitSchemaNode(UuidIdModel):
                     else:
                         target_field = field
 
-                    val = source.pop(field)
+                    val = source.get(field)
+                    if field in ("min", "max", "step") and val is not None:
+                        val = str(val)
                     setattr(self, target_field, val)
 
         return super().save(*args, **kwargs)
@@ -512,6 +516,11 @@ class FormKitSchemaNode(UuidIdModel):
                 values["min"] = int(self.min)
             except ValueError:
                 values["min"] = self.min
+        if self.max:
+            try:
+                values["max"] = int(self.max)
+            except ValueError:
+                values["max"] = self.max
         if self.step:
             try:
                 val = float(self.step)
@@ -528,10 +537,9 @@ class FormKitSchemaNode(UuidIdModel):
             values["upControl"] = self.up_control
         if not self.down_control:
             values["downControl"] = self.down_control
-        pass
 
         if self.additional_props and len(self.additional_props) > 0:
-            values["additional_props"] = self.additional_props
+            values.update(self.additional_props)
 
         if values == {}:
             if self.node_type == "$el":
@@ -595,6 +603,8 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.sections_schema = sections_schema
             if (min_val := getattr(input_model, "min", None)) is not None:
                 instance.min = str(min_val)
+            if (max_val := getattr(input_model, "max", None)) is not None:
+                instance.max = str(max_val)
             if (step := getattr(input_model, "step", None)) is not None:
                 instance.step = str(step)
             if (add_label := getattr(input_model, "addLabel", None)) is not None:
@@ -631,6 +641,9 @@ class FormKitSchemaNode(UuidIdModel):
 
             for field in extra_fields:
                 if (val := getattr(input_model, field, None)) is not None:
+                    # 'max' is now a model field, so don't put it in additional_props
+                    if field == "max":
+                        continue
                     instance.additional_props[field] = val
 
             try:
@@ -655,15 +668,6 @@ class FormKitSchemaNode(UuidIdModel):
                     "children",
                     "additional_props",
                     "node_type",
-                    "icon",
-                    "title",
-                    "readonly",
-                    "sectionsSchema",
-                    "min",
-                    "step",
-                    "addLabel",
-                    "upControl",
-                    "downControl",
                 },
                 exclude_none=True,
                 exclude_unset=True,
