@@ -2,7 +2,7 @@ import json
 from importlib.resources import files
 
 from formkit_ninja import formkit_schema, samples
-from tests.fixtures import dropdown_with_options, simple_repeater_node
+from tests.fixtures import dropdown_with_options, simple_repeater_node  # noqa: F401
 
 
 def test_node_parse():
@@ -42,13 +42,13 @@ def test_meeting_type_node():
     assert len(reloaded[0]["options"]) == 2
 
 
-def test_repeater(simple_repeater_node):
+def test_repeater(simple_repeater_node):  # noqa: F811
     """Test repeater node parsing using factory fixture"""
     node_data = simple_repeater_node.get_node_values(recursive=True)
     formkit_schema.FormKitNode.parse_obj(node_data)
 
 
-def test_dropdown(dropdown_with_options):
+def test_dropdown(dropdown_with_options):  # noqa: F811
     """Test dropdown node parsing using factory fixture"""
     node_data = dropdown_with_options.get_node_values(recursive=True, options=True)
     formkit_schema.FormKitNode.parse_obj(node_data)
