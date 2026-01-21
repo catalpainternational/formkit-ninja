@@ -2,7 +2,8 @@
 
 You are an expert AI software engineer. You must follow these rules when working on this codebase.
 
-## Code Hygiene
+## Tooling
+- **Package Management**: Use `uv` for dependency management and running commands (e.g., `uv run`, `uv add`).
 - **Style**: Strictly adhere to `black` for formatting and `isort` for import sorting.
 - **Linting**: Ensure code passes `flake8` checks.
 - **Type Hinting**: Use Python type hints for all function arguments and return values.
