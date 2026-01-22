@@ -10,9 +10,7 @@ def test_node_parse():
 
 
 def test_login_form():
-    schema = json.loads(
-        files(samples).joinpath("form_generation_example.json").read_text()
-    )
+    schema = json.loads(files(samples).joinpath("form_generation_example.json").read_text())
     formkit_schema.DiscriminatedNodeType.model_validate(schema[0])
 
 
@@ -32,9 +30,7 @@ def test_meeting_type_node():
     schema = json.loads(files(samples).joinpath("meeting_type_node.json").read_text())
     formkit_schema.DiscriminatedNodeType.model_validate(schema[0])
     meeting_type_schema = formkit_schema.DiscriminatedNodeTypeSchema.model_validate(schema)
-    reloaded = json.loads(
-        meeting_type_schema.model_dump_json(by_alias=True, exclude_none=True)
-    )
+    reloaded = json.loads(meeting_type_schema.model_dump_json(by_alias=True, exclude_none=True))
 
     assert reloaded[0].get("id") == "meeting_type"
     assert reloaded[0].get("name") == "meeting_type"

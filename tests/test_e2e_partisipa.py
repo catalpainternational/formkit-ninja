@@ -34,14 +34,10 @@ class TestPartisipaComplexForms:
         assert node_count >= 20, f"Expected ~24 nodes, got {node_count}"
 
         relationship_count = models.NodeChildren.objects.count()
-        assert relationship_count >= 20, (
-            f"Expected ~23 relationships, got {relationship_count}"
-        )
+        assert relationship_count >= 20, f"Expected ~23 relationships, got {relationship_count}"
 
         # Check for the CFM_2_FF_4 root node
-        cfm_form = models.FormKitSchemaNode.objects.filter(
-            node__contains={"name": "CFM_2_FF_4"}
-        ).first()
+        cfm_form = models.FormKitSchemaNode.objects.filter(node__contains={"name": "CFM_2_FF_4"}).first()
         assert cfm_form is not None, "CFM_2_FF_4 form not found"
         assert cfm_form.node["$formkit"] == "group"
 
@@ -53,9 +49,7 @@ class TestPartisipaComplexForms:
         We should be able to create a schema and assign nodes to it.
         """
         # Find the root node (CFM_2_FF_4)
-        root_node = models.FormKitSchemaNode.objects.filter(
-            node__contains={"name": "CFM_2_FF_4"}
-        ).first()
+        root_node = models.FormKitSchemaNode.objects.filter(node__contains={"name": "CFM_2_FF_4"}).first()
         assert root_node is not None
 
         # Create a schema and assign the root node
@@ -78,12 +72,8 @@ class TestPartisipaComplexForms:
         assign_children_to_schema(root_node, schema)
 
         # Verify assignment
-        schema_node_count = models.FormKitSchemaNode.objects.filter(
-            schema=schema
-        ).count()
-        assert schema_node_count > 20, (
-            f"Expected >20 nodes in schema, got {schema_node_count}"
-        )
+        schema_node_count = models.FormKitSchemaNode.objects.filter(schema=schema).count()
+        assert schema_node_count > 20, f"Expected >20 nodes in schema, got {schema_node_count}"
 
     def test_get_nested_node_values(self):
         """
@@ -92,9 +82,7 @@ class TestPartisipaComplexForms:
         This tests the recursive functionality with real complex data.
         """
         # Get a parent node
-        parent_nodes = models.NodeChildren.objects.values_list(
-            "parent", flat=True
-        ).distinct()[:5]
+        parent_nodes = models.NodeChildren.objects.values_list("parent", flat=True).distinct()[:5]
 
         for parent_id in parent_nodes:
             parent = models.FormKitSchemaNode.objects.get(pk=parent_id)
@@ -107,9 +95,7 @@ class TestPartisipaComplexForms:
             # If it has children, verify they're in the output
             children = models.NodeChildren.objects.filter(parent=parent)
             if children.exists():
-                assert "children" in values, (
-                    f"Parent {parent.label or parent.pk} should have children in values"
-                )
+                assert "children" in values, f"Parent {parent.label or parent.pk} should have children in values"
                 assert isinstance(values["children"], list)
                 assert len(values["children"]) == children.count()
 
@@ -129,9 +115,7 @@ class TestPartisipaComplexForms:
         schema = models.FormKitSchema.objects.create(label="Admin Workflow Test")
 
         # Find diverse nodes to add
-        group_node = models.FormKitSchemaNode.objects.filter(
-            node__contains={"$formkit": "group"}
-        ).first()
+        group_node = models.FormKitSchemaNode.objects.filter(node__contains={"$formkit": "group"}).first()
         assert group_node is not None
 
         # Assign to schema
@@ -180,9 +164,7 @@ class TestPartisipaComplexForms:
         parent = models.FormKitSchemaNode.objects.get(pk=parent_id)
 
         # Get children in order
-        children_rels = models.NodeChildren.objects.filter(parent=parent).order_by(
-            "order"
-        )
+        children_rels = models.NodeChildren.objects.filter(parent=parent).order_by("order")
 
         orders = [rel.order for rel in children_rels]
 
@@ -202,9 +184,7 @@ class TestPartisipaComplexForms:
         schema = models.FormKitSchema.objects.create(label="Structure Test")
 
         # Get a root node with children
-        root_node = models.FormKitSchemaNode.objects.filter(
-            node__contains={"name": "CFM_2_FF_4"}
-        ).first()
+        root_node = models.FormKitSchemaNode.objects.filter(node__contains={"name": "CFM_2_FF_4"}).first()
 
         if root_node:
             # Recursively assign to schema
@@ -241,16 +221,12 @@ class TestPartisipaComplexForms:
         nodes_to_add = []
 
         # Add a group
-        group = models.FormKitSchemaNode.objects.filter(
-            node__contains={"$formkit": "group"}
-        ).first()
+        group = models.FormKitSchemaNode.objects.filter(node__contains={"$formkit": "group"}).first()
         if group:
             nodes_to_add.append(group)
 
         # Add a repeater if available
-        repeater = models.FormKitSchemaNode.objects.filter(
-            node__contains={"$formkit": "repeater"}
-        ).first()
+        repeater = models.FormKitSchemaNode.objects.filter(node__contains={"$formkit": "repeater"}).first()
         if repeater:
             nodes_to_add.append(repeater)
 
@@ -292,9 +268,7 @@ class TestPartisipaFormPublishing:
         schema = models.FormKitSchema.objects.create(label="Test Publish")
 
         # Add a simple group from fixture
-        group_node = models.FormKitSchemaNode.objects.filter(
-            node__contains={"$formkit": "group"}
-        ).first()
+        group_node = models.FormKitSchemaNode.objects.filter(node__contains={"$formkit": "group"}).first()
         assert group_node is not None
 
         group_node.schema = schema
@@ -311,11 +285,7 @@ class TestPartisipaFormPublishing:
         # Verify the published schema is a frozen snapshot
         first_node = published.published_schema[0]
         assert isinstance(first_node, dict)
-        assert (
-            "$formkit" in first_node
-            or "children" in first_node
-            or isinstance(first_node, str)
-        )
+        assert "$formkit" in first_node or "children" in first_node or isinstance(first_node, str)
 
     def test_form_versioning(self):
         """
@@ -370,9 +340,7 @@ class TestPartisipaNodeRelationships:
         Verifies that deeply nested forms work correctly.
         """
         # Find the deepest parent
-        root = models.FormKitSchemaNode.objects.filter(
-            node__contains={"name": "CFM_2_FF_4"}
-        ).first()
+        root = models.FormKitSchemaNode.objects.filter(node__contains={"name": "CFM_2_FF_4"}).first()
         assert root is not None
 
         # Traverse the hierarchy
@@ -409,9 +377,7 @@ class TestPartisipaNodeRelationships:
             assert rel.child is not None, f"Relationship {rel.pk} has null child"
 
             # Parent and child must be different
-            assert rel.parent.pk != rel.child.pk, (
-                f"Node {rel.parent.pk} is its own child"
-            )
+            assert rel.parent.pk != rel.child.pk, f"Node {rel.parent.pk} is its own child"
 
     def test_complex_form_get_node_recursive(self):
         """
@@ -420,9 +386,7 @@ class TestPartisipaNodeRelationships:
         This is what the admin uses to display forms.
         """
         # Get a parent with children
-        parents = models.NodeChildren.objects.values_list(
-            "parent", flat=True
-        ).distinct()
+        parents = models.NodeChildren.objects.values_list("parent", flat=True).distinct()
 
         for parent_id in list(parents)[:5]:
             parent = models.FormKitSchemaNode.objects.get(pk=parent_id)
@@ -453,9 +417,7 @@ class TestPartisipaNodeRelationships:
         """
 
         # Find a group node to add a child to
-        group_node = models.FormKitSchemaNode.objects.filter(
-            node__contains={"$formkit": "group"}
-        ).first()
+        group_node = models.FormKitSchemaNode.objects.filter(node__contains={"$formkit": "group"}).first()
         assert group_node is not None
 
         # Create a new child node
@@ -480,9 +442,7 @@ class TestPartisipaNodeRelationships:
         parent_values = group_node.get_node_values(recursive=True)
         if "children" in parent_values:
             # New child should be in there
-            child_names = [
-                c.get("name") for c in parent_values["children"] if isinstance(c, dict)
-            ]
+            child_names = [c.get("name") for c in parent_values["children"] if isinstance(c, dict)]
             assert "new_text_field" in child_names
 
     def test_reorder_children(self):
@@ -506,9 +466,7 @@ class TestPartisipaNodeRelationships:
         parent_id = parent_with_children["parent"]
 
         # Get children
-        children = list(
-            models.NodeChildren.objects.filter(parent_id=parent_id).order_by("order")
-        )
+        children = list(models.NodeChildren.objects.filter(parent_id=parent_id).order_by("order"))
 
         assert len(children) >= 3
 
@@ -525,9 +483,7 @@ class TestPartisipaNodeRelationships:
         second.save(update_fields=["order"])
 
         # Verify reordering worked
-        reordered = list(
-            models.NodeChildren.objects.filter(parent_id=parent_id).order_by("order")
-        )
+        reordered = list(models.NodeChildren.objects.filter(parent_id=parent_id).order_by("order"))
 
         assert reordered[0].child.pk == children[1].child.pk
         assert reordered[1].child.pk == children[0].child.pk

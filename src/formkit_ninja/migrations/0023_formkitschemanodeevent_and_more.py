@@ -25,9 +25,7 @@ class Migration(migrations.Migration):
                 ("pgh_label", models.TextField(help_text="The event label.")),
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4, editable=False, serialize=False
-                    ),
+                    models.UUIDField(default=uuid.uuid4, editable=False, serialize=False),
                 ),
                 ("created", models.DateTimeField(auto_now_add=True, null=True)),
                 ("updated", models.DateTimeField(auto_now=True, null=True)),

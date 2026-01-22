@@ -21,9 +21,7 @@ def _read_file(filename: str):
 
 
 def _parse_file(filename: str):
-    return formkit_schema.DiscriminatedNodeTypeSchema.model_validate(
-        _read_file(filename)
-    )
+    return formkit_schema.DiscriminatedNodeTypeSchema.model_validate(_read_file(filename))
 
 
 @pytest.fixture(params=list(schemas))
@@ -68,9 +66,7 @@ def test_create_from_old_schema():
 
     # The node...
     first_node = c.nodes().first()
-    dictify = first_node.get_node(recursive=True).model_dump(
-        exclude_none=True, by_alias=True
-    )
+    dictify = first_node.get_node(recursive=True).model_dump(exclude_none=True, by_alias=True)
 
     # The node looks like this:
     # {'children': [], 'node_type': 'element', 'el': 'div', 'attrs': {'style': {...}, 'data-foo': 'bar'}}
@@ -82,9 +78,7 @@ def test_create_from_old_schema():
 
     # A 'group' node
     first_node = c.nodes().first()
-    first_node.get_node().model_dump(
-        exclude_none=True, by_alias=True, exclude={"children"}
-    )
+    first_node.get_node().model_dump(exclude_none=True, by_alias=True, exclude={"children"})
 
 
 @pytest.mark.django_db()
@@ -112,9 +106,7 @@ def test_create_from_schema():
 
     # The node...
     first_node = c.nodes().first()
-    dictify = first_node.get_node(recursive=True).model_dump(
-        exclude_none=True, by_alias=True
-    )
+    dictify = first_node.get_node(recursive=True).model_dump(exclude_none=True, by_alias=True)
 
     # The node looks like this:
     # {'children': [], 'node_type': 'element', 'el': 'div', 'attrs': {'style': {...}, 'data-foo': 'bar'}}
@@ -126,9 +118,7 @@ def test_create_from_schema():
 
     # A 'group' node
     first_node = c.nodes().first()
-    first_node.get_node().model_dump(
-        exclude_none=True, by_alias=True, exclude={"children"}
-    )
+    first_node.get_node().model_dump(exclude_none=True, by_alias=True, exclude={"children"})
 
 
 @pytest.mark.django_db()
@@ -150,9 +140,7 @@ def test_parse_el_priority(el_priority: dict):
     assert node_in_the_db.node_type == "$el"
 
     el_priority["children"][0] == "Priority "
-    children: list[models.FormKitSchemaNode] = list(
-        node_in_the_db.children.all().order_by("nodechildren__order")
-    )
+    children: list[models.FormKitSchemaNode] = list(node_in_the_db.children.all().order_by("nodechildren__order"))
 
     # The first child is an 'text'
     node = children[0]
@@ -167,10 +155,7 @@ def test_parse_el_priority(el_priority: dict):
     assert node.node["attrs"] == {"class": "ml-1"}
     # With appropriate `by_alias` and `exclude_defaults` we should get an equal output as input
     assert (
-        node.to_pydantic(recursive=True).model_dump(
-            by_alias=True, exclude_defaults=True
-        )
-        == el_priority["children"][1]
+        node.to_pydantic(recursive=True).model_dump(by_alias=True, exclude_defaults=True) == el_priority["children"][1]
     )
 
 
@@ -183,9 +168,7 @@ def test_children_string():
         {
             "$el": "div",
             "children": "Hello world",
-            "attrs": {
-                "class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"
-            },
+            "attrs": {"class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"},
         }
     ).root
     assert node.children == "Hello world"
@@ -211,10 +194,7 @@ def test_nested_additional(nested_formkit_text_node: dict):
     assert node.root.children[0].additional_props == {"class": "red"}
     assert "additional_props" not in node.root.model_dump()["children"][0]
     assert "class" in node.root.model_dump()["children"][0]
-    assert (
-        node.root.model_dump(by_alias=True, exclude_none=True)
-        == nested_formkit_text_node
-    )
+    assert node.root.model_dump(by_alias=True, exclude_none=True) == nested_formkit_text_node
 
 
 @pytest.mark.django_db()
@@ -279,9 +259,7 @@ def test_additional_props(formkit_text_node: dict):
     assert from_the_db.root.model_dump()["class"] == "red"
 
     # And back to JSON
-    json_from_the_db = from_the_db.model_dump(
-        by_alias=True, exclude_none=True, exclude={"node_type"}
-    )
+    json_from_the_db = from_the_db.model_dump(by_alias=True, exclude_none=True, exclude={"node_type"})
     assert json_from_the_db["class"] == "red"
 
     # Additional checks that the JSON output is equivalent to the JSON input
@@ -537,9 +515,7 @@ class TestPublishedFormStatus:
 
         # Check only one is active
         assert (
-            models.PublishedForm.objects.filter(
-                schema=schema, status=models.PublishedForm.Status.PUBLISHED
-            ).count()
+            models.PublishedForm.objects.filter(schema=schema, status=models.PublishedForm.Status.PUBLISHED).count()
             == 1
         )
 
@@ -571,7 +547,7 @@ class TestPublishedFormStatus:
         assert timezone.now().strftime("%Y-%m-%d") in str(published)
 
         # Replaced form (create new version to replace the published one)
-        replaced = schema.publish()
+        schema.publish()  # Creates a replacement, updates the published instance
         published.refresh_from_db()
         assert "Test Schema (Replaced) -" in str(published)
         assert "to" in str(published)  # Should show replacement date

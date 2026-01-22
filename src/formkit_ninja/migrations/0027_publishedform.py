@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         (
             "formkit_ninja",
@@ -38,11 +37,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={
-                "constraints": [
-                    models.UniqueConstraint(
-                        fields=("schema", "is_active"), name="unique_active_schema"
-                    )
-                ],
+                "constraints": [models.UniqueConstraint(fields=("schema", "is_active"), name="unique_active_schema")],
             },
         ),
     ]

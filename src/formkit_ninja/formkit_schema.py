@@ -24,8 +24,8 @@ from pydantic import (
     PlainValidator,
     RootModel,
     Tag,
-    model_serializer,
     field_serializer,
+    model_serializer,
     model_validator,
 )
 from pydantic.functional_validators import field_validator
@@ -56,9 +56,7 @@ def parse_vue_syntax(key: str, value: str) -> tuple[str, Any] | tuple[None, None
     return None, None
 
 
-def get_additional_props(
-    object_in: dict[str, Any], exclude: set[str] = set()
-) -> dict[str, Any] | None:
+def get_additional_props(object_in: dict[str, Any], exclude: set[str] = set()) -> dict[str, Any] | None:
     """
     Parse the object or database return (dict)
     to break out fields we handle in JSON
@@ -97,8 +95,7 @@ class FormKitSchemaMeta(RootModel):
     root: dict[str, str | float | int | bool | None]
 
 
-class FormKitTypeDefinition(BaseModel):
-    ...
+class FormKitTypeDefinition(BaseModel): ...
 
 
 class FormKitContextShape(BaseModel):
@@ -132,23 +129,13 @@ class FormKitAttributeValue(RootModel):
     The possible value types of attributes (in the schema)
     """
 
-    root: (
-        str
-        | int
-        | float
-        | bool
-        | None
-        | FormKitSchemaAttributes
-        | FormKitSchemaAttributesCondition
-    )
+    root: str | int | float | bool | None | FormKitSchemaAttributes | FormKitSchemaAttributesCondition
 
 
 class FormKitSchemaAttributes(RootModel):
     root: dict[
         str,
-        FormKitAttributeValue
-        | FormKitSchemaAttributes
-        | FormKitSchemaAttributesCondition,
+        FormKitAttributeValue | FormKitSchemaAttributes | FormKitSchemaAttributesCondition,
     ]
 
 
@@ -202,9 +189,7 @@ class FormKitSchemaProps(BaseModel):
     validation: str | None = Field(None)
     validationLabel: str | None = Field(None, alias="validation-label")
     validationVisibility: str | None = Field(None, alias="validation-visibility")
-    validationMessages: Annotated[
-        Dict[str, str] | str | None, Field(None, alias="validation-messages")
-    ]
+    validationMessages: Annotated[Dict[str, str] | str | None, Field(None, alias="validation-messages")]
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None, alias="prefix-icon")
@@ -212,9 +197,7 @@ class FormKitSchemaProps(BaseModel):
 
     # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
-    additional_props: None | Dict[str, str | int | Dict[str, Any]] = Field(
-        None, validate_default=True
-    )
+    additional_props: None | Dict[str, str | int | Dict[str, Any]] = Field(None, validate_default=True)
     model_config = ConfigDict(populate_by_name=True)
 
     # Specifically for the "tel" input
@@ -271,9 +254,7 @@ class FormKitSchemaProps(BaseModel):
         return {**data, "node_type": node_type}
 
     @field_serializer("children")
-    def serialize_children(
-        self, children: str | list["FormKitSchemaProps"] | None, _info
-    ):
+    def serialize_children(self, children: str | list["FormKitSchemaProps"] | None, _info):
         if children is None:
             return
         if isinstance(children, str):

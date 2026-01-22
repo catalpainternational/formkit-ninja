@@ -54,9 +54,7 @@ class Command(BaseCommand):
                 "validationVisibility": "live",
             },
         )
-        self.stdout.write(
-            f"  ✓ Created text input with validation (ID: {text_node.id})"
-        )
+        self.stdout.write(f"  ✓ Created text input with validation (ID: {text_node.id})")
 
         # 2. Number input with min=0 (falsy value test)
         order += 1
@@ -88,9 +86,7 @@ class Command(BaseCommand):
                 "value": False,  # Falsy boolean
             },
         )
-        self.stdout.write(
-            f"  ✓ Created checkbox with value=False (ID: {checkbox_node.id})"
-        )
+        self.stdout.write(f"  ✓ Created checkbox with value=False (ID: {checkbox_node.id})")
 
         # 4. Element with nested attrs (nested field test)
         order += 1
@@ -108,9 +104,7 @@ class Command(BaseCommand):
                 "children": "This is a test container",
             },
         )
-        self.stdout.write(
-            f"  ✓ Created element with nested attrs (ID: {element_node.id})"
-        )
+        self.stdout.write(f"  ✓ Created element with nested attrs (ID: {element_node.id})")
 
         # 5. Email with additional_props (preservation test)
         order += 1
@@ -131,9 +125,7 @@ class Command(BaseCommand):
                 "nested": {"key": "value"},
             },
         )
-        self.stdout.write(
-            f"  ✓ Created email with additional_props (ID: {email_node.id})"
-        )
+        self.stdout.write(f"  ✓ Created email with additional_props (ID: {email_node.id})")
 
         # 6. Text with empty placeholder (falsy value test)
         order += 1
@@ -148,9 +140,7 @@ class Command(BaseCommand):
                 "placeholder": "",  # Empty string - should save as empty
             },
         )
-        self.stdout.write(
-            f"  ✓ Created text with empty placeholder (ID: {empty_placeholder_node.id})"
-        )
+        self.stdout.write(f"  ✓ Created text with empty placeholder (ID: {empty_placeholder_node.id})")
 
         # 7. Select/dropdown
         order += 1
@@ -239,9 +229,7 @@ class Command(BaseCommand):
                 "value": 0,  # Falsy value that must be preserved
             },
         )
-        self.stdout.write(
-            f"  ✓ Created hidden field with value=0 (ID: {hidden_node.id})"
-        )
+        self.stdout.write(f"  ✓ Created hidden field with value=0 (ID: {hidden_node.id})")
 
         # 12. Submit button
         order += 1

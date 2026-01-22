@@ -108,10 +108,7 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": (
-            "django.contrib.auth.password_validation."
-            "UserAttributeSimilarityValidator"
-        ),
+        "NAME": ("django.contrib.auth.password_validation.UserAttributeSimilarityValidator"),
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
@@ -177,11 +174,7 @@ LOGGING = {
     "handlers": {
         "console": {
             "level": "DEBUG",
-            "class": (
-                "rich.logging.RichHandler"
-                if importlib.util.find_spec("rich")
-                else "logging.StreamHandler"
-            ),
+            "class": ("rich.logging.RichHandler" if importlib.util.find_spec("rich") else "logging.StreamHandler"),
         }
     },
     "loggers": {

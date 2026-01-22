@@ -28,7 +28,6 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "django-stubs>=5.1.1",
-    "isort",
     "mypy>=1.13.0",
     "psycopg2-binary>=2.9.10",
     "pytest-cov>=6.0.0",
@@ -55,8 +54,13 @@ ignore_missing_imports = true
 django_settings_module = "testproject.settings"
 
 [tool.ruff]
-# Ruff configuration
+line-length = 120
+target-version = "py311"
 
 [tool.ruff.lint]
-# Enable the isort rules
-select = ["E", "F", "I"]  # E: pycodestyle, F: pyflakes, I: isort
+select = ["E", "F", "I", "W"]  # E: pycodestyle errors, F: pyflakes, I: isort, W: pycodestyle warnings
+ignore = ["E501"]  # Line too long - handled by formatter
+
+[tool.ruff.format]
+# Use double quotes, like black
+quote-style = "double"

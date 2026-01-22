@@ -27,8 +27,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name="option",
-            constraint=models.UniqueConstraint(
-                fields=("group", "object_id"), name="unique_option_id"
-            ),
+            constraint=models.UniqueConstraint(fields=("group", "object_id"), name="unique_option_id"),
         ),
     ]
