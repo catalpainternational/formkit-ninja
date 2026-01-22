@@ -75,6 +75,9 @@ django_settings_module = "testproject.settings"
 DJANGO_SETTINGS_MODULE = "testproject.settings"
 addopts = "--reuse-db --cov=formkit_ninja --cov-report=term-missing --cov-report=html --cov-branch"
 
+# Playwright: uncomment for "headed", interactive tests
+#addopts = "--reuse-db --cov=formkit_ninja --cov-report=term-missing --cov-report=html --cov-branch --headed"
+
 [tool.coverage.run]
 source = ["formkit_ninja"]
 omit = [

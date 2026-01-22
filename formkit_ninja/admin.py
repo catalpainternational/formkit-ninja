@@ -288,7 +288,7 @@ class NodeChildrenInline(admin.TabularInline):
     model = models.NodeChildren
     fields = ("child", "order", "track_change")
     ordering = ("order",)
-    readonly_fields = ("track_change", "child")
+    readonly_fields = ("track_change",)
     fk_name = "parent"
     extra = 0
 

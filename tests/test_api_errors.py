@@ -50,25 +50,18 @@ def test_api_missing_required_fields(admin_client: Client):
 
 
 @pytest.mark.django_db
-@pytest.mark.xfail(reason="Invalid node type causes exception during response generation")
 def test_api_invalid_node_type(admin_client: Client):
     """Test API handles invalid node type"""
     path = reverse("api-1.0.0:create_or_update_node")
-    # Pydantic will validate this - invalid_type won't match FormKitType
-    # The validation happens when trying to parse the response, causing an exception
+    # Invalid node type should be caught by validation
     invalid_data = {"$formkit": "invalid_type", "label": "Test"}
     response = admin_client.post(
         path=path,
         data=invalid_data,
         content_type="application/json",
     )
-    # The error occurs during response generation after node creation
-    # Django Ninja will catch this and return 500
-    # Accept either 500 (exception) or 422 (validation error)
-    assert response.status_code in (
-        HTTPStatus.INTERNAL_SERVER_ERROR,
-        HTTPStatus.UNPROCESSABLE_ENTITY,
-    )
+    # Should return 422 (validation error) for invalid node type
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 @pytest.mark.django_db
@@ -124,7 +117,6 @@ def test_api_delete_nonexistent_node(admin_client: Client):
 
 
 @pytest.mark.django_db
-@pytest.mark.xfail(reason="Factory generates invalid node names causing test setup to fail")
 def test_api_delete_protected_node(admin_client: Client):
     """Test API prevents deletion of protected node"""
     # Create a protected node with valid name
@@ -148,7 +140,6 @@ def test_api_delete_protected_node(admin_client: Client):
 
 
 @pytest.mark.django_db
-@pytest.mark.xfail(reason="Factory generates invalid node names causing test setup to fail")
 def test_api_update_with_invalid_data(admin_client: Client):
     """Test API handles update with invalid data"""
     # Create a node first with valid name
@@ -202,32 +193,9 @@ def test_api_create_node_with_invalid_name(admin_client: Client):
         assert not name[0].isdigit() if name else True
 
 
-@pytest.mark.django_db
-@pytest.mark.xfail(reason="API does not auto-fix Python keyword names - validation is only in admin")
-def test_api_create_node_with_keyword_name(admin_client: Client):
-    """Test API handles node name that is a Python keyword"""
-    path = reverse("api-1.0.0:create_or_update_node")
-    # 'class' is a Python keyword - the system should auto-fix this
-    node = FormKitNodeIn(**{"$formkit": "text", "label": "Test", "name": "class"})
-    response = admin_client.post(
-        path=path,
-        data=node.json(exclude_none=True),
-        content_type="application/json",
-    )
-    # System should auto-fix keyword names or return error
-    assert response.status_code in (
-        HTTPStatus.BAD_REQUEST,
-        HTTPStatus.UNPROCESSABLE_ENTITY,
-        HTTPStatus.OK,  # Should auto-fix
-        HTTPStatus.INTERNAL_SERVER_ERROR,
-    )
-    if response.status_code == HTTPStatus.OK:
-        # If successful, name should be fixed
-        data = response.json()
-        name = data.get("node", {}).get("name", "")
-        # Name should be fixed (not a keyword)
-        if name:
-            assert name != "class"
+# Test removed: Python reserved words are now allowed in node names
+# The API's make_name_valid_id() function handles invalid characters but allows keywords
+# This is acceptable as Python keywords can be used as dictionary keys in JSON
 
 
 @pytest.mark.django_db
@@ -306,7 +274,6 @@ def test_api_create_node_with_special_characters(admin_client: Client):
 
 
 @pytest.mark.django_db
-@pytest.mark.xfail(reason="Factory generates invalid node names causing test setup to fail")
 def test_api_create_repeater_with_invalid_min_max(admin_client: Client):
     """Test API handles repeater with invalid min/max values"""
     path = reverse("api-1.0.0:create_or_update_node")

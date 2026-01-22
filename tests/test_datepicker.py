@@ -127,5 +127,8 @@ def test_datepicker_get_node_values():
     values = node.get_node_values()
     assert values["$formkit"] == "datepicker"
     assert values["format"] == "DD/MM/YY"
-    # Additional props should be included
-    assert "_minDateSource" in values.get("additional_props", {})
+    # Additional props should be included (merged directly into values, not nested)
+    assert "_minDateSource" in values
+    assert values["_minDateSource"] == "start_date"
+    assert "_maxDateSource" in values
+    assert values["_maxDateSource"] == "end_date"

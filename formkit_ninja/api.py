@@ -14,7 +14,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.cache import add_never_cache_headers
 from ninja import Field, ModelSchema, Router, Schema
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 from formkit_ninja import formkit_schema, models
 
@@ -316,6 +316,16 @@ class FormKitNodeIn(Schema):
     # Used for "Add Group"
     # This should include an `icon`, `title` and `id` for the second level group
     additional_props: dict[str, str | int] | None = None
+
+    @validator("formkit")
+    def validate_formkit_type(cls, v):
+        """Validate that the formkit type is a valid FormKit type"""
+        from typing import get_args
+
+        valid_types = get_args(formkit_schema.FORMKIT_TYPE)
+        if v not in valid_types:
+            raise ValueError(f"Invalid FormKit type: {v}. Valid types are: {', '.join(valid_types)}")
+        return v
 
     @cached_property
     def parent(self):

@@ -46,14 +46,26 @@ def test_create_repeater_with_child(admin_page: Page, live_server: live_server_h
     # 3. Try to add the Child Text Input as a child to the Repeater
     # Target the specific inline for children (fk_name="parent")
     children_inline = admin_page.locator("#parent-group")
-    children_inline.get_by_role("link", name="Add another Node children").click()
 
-    # Check if 'child' field is accessible. If it's readonly, it will be text, not a select.
-    child_select = children_inline.locator("select[name^='parent-0-child']")
+    # Wait for the inline to be visible
+    children_inline.wait_for(state="visible", timeout=5000)
 
-    # If it's not a select, this will fail or we can assert on it.
+    add_link = children_inline.get_by_role("link", name="Add another Node children")
+    add_link.click()
+
+    # Wait a moment for the new row to be added via JavaScript
+    admin_page.wait_for_timeout(1000)
+
+    # Wait for the select field to appear - try multiple patterns
+    # Django admin inlines can have different naming patterns
+    child_select = admin_page.locator("#parent-group select").first
+    admin_page.pause()
+    child_select.wait_for(state="visible", timeout=5000)
+
+    # Verify it's visible
     assert child_select.is_visible(), "Child select should be visible in the inline"
 
+    # Select the child node by label (the option text format is "Node: <label>")
     child_select.select_option(label="Node: Child Text Input")
     admin_page.get_by_role("button", name="Save", exact=True).click()
 
