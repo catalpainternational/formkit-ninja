@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import itertools
 import logging
 import uuid
 import warnings
 from keyword import iskeyword, issoftkeyword
-from typing import Iterable, TypedDict, get_args
+from typing import Any, Iterable, TypedDict, get_args
 
 import pghistory
 import pgtrigger
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import F, Q
+from django.db.models import Q
 from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
 from rich.console import Console
@@ -27,12 +27,14 @@ logger = logging.getLogger()
 
 
 def check_valid_django_id(key: str):
-    if not key.isidentifier() or iskeyword(key) or issoftkeyword(key):
-        raise TypeError(f"{key} cannot be used as a keyword. Should be a valid python identifier")
+    if not key:
+        raise ValidationError("Name cannot be empty")
     if key[0].isdigit():
-        raise TypeError(f"{key} is not valid, it cannot start with a digit")
+        raise ValidationError(f"{key} is not valid, it cannot start with a digit")
+    if not key.isidentifier() or iskeyword(key) or issoftkeyword(key):
+        raise ValidationError(f"{key} cannot be used as a keyword. Should be a valid python identifier")
     if key[-1] == "_":
-        raise TypeError(f"{key} is not valid, it cannot end with an underscore")
+        raise ValidationError(f"{key} is not valid, it cannot end with an underscore")
 
 
 class UuidIdModel(models.Model):
@@ -102,21 +104,25 @@ class OptionGroup(models.Model):
         return f"{self.group}"
 
     @classmethod
-    def copy_table(cls, model: models.Model, field: str, language: str | None = "en", group: str | None = None):
+    def copy_table(
+        cls, model: type[models.Model], field: str, language: str | None = "en", group_name: str | None = None
+    ):
         """
         Copy an existing table of options into this OptionGroup
         """
 
         with transaction.atomic():
-            group, group_created = cls.objects.get_or_create(
-                group=group, content_type=ContentType.objects.get_for_model(model)
+            group_obj, group_created = cls.objects.get_or_create(
+                group=group_name, content_type=ContentType.objects.get_for_model(model)
             )
-            log(group)
+            log(group_obj)
 
-            for obj in model.objects.values("pk", field):
+            from typing import Any, cast
+
+            for obj in cast(Any, model).objects.values("pk", field):
                 option, option_created = Option.objects.get_or_create(
                     object_id=obj["pk"],
-                    group=group,
+                    group=group_obj,
                     value=obj["pk"],
                 )
                 OptionLabel.objects.get_or_create(option=option, label=obj[field] or "", lang=language)
@@ -258,7 +264,7 @@ class NodeChildrenManager(models.Manager):
             self.get_queryset()
             .values("parent_id")
             .annotate(
-                children=ArrayAgg("child", ordering=F("order")),
+                children=ArrayAgg("child", ordering="order"),
             )
             .annotate(Max("child__track_change"))
             .annotate(latest_change=Greatest("child__track_change__max", "parent__track_change"))
@@ -303,7 +309,7 @@ class NodeQS(models.QuerySet):
 
     def to_response(
         self, ignore_errors: bool = True, options: bool = True
-    ) -> Iterable[tuple[uuid.UUID, int, formkit_schema.Node | str | None, bool]]:
+    ) -> Iterable[tuple[uuid.UUID, int | None, formkit_schema.Node | str | None, bool]]:
         """
         Return a set of FormKit nodes
         """
@@ -386,6 +392,16 @@ class FormKitSchemaNode(UuidIdModel):
         blank=True,
         help_text="User space for additional, less used props",
     )
+    icon = models.CharField(max_length=256, null=True, blank=True)
+    title = models.CharField(max_length=1024, null=True, blank=True)
+    readonly = models.BooleanField(default=False)
+    sections_schema = models.JSONField(null=True, blank=True, help_text="Schema for the sections")
+    min = models.CharField(max_length=256, null=True, blank=True)
+    max = models.CharField(max_length=256, null=True, blank=True)
+    step = models.CharField(max_length=256, null=True, blank=True)
+    add_label = models.CharField(max_length=1024, null=True, blank=True)
+    up_control = models.BooleanField(default=True)
+    down_control = models.BooleanField(default=True)
 
     text_content = models.TextField(
         null=True, blank=True, help_text="Content for a text element, for children of an $el type component"
@@ -405,9 +421,43 @@ class FormKitSchemaNode(UuidIdModel):
         # We're also going to verify that the 'key' is a valid identifier
         # Keep in mind that the `key` may be used as part of a model so
         # should be valid Django fieldname too
-        if isinstance(self.node, dict) and "name" in self.node:
-            key: str = self.node.get("name", None)
-            check_valid_django_id(key)
+        if isinstance(self.node, dict) and self.node_type in ("$formkit", "$el"):
+            if key := self.node.get("name"):
+                check_valid_django_id(key)
+
+        # Auto-promote common props from both 'additional_props' and 'node'
+        for source in (self.additional_props, self.node):
+            if not isinstance(source, dict):
+                continue
+            for field in (
+                "icon",
+                "title",
+                "readonly",
+                "sectionsSchema",
+                "min",
+                "max",
+                "step",
+                "addLabel",
+                "upControl",
+                "downControl",
+            ):
+                if field in source:
+                    if field == "sectionsSchema":
+                        target_field = "sections_schema"
+                    elif field == "addLabel":
+                        target_field = "add_label"
+                    elif field == "upControl":
+                        target_field = "up_control"
+                    elif field == "downControl":
+                        target_field = "down_control"
+                    else:
+                        target_field = field
+
+                    val = source.get(field)
+                    if field in ("min", "max", "step") and val is not None:
+                        val = str(val)
+                    setattr(self, target_field, val)
+
         return super().save(*args, **kwargs)
 
     @property
@@ -417,7 +467,7 @@ class FormKitSchemaNode(UuidIdModel):
         separately stored, this step is necessary to
         reinstate them
         """
-        if opts := self.node.get("options"):
+        if self.node and (opts := self.node.get("options")):
             return opts
 
         if not self.option_group:
@@ -425,7 +475,13 @@ class FormKitSchemaNode(UuidIdModel):
         options = self.option_group.option_set.all().prefetch_related("optionlabel_set")
         # options: Iterable[Option] = self.option_set.all().prefetch_related("optionlabel_set")
         # TODO: This is horribly slow
-        return [{"value": option.value, "label": f"{option.optionlabel_set.first().label}"} for option in options]
+        return [
+            {
+                "value": option.value,
+                "label": f"{label_obj.label if (label_obj := option.optionlabel_set.first()) else ''}",
+            }
+            for option in options
+        ]
 
     def get_node_values(self, recursive: bool = True, options: bool = True) -> str | dict:
         """
@@ -447,8 +503,43 @@ class FormKitSchemaNode(UuidIdModel):
             children = [c.get_node_values() for c in self.children.order_by("nodechildren__order")]
             if children:
                 values["children"] = children
+        if self.icon:
+            values["icon"] = self.icon
+        if self.title:
+            values["title"] = self.title
+        if self.readonly:
+            values["readonly"] = self.readonly
+        if self.sections_schema:
+            values["sectionsSchema"] = self.sections_schema
+        if self.min:
+            try:
+                values["min"] = int(self.min)
+            except ValueError:
+                values["min"] = self.min
+        if self.max:
+            try:
+                values["max"] = int(self.max)
+            except ValueError:
+                values["max"] = self.max
+        if self.step:
+            try:
+                val = float(self.step)
+                if val.is_integer():
+                    values["step"] = int(val)
+                else:
+                    values["step"] = str(val)  # Keep as string if float to avoid precision issues
+                    values["step"] = self.step
+            except ValueError:
+                values["step"] = self.step
+        if self.add_label:
+            values["addLabel"] = self.add_label
+        if not self.up_control:  # Only write if false? Or always? Defaults are True.
+            values["upControl"] = self.up_control
+        if not self.down_control:
+            values["downControl"] = self.down_control
+
         if self.additional_props and len(self.additional_props) > 0:
-            values["additional_props"] = self.additional_props
+            values.update(self.additional_props)
 
         if values == {}:
             if self.node_type == "$el":
@@ -467,13 +558,15 @@ class FormKitSchemaNode(UuidIdModel):
             return self.text_content or ""
         if self.node == {} or self.node is None:
             if self.node_type == "$el":
-                node_content = {"$el": "span"}
+                node_content_dict: dict[str, Any] = {"$el": "span"}
             elif self.node_type == "$formkit":
-                node_content = {"$formkit": "text"}
+                node_content_dict = {"$formkit": "text"}
+            else:
+                node_content_dict = {}
         else:
-            node_content = self.get_node_values(**kwargs, recursive=recursive, options=options)
+            node_content_dict = self.get_node_values(**kwargs, recursive=recursive, options=options)  # type: ignore[assignment]
 
-        formkit_node = formkit_schema.FormKitNode.parse_obj(node_content, recursive=recursive)
+        formkit_node = formkit_schema.FormKitNode.parse_obj(node_content_dict, recursive=recursive)
         return formkit_node.__root__
 
     @classmethod
@@ -484,7 +577,8 @@ class FormKitSchemaNode(UuidIdModel):
             yield cls.objects.create(node_type="text", label=input_models, text_content=input_models)
 
         elif isinstance(input_models, Iterable) and not isinstance(input_models, formkit_schema.FormKitSchemaProps):
-            yield from (cls.from_pydantic(n) for n in input_models)
+            for n in input_models:
+                yield from cls.from_pydantic(n)
 
         elif isinstance(input_models, formkit_schema.FormKitSchemaProps):
             input_model = input_models
@@ -498,6 +592,60 @@ class FormKitSchemaNode(UuidIdModel):
             # Node types
             if props := getattr(input_model, "additional_props", None):
                 instance.additional_props = props
+
+            if (icon := getattr(input_model, "icon", None)) is not None:
+                instance.icon = icon
+            if (title := getattr(input_model, "title", None)) is not None:
+                instance.title = title
+            if (readonly := getattr(input_model, "readonly", None)) is not None:
+                instance.readonly = readonly
+            if (sections_schema := getattr(input_model, "sectionsSchema", None)) is not None:
+                instance.sections_schema = sections_schema
+            if (min_val := getattr(input_model, "min", None)) is not None:
+                instance.min = str(min_val)
+            if (max_val := getattr(input_model, "max", None)) is not None:
+                instance.max = str(max_val)
+            if (step := getattr(input_model, "step", None)) is not None:
+                instance.step = str(step)
+            if (add_label := getattr(input_model, "addLabel", None)) is not None:
+                instance.add_label = add_label
+            if (up_control := getattr(input_model, "upControl", None)) is not None:
+                instance.up_control = up_control
+            if (down_control := getattr(input_model, "downControl", None)) is not None:
+                instance.down_control = down_control
+
+            # Fields that are valid Pydantic fields but not promoted to columns must be saved in additional_props
+            # otherwise they are lost.
+            extra_fields = [
+                "max",
+                "rows",
+                "cols",
+                "prefixIcon",
+                "classes",
+                "value",
+                "suffixIcon",
+                "validationRules",
+                "maxLength",
+                "itemClass",
+                "itemsClass",
+                "_minDateSource",
+                "_maxDateSource",
+                "disabledDays",
+            ]
+            # Ensure additional_props is a dict
+            if instance.additional_props is None:
+                instance.additional_props = {}
+            elif not isinstance(instance.additional_props, dict):
+                # Should not happen but safety first
+                instance.additional_props = {}
+
+            for field in extra_fields:
+                if (val := getattr(input_model, field, None)) is not None:
+                    # 'max' is now a model field, so don't put it in additional_props
+                    if field == "max":
+                        continue
+                    instance.additional_props[field] = val
+
             try:
                 node_type = getattr(input_model, "node_type")
             except Exception as E:
@@ -546,7 +694,7 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.option_group = OptionGroup.objects.create(
                     group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}"
                 )
-                for option in Option.from_pydantic(options, group=instance.option_group):
+                for option in Option.from_pydantic(options, group=instance.option_group):  # type: ignore[arg-type]
                     pass
                 instance.save()
 
@@ -619,7 +767,9 @@ class FormKitSchema(UuidIdModel):
         to Django database fields
         """
         instance = cls.objects.create(label=label)
-        for node in itertools.chain.from_iterable(FormKitSchemaNode.from_pydantic(input_model.__root__)):
+        node: FormKitSchemaNode
+        nodes: Iterable[FormKitSchemaNode] = FormKitSchemaNode.from_pydantic(input_model.__root__)  # type: ignore
+        for node in nodes:
             log(f"[yellow]Saving {node}")
             node.save()
             FormComponents.objects.create(schema=instance, node=node, label=str(f"{str(instance)} {str(node)}"))

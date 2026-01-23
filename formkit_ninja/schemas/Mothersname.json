@@ -1,0 +1,5 @@
+{
+  "name": "mom_name",
+  "label": "Mother's name",
+  "$formkit": "text"
+}

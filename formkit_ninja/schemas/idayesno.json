@@ -1,0 +1,9 @@
+{
+  "name": "_ida_yesno",
+  "label": "$ida(yesno)",
+  "help": "Active",
+  "validation": "required",
+  "placeholder": "Active",
+  "$formkit": "select",
+  "options": "$ida(yesno)"
+}

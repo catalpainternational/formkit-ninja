@@ -1,0 +1,7 @@
+{
+  "name": "dollars",
+  "label": "How many Dollars?",
+  "help": "This is  my help text",
+  "placeholder": "Osan hira",
+  "$formkit": "currency"
+}

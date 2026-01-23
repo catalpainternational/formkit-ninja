@@ -31,7 +31,7 @@ SECRET_KEY = "django-insecure-uq^#m^-8-k+f%jag(2kv$p#45%o!#au!877xby@c_tu*ccdr%f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS: list[str] = []
 
 
 # Application definition
@@ -85,6 +85,8 @@ WSGI_APPLICATION = "testproject.wsgi.application"
 # Note:
 # If you have no database running yet
 # maybe start one with `docker run -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres`
+# or (fully qualified)
+# `podman run -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust docker.io/library/postgres:16-alpine`
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",

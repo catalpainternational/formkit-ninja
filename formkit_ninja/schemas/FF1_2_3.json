@@ -1,0 +1,51 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "_gettext_municipality",
+          "label": "$gettext(Municipality)",
+          "help": "Hili Munisipiu ida",
+          "validation": "required",
+          "placeholder": "Munisipiu",
+          "$formkit": "dropdown",
+          "options": "$ida(munisipiu)"
+        },
+        {
+          "name": "_gettext__administrative_post",
+          "label": "$gettext(\"Administrative Post\")",
+          "help": "Ezemplu: Aileu Vila",
+          "validation": "required",
+          "placeholder": "Postu Administrativu",
+          "$formkit": "dropdown",
+          "options": "$ida(postuadministrativu)"
+        },
+        {
+          "name": "_gettext_suco",
+          "label": "$gettext(Suco)",
+          "help": "Hili Suco ida",
+          "validation": "required",
+          "placeholder": "Suco",
+          "$formkit": "dropdown",
+          "options": "$ida(suku)"
+        },
+        {
+          "name": "_gettext_aldeia",
+          "label": "$gettext(Aldeia)",
+          "help": "Hili Aldeia ida",
+          "validation": "required",
+          "placeholder": "Aldeia",
+          "$formkit": "dropdown",
+          "options": "$ida(aldeia)"
+        }
+      ],
+      "id": "b6cc7096d93ff17ca11a562648b6b521d8aa30e4",
+      "name": "_72c664a3_unnamed",
+      "$formkit": "group",
+      "icon": "las la-address-book",
+      "title": "Fatin"
+    }
+  ],
+  "name": "FF1_2_3",
+  "$formkit": "group"
+}

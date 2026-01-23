@@ -1,0 +1,56 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "_gettext_municipality",
+          "label": "$gettext(Municipality)",
+          "validation": "required",
+          "placeholder": "Municiplaity",
+          "$formkit": "select",
+          "options": "$ida(munisipiu)"
+        },
+        {
+          "name": "administrative_post",
+          "label": "$gettext( Administrative Post)",
+          "validation": "required",
+          "placeholder": "Admin post",
+          "$formkit": "select",
+          "options": "$ida(postuadministrativu)"
+        },
+        {
+          "name": "_gettext_suco",
+          "label": "$gettext(Suco)",
+          "validation": "required",
+          "placeholder": "Suco",
+          "$formkit": "select",
+          "options": "$ida(suku)"
+        }
+      ],
+      "id": "6a352132037af00fa79d864c556e2fe03de5fbcd",
+      "name": "dc710029_unnamed",
+      "$formkit": "group",
+      "icon": "las la-info-circle",
+      "title": "Meeting Information"
+    },
+    {
+      "children": [
+        {
+          "name": "kilomentru",
+          "label": "Kilomentru",
+          "help": "asdas",
+          "validation": "required",
+          "placeholder": "asdasd",
+          "$formkit": "currency"
+        }
+      ],
+      "id": "d5c7a1b1947f4441c7540cfead4cec9bd400fbff",
+      "name": "ae965877_unnamed",
+      "$formkit": "group",
+      "icon": "las la-money-bill",
+      "title": "Tets"
+    }
+  ],
+  "name": "FS_4_3",
+  "$formkit": "group"
+}

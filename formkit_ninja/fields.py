@@ -3,7 +3,7 @@ from __future__ import annotations
 import warnings
 
 # from collections import UserDict
-from typing import Sequence
+from typing import Any, Sequence
 
 from django.conf import settings
 from django.db.models import JSONField
@@ -48,13 +48,15 @@ class WhitelistedKeysDict(dict):
         self.permitted_keys = permitted_keys
         if default_key:
             self.permitted_keys.add(default_key)
-        self.data = {}
+        self.data: dict[str, Any] = {}
         if isinstance(dict_, str):
             if self.default_key:
-                return self.__init__({self.default_key: dict_})
+                super().__init__({self.default_key: dict_})
+                return
             warnings.warn("No default key was set. You must have a default_key to initialize with a string.")
-            return super().__init__()
-        return super().__init__(dict_ or {})
+            super().__init__()
+            return
+        super().__init__(dict_ or {})
 
     def __setitem__(self, key: str, item: str) -> None:
         if key in self.permitted_keys:

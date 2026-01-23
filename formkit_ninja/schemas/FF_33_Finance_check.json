@@ -1,0 +1,70 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "municipality",
+          "label": "Municipality",
+          "help": "This is  my help text",
+          "placeholder": "Please inform the municipality",
+          "$formkit": "text"
+        },
+        {
+          "name": "date_1",
+          "label": "Loron",
+          "placeholder": "Hatama loron",
+          "$formkit": "datepicker",
+          "calendarIcon": "calendar",
+          "format": "DD/MM/YY",
+          "nextIcon": "angleRight",
+          "prevIcon": "angleLeft",
+          "valueFormat": "YYYY-MM-DD"
+        },
+        {
+          "name": "teste",
+          "label": "Municipio",
+          "placeholder": "munusipiu",
+          "$formkit": "dropdown",
+          "options": "$ida(activity)"
+        },
+        {
+          "name": "category",
+          "label": "Category",
+          "$formkit": "radio",
+          "options": "$ida(category)"
+        },
+        {
+          "name": "activities",
+          "label": "Actividade Sira",
+          "help": "Nee mak Atividade furak neebe hau halo",
+          "placeholder": "Nee mak Atividade furak neebe hau halo",
+          "$formkit": "checkbox",
+          "options": "$ida(activity)"
+        }
+      ],
+      "id": "Locat",
+      "name": "Locat",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Fatin teste"
+    },
+    {
+      "children": [
+        {
+          "name": "family_income",
+          "label": "Family Income",
+          "help": "ezemplu: $500",
+          "placeholder": "Please insert the monthly family income",
+          "$formkit": "currency"
+        }
+      ],
+      "id": "Familydetails",
+      "name": "Familydetails",
+      "$formkit": "group",
+      "icon": "las la-users-cog",
+      "title": "Family details"
+    }
+  ],
+  "name": "FF_33_Finance_check",
+  "$formkit": "group"
+}

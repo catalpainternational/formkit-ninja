@@ -4,7 +4,7 @@ from functools import cached_property
 from http import HTTPStatus
 from importlib.util import find_spec
 from types import ModuleType
-from typing import Sequence
+from typing import Sequence, cast
 from uuid import UUID, uuid4
 
 from django.db import transaction
@@ -14,7 +14,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.cache import add_never_cache_headers
 from ninja import Field, ModelSchema, Router, Schema
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 from formkit_ninja import formkit_schema, models
 
@@ -80,7 +80,7 @@ class NodeChildrenOut(ModelSchema):
 class NodeReturnType(BaseModel):
     key: UUID
     last_updated: int
-    node: formkit_schema.FormKitNode
+    node: formkit_schema.Node
     protected: bool
 
 
@@ -96,7 +96,7 @@ class NodeStringType(NodeReturnType):
     str | formkit_schema.FormKitNode causes openapi generator to fail
     """
 
-    node: str
+    node: str  # type: ignore[assignment]
 
 
 NodeQSResponse = Sequence[NodeStringType | NodeReturnType | NodeInactiveType]
@@ -105,13 +105,15 @@ NodeQSResponse = Sequence[NodeStringType | NodeReturnType | NodeInactiveType]
 def node_queryset_response(qs: models.NodeQS) -> NodeQSResponse:
     responses = []
     n: NodeStringType | NodeInactiveType | NodeReturnType
-    for key, last_updated, node, protected in qs.to_response(ignore_errors=False):
-        if isinstance(node, str):
-            n = NodeStringType(key=key, last_updated=last_updated, protected=protected, node=node)
-        elif node is None:
+    for key, last_updated, node_val, protected in qs.to_response(ignore_errors=False):
+        if last_updated is None:
+            last_updated = -1
+        if isinstance(node_val, str):
+            n = NodeStringType(key=key, last_updated=last_updated, protected=protected, node=node_val)
+        elif node_val is None:
             n = NodeInactiveType(key=key, last_updated=last_updated, protected=protected, is_active=False)
         else:
-            n = NodeReturnType(key=key, last_updated=last_updated, protected=protected, node=node)
+            n = NodeReturnType(key=key, last_updated=last_updated, protected=protected, node=node_val)  # type: ignore[arg-type]
         responses.append(n)
     return responses
 
@@ -142,9 +144,10 @@ def get_formkit_nodes(request: HttpRequest, response: HttpResponse, latest_chang
     """
     Get all of the FormKit nodes in the database
     """
-    objects: models.NodeQS = models.FormKitSchemaNode.objects
-    nodes = objects.from_change(latest_change)
-    response["latest_change"] = nodes.aggregate(_=Max("track_change"))["_"] or latest_change
+    objects: models.NodeQS = cast(models.NodeQS, models.FormKitSchemaNode.objects)
+    nodes = objects.from_change(latest_change or -1)
+    lc = nodes.aggregate(_=Max("track_change"))["_"]
+    response["latest_change"] = lc if lc is not None else (latest_change or -1)
     add_never_cache_headers(response)
     return node_queryset_response(nodes)
 
@@ -258,7 +261,7 @@ def delete_node(request, node_id: UUID):
         node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
         node.delete()
         # node.refresh_from_db()
-        objects: models.NodeQS = models.FormKitSchemaNode.objects
+        objects: models.NodeQS = cast(models.NodeQS, models.FormKitSchemaNode.objects)
         return node_queryset_response(objects.filter(pk=node_id))[0]
 
 
@@ -277,12 +280,32 @@ class FormKitNodeIn(Schema):
     help: str | None = None
 
     # Fields from "number"
-    max: int | None = None
-    min: int | None = None
+    max: int | str | None = None
+    min: int | str | None = None
     step: str | None = None
 
     # Field from dropdown/select/autocomplete/radio/checkbox
     options: str | None = None
+
+    # Repeater-specific properties
+    addLabel: str | None = None
+    itemClass: str | None = None
+    itemsClass: str | None = None
+    upControl: bool | None = None
+    downControl: bool | None = None
+
+    # Conditional logic
+    if_condition: str | None = Field(default=None, alias="if")
+
+    # Validation
+    validationRules: str | None = None
+    validation: str | list[str] | None = None
+
+    # Field Constraints
+    maxLength: int | None = None
+    _minDateSource: str | None = None
+    _maxDateSource: str | None = None
+    disabledDays: str | None = None
 
     # Used for Creates
     parent_id: UUID | None = None
@@ -293,6 +316,16 @@ class FormKitNodeIn(Schema):
     # Used for "Add Group"
     # This should include an `icon`, `title` and `id` for the second level group
     additional_props: dict[str, str | int] | None = None
+
+    @validator("formkit")
+    def validate_formkit_type(cls, v):
+        """Validate that the formkit type is a valid FormKit type"""
+        from typing import get_args
+
+        valid_types = get_args(formkit_schema.FORMKIT_TYPE)
+        if v not in valid_types:
+            raise ValueError(f"Invalid FormKit type: {v}. Valid types are: {', '.join(valid_types)}")
+        return v
 
     @cached_property
     def parent(self):

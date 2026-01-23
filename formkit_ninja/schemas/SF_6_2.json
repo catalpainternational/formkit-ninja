@@ -1,239 +1,251 @@
 {
- "$formkit": "group",
- "children": [
-  {
-   "$formkit": "group",
-   "children": [
+  "children": [
     {
-     "$formkit": "select",
-     "id": "district",
-     "key": "district",
-     "label": "$gettext(Municipality)",
-     "name": "district",
-     "options": "$getLocations()"
-    },
-    {
-     "$formkit": "select",
-     "id": "administrative_post",
-     "if": "$get(district).value",
-     "key": "administrative_post",
-     "label": "$gettext(\"Administrative Post\")",
-     "name": "administrative_post",
-     "options": "$getLocations($get(district).value)"
-    },
-    {
-     "$formkit": "select",
-     "id": "suco",
-     "if": "$get(administrative_post).value",
-     "key": "suco",
-     "label": "$gettext(Suco)",
-     "name": "suco",
-     "options": "$getLocations($get(district).value, $get(administrative_post).value)"
-    },
-    {
-     "$formkit": "select",
-     "id": "aldeia",
-     "if": "$get(suco).value",
-     "key": "aldeia",
-     "label": "$gettext(Aldeia)",
-     "name": "aldeia",
-     "options": "$getLocations($get(district).value, $get(administrative_post).value, $get(suco).value)"
-    },
-    {
-     "$formkit": "datepicker",
-     "_currentDate": "$getCurrentDate",
-     "calendarIcon": "calendar",
-     "format": "DD/MM/YYYY",
-     "id": "date",
-     "key": "date",
-     "label": "$gettext(\"Date\")",
-     "name": "date",
-     "nextIcon": "angleRight",
-     "prevIcon": "angleLeft",
-     "sectionsSchema": {
-      "day": {
-       "children": [
-        "$day.getDate()",
+      "children": [
         {
-         "children": [
-          {
-           "children": [
-            {
-             "$el": "div",
-             "attrs": {
-              "class": "formkit-day-highlight"
-             },
-             "if": "$attrs._currentDate().year === $day.getFullYear()"
+          "key": "district",
+          "id": "district",
+          "name": "district",
+          "label": "$gettext(Municipality)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations()"
+        },
+        {
+          "key": "administrative_post",
+          "if": "$get(district).value",
+          "id": "administrative_post",
+          "name": "administrative_post",
+          "label": "$gettext(\"Administrative Post\")",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations($get(district).value)"
+        },
+        {
+          "key": "suco",
+          "if": "$get(administrative_post).value",
+          "id": "suco",
+          "name": "suco",
+          "label": "$gettext(Suco)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations($get(district).value, $get(administrative_post).value)"
+        },
+        {
+          "key": "aldeia",
+          "if": "$get(suco).value",
+          "id": "aldeia",
+          "name": "aldeia",
+          "label": "$gettext(Aldeia)",
+          "validation": "required",
+          "$formkit": "select",
+          "options": "$getLocations($get(district).value, $get(administrative_post).value, $get(suco).value)"
+        },
+        {
+          "key": "date",
+          "name": "date",
+          "label": "$gettext(\"Date\")",
+          "validation": "dateInPast",
+          "$formkit": "datepicker",
+          "calendarIcon": "calendar",
+          "format": "DD/MM/YY",
+          "nextIcon": "angleRight",
+          "prevIcon": "angleLeft",
+          "_currentDate": "$getCurrentDate",
+          "value-format": "YYYY-MM-DD",
+          "sectionsSchema": {
+            "day": {
+              "children": [
+                "$day.getDate()",
+                {
+                  "if": "$attrs._currentDate().day === $day.getDate()",
+                  "children": [
+                    {
+                      "if": "$attrs._currentDate().month === $day.getMonth()",
+                      "children": [
+                        {
+                          "if": "$attrs._currentDate().year === $day.getFullYear()",
+                          "$el": "div",
+                          "attrs": {
+                            "class": "formkit-day-highlight"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
-           ],
-           "if": "$attrs._currentDate().month === $day.getMonth()"
-          }
-         ],
-         "if": "$attrs._currentDate().day === $day.getDate()"
+          },
+          "valueFormat": "YYYY-MM-DD"
+        },
+        {
+          "name": "month",
+          "label": "$gettext(\"Month\")",
+          "validation": "required",
+          "placeholder": "$gettext(\"Select month\")",
+          "$formkit": "select",
+          "options": "$ida(month)"
+        },
+        {
+          "name": "year",
+          "label": "$gettext(\"Year\")",
+          "validation": "required",
+          "placeholder": "$gettext(\"Select year\")",
+          "$formkit": "select",
+          "options": "$ida(year)"
         }
-       ]
-      }
-     }
+      ],
+      "id": "meetinginformation",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Location"
     },
     {
-     "$formkit": "select",
-     "label": "$gettext(\"Month\")",
-     "name": "month",
-     "options": "$ida(month)",
-     "placeholder": "$gettext(\"Select month\")"
+      "children": [
+        {
+          "key": "$: (project + $index)",
+          "if": "$ida(project, \"suku_id=\"+ $get(\"suco\").value).length>0",
+          "id": "$: (project + $index)",
+          "name": "project",
+          "label": "$gettext(\"Project name\")",
+          "validation": "required",
+          "placeholder": "$gettext(\"Search project\")",
+          "$formkit": "autocomplete",
+          "options": "$ida(project, \"suku_id=\"+ $get(\"suco\").value)",
+          "inputClass": "!pl-10",
+          "prefixIcon": "search"
+        },
+        {
+          "children": [
+            "$gettext(\"No. of workers\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
+          }
+        },
+        {
+          "name": "workers_male",
+          "label": "$gettext(\"No. of workers male\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        },
+        {
+          "name": "workers_female",
+          "label": "$gettext(\"No. of workers female\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        },
+        {
+          "children": [
+            "$gettext(\"No. of workers with disability\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
+          }
+        },
+        {
+          "name": "workers_with_disability_male",
+          "label": "$gettext(\"No. of workers with disability male\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        },
+        {
+          "name": "workers_with_disability_female",
+          "label": "$gettext(\"No. of workers with disability female\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        },
+        {
+          "children": [
+            "$gettext(\"Workdays\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
+          }
+        },
+        {
+          "name": "no_of_working_days_male",
+          "label": "$gettext(\"No. of working days male\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        },
+        {
+          "name": "no_of_working_days_female",
+          "label": "$gettext(\"No. of working days female\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        }
+      ],
+      "id": "projectworkers",
+      "$formkit": "group",
+      "icon": "las la-users-cog",
+      "title": "Project workers"
     },
     {
-     "$formkit": "select",
-     "label": "$gettext(\"Year\")",
-     "name": "year",
-     "options": "$ida(year)",
-     "placeholder": "$gettext(\"Select year\")"
+      "children": [
+        {
+          "children": [
+            "$gettext(\"No. of new workers\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
+          }
+        },
+        {
+          "name": "no_of_new_workers_male",
+          "label": "$gettext(\"No. of new workers male\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        },
+        {
+          "name": "no_of_new_workers_female",
+          "label": "$gettext(\"No. of new workers female\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        },
+        {
+          "children": [
+            "$gettext(\"No. of new workers with disability\")"
+          ],
+          "$el": "div",
+          "attrs": {
+            "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
+          }
+        },
+        {
+          "name": "new_workers_with_disability_male",
+          "label": "$gettext(\"No. of new workers with disability male\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        },
+        {
+          "name": "new_workers_with_disability_female",
+          "label": "$gettext(\"No. of new workers with disability female\")",
+          "validation": "required",
+          "$formkit": "number",
+          "min": 0
+        }
+      ],
+      "id": "projectnewworkers",
+      "$formkit": "group",
+      "icon": "las la-users",
+      "title": "Project new workers"
     }
-   ],
-   "icon": "las la-map-marked-alt",
-   "id": "meetinginformation",
-   "title": "Location"
-  },
-  {
-   "$formkit": "group",
-   "children": [
-    {
-     "$formkit": "select",
-     "id": "project_name",
-     "key": "project_name",
-     "label": "$gettext(\"Project name\")",
-     "name": "project_name",
-     "options": "$getoptions.tf1321.outputs($get(district).value, $get(administrative_post).value, $get(suco).value)",
-     "placeholder": "$gettext(\"Please select\")"
-    },
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
-     },
-     "children": [
-      "$gettext(\"No. of workers\")"
-     ]
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of workers male\")",
-     "min": 0,
-     "name": "workers_male",
-     "validation": "shouldNotAcceptNegativeValue"
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of workers female\")",
-     "min": 0,
-     "name": "workers_female",
-     "validation": "shouldNotAcceptNegativeValue"
-    },
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
-     },
-     "children": [
-      "$gettext(\"No. of workers with disability\")"
-     ]
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of workers with disability male\")",
-     "min": 0,
-     "name": "workers_with_disability_male",
-     "validation": "shouldNotAcceptNegativeValue"
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of workers with disability female\")",
-     "min": 0,
-     "name": "workers_with_disability_female",
-     "validation": "shouldNotAcceptNegativeValue"
-    },
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
-     },
-     "children": [
-      "$gettext(\"Workdays\")"
-     ]
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of working days male\")",
-     "min": 0,
-     "name": "no_of_working_days_male",
-     "validation": "shouldNotAcceptNegativeValue"
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of working days female\")",
-     "min": 0,
-     "name": "no_of_working_days_female",
-     "validation": "shouldNotAcceptNegativeValue"
-    }
-   ],
-   "icon": "las la-users-cog",
-   "id": "projectworkers",
-   "title": "Project workers"
-  },
-  {
-   "$formkit": "group",
-   "children": [
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
-     },
-     "children": [
-      "$gettext(\"No. of new workers\")"
-     ]
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of new workers male\")",
-     "min": 0,
-     "name": "no_of_new_workers_male",
-     "validation": "shouldNotAcceptNegativeValue"
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of new workers female\")",
-     "min": 0,
-     "name": "no_of_new_workers_female",
-     "validation": "shouldNotAcceptNegativeValue"
-    },
-    {
-     "$el": "div",
-     "attrs": {
-      "class": "rounded-full px-5 py-2 bg-zinc-400 text-base font-bold mb-5"
-     },
-     "children": [
-      "$gettext(\"No. of new workers with disability\")"
-     ]
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of new workers with disability male\")",
-     "min": 0,
-     "name": "new_workers_with_disability_male",
-     "validation": "shouldNotAcceptNegativeValue"
-    },
-    {
-     "$formkit": "number",
-     "label": "$gettext(\"No. of new workers with disability female\")",
-     "min": 0,
-     "name": "new_workers_with_disability_female",
-     "validation": "shouldNotAcceptNegativeValue"
-    }
-   ],
-   "icon": "las la-users",
-   "id": "projectnewworkers",
-   "title": "Project new workers"
-  }
- ],
- "name": "SF_6_2"
+  ],
+  "name": "SF_6_2",
+  "$formkit": "group"
 }

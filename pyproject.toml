@@ -1,68 +1,95 @@
-[tool.poetry]
+[project]
 name = "formkit-ninja"
 version = "0.7.6"
 description = "A Django-Ninja backend to specify FormKit schemas"
-authors = ["Josh Brooks <josh@catalpa.io>"]
-license = "GPLv3"
 readme = "README.md"
-homepage = "https://github.com/catalpainternational/formkit-ninja"
-repository = "https://github.com/catalpainternational/formkit-ninja"
-packages = [{include = "formkit_ninja"}]
-exclude = ["tests", "formkit_ninja/samples"]
-
-[tool.poetry.dependencies]
-python = ">=3.10,<3.14"
-django-ninja = "<1"
-Django = "==4.*"
-pydantic = "1.10.16"
-django-pgtrigger = "==4.*"
-rich = "*"
-django-pghistory = "==3.*"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-pytest-django = "*"
-isort = "*"
-black = "*"
-flake8 = "*"
-django-extensions = "*"
-sqlparse = "*"
-mypy = "*"
-pre-commit = "*"
-mkdocs-material = "*"
-mkdocstrings = {extras = ["python"], version = "*"}
-pytest-cov = "^4.1.0"
-psycopg2-binary = "^2.9.7"
-factory-boy = "^3.3.0"
-django-stubs = "^4.2.6"
-pyyaml = "*"
-greenlet = ">=3.2.4"
+requires-python = ">=3.10,<3.14"
+authors = [
+    { name = "Josh Brooks", email = "josh@catalpa.io" }
+]
+dependencies = [
+    "django-ninja<1",
+    "Django==4.*",
+    "pydantic<2",
+    "django-pgtrigger==4.*",
+    "rich",
+    "django-pghistory==3.*",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.pylint.format]
-max-line-length = "119"
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-django",
+    "ruff",
+    "django-extensions",
+    "sqlparse",
+    "mypy",
+    "pre-commit",
+    "playwright>=1.39.0",
+    "pytest-playwright",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "pytest-cov>=4.1.0",
+    "psycopg2-binary>=2.9.7",
+    "factory-boy>=3.3.0",
+    "django-stubs>=4.2.6",
+]
 
-[tool.isort]
-profile = 'black'
-line_length = 119
-multi_line_output = 3
-include_trailing_comma = true
+[tool.hatch.build.targets.wheel]
+packages = ["formkit_ninja"]
 
-[tool.black]
+[tool.ruff]
 line-length = 119
-target-version = ['py310']
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"**/migrations/*.py" = ["E501"]  # Ignore line length in migrations
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 [tool.mypy]
-python_version = 3.8
+python_version = "3.10"
 plugins = [
     'mypy_django_plugin.main'
     ]
 
 [tool.django-stubs]
-django_settings_module = "formkit_ninja.settings"
+django_settings_module = "testproject.settings"
+
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "testproject.settings"
+addopts = "--reuse-db --cov=formkit_ninja --cov-report=term-missing --cov-report=html --cov-branch"
+
+# Playwright: uncomment for "headed", interactive tests
+#addopts = "--reuse-db --cov=formkit_ninja --cov-report=term-missing --cov-report=html --cov-branch --headed"
+
+[tool.coverage.run]
+source = ["formkit_ninja"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]

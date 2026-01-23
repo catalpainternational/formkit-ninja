@@ -1,0 +1,7 @@
+{
+  "name": "father_name",
+  "label": "Father's name",
+  "placeholder": "I can have a placeholder",
+  "$formkit": "text",
+  "help_text": "And this is some help text"
+}

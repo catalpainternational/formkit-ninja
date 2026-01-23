@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import logging
 import operator
-import warnings
-from collections import Counter
 from functools import reduce
 from typing import Any
 
 import django.core.exceptions
 from django import forms
 from django.contrib import admin
-from django.db.models import JSONField
 from django.http import HttpRequest
 
 from formkit_ninja import formkit_schema, models
@@ -27,32 +24,17 @@ class ItemAdmin(admin.ModelAdmin):
     list_display = ("name",)
 
 
-class JsonDecoratedFormBase(forms.ModelForm):
+class JSONMappingMixin:
     """
-    Adds additional fields to the admin where a model has a JSON field
-    and some appropriate (tbc?) field parameters.
-
-    Also provides helpers to map nested JSON attributes to flat
-    form fields (e.g. "attrs__class" <-> node["attrs"]["class"]).
+    Mixin to handle mapping between flat form fields and nested JSON fields.
     """
 
-    # extra = forms.CharField(label="Extra", max_length=128, required=False)
-    # hello_world = forms.CharField(widget=forms.NumberInput, required=False)
-
-    # key is the name of a `models.JSONField` on the model
-    # value is a list of fields to get/set in that JSON field
-    _json_fields: JsonFieldDefn = {"my_json_field": ("formkit", "description", "name", "key", "id")}
+    _json_fields: JsonFieldDefn = {}
 
     def get_json_fields(self) -> JsonFieldDefn:
-        """
-        Custom which json fields will be included in the return
-        """
         return self._json_fields
 
     def _extract_field_value(self, values: dict, json_field: str):
-        """
-        Extract a value from a JSON dict, handling nested field notation.
-        """
         if "__" in json_field:
             nested_field_name, nested_key = json_field.split("__", 1)
             nested = values.get(nested_field_name)
@@ -61,141 +43,78 @@ class JsonDecoratedFormBase(forms.ModelForm):
             return None
         return values.get(json_field)
 
-    def _populate_form_field(self, form_field: str, json_field: str, values: dict) -> None:
-        """
-        Populate a single form field's initial value from JSON data.
-        """
-        field = self.fields.get(form_field)
-        if not field:
-            warnings.warn(f"The field {form_field} was not found on the form")
-            return
-        field.initial = self._extract_field_value(values, json_field)
+    def _populate_form_fields(self, instance):
+        for field, keys in self.get_json_fields().items():
+            values = getattr(instance, field, {}) or {}
+            for key in keys:
+                form_field, json_field = key if isinstance(key, tuple) else (key, key)
+                if f := self.fields.get(form_field):
+                    val = self._extract_field_value(values, json_field)
+                    if val is None:
+                        # Fallback: check if the json_field corresponds to a model attribute
+                        # using the same promotion logic as in models.py
+                        mapping = {
+                            "addLabel": "add_label",
+                            "upControl": "up_control",
+                            "downControl": "down_control",
+                            "sectionsSchema": "sections_schema",
+                        }
+                        attr_name = mapping.get(json_field, json_field)
+                        if hasattr(instance, attr_name):
+                            val = getattr(instance, attr_name)
+                    f.initial = val
 
     def _build_json_data(self, keys: tuple, existing_data: dict) -> dict:
-        """
-        Build JSON data dict from cleaned form data, preserving unmapped keys
-        and allowing falsy values such as 0/False/"".
-        """
         data = existing_data.copy() if isinstance(existing_data, dict) else {}
         for key in keys:
-            if isinstance(key, str):
-                form_field = key
-                json_field = key
-            else:
-                form_field, json_field = key
-
-            if form_field not in self.cleaned_data:
+            form_field, json_field = key if isinstance(key, tuple) else (key, key)
+            if form_field not in self.cleaned_data:  # type: ignore[attr-defined]
                 continue
-            field_value = self.cleaned_data[form_field]
 
+            val = self.cleaned_data[form_field]  # type: ignore[attr-defined]
             if "__" in json_field:
                 nested_field_name, nested_key = json_field.split("__", 1)
                 if not isinstance(data.get(nested_field_name), dict):
                     data[nested_field_name] = {}
-                data[nested_field_name][nested_key] = field_value
+                data[nested_field_name][nested_key] = val
             else:
-                data[json_field] = field_value
+                data[json_field] = val
         return data
 
-    def _field_check(self):
-        """
-        Check that JSON fields specified are json fields on the model
-        do not clash with model fields
-        """
-
-        def check_json_fields_exist():
-            """
-            Check that JSON fields specified are json fields on the model
-            """
-            for field in self.get_json_fields().keys():
-                try:
-                    model_field = self.Meta.model._meta.get_field(field)
-                    if not isinstance(model_field, JSONField):
-                        raise KeyError(f"Expected a JSONField named {field} on the model")
-                except django.core.exceptions.FieldDoesNotExist as E:
-                    raise KeyError(f"Expected a JSONField named {field} on the model") from E
-
-        def check_no_duplicates():
-            """
-            Checks that the `_json_fields` specified do not clash with fields
-            on the model
-            """
-            fields_in_model = Counter(self.Meta.fields)
-
-            # These are all the fields we've "JSON"ified
-            for json_keys in self.get_json_fields().values():
-                fields_in_model.update((k for k in json_keys if isinstance(k, str)))
-                fields_in_model.update((k[0] for k in json_keys if not isinstance(k, str)))
-
-            # Duplicate fields raise an exception
-            duplicates = list(((k, v) for k, v in fields_in_model.items() if v > 1))
-            if duplicates:
-                raise KeyError(f"Some fields were duplicated: {','.join(duplicates)}")
-
-        check_json_fields_exist()
-        check_no_duplicates()
-
-    def _set_json_fields(self, instance):
-        """
-        Assign JSON field content to Form fields
-        """
-        for field, keys in self.get_json_fields().items():
-            values = getattr(instance, field, {}) or {}
-
-            fields_from_json: set[str] = set()
-            for key in keys:
-                if isinstance(key, str):
-                    form_field = key
-                    json_field = key
-                else:
-                    form_field, json_field = key
-                fields_from_json.add(json_field)
-                self._populate_form_field(form_field, json_field, values)
-
-            # Avoid warning for nested parent keys that are intentionally partially mapped
-            nested_parents = {k.split("__", 1)[0] for k in fields_from_json if "__" in k}
-            if missing := list(set(values) - fields_from_json - nested_parents - {"node_type"}):
-                warnings.warn(f"Some JSON fields were hidden: {','.join(missing)}")
-                warnings.warn(f"Consider adding fields {missing} to {self.__class__.__name__}")
-
-    def __init__(self, *args, **kwargs):
-        """
-        When the form is initialized, additional "Fields"
-        can be populated from a JSON data field.
-        """
-        super().__init__(*args, **kwargs)
-        # Capture original JSONField values before form cleaning mutates the instance
-        self._original_json_fields: dict[str, dict | list | None] = {}
-        if instance := kwargs.get("instance"):
-            for f in instance._meta.get_fields():
-                if isinstance(f, JSONField):
-                    self._original_json_fields[f.name] = getattr(instance, f.name, None)
-            self._set_json_fields(instance)
-
-    def save(self, commit=True):
-        """
-        Updates the JSON field(s) from the fields specified in the `_json_fields` dict
-        preserving unmapped keys and allowing falsy values.
-        Also preserves existing JSONField values on the model if the field
-        is not present in form data (e.g., `additional_props`).
-        """
-        # Use original JSONField values captured at __init__ time
-        original_json_fields: dict[str, dict | list | None] = getattr(self, "_original_json_fields", {})
-
-        instance = super().save(commit=False)
-
-        # Only update declared JSON mappings
+    def save_json_fields(self, instance):
         for field, keys in self.get_json_fields().items():
             existing = getattr(instance, field, {}) or {}
-            data = self._build_json_data(keys, existing)
-            setattr(instance, field, data)
+            setattr(instance, field, self._build_json_data(keys, existing))
 
-        # Restore any JSONField not managed by this form's JSON mapping
-        managed_json_fields = set(self.get_json_fields().keys())
-        for field_name, original_value in original_json_fields.items():
-            if field_name not in managed_json_fields:
-                setattr(instance, field_name, original_value)
+    def clean(self) -> dict[str, Any]:
+        cleaned_data = super().clean()  # type: ignore[misc]
+        # Find any field mapped to "name" in JSON and validate it
+        for field, keys in self.get_json_fields().items():
+            for key in keys:
+                form_field, json_field = key if isinstance(key, tuple) else (key, key)
+                if json_field == "name" and form_field in cleaned_data:
+                    val = cleaned_data[form_field]
+                    if val:
+                        try:
+                            models.check_valid_django_id(val)
+                        except django.core.exceptions.ValidationError as e:
+                            self.add_error(form_field, e)  # type: ignore[attr-defined]
+        return cleaned_data
 
+
+class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
+    """
+    Base form for all FormKit-related nodes.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if instance := kwargs.get("instance"):
+            self._populate_form_fields(instance)
+
+    def save(self, commit: bool = True) -> models.FormKitSchemaNode:
+        instance = super().save(commit=False)
+        self.save_json_fields(instance)  # type: ignore[arg-type]
         if commit:
             instance.save()
         return instance
@@ -230,7 +149,7 @@ class FormKitSchemaComponentInline(admin.TabularInline):
     extra = 0
 
 
-class FormKitNodeGroupForm(JsonDecoratedFormBase):
+class FormKitNodeGroupForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
         fields = ("label", "description", "additional_props", "is_active", "protected")
@@ -238,28 +157,17 @@ class FormKitNodeGroupForm(JsonDecoratedFormBase):
     _json_fields = {
         "node": ("name", ("formkit", "$formkit"), "if_condition", ("html_id", "id")),
     }
-    html_id = forms.CharField(
-        required=False, help_text="Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"
-    )
-    name = forms.CharField(required=False)
+    html_id = forms.CharField(required=False)
+    name = forms.CharField(required=True)
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
-    if_condition = forms.CharField(
-        widget=forms.TextInput,
-        required=False,
-    )
+    if_condition = forms.CharField(widget=forms.TextInput, required=False)
 
 
-class FormKitNodeForm(JsonDecoratedFormBase):
-    """
-    This is the most common component type: the 'FormKit' schema node
-    """
-
+class FormKitNodeForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
         fields = ("label", "description", "additional_props", "option_group", "is_active", "protected")
 
-    # The `_json_fields["node"]` item affects the admin form,
-    # adding the fields included in the `FormKitSchemaProps.__fields__.items` dict
     _json_fields = {
         "node": (
             ("formkit", "$formkit"),
@@ -270,13 +178,11 @@ class FormKitNodeForm(JsonDecoratedFormBase):
             ("node_label", "label"),
             "placeholder",
             "help",
-            # Validation of fields
             "validation",
             "validationLabel",
             "validationVisibility",
             "validationMessages",
             "prefixIcon",
-            # Numeric forms
             "min",
             "max",
             "step",
@@ -284,35 +190,24 @@ class FormKitNodeForm(JsonDecoratedFormBase):
             ("onchange", "onChange"),
         )
     }
-
+    name = forms.CharField(required=True)
     formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES)
-    name = forms.CharField(required=False)
     if_condition = forms.CharField(widget=forms.TextInput, required=False)
     key = forms.CharField(required=False)
-    label = forms.CharField(required=False)
     node_label = forms.CharField(required=False)
     placeholder = forms.CharField(required=False)
     help = forms.CharField(required=False)
-    html_id = forms.CharField(
-        required=False, help_text="Use this ID if adding conditions to other fields (hint: $get(my_field).value === 8)"
-    )
-    onchange = forms.CharField(
-        required=False, help_text="Use this to trigger a function when the value of the field changes"
-    )
-    options = forms.CharField(
-        required=False, help_text="Use this if adding Options using a JS function (hint: $get(my_field).value )"
-    )
+    html_id = forms.CharField(required=False)
+    onchange = forms.CharField(required=False)
+    options = forms.CharField(required=False)
     validation = forms.CharField(required=False)
     validationLabel = forms.CharField(required=False)
     validationVisibility = forms.CharField(required=False)
     validationMessages = forms.JSONField(required=False)
+    prefixIcon = forms.CharField(required=False)
     validationRules = forms.CharField(
         required=False, help_text="A function for validation passed into the schema: a key on `formSchemaData`"
     )
-    prefixIcon = forms.CharField(required=False)
-
-    # NumberNode props
-
     max = forms.IntegerField(required=False)
     min = forms.IntegerField(required=False)
     step = forms.IntegerField(required=False)
@@ -322,7 +217,7 @@ class FormKitNodeForm(JsonDecoratedFormBase):
         Customise the returned fields based on the type
         of formkit node
         """
-        return super().get_fields(request, obj)
+        return super().get_fields(request, obj)  # type: ignore[misc]
 
 
 class FormKitNodeRepeaterForm(FormKitNodeForm):
@@ -353,53 +248,31 @@ class FormKitTextNode(forms.ModelForm):
         fields = ("label", "description", "text_content", "is_active", "protected")
 
 
-class FormKitElementForm(JsonDecoratedFormBase):
+class FormKitElementForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
         fields = ("label", "description", "text_content", "is_active", "protected")
 
-    _skip_translations = {"label", "placeholder"}
     _json_fields = {"node": (("el", "$el"), "name", "if_condition", "attrs__class")}
 
     el = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.ELEMENT_TYPE_CHOICES)
-    name = forms.CharField(
-        required=False,
-    )
-    attrs__class = forms.CharField(
-        required=False,
-    )
-    if_condition = forms.CharField(
-        widget=forms.TextInput,
-        required=False,
-    )
+    name = forms.CharField(required=False)
+    attrs__class = forms.CharField(required=False)
+    if_condition = forms.CharField(widget=forms.TextInput, required=False)
 
 
-class FormKitConditionForm(JsonDecoratedFormBase):
+class FormKitConditionForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
-        # fields = '__all__'
-        fields = (
-            "label",
-            "description",
-        )
+        fields = ("label", "description")
 
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
-
-    if_condition = forms.CharField(
-        widget=forms.TextInput,
-        required=False,
-    )
-    then_condition = forms.CharField(
-        max_length=256,
-        required=False,
-    )
-    else_condition = forms.CharField(
-        max_length=256,
-        required=False,
-    )
+    if_condition = forms.CharField(widget=forms.TextInput, required=False)
+    then_condition = forms.CharField(max_length=256, required=False)
+    else_condition = forms.CharField(max_length=256, required=False)
 
 
-class FormKitComponentForm(JsonDecoratedFormBase):
+class FormKitComponentForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
         fields = ("label", "description", "is_active", "protected")
@@ -415,7 +288,7 @@ class NodeChildrenInline(admin.TabularInline):
     model = models.NodeChildren
     fields = ("child", "order", "track_change")
     ordering = ("order",)
-    readonly_fields = ("track_change", "child")
+    readonly_fields = ("track_change",)
     fk_name = "parent"
     extra = 0
 
@@ -459,6 +332,42 @@ class FormKitSchemaForm(forms.ModelForm):
         exclude = ("name",)
 
 
+# Registry to map pydantic node types to form classes and fieldsets
+NODE_CONFIG: dict[type | str, dict[str, Any]] = {
+    str: {"form": FormKitTextNode},
+    formkit_schema.GroupNode: {"form": FormKitNodeGroupForm},
+    formkit_schema.RepeaterNode: {
+        "form": FormKitNodeRepeaterForm,
+        "fieldsets": [
+            (
+                "Repeater field properties",
+                {"fields": ("addLabel", "upControl", "downControl", "itemsClass", "itemClass")},
+            )
+        ],
+    },
+    formkit_schema.FormKitSchemaDOMNode: {"form": FormKitElementForm},
+    formkit_schema.FormKitSchemaComponent: {"form": FormKitComponentForm},
+    formkit_schema.FormKitSchemaCondition: {"form": FormKitConditionForm},
+    formkit_schema.FormKitSchemaProps: {
+        "form": FormKitNodeForm,
+        "fieldsets": [
+            (
+                "Field Validation",
+                {
+                    "fields": (
+                        "validation",
+                        "validationLabel",
+                        "validationVisibility",
+                        "validationMessages",
+                        "validationRules",
+                    )
+                },
+            )
+        ],
+    },
+}
+
+
 @admin.register(models.FormKitSchemaNode)
 class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     list_display = (
@@ -475,127 +384,58 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     list_filter = ("node_type", "is_active", "protected")
     readonly_fields = ("track_change",)
     search_fields = ["label", "description", "node", "node__el"]
+    inlines = [NodeChildrenInline, NodeParentsInline]
 
     @admin.display(boolean=True)
     def key_is_valid(self, obj) -> bool:
-        """
-        If it's a Formkit type, check that its
-        key is suitable for python + django
-        """
-        if not obj.node:
-            return True
-        if not isinstance(obj.node, dict):
-            return True
-        if "name" not in obj.node:
+        if not (obj and obj.node and isinstance(obj.node, dict) and "name" in obj.node):
             return True
         try:
-            key = obj.node.get("name")
-            if not isinstance(key, str):
-                raise TypeError
-            models.check_valid_django_id(key)
-        except TypeError:
+            models.check_valid_django_id(obj.node.get("name"))
+        except (TypeError, django.core.exceptions.ValidationError):
             return False
         return True
 
     def formkit_or_el_type(self, obj):
-        if obj and obj.node and obj.node_type == "$formkit":
-            return obj.node.get("$formkit", None)
-        if obj and obj.node and obj.node_type == "$el":
-            return obj.node.get("$el", None)
+        if obj and obj.node and obj.node_type in ("$formkit", "$el"):
+            return obj.node.get(obj.node_type)
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
-        if not obj:
-            return []
-        return [NodeChildrenInline, NodeParentsInline]
-
-    # # Note that although overridden these are necessary
-    inlines = [NodeChildrenInline, NodeParentsInline]
+        return [NodeChildrenInline, NodeParentsInline] if obj else []
 
     def get_fieldsets(self, request: HttpRequest, obj: models.FormKitSchemaNode | None = None):
-        """
-        Set fieldsets to control the layout of admin “add” and “change” pages.
-        fieldsets is a list of two-tuples, in which each two-tuple represents a <fieldset>
-        on the admin form page. (A <fieldset> is a “section” of the form.)
-        """
-        fieldsets: list[tuple[str, dict]] = []
-        if not getattr(obj, "node_type", None):
-            warnings.warn("Expected a 'Node' with a 'NodeType' in the admin form")
-
         if not obj:
-            # This default form is returned before a field
-            # type is selected
             return super().get_fieldsets(request, obj)
+
         try:
             node = obj.get_node()
-        except Exception as E:
-            warnings.warn(f"{E}")
-            return fieldsets
+        except Exception:
+            return super().get_fieldsets(request, obj)
 
-        if isinstance(node, formkit_schema.FormKitSchemaProps) and not isinstance(
-            node, (formkit_schema.GroupNode, formkit_schema.FormKitSchemaDOMNode, formkit_schema.RepeaterNode)
-        ):
-            # Field validation applies to formkit
-            # except repeater and group
-            fieldsets.append(
-                (
-                    "Field Validation",
-                    {
-                        "fields": (
-                            "validation",
-                            "validationLabel",
-                            "validationVisibility",
-                            "validationMessages",
-                            "validationRules",
-                        )
-                    },
-                )
-            )
-        elif isinstance(node, formkit_schema.RepeaterNode):
-            if obj.node and obj.node.get("$formkit", None) == "repeater":
-                fieldsets.append(
-                    (
-                        "Repeater field properties",
-                        {"fields": ("addLabel", "upControl", "downControl", "itemsClass", "itemClass")},
-                    )
-                )
+        fieldsets: list[tuple[str | None, dict[str, Any]]] = []
+        for pydantic_type, config in NODE_CONFIG.items():
+            if isinstance(pydantic_type, type) and isinstance(node, pydantic_type):
+                if "fieldsets" in config:
+                    fieldsets.extend(config["fieldsets"])
+                break
 
-        grouped_fields = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
-        # Add 'ungrouped' fields
-        fieldsets.insert(
-            0, (None, {"fields": [field for field in self.get_fields(request, obj) if field not in grouped_fields]})
-        )
-        logger.info(fieldsets)
+        grouped_fields: set[str] = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
+        fieldsets.insert(0, (None, {"fields": [f for f in self.get_fields(request, obj) if f not in grouped_fields]}))
         return fieldsets
 
     def get_form(
-        self,
-        request: HttpRequest,
-        obj: models.FormKitSchemaNode | None,
-        change: bool | None = None,
-        **kwargs,
+        self, request: HttpRequest, obj: Any | None = None, change: bool = False, **kwargs: Any
     ) -> type[forms.ModelForm[Any]]:
         if not obj:
             return NewFormKitForm
         try:
-            get_node = obj.get_node()
-            for node_type, form_type in (
-                (str, FormKitTextNode),
-                (formkit_schema.GroupNode, FormKitNodeGroupForm),
-                (formkit_schema.RepeaterNode, FormKitNodeRepeaterForm),
-                (formkit_schema.FormKitSchemaDOMNode, FormKitElementForm),
-                (formkit_schema.FormKitSchemaComponent, FormKitComponentForm),
-                (formkit_schema.FormKitSchemaCondition, FormKitConditionForm),
-                (formkit_schema.FormKitSchemaProps, FormKitNodeForm),
-            ):
-                if isinstance(get_node, node_type):
-                    return form_type
-
-        except Exception as E:
-            warnings.warn(f"{E}")
-            raise
-
-        warnings.warn(f"Unable to determine form type for {obj}")
-        return super().get_form(request, obj, change, **kwargs)
+            node = obj.get_node()
+            for pydantic_type, config in NODE_CONFIG.items():
+                if isinstance(pydantic_type, type) and isinstance(node, pydantic_type):
+                    return config["form"]
+        except Exception:
+            pass
+        return super().get_form(request, obj, **kwargs)
 
 
 @admin.register(models.FormKitSchema)

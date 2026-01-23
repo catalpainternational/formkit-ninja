@@ -1,0 +1,7 @@
+{
+  "name": "active_status",
+  "label": "$gettext(\"Is active?\")",
+  "value": "1",
+  "$formkit": "select",
+  "options": "$ida(yesno)"
+}

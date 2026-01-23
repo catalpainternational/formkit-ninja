@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
 
 from formkit_ninja.models import FormKitSchemaNode, check_valid_django_id
@@ -13,5 +14,5 @@ class Command(BaseCommand):
                 try:
                     check_valid_django_id(name)
                     # self.stdout.write(self.style.SUCCESS(name))
-                except TypeError:
+                except (TypeError, ValidationError):
                     self.stdout.write(self.style.WARNING(f"{node.pk}: {name}"))

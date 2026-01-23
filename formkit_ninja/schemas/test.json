@@ -1,0 +1,47 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "Test",
+          "label": "Test",
+          "$formkit": "checkbox",
+          "options": "$ida(activity)"
+        },
+        {
+          "name": "How many times?",
+          "label": "Test",
+          "$formkit": "radio",
+          "options": "$ida(activity)"
+        }
+      ],
+      "id": "Test",
+      "name": "Test",
+      "$formkit": "group",
+      "icon": "las la-money-bill",
+      "title": "Test group"
+    },
+    {
+      "children": [
+        {
+          "name": "Andrew Wapling",
+          "label": "Test",
+          "$formkit": "autocomplete",
+          "options": "$ida(activity)"
+        },
+        {
+          "name": "Test",
+          "label": "Test",
+          "$formkit": "number"
+        }
+      ],
+      "id": "test1",
+      "name": "test1",
+      "$formkit": "group",
+      "icon": "las la-users",
+      "title": "test1"
+    }
+  ],
+  "name": "test",
+  "$formkit": "group"
+}

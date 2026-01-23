@@ -1,0 +1,64 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "Test",
+          "label": "Test",
+          "$formkit": "currency"
+        },
+        {
+          "name": "Data",
+          "label": "Favor hili data atividade",
+          "$formkit": "date"
+        },
+        {
+          "name": "Atividade",
+          "label": "Favor hili atividade",
+          "$formkit": "text"
+        },
+        {
+          "name": "Sub-setor",
+          "label": "Favor hili sub-setor",
+          "$formkit": "dropdown",
+          "options": "$ida(subsector)"
+        },
+        {
+          "name": "Prioridade feto?",
+          "label": "Ida nee nu'udar prioridade feto?",
+          "$formkit": "checkbox",
+          "options": "$ida(yesno)"
+        },
+        {
+          "name": "Aumenta Fundu",
+          "label": "Aumenta label ba Fundu financeiro",
+          "$formkit": "radio",
+          "options": "$ida(fundingsource)"
+        }
+      ],
+      "id": "financias",
+      "name": "financias",
+      "$formkit": "group",
+      "icon": "las la-users",
+      "title": "Financias"
+    },
+    {
+      "children": [
+        {
+          "name": "Test",
+          "label": "Test",
+          "placeholder": "Test",
+          "$formkit": "text",
+          "help_text": "Test"
+        }
+      ],
+      "id": "Andy",
+      "name": "Andy",
+      "$formkit": "group",
+      "icon": "las la-users",
+      "title": "Test2"
+    }
+  ],
+  "name": "FF_5",
+  "$formkit": "group"
+}

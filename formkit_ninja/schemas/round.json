@@ -1,0 +1,7 @@
+{
+  "name": "round",
+  "label": "$gettext(\"Round\")",
+  "placeholder": "$gettext(\"Please select\")",
+  "$formkit": "select",
+  "options": "$ida(electionround)"
+}

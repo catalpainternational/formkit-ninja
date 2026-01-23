@@ -12,7 +12,7 @@ on:
 
 jobs:
   lint:
-    name: Lint (black, isort, flake8)
+    name: Lint (ruff)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -23,36 +23,32 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Cache Poetry dependencies
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Cache uv dependencies
         uses: actions/cache@v3
         with:
           path: |
-            ~/.cache/pypoetry
+            ~/.cache/uv
             .venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+            ${{ runner.os }}-uv-
 
       - name: Install dependencies
         run: |
-          poetry install --with dev --no-interaction
+          uv sync --dev
 
-      - name: Check formatting with black
+      - name: Check formatting with ruff
         run: |
-          poetry run black --check formkit_ninja tests testproject
+          uv run ruff format --check formkit_ninja tests testproject
 
-      - name: Check import sorting with isort
+      - name: Lint with ruff
         run: |
-          poetry run isort --check formkit_ninja tests testproject
-
-      - name: Lint with flake8
-        run: |
-          poetry run flake8 formkit_ninja tests testproject --exclude=migrations
+          uv run ruff check formkit_ninja tests testproject
 
   typecheck:
     name: Type Check (mypy)
@@ -66,28 +62,28 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Cache Poetry dependencies
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Cache uv dependencies
         uses: actions/cache@v3
         with:
           path: |
-            ~/.cache/pypoetry
+            ~/.cache/uv
             .venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+            ${{ runner.os }}-uv-
 
       - name: Install dependencies
         run: |
-          poetry install --with dev --no-interaction
+          uv sync --dev
 
       - name: Type check with mypy
         run: |
-          poetry run mypy formkit_ninja || true
+          uv run mypy formkit_ninja || true
 
   test:
     name: Test Suite (pytest)
@@ -117,28 +113,28 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Cache Poetry dependencies
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Cache uv dependencies
         uses: actions/cache@v3
         with:
           path: |
-            ~/.cache/pypoetry
+            ~/.cache/uv
             .venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+            ${{ runner.os }}-uv-
 
       - name: Install dependencies
         run: |
-          poetry install --with dev --no-interaction
+          uv sync --dev
 
       - name: Debug Pydantic version
         run: |
-          poetry run python -c "import pydantic; print('Pydantic version:', pydantic.VERSION)"
+          uv run python -c "import pydantic; print('Pydantic version:', pydantic.VERSION)"
 
       - name: Wait for PostgreSQL
         run: |
@@ -146,6 +142,10 @@ jobs:
             echo "Waiting for PostgreSQL..."
             sleep 2
           done
+
+      - name: Install Playwright Browsers
+        run: |
+          uv run playwright install --with-deps chromium
 
       - name: Run tests with pytest
         env:
@@ -155,5 +155,4 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
         run: |
-          poetry run pytest
-
+          uv run pytest

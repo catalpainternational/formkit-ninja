@@ -1,0 +1,25 @@
+{
+  "children": [
+    {
+      "id": "59e39751b2780a61e1d9fd07b9c37b281fe8fdc5",
+      "name": "_2c9722d2_unnamed",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Fatin"
+    },
+    {
+      "id": "3399881d56f2bf8ef5fa8778762975dfa34e5a22",
+      "name": "e1b69dbb_unnamed",
+      "$formkit": "group",
+      "icon": "las la-money-bill",
+      "title": "Parte 1 - Fundu operasion\u00e1l"
+    },
+    {
+      "id": "efeaaa09622a2a95d2a570e08f5907b010d362d6",
+      "name": "ab750782_unnamed",
+      "$formkit": "group"
+    }
+  ],
+  "name": "FF_11",
+  "$formkit": "group"
+}

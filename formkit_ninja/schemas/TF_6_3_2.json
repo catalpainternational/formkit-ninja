@@ -1,0 +1,35 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "_gettext_municipality",
+          "label": "$gettext(Municipality)",
+          "$formkit": "select",
+          "options": "$ida(munisipiu)"
+        }
+      ],
+      "id": "b137ad120d9902c675b3a4b02ff792c5b548df6a",
+      "name": "b137ad120d9902c675b3a4b02ff792c5b548df6a",
+      "$formkit": "group",
+      "icon": "las la-info-circle",
+      "title": "Meeting Information"
+    },
+    {
+      "children": [
+        {
+          "name": "repeater",
+          "label": "test",
+          "$formkit": "text"
+        }
+      ],
+      "id": "028aafd1fed7452859af40f12a7be29441825020",
+      "name": "_08e81d9c_unnamed",
+      "$formkit": "group",
+      "icon": "las la-users-cog",
+      "title": "Community Contribution"
+    }
+  ],
+  "name": "TF_6_3_2",
+  "$formkit": "group"
+}

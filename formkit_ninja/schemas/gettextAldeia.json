@@ -1,0 +1,7 @@
+{
+  "name": "_gettext_aldeia",
+  "label": "$gettext(Aldeia)",
+  "validation": "",
+  "$formkit": "dropdown",
+  "options": "$ida(aldeia)"
+}

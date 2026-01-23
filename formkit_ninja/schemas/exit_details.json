@@ -1,0 +1,5 @@
+{
+  "name": "exit_details",
+  "label": "$gettext(\"Reason for exit\")",
+  "$formkit": "text"
+}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from keyword import iskeyword
-from typing import Iterable, Literal
+from typing import Generator, Iterable, Literal, cast
 
 from formkit_ninja import formkit_schema
 from formkit_ninja.formkit_schema import FormKitNode, GroupNode, RepeaterNode
@@ -48,7 +48,10 @@ class NodePath:
 
     @classmethod
     def from_obj(cls, obj: dict):
-        return cls(FormKitNode.parse_obj(obj).__root__)
+        node = FormKitNode.parse_obj(obj).__root__
+        # node can be a string or a FormKitSchemaNode
+        # NodePath expects FormKitType (which is the union of nodes)
+        return cls(cast(FormKitType, node))
 
     def __truediv__(self, node: Literal[".."] | FormKitType):
         """
@@ -56,7 +59,7 @@ class NodePath:
         """
         if node == "..":
             return self.__class__(*self.nodes[:-1])
-        return self.__class__(*self.nodes, node)
+        return self.__class__(*self.nodes, cast(formkit_schema.FormKitType, node))
 
     def suggest_model_name(self) -> str:
         """
@@ -150,7 +153,7 @@ class NodePath:
 
     @property
     def formkits_not_repeaters(self) -> Iterable["NodePath"]:
-        def _get() -> NodePath:
+        def _get() -> Generator["NodePath", None, None]:
             for n in self.children:
                 if hasattr(n, "formkit") and not isinstance(n, RepeaterNode):
                     yield self / n
@@ -319,6 +322,7 @@ class NodePath:
                 return "null=True, blank=True"
             case "UUID":
                 return "editable=False, null=True, blank=True"
+        return "null=True, blank=True"
 
     @property
     def django_args(self):

@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ValidationError
 
 from formkit_ninja.models import check_valid_django_id
 
@@ -8,20 +9,25 @@ def test_valid_id():
 
 
 def test_invalid_id_starting_with_digit():
-    with pytest.raises(TypeError):
+    with pytest.raises(ValidationError):
         check_valid_django_id("1invalid")
 
 
 def test_invalid_id_ending_with_underscore():
-    with pytest.raises(TypeError):
+    with pytest.raises(ValidationError):
         check_valid_django_id("invalid_")
 
 
 def test_invalid_id_with_keyword():
-    with pytest.raises(TypeError):
+    with pytest.raises(ValidationError):
         check_valid_django_id("for")
 
 
 def test_invalid_id_with_softkeyword():
-    with pytest.raises(TypeError):
+    with pytest.raises(ValidationError):
         check_valid_django_id("async")
+
+
+def test_empty_id():
+    with pytest.raises(ValidationError, match="Name cannot be empty"):
+        check_valid_django_id("")

@@ -1,0 +1,74 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "name": "hili_fatin",
+          "label": "Fatin",
+          "placeholder": "Hili fatin",
+          "$formkit": "dropdown",
+          "options": "$ida(munisipiu)"
+        },
+        {
+          "name": "postu_administrativu",
+          "label": "Postu Administrativu",
+          "$formkit": "dropdown",
+          "options": "$ida(postuadministrativu)"
+        },
+        {
+          "name": "suku",
+          "label": "Suku",
+          "$formkit": "dropdown",
+          "options": "$ida(suku)"
+        }
+      ],
+      "id": "meetingInformation",
+      "name": "meetingInformation",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "Location and Reporting Period"
+    },
+    {
+      "id": "projectProgress",
+      "name": "projectProgress",
+      "$formkit": "group",
+      "icon": "las la-users-cog",
+      "title": "Project progress"
+    },
+    {
+      "children": [
+        {
+          "name": "start_date",
+          "label": "Data hahu",
+          "$formkit": "date"
+        }
+      ],
+      "id": "marks",
+      "name": "marks",
+      "$formkit": "group",
+      "icon": "las la-map-marked-alt",
+      "title": "testQuestions"
+    },
+    {
+      "children": [
+        {
+          "name": "data",
+          "label": "Data",
+          "$formkit": "datepicker",
+          "calendarIcon": "calendar",
+          "format": "DD/MM/YY",
+          "nextIcon": "angleRight",
+          "prevIcon": "angleLeft",
+          "valueFormat": "YYYY-MM-DD"
+        }
+      ],
+      "id": "test",
+      "name": "test",
+      "$formkit": "group",
+      "icon": "las la-users",
+      "title": "My Title"
+    }
+  ],
+  "name": "TF_13_2_2",
+  "$formkit": "group"
+}

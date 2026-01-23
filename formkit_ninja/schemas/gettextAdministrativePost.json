@@ -1,0 +1,7 @@
+{
+  "name": "_gettext__administrative_post",
+  "label": "$gettext(\"Administrative Post\")",
+  "validation": "",
+  "$formkit": "dropdown",
+  "options": "$ida(postuadministrativu)"
+}

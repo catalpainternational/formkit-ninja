@@ -1,0 +1,7 @@
+{
+  "name": "_gettext_suco",
+  "label": "$gettext(Suco)",
+  "validation": "",
+  "$formkit": "dropdown",
+  "options": "$ida(suku)"
+}
