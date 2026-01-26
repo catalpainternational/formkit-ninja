@@ -50,25 +50,22 @@ def test_api_missing_required_fields(admin_client: Client):
 
 
 @pytest.mark.django_db
-@pytest.mark.xfail(reason="Invalid node type causes exception during response generation")
 def test_api_invalid_node_type(admin_client: Client):
     """Test API handles invalid node type"""
     path = reverse("api-1.0.0:create_or_update_node")
-    # Pydantic will validate this - invalid_type won't match FormKitType
-    # The validation happens when trying to parse the response, causing an exception
+    # API should validate formkit type before creating node
     invalid_data = {"$formkit": "invalid_type", "label": "Test"}
     response = admin_client.post(
         path=path,
         data=invalid_data,
         content_type="application/json",
     )
-    # The error occurs during response generation after node creation
-    # Django Ninja will catch this and return 500
-    # Accept either 500 (exception) or 422 (validation error)
-    assert response.status_code in (
-        HTTPStatus.INTERNAL_SERVER_ERROR,
-        HTTPStatus.UNPROCESSABLE_ENTITY,
-    )
+    # Should return 422 with error message about invalid type
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    data = response.json()
+    assert "errors" in data
+    assert len(data["errors"]) > 0
+    assert "invalid_type" in data["errors"][0].lower() or "invalid formkit type" in data["errors"][0].lower()
 
 
 @pytest.mark.django_db
@@ -124,7 +121,6 @@ def test_api_delete_nonexistent_node(admin_client: Client):
 
 
 @pytest.mark.django_db
-@pytest.mark.xfail(reason="Factory generates invalid node names causing test setup to fail")
 def test_api_delete_protected_node(admin_client: Client):
     """Test API prevents deletion of protected node"""
     # Create a protected node with valid name
@@ -148,7 +144,6 @@ def test_api_delete_protected_node(admin_client: Client):
 
 
 @pytest.mark.django_db
-@pytest.mark.xfail(reason="Factory generates invalid node names causing test setup to fail")
 def test_api_update_with_invalid_data(admin_client: Client):
     """Test API handles update with invalid data"""
     # Create a node first with valid name
@@ -305,7 +300,6 @@ def test_api_create_node_with_special_characters(admin_client: Client):
 
 
 @pytest.mark.django_db
-@pytest.mark.xfail(reason="Factory generates invalid node names causing test setup to fail")
 def test_api_create_repeater_with_invalid_min_max(admin_client: Client):
     """Test API handles repeater with invalid min/max values"""
     path = reverse("api-1.0.0:create_or_update_node")

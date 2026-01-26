@@ -4,7 +4,7 @@ from functools import cached_property
 from http import HTTPStatus
 from importlib.util import find_spec
 from types import ModuleType
-from typing import Sequence, cast
+from typing import Sequence, cast, get_args
 from uuid import UUID, uuid4
 
 from django.db import transaction
@@ -437,6 +437,7 @@ def disambiguate_name(name_in: str, used_names: Sequence[str]):
     response={
         HTTPStatus.OK: NodeReturnType,
         HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors,
+        HTTPStatus.UNPROCESSABLE_ENTITY: FormKitErrors,
     },
     exclude_none=True,
     by_alias=True,
@@ -464,6 +465,14 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     # Update the payload "name"
     # When label is provided, use the label to generate the name
     # Fetch parent node, if it exists, and check that it is a group or repeater
+
+    # Validate formkit type before creating node
+    valid_formkit_types = set(get_args(formkit_schema.FORMKIT_TYPE))
+    if payload.formkit not in valid_formkit_types:
+        error_response.errors.append(
+            f"Invalid formkit type '{payload.formkit}'. Valid types are: {', '.join(sorted(valid_formkit_types))}"
+        )
+        return HTTPStatus.UNPROCESSABLE_ENTITY, error_response
 
     try:
         child, errors = create_or_update_child_node(payload)
