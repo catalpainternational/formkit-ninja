@@ -10,6 +10,7 @@ from tests.factories import (
     ElementNodeFactory,
     FormKitSchemaFactory,
     GroupNodeFactory,
+    NumberNodeFactory,
     OptionFactory,
     OptionGroupFactory,
     RadioNodeFactory,
@@ -100,7 +101,296 @@ def TF_13_2_1():
 
 @pytest.fixture
 def TF_6_1_1():
+    """Load TF_6_1_1 schema from database."""
     return schemas.as_json("TF_6_1_1")
+
+
+@pytest.fixture
+def TF_6_1_1_from_factory(db):
+    """
+    Create TF_6_1_1 schema structure using factoryboy.
+
+    This fixture recreates the TF_6_1_1 form structure with:
+    - Root group (TF_6_1_1)
+    - Nested groups (meetinginformation, projecttimeframe, projectdetails,
+      projectbeneficiaries, projectoutput)
+    - Various field types (select, number, datepicker, uuid)
+    - Repeater with nested children
+    - Conditional logic examples
+    """
+    from formkit_ninja import models
+
+    # Root group
+    root = GroupNodeFactory(
+        label="TF_6_1_1",
+        node={"$formkit": "group", "name": "TF_6_1_1"},
+    )
+
+    # meetinginformation group
+    meeting_info = GroupNodeFactory(
+        label="meetinginformation",
+        icon="las la-map-marked-alt",
+        title="Location",
+        node={
+            "$formkit": "group",
+            "id": "meetinginformation",
+            "name": "meetinginformation",
+            "icon": "las la-map-marked-alt",
+            "title": "Location",
+        },
+    )
+    models.NodeChildren.objects.create(parent=root, child=meeting_info, order=0)
+
+    # Select fields in meetinginformation
+    district = SelectNodeFactory(
+        label="$gettext(Municipality)",
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "id": "district",
+            "key": "district",
+            "name": "district",
+            "label": "$gettext(Municipality)",
+            "options": "$getLocations()",
+        },
+    )
+    admin_post = SelectNodeFactory(
+        label='$gettext("Administrative Post")',
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "name": "administrative_post",
+            "label": '$gettext("Administrative Post")',
+            "options": "$getLocations()",
+        },
+    )
+    suco = SelectNodeFactory(
+        label="$gettext(Suco)",
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "name": "suco",
+            "label": "$gettext(Suco)",
+            "options": "$getLocations()",
+        },
+    )
+    aldeia = SelectNodeFactory(
+        label="$gettext(Aldeia)",
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "name": "aldeia",
+            "label": "$gettext(Aldeia)",
+            "options": "$getLocations()",
+        },
+    )
+    models.NodeChildren.objects.create(parent=meeting_info, child=district, order=0)
+    models.NodeChildren.objects.create(parent=meeting_info, child=admin_post, order=1)
+    models.NodeChildren.objects.create(parent=meeting_info, child=suco, order=2)
+    models.NodeChildren.objects.create(parent=meeting_info, child=aldeia, order=3)
+
+    # projecttimeframe group
+    project_timeframe = GroupNodeFactory(
+        label="projecttimeframe",
+        node={"$formkit": "group", "name": "projecttimeframe", "label": "projecttimeframe"},
+    )
+    models.NodeChildren.objects.create(parent=root, child=project_timeframe, order=1)
+
+    # Datepicker fields
+    date_start = DatepickerNodeFactory(
+        label='$gettext("Date start estimated")',
+        node={
+            "$formkit": "datepicker",
+            "name": "date_start_estimated",
+            "label": '$gettext("Date start estimated")',
+            "format": "DD/MM/YY",
+        },
+    )
+    date_finish = DatepickerNodeFactory(
+        label='$gettext("Date finish estimated")',
+        node={
+            "$formkit": "datepicker",
+            "name": "date_finish_estimated",
+            "label": '$gettext("Date finish estimated")',
+            "format": "DD/MM/YY",
+        },
+    )
+    models.NodeChildren.objects.create(parent=project_timeframe, child=date_start, order=0)
+    models.NodeChildren.objects.create(parent=project_timeframe, child=date_finish, order=1)
+
+    # projectdetails group
+    project_details = GroupNodeFactory(
+        label="projectdetails",
+        node={"$formkit": "group", "name": "projectdetails", "label": "projectdetails"},
+    )
+    models.NodeChildren.objects.create(parent=root, child=project_details, order=2)
+
+    # Fields in projectdetails
+    project_status = SelectNodeFactory(
+        label="project_status",
+        option_group=None,
+        node={"$formkit": "select", "name": "project_status", "label": "project_status"},
+    )
+    project_sector = SelectNodeFactory(
+        label='$gettext("Project Sector")',
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "name": "project_sector",
+            "label": '$gettext("Project Sector")',
+            "options": "$ida(activity)",
+        },
+    )
+    project_subsector = SelectNodeFactory(
+        label='$gettext("Project Sub-Sector")',
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "name": "project_subsector",
+            "label": '$gettext("Project Sub-Sector")',
+            "if": "$get(project_sector).value",
+            "options": "$ida(subsector)",
+        },
+    )
+    project_name = SelectNodeFactory(
+        label='$gettext("Project name")',
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "name": "project_name",
+            "label": '$gettext("Project name")',
+        },
+    )
+    objective = SelectNodeFactory(
+        label='$gettext("Objective")',
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "name": "objective",
+            "label": '$gettext("Objective")',
+        },
+    )
+    gps_lat = NumberNodeFactory(
+        label='$gettext("GPS Coordinate - LATITUDE")',
+        node={
+            "$formkit": "number",
+            "name": "gps_latitude",
+            "label": '$gettext("GPS Coordinate - LATITUDE")',
+        },
+    )
+    gps_lon = NumberNodeFactory(
+        label='$gettext("GPS Coordinate - LONGITUDE")',
+        node={
+            "$formkit": "number",
+            "name": "gps_longitude",
+            "label": '$gettext("GPS Coordinate - LONGITUDE")',
+        },
+    )
+    women_priority = SelectNodeFactory(
+        label='$gettext("Is a women priority?")',
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "name": "is_women_priority",
+            "label": '$gettext("Is a women priority?")',
+        },
+    )
+    models.NodeChildren.objects.create(parent=project_details, child=project_status, order=0)
+    models.NodeChildren.objects.create(parent=project_details, child=project_sector, order=1)
+    models.NodeChildren.objects.create(parent=project_details, child=project_subsector, order=2)
+    models.NodeChildren.objects.create(parent=project_details, child=project_name, order=3)
+    models.NodeChildren.objects.create(parent=project_details, child=objective, order=4)
+    models.NodeChildren.objects.create(parent=project_details, child=gps_lat, order=5)
+    models.NodeChildren.objects.create(parent=project_details, child=gps_lon, order=6)
+    models.NodeChildren.objects.create(parent=project_details, child=women_priority, order=7)
+
+    # projectbeneficiaries group
+    project_beneficiaries = GroupNodeFactory(
+        label="projectbeneficiaries",
+        node={
+            "$formkit": "group",
+            "name": "projectbeneficiaries",
+            "label": "projectbeneficiaries",
+        },
+    )
+    models.NodeChildren.objects.create(parent=root, child=project_beneficiaries, order=3)
+
+    # Number fields in projectbeneficiaries
+    num_households = NumberNodeFactory(
+        label='$gettext("Number of households")',
+        node={
+            "$formkit": "number",
+            "name": "number_of_households",
+            "label": '$gettext("Number of households")',
+        },
+    )
+    num_women = NumberNodeFactory(
+        label='$gettext("No. of women")',
+        node={"$formkit": "number", "name": "no_of_women", "label": '$gettext("No. of women")'},
+    )
+    num_men = NumberNodeFactory(
+        label='$gettext("No. of men")',
+        node={"$formkit": "number", "name": "no_of_men", "label": '$gettext("No. of men")'},
+    )
+    disability_male = NumberNodeFactory(
+        label='$gettext("No. of people with disability - male")',
+        node={
+            "$formkit": "number",
+            "name": "disability_male",
+            "label": '$gettext("No. of people with disability - male")',
+        },
+    )
+    disability_female = NumberNodeFactory(
+        label='$gettext("No. of people with disability - female")',
+        node={
+            "$formkit": "number",
+            "name": "disability_female",
+            "label": '$gettext("No. of people with disability - female")',
+        },
+    )
+    models.NodeChildren.objects.create(parent=project_beneficiaries, child=num_households, order=0)
+    models.NodeChildren.objects.create(parent=project_beneficiaries, child=num_women, order=1)
+    models.NodeChildren.objects.create(parent=project_beneficiaries, child=num_men, order=2)
+    models.NodeChildren.objects.create(parent=project_beneficiaries, child=disability_male, order=3)
+    models.NodeChildren.objects.create(parent=project_beneficiaries, child=disability_female, order=4)
+
+    # projectoutput group
+    project_output = GroupNodeFactory(
+        label="projectoutput",
+        node={"$formkit": "group", "name": "projectoutput", "label": "projectoutput"},
+    )
+    models.NodeChildren.objects.create(parent=root, child=project_output, order=4)
+
+    # Repeater in projectoutput
+    repeater = RepeaterNodeFactory(
+        label="repeaterProjectOutput",
+        node={
+            "$formkit": "repeater",
+            "name": "repeaterProjectOutput",
+            "label": "repeaterProjectOutput",
+        },
+    )
+    models.NodeChildren.objects.create(parent=project_output, child=repeater, order=0)
+
+    # UUID field in repeater
+    from tests.factories import FormKitSchemaNodeFactory
+
+    uuid_field = FormKitSchemaNodeFactory(
+        node_type="$formkit",
+        label="uuid",
+        node={"$formkit": "uuid", "name": "uuid", "label": "uuid"},
+    )
+    models.NodeChildren.objects.create(parent=repeater, child=uuid_field, order=0)
+
+    # Element node in repeater
+    element_node = ElementNodeFactory(
+        node_type="$el",
+        text_content="Output ",
+        node={"$el": "div", "children": "Output "},
+    )
+    models.NodeChildren.objects.create(parent=repeater, child=element_node, order=1)
+
+    return root
 
 
 @pytest.fixture

@@ -56,6 +56,7 @@ ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 "**/migrations/*.py" = ["E501"]  # Ignore line length in migrations
+"tests/parser/fixtures/**/*.py" = ["F811", "F821"]  # Ignore redefinition/undefined errors in generated test fixtures
 
 [tool.ruff.format]
 quote-style = "double"

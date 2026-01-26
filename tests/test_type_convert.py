@@ -354,3 +354,319 @@ class TestNodePath:
         assert len(formkits) == 1
         assert text in formkit_nodes
         assert repeater not in formkit_nodes
+
+
+class TestNodePathTypeConverterIntegration:
+    """Tests for NodePath integration with TypeConverter registry"""
+
+    def test_to_pydantic_type_uses_registry_for_text_node(self):
+        """Test that NodePath uses registry for text nodes"""
+        from formkit_ninja.formkit_schema import TextNode
+
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node)
+        result = path.to_pydantic_type()
+        # Should use TextConverter from registry
+        assert result == "str"
+
+    def test_to_pydantic_type_uses_registry_for_number_node(self):
+        """Test that NodePath uses registry for number nodes"""
+        from formkit_ninja.formkit_schema import NumberNode
+
+        node = NumberNode(name="test", label="Test")
+        path = NodePath(node)
+        result = path.to_pydantic_type()
+        # Should use NumberConverter from registry
+        assert result == "int"
+
+    def test_to_pydantic_type_uses_registry_for_number_node_with_step(self):
+        """Test that NodePath uses registry for number nodes with step"""
+        from formkit_ninja.formkit_schema import NumberNode
+
+        node = NumberNode(name="test", label="Test", step=0.1)
+        path = NodePath(node)
+        result = path.to_pydantic_type()
+        # Should use NumberConverter from registry
+        assert result == "float"
+
+    def test_to_pydantic_type_uses_registry_for_checkbox_node(self):
+        """Test that NodePath uses registry for checkbox nodes"""
+        from formkit_ninja.formkit_schema import CheckBoxNode
+
+        node = CheckBoxNode(name="test", label="Test")
+        path = NodePath(node)
+        result = path.to_pydantic_type()
+        # Should use BooleanConverter from registry
+        assert result == "bool"
+
+    def test_to_pydantic_type_uses_registry_for_datepicker_node(self):
+        """Test that NodePath uses registry for datepicker nodes"""
+        from formkit_ninja.formkit_schema import DatePickerNode
+
+        node = DatePickerNode(name="test", label="Test")
+        path = NodePath(node)
+        result = path.to_pydantic_type()
+        # Should use DateConverter from registry
+        assert result == "datetime"
+
+    def test_to_pydantic_type_uses_registry_for_date_node(self):
+        """Test that NodePath uses registry for date nodes"""
+        from formkit_ninja.formkit_schema import DateNode
+
+        node = DateNode(name="test", label="Test")
+        path = NodePath(node)
+        result = path.to_pydantic_type()
+        # Should use DateConverter from registry
+        assert result == "date"
+
+    def test_to_pydantic_type_fallback_for_group_node(self):
+        """Test that NodePath falls back to original logic for group nodes"""
+        from formkit_ninja.formkit_schema import GroupNode
+
+        node = GroupNode(name="test", label="Test")
+        path = NodePath(node)
+        result = path.to_pydantic_type()
+        # Group nodes should use original logic (return classname)
+        assert result == path.classname
+
+    def test_to_pydantic_type_fallback_for_repeater_node(self):
+        """Test that NodePath falls back to original logic for repeater nodes"""
+        from formkit_ninja.formkit_schema import RepeaterNode
+
+        node = RepeaterNode(name="test", label="Test")
+        path = NodePath(node)
+        result = path.to_pydantic_type()
+        # Repeater nodes should use original logic (return list[classname])
+        assert result == f"list[{path.classname}]"
+
+    def test_to_pydantic_type_with_custom_registry(self):
+        """Test that NodePath can use a custom registry"""
+        from formkit_ninja.formkit_schema import TextNode
+        from formkit_ninja.parser.converters import TypeConverterRegistry
+
+        # Create custom registry with custom converter
+        class CustomTextConverter:
+            def can_convert(self, node):
+                return isinstance(node, TextNode)
+
+            def to_pydantic_type(self, node):
+                return "custom_str"
+
+        custom_registry = TypeConverterRegistry()
+        custom_registry.register(CustomTextConverter())
+
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node, type_converter_registry=custom_registry)
+        result = path.to_pydantic_type()
+        # Should use custom converter
+        assert result == "custom_str"
+
+    def test_to_pydantic_type_backward_compatibility(self):
+        """Test that existing behavior is maintained (backward compatibility)"""
+        from formkit_ninja.formkit_schema import (
+            AutocompleteNode,
+            DropDownNode,
+            HiddenNode,
+            RadioNode,
+            SelectNode,
+            TelNode,
+        )
+
+        # Test various node types that should still work
+        test_cases = [
+            (TextNode(name="test", label="Test"), "str"),
+            (HiddenNode(name="test", label="Test"), "str"),
+            (SelectNode(name="test", label="Test"), "str"),
+            (DropDownNode(name="test", label="Test"), "str"),
+            (RadioNode(name="test", label="Test"), "str"),
+            (AutocompleteNode(name="test", label="Test"), "str"),
+            (TelNode(name="test", label="Test"), "int"),
+        ]
+
+        for node, expected in test_cases:
+            path = NodePath(node)
+            result = path.to_pydantic_type()
+            assert result == expected, f"Failed for {type(node).__name__}: expected {expected}, got {result}"
+
+    def test_default_registry_is_used_when_none_provided(self):
+        """Test that default registry is used when no registry is provided"""
+        from formkit_ninja.formkit_schema import TextNode
+        from formkit_ninja.parser.converters import default_registry
+
+        node = TextNode(name="test", label="Test")
+        path1 = NodePath(node)  # No registry provided
+        path2 = NodePath(node, type_converter_registry=default_registry)  # Explicit default
+
+        # Both should produce same result
+        assert path1.to_pydantic_type() == path2.to_pydantic_type()
+        assert path1.to_pydantic_type() == "str"
+
+
+class TestNodePathExtensionPoints:
+    """Tests for NodePath extension points"""
+
+    def test_filter_clause_default_value(self):
+        """Test that filter_clause returns default value"""
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node)
+        assert path.filter_clause == "SubStatusFilter"
+
+    def test_get_validators_default_value(self):
+        """Test that get_validators returns empty list by default"""
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node)
+        validators = path.get_validators()
+        assert isinstance(validators, list)
+        assert len(validators) == 0
+
+    def test_validators_property_calls_get_validators(self):
+        """Test that validators property calls get_validators()"""
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node)
+        # Both should return the same (empty list by default)
+        assert path.validators == path.get_validators()
+        assert path.validators == []
+
+    def test_get_extra_imports_default_value(self):
+        """Test that get_extra_imports returns empty list by default"""
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node)
+        imports = path.get_extra_imports()
+        assert isinstance(imports, list)
+        assert len(imports) == 0
+
+    def test_get_custom_imports_default_value(self):
+        """Test that get_custom_imports returns empty list by default"""
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node)
+        imports = path.get_custom_imports()
+        assert isinstance(imports, list)
+        assert len(imports) == 0
+
+    def test_subclass_can_override_filter_clause(self):
+        """Test that subclasses can override filter_clause property"""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            @property
+            def filter_clause(self) -> str:
+                return "CustomFilter"
+
+        path = CustomNodePath(node)
+        assert path.filter_clause == "CustomFilter"
+
+    def test_subclass_can_override_get_validators(self):
+        """Test that subclasses can override get_validators method"""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            def get_validators(self) -> list[str]:
+                return ["@validator('field_name')", "def validate_field(cls, v): return v"]
+
+        path = CustomNodePath(node)
+        validators = path.get_validators()
+        assert len(validators) == 2
+        assert validators[0] == "@validator('field_name')"
+        assert validators[1] == "def validate_field(cls, v): return v"
+
+    def test_subclass_validators_property_uses_overridden_get_validators(self):
+        """Test that validators property uses overridden get_validators"""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            def get_validators(self) -> list[str]:
+                return ["custom_validator"]
+
+        path = CustomNodePath(node)
+        assert path.validators == ["custom_validator"]
+        assert path.validators == path.get_validators()
+
+    def test_subclass_can_override_get_extra_imports(self):
+        """Test that subclasses can override get_extra_imports method"""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            def get_extra_imports(self) -> list[str]:
+                return ["from typing import Optional", "from datetime import datetime"]
+
+        path = CustomNodePath(node)
+        imports = path.get_extra_imports()
+        assert len(imports) == 2
+        assert "from typing import Optional" in imports
+        assert "from datetime import datetime" in imports
+
+    def test_subclass_can_override_get_custom_imports(self):
+        """Test that subclasses can override get_custom_imports method"""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            def get_custom_imports(self) -> list[str]:
+                return ["from django.db import transaction", "from myapp.utils import helper"]
+
+        path = CustomNodePath(node)
+        imports = path.get_custom_imports()
+        assert len(imports) == 2
+        assert "from django.db import transaction" in imports
+        assert "from myapp.utils import helper" in imports
+
+    def test_extension_points_work_with_nested_nodes(self):
+        """Test that extension points work correctly with nested node paths"""
+        group_node = GroupNode(name="group1", label="Group 1")
+        text_node = TextNode(name="field1", label="Field 1")
+        path = NodePath(group_node, text_node)
+
+        # All extension points should work with nested paths
+        assert path.filter_clause == "SubStatusFilter"
+        assert path.get_validators() == []
+        assert path.get_extra_imports() == []
+        assert path.get_custom_imports() == []
+        assert path.validators == []
+
+    def test_extension_points_work_with_repeater_nodes(self):
+        """Test that extension points work correctly with repeater nodes"""
+        repeater_node = RepeaterNode(name="repeater1", label="Repeater 1")
+        path = NodePath(repeater_node)
+
+        # All extension points should work with repeater paths
+        assert path.filter_clause == "SubStatusFilter"
+        assert path.get_validators() == []
+        assert path.get_extra_imports() == []
+        assert path.get_custom_imports() == []
+        assert path.validators == []
+
+    def test_extension_points_work_with_group_nodes(self):
+        """Test that extension points work correctly with group nodes"""
+        group_node = GroupNode(name="group1", label="Group 1")
+        path = NodePath(group_node)
+
+        # All extension points should work with group paths
+        assert path.filter_clause == "SubStatusFilter"
+        assert path.get_validators() == []
+        assert path.get_extra_imports() == []
+        assert path.get_custom_imports() == []
+        assert path.validators == []
+
+    def test_multiple_extension_points_can_be_overridden_together(self):
+        """Test that multiple extension points can be overridden in the same subclass"""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            @property
+            def filter_clause(self) -> str:
+                return "CustomFilter"
+
+            def get_validators(self) -> list[str]:
+                return ["validator1", "validator2"]
+
+            def get_extra_imports(self) -> list[str]:
+                return ["import1", "import2"]
+
+            def get_custom_imports(self) -> list[str]:
+                return ["custom_import1", "custom_import2"]
+
+        path = CustomNodePath(node)
+        assert path.filter_clause == "CustomFilter"
+        assert path.get_validators() == ["validator1", "validator2"]
+        assert path.get_extra_imports() == ["import1", "import2"]
+        assert path.get_custom_imports() == ["custom_import1", "custom_import2"]
+        assert path.validators == ["validator1", "validator2"]
