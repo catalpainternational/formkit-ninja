@@ -273,6 +273,10 @@ class NodeChildrenManager(models.Manager):
             values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__latest_change__gt=latest_change))
         return values.values_list("parent_id", "latest_change", "children", named=True)
 
+    def latest_change(self):
+        all = self.aggregate_changes_table().aggregate(Max("track_change"))
+        return all["track_change__max"]
+
 
 class NodeChildren(models.Model):
     """
