@@ -6,6 +6,7 @@ from typing import Generator, Iterable, Literal, cast
 
 from formkit_ninja import formkit_schema
 from formkit_ninja.formkit_schema import FormKitNode, GroupNode, RepeaterNode
+from formkit_ninja.parser.converters import TypeConverterRegistry, default_registry
 
 FormKitType = formkit_schema.FormKitType
 
@@ -43,8 +44,9 @@ class NodePath:
     for naming
     """
 
-    def __init__(self, *nodes: FormKitType):
+    def __init__(self, *nodes: FormKitType, type_converter_registry: TypeConverterRegistry | None = None):
         self.nodes = nodes
+        self._type_converter_registry = type_converter_registry or default_registry
 
     @classmethod
     def from_obj(cls, obj: dict):
@@ -222,8 +224,19 @@ class NodePath:
     def to_pydantic_type(self) -> Literal["str", "int", "bool", "Decimal", "float", "date"] | str:
         """
         Usually, this should return a well known Python type as a string
+
+        This method first tries to use the type converter registry if available,
+        then falls back to the original hardcoded logic for backward compatibility.
         """
         node = self.node
+
+        # Try registry first (if node has formkit attribute)
+        if hasattr(node, "formkit"):
+            converter = self._type_converter_registry.get_converter(node)
+            if converter is not None:
+                return converter.to_pydantic_type(node)
+
+        # Fallback to original logic for backward compatibility
         if node.formkit == "number":
             if node.step is not None:
                 # We don't actually **know** this but it's a good assumption
@@ -247,6 +260,10 @@ class NodePath:
                 return f"list[{self.classname}]"
             case "hidden":
                 return "str"
+            case "uuid":
+                return "UUID"
+            case "currency":
+                return "Decimal"
         return "str"
 
     @property
@@ -357,5 +374,57 @@ class NodePath:
         """
         Hook to allow extra processing for
         fields like Partisipa's 'currency' field
+
+        This property calls get_validators() for extensibility.
+        Subclasses can override get_validators() to provide custom validators.
+        """
+        return self.get_validators()
+
+    def get_validators(self) -> list[str]:
+        """
+        Extension point: Return list of validator strings for this node.
+
+        Override this method in a NodePath subclass to provide custom validators.
+        Validators are typically Pydantic validator decorators or field validators.
+
+        Returns:
+            List of validator strings (default: empty list)
+        """
+        return []
+
+    @property
+    def filter_clause(self) -> str:
+        """
+        Extension point: Return filter clause class name for admin/API filtering.
+
+        Override this property in a NodePath subclass to provide custom filter clauses.
+        Used in generated admin and API code for filtering querysets.
+
+        Returns:
+            Filter clause class name (default: "SubStatusFilter")
+        """
+        return "SubStatusFilter"
+
+    def get_extra_imports(self) -> list[str]:
+        """
+        Extension point: Return list of extra import statements.
+
+        Override this method in a NodePath subclass to provide additional imports
+        that should be included in generated schema files (schemas.py, schemas_in.py).
+
+        Returns:
+            List of import statement strings (default: empty list)
+        """
+        return []
+
+    def get_custom_imports(self) -> list[str]:
+        """
+        Extension point: Return list of custom import statements for models.py.
+
+        Override this method in a NodePath subclass to provide additional imports
+        that should be included in the generated models.py file.
+
+        Returns:
+            List of import statement strings (default: empty list)
         """
         return []
