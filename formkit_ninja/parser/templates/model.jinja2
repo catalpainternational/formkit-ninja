@@ -12,8 +12,10 @@
 class {{this.classname}}(models.Model):
 {% if this.is_repeater %}
     # This class is a Repeater: Parent and ordinality fields have been added"
-    parent = models.ForeignKey("{{repeater.parent_class_name}}", on_delete=models.CASCADE, related_name="{{repeater.node.name}}")
+    parent = models.ForeignKey("{{this.parent_class_name}}", on_delete=models.CASCADE, related_name="{{this.node.name}}")
+{% if include_ordinality %}
     ordinality = models.IntegerField()
+{% endif %}
 {% endif %}
 {% for extra_attrib in this.extra_attribs %}
     {{extra_attrib}}
@@ -21,4 +23,7 @@ class {{this.classname}}(models.Model):
 {% for attrib in this.formkits_not_repeaters %}
     {{attrib.django_attrib_name}} = models.{{attrib.django_type}}({{attrib.django_args}})
 {% endfor %}
+{% if not this.is_repeater and this.extra_attribs|length == 0 and this.formkits_not_repeaters|length == 0 %}
+    pass
+{% endif %}
 {% endif %}

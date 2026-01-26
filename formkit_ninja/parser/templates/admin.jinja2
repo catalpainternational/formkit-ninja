@@ -33,6 +33,8 @@ class {{this.classname}}Admin(admin.ModelAdmin):
         "{{attrib.django_attrib_name}}",
     {% endfor %}
     ]
+    {% else %}
+    pass
     {% endif %}
 {% endif %}
 
