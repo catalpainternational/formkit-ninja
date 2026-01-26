@@ -24,6 +24,45 @@ INSTALLED_APPS = [
 ]
 ```
 
+## Code Generation
+
+formkit-ninja can automatically generate Django models, Pydantic schemas, admin classes, and API endpoints from your FormKit schemas.
+
+### Quick Start
+
+Generate code from all schemas in your database:
+
+```bash
+./manage.py generate_code --app-name myapp --output-dir ./myapp/generated
+```
+
+Generate code for a specific schema:
+
+```bash
+./manage.py generate_code --app-name myapp --output-dir ./myapp/generated --schema-label "My Form"
+```
+
+### Generated Files
+
+The code generator creates the following files:
+
+- `models.py` - Django models for groups and repeaters
+- `schemas.py` - Django Ninja output schemas
+- `schemas_in.py` - Django Ninja input schemas (Pydantic BaseModel)
+- `admin.py` - Django admin classes
+- `api.py` - Django Ninja API endpoints
+
+### Extensibility
+
+formkit-ninja provides multiple extension points for customizing code generation:
+
+- **Custom Type Converters**: Add support for custom FormKit node types
+- **Custom NodePath**: Extend NodePath with project-specific logic
+- **Plugin System**: Bundle multiple extensions together
+- **Custom Templates**: Override Jinja2 templates for generated code
+
+See the [Code Generation Guide](docs/code_generation.md) for detailed documentation and examples.
+
 ## Test
 
 Pull the repo:

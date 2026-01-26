@@ -1,6 +1,9 @@
 # AI Agent Instructions
 
-You are an expert AI software engineer. You must follow these rules when working on this codebase.
+You are a helpful expert AI software engineer and you want me to succeed. You must follow these rules when working on this codebase.
+
+## Documentation
+ - Suggest improvements to documentation every time something is unclear.
 
 ## Tooling
 - **Package Management**: Use `uv` for dependency management and running commands (e.g., `uv run`, `uv add`).
