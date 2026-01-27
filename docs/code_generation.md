@@ -364,14 +364,14 @@ class PartisipaNodePath(NodePath):
         attribs = []
         if self.is_group or self.is_repeater:
             if self.is_group and not self.is_child:
-                # Parent model: use as primary key
+                # Parent model: submission field (not primary key)
                 attribs.append(
                     'submission = models.OneToOneField('
                     '"form_submission.SeparatedSubmission", '
                     'on_delete=models.CASCADE, primary_key=True)'
                 )
             else:
-                # Repeater model: nullable
+                # Repeater model: nullable submission
                 attribs.append(
                     'submission = models.OneToOneField('
                     '"form_submission.SeparatedSubmission", '
@@ -380,35 +380,108 @@ class PartisipaNodePath(NodePath):
         return attribs
 ```
 
+**Note:** If you want `submission` without `primary_key=True`, use:
+```python
+attribs.append(
+    'submission = models.OneToOneField('
+    '"form_submission.SeparatedSubmission", '
+    'on_delete=models.CASCADE, null=True, blank=True)'
+)
+```
+
+**Example: Adding Custom Fields (e.g., "Project")**
+
+```python
+class PartisipaNodePath(NodePath):
+    @property
+    def extra_attribs(self):
+        """Add submission and project fields to models."""
+        attribs = []
+        if self.is_group or self.is_repeater:
+            # Add submission field
+            if self.is_group and not self.is_child:
+                attribs.append(
+                    'submission = models.OneToOneField('
+                    '"form_submission.SeparatedSubmission", '
+                    'on_delete=models.CASCADE, null=True, blank=True)'
+                )
+            
+            # Add project field to specific models (e.g., root-level groups)
+            if self.is_group and not self.is_child:
+                # Check if this is a model that should have a project field
+                # You can customize this logic based on classname, field names, etc.
+                if "project" in self.classname.lower() or "Project" in self.classname:
+                    attribs.append(
+                        'project = models.ForeignKey('
+                        'ida_options.Project, '
+                        'on_delete=models.PROTECT, null=True, blank=True)'
+                    )
+        return attribs
+```
+
 ### `to_django_type()` Method
 
 Override the Django field type for specific nodes. Useful for converting TextFields to ForeignKeys based on business logic.
 
-**Example: ForeignKey Detection for Option Models**
+**Example: ForeignKey Detection for Option Models (ida_options)**
 
 ```python
 class PartisipaNodePath(NodePath):
     def to_django_type(self) -> str:
-        """Convert option-based fields to ForeignKeys."""
-        # Check if this node references an option model
-        if hasattr(self.node, 'option_group') and self.node.option_group:
-            # Map option group to Partisipa model
-            model_name = self._map_option_group_to_model(self.node.option_group)
-            if model_name:
-                return f"ForeignKey({model_name}, ...)"
+        """Convert option-based fields to ForeignKeys to ida_options models."""
+        # Map field names to ida_options models
+        model_name = self._map_field_to_ida_options_model()
+        if model_name:
+            return "ForeignKey"
         return super().to_django_type()
     
-    def _map_option_group_to_model(self, option_group):
-        """Map option group to Django model name."""
-        # Partisipa-specific mapping logic
-        mappings = {
-            'cycle': 'ida_options.Cycle',
-            'project': 'ida_options.Project',
+    def to_django_args(self) -> str:
+        """Provide args for ForeignKey fields to ida_options."""
+        model_name = self._map_field_to_ida_options_model()
+        if model_name:
+            # Determine on_delete based on field type
+            on_delete = "models.CASCADE" if self._is_required_field() else "models.DO_NOTHING"
+            return f'"{model_name}", on_delete={on_delete}, null=True, blank=True'
+        return super().to_django_args()
+    
+    def _map_field_to_ida_options_model(self) -> str | None:
+        """Map field name to ida_options Django model name."""
+        if not hasattr(self.node, "name"):
+            return None
+        
+        field_name = self.node.name.lower()
+        
+        # Map field names to ida_options models
+        # This is project-specific logic - customize based on your schema
+        field_mappings = {
+            'district': 'ida_options.Munisipiu',
+            'administrative_post': 'ida_options.PostuAdministrativu',
+            'suco': 'ida_options.Suku',
+            'aldeia': 'ida_options.Aldeia',
+            'project_status': 'ida_options.SubProjectStatus1',
+            'project_sector': 'ida_options.Sector',
+            'project_sub_sector': 'ida_options.SubSector',
+            'project_name': 'ida_options.Output',
+            'objective': 'ida_options.Objective',
+            'is_women_priority': 'ida_options.YesNo',
+            'woman_priority': 'ida_options.YesNo',
+            'women_priority': 'ida_options.YesNo',
             'output': 'ida_options.Output',
-            'munisipiu': 'ida_options.Munisipiu',
-            # ... more mappings
+            'activity': 'ida_options.Activity',
+            'unit': 'ida_options.Unit',
         }
-        return mappings.get(option_group.lower())
+        
+        return field_mappings.get(field_name)
+    
+    def _is_required_field(self) -> bool:
+        """Determine if field should use CASCADE (required) vs DO_NOTHING (optional)."""
+        # Customize this logic based on your requirements
+        # For example, location fields might be CASCADE, while status fields are DO_NOTHING
+        if not hasattr(self.node, "name"):
+            return False
+        
+        required_fields = {'district', 'administrative_post', 'suco', 'aldeia'}
+        return self.node.name.lower() in required_fields
 ```
 
 ### `to_django_args()` Method
@@ -426,7 +499,7 @@ class PartisipaNodePath(NodePath):
         return super().to_django_args()
 ```
 
-## Partisipa-Specific Extensions Example
+## Complete Partisipa-Specific Extensions Example
 
 Here's a complete example of a Partisipa-specific NodePath that implements all the customizations:
 
@@ -439,60 +512,104 @@ class PartisipaNodePath(NodePath):
     Partisipa-specific NodePath extensions.
     
     Adds:
-    - Submission relationship to all models
-    - ForeignKey detection for option models
+    - Submission relationship to all models (without primary_key)
+    - Project field to specific models
+    - ForeignKey detection for ida_options models
     - UUID unique constraint
-    - Primary key customization
+    - DateField for datepicker nodes (default behavior)
     """
     
     @property
     def extra_attribs(self):
-        """Add submission relationship to all models."""
+        """Add submission and project fields to models."""
         attribs = []
         if self.is_group or self.is_repeater:
+            # Add submission field (not as primary key)
             if self.is_group and not self.is_child:
-                # Parent model: use submission as primary key
+                # Root-level group: submission field
                 attribs.append(
                     'submission = models.OneToOneField('
                     '"form_submission.SeparatedSubmission", '
                     'on_delete=models.CASCADE, primary_key=True)'
                 )
-            else:
-                # Repeater model: nullable submission
+            elif self.is_repeater:
+                # Repeater: nullable submission
                 attribs.append(
                     'submission = models.OneToOneField('
                     '"form_submission.SeparatedSubmission", '
                     'on_delete=models.CASCADE, null=True)'
                 )
+            
+            # Add project field to root-level groups
+            if self.is_group and not self.is_child:
+                # Customize this condition based on your needs
+                # For example, add to all root groups or specific ones
+                attribs.append(
+                    'project = models.ForeignKey('
+                    'ida_options.Project, '
+                    'on_delete=models.PROTECT, null=True, blank=True)'
+                )
         return attribs
     
     def to_django_type(self) -> str:
-        """Convert option-based fields to ForeignKeys."""
-        # Check if this node references an option model
-        if hasattr(self.node, 'option_group') and self.node.option_group:
-            model_name = self._map_option_group_to_model(self.node.option_group)
-            if model_name:
-                return f"ForeignKey({model_name}, ...)"
+        """Convert option-based fields to ForeignKeys to ida_options models."""
+        model_name = self._map_field_to_ida_options_model()
+        if model_name:
+            return "ForeignKey"
         return super().to_django_type()
     
     def to_django_args(self) -> str:
-        """Add unique=True to UUID fields."""
+        """Provide args for ForeignKey fields to ida_options."""
+        model_name = self._map_field_to_ida_options_model()
+        if model_name:
+            on_delete = "models.CASCADE" if self._is_required_field() else "models.DO_NOTHING"
+            # Add related_name="+" for YesNo fields to avoid reverse relation conflicts
+            related_name = ', related_name="+"' if "YesNo" in model_name else ""
+            return f'"{model_name}", on_delete={on_delete}{related_name}, null=True, blank=True'
+        
+        # UUID fields get unique=True
         if self.to_pydantic_type() == "UUID":
             return "editable=False, unique=True, null=True, blank=True"
+        
         return super().to_django_args()
     
-    def _map_option_group_to_model(self, option_group):
-        """Map option group to Partisipa Django model."""
-        # Partisipa-specific mapping
-        mappings = {
-            'cycle': 'ida_options.Cycle',
-            'project': 'ida_options.Project',
+    def _map_field_to_ida_options_model(self) -> str | None:
+        """Map field name to ida_options Django model name."""
+        if not hasattr(self.node, "name"):
+            return None
+        
+        field_name = self.node.name.lower()
+        
+        # Map field names to ida_options models
+        field_mappings = {
+            'district': 'ida_options.Munisipiu',
+            'administrative_post': 'ida_options.PostuAdministrativu',
+            'suco': 'ida_options.Suku',
+            'aldeia': 'ida_options.Aldeia',
+            'project_status': 'ida_options.SubProjectStatus1',
+            'project_sector': 'ida_options.Sector',
+            'project_sub_sector': 'ida_options.SubSector',
+            'project_subsector': 'ida_options.SubSector',
+            'project_name': 'ida_options.Output',
+            'objective': 'ida_options.Objective',
+            'is_women_priority': 'ida_options.YesNo',
+            'woman_priority': 'ida_options.YesNo',
+            'women_priority': 'ida_options.YesNo',
             'output': 'ida_options.Output',
-            'munisipiu': 'ida_options.Munisipiu',
-            'postu_administrativu': 'ida_options.PostuAdministrativu',
-            'suku': 'ida_options.Suku',
+            'activity': 'ida_options.Activity',
+            'unit': 'ida_options.Unit',
         }
-        return mappings.get(option_group.lower())
+        
+        return field_mappings.get(field_name)
+    
+    def _is_required_field(self) -> bool:
+        """Determine if field should use CASCADE (required) vs DO_NOTHING (optional)."""
+        if not hasattr(self.node, "name"):
+            return False
+        
+        # Location fields typically use CASCADE
+        required_fields = {'district', 'administrative_post', 'suco', 'aldeia'}
+        return self.node.name.lower() in required_fields
 ```
 
 **Using PartisipaNodePath:**
