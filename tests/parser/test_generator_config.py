@@ -230,3 +230,18 @@ class TestGeneratorConfig:
         )
 
         assert config.custom_imports == []
+
+    def test_config_accepts_merge_top_level_groups(self):
+        """Test that GeneratorConfig accepts merge_top_level_groups parameter"""
+        config = GeneratorConfig(
+            app_name="testapp",
+            output_dir=Path("/tmp"),
+            merge_top_level_groups=True,
+        )
+        assert config.merge_top_level_groups is True
+
+        config_default = GeneratorConfig(
+            app_name="testapp",
+            output_dir=Path("/tmp"),
+        )
+        assert config_default.merge_top_level_groups is False

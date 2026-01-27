@@ -201,7 +201,7 @@ def TF_6_1_1_from_factory(db):
         label='$gettext("Date start estimated")',
         node={
             "$formkit": "datepicker",
-            "name": "date_start_estimated",
+            "name": "date_start",
             "label": '$gettext("Date start estimated")',
             "format": "DD/MM/YY",
         },
@@ -210,7 +210,7 @@ def TF_6_1_1_from_factory(db):
         label='$gettext("Date finish estimated")',
         node={
             "$formkit": "datepicker",
-            "name": "date_finish_estimated",
+            "name": "date_finish",
             "label": '$gettext("Date finish estimated")',
             "format": "DD/MM/YY",
         },
@@ -246,7 +246,7 @@ def TF_6_1_1_from_factory(db):
         option_group=None,
         node={
             "$formkit": "select",
-            "name": "project_subsector",
+            "name": "project_sub_sector",
             "label": '$gettext("Project Sub-Sector")',
             "if": "$get(project_sector).value",
             "options": "$ida(subsector)",
@@ -274,7 +274,7 @@ def TF_6_1_1_from_factory(db):
         label='$gettext("GPS Coordinate - LATITUDE")',
         node={
             "$formkit": "number",
-            "name": "gps_latitude",
+            "name": "latitude",
             "label": '$gettext("GPS Coordinate - LATITUDE")',
         },
     )
@@ -282,7 +282,7 @@ def TF_6_1_1_from_factory(db):
         label='$gettext("GPS Coordinate - LONGITUDE")',
         node={
             "$formkit": "number",
-            "name": "gps_longitude",
+            "name": "longitude",
             "label": '$gettext("GPS Coordinate - LONGITUDE")',
         },
     )
@@ -291,7 +291,7 @@ def TF_6_1_1_from_factory(db):
         option_group=None,
         node={
             "$formkit": "select",
-            "name": "is_women_priority",
+            "name": "women_priority",
             "label": '$gettext("Is a women priority?")',
         },
     )
@@ -336,7 +336,7 @@ def TF_6_1_1_from_factory(db):
         label='$gettext("No. of people with disability - male")',
         node={
             "$formkit": "number",
-            "name": "disability_male",
+            "name": "no_of_pwd_male",
             "label": '$gettext("No. of people with disability - male")',
         },
     )
@@ -344,7 +344,7 @@ def TF_6_1_1_from_factory(db):
         label='$gettext("No. of people with disability - female")',
         node={
             "$formkit": "number",
-            "name": "disability_female",
+            "name": "no_of_pwd_female",
             "label": '$gettext("No. of people with disability - female")',
         },
     )

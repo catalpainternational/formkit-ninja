@@ -646,6 +646,109 @@ class TestNodePathExtensionPoints:
         assert path.get_custom_imports() == []
         assert path.validators == []
 
+
+class TestNodePathAbstractProperties:
+    """Tests for NodePath abstract inheritance properties"""
+
+    def test_is_abstract_base_for_immediate_child_group(self):
+        """Test is_abstract_base returns True for immediate child group of root when merging enabled"""
+        from formkit_ninja.parser.generator_config import GeneratorConfig
+
+        root = GroupNode(name="TF_6_1_1", label="TF_6_1_1")
+        child = GroupNode(name="MeetingInformation", label="Meeting Information")
+        root_path = NodePath(root)
+        child_path = root_path / child
+
+        # Set config with merging enabled
+        config = GeneratorConfig(app_name="testapp", output_dir="/tmp", merge_top_level_groups=True)
+        child_path._config = config
+        child_path._abstract_base_info = {child_path.classname: True}
+
+        assert child_path.is_abstract_base is True
+        assert root_path.is_abstract_base is False
+
+    def test_is_abstract_base_returns_false_when_merging_disabled(self):
+        """Test is_abstract_base returns False when merging is disabled"""
+        from formkit_ninja.parser.generator_config import GeneratorConfig
+
+        root = GroupNode(name="TF_6_1_1", label="TF_6_1_1")
+        child = GroupNode(name="MeetingInformation", label="Meeting Information")
+        root_path = NodePath(root)
+        child_path = root_path / child
+
+        # Set config with merging disabled
+        config = GeneratorConfig(app_name="testapp", output_dir="/tmp", merge_top_level_groups=False)
+        child_path._config = config
+        child_path._abstract_base_info = {}
+
+        assert child_path.is_abstract_base is False
+
+    def test_is_abstract_base_returns_false_for_root_group(self):
+        """Test is_abstract_base returns False for root groups"""
+        from formkit_ninja.parser.generator_config import GeneratorConfig
+
+        root = GroupNode(name="TF_6_1_1", label="TF_6_1_1")
+        root_path = NodePath(root)
+
+        config = GeneratorConfig(app_name="testapp", output_dir="/tmp", merge_top_level_groups=True)
+        root_path._config = config
+        root_path._abstract_base_info = {}
+
+        assert root_path.is_abstract_base is False
+
+    def test_abstract_class_name_returns_correct_format(self):
+        """Test abstract_class_name returns f'{classname}Abstract'"""
+        from formkit_ninja.parser.generator_config import GeneratorConfig
+
+        root = GroupNode(name="TF_6_1_1", label="TF_6_1_1")
+        child = GroupNode(name="MeetingInformation", label="Meeting Information")
+        root_path = NodePath(root)
+        child_path = root_path / child
+
+        config = GeneratorConfig(app_name="testapp", output_dir="/tmp", merge_top_level_groups=True)
+        child_path._config = config
+        child_path._abstract_base_info = {id(child_path): True}
+
+        assert child_path.abstract_class_name == "Tf_6_1_1MeetinginformationAbstract"
+
+    def test_parent_abstract_bases_returns_list_for_root(self):
+        """Test parent_abstract_bases returns list of abstract class names for root groups"""
+        from formkit_ninja.parser.generator_config import GeneratorConfig
+
+        root = GroupNode(name="TF_6_1_1", label="TF_6_1_1")
+        child1 = GroupNode(name="MeetingInformation", label="Meeting Information")
+        child2 = GroupNode(name="ProjectTimeframe", label="Project Timeframe")
+        root_path = NodePath(root)
+        child1_path = root_path / child1
+        child2_path = root_path / child2
+
+        config = GeneratorConfig(app_name="testapp", output_dir="/tmp", merge_top_level_groups=True)
+        root_path._config = config
+        root_path._abstract_base_info = {child1_path.classname: True, child2_path.classname: True}
+        root_path._child_abstract_bases = [
+            "Tf_6_1_1MeetinginformationAbstract",
+            "Tf_6_1_1ProjecttimeframeAbstract",
+        ]
+
+        abstract_bases = root_path.parent_abstract_bases
+        assert isinstance(abstract_bases, list)
+        assert "Tf_6_1_1MeetinginformationAbstract" in abstract_bases
+        assert "Tf_6_1_1ProjecttimeframeAbstract" in abstract_bases
+
+    def test_parent_abstract_bases_returns_empty_list_when_merging_disabled(self):
+        """Test parent_abstract_bases returns empty list when merging is disabled"""
+        from formkit_ninja.parser.generator_config import GeneratorConfig
+
+        root = GroupNode(name="TF_6_1_1", label="TF_6_1_1")
+        root_path = NodePath(root)
+
+        config = GeneratorConfig(app_name="testapp", output_dir="/tmp", merge_top_level_groups=False)
+        root_path._config = config
+        root_path._abstract_base_info = {}
+        root_path._child_abstract_bases = []
+
+        assert root_path.parent_abstract_bases == []
+
     def test_multiple_extension_points_can_be_overridden_together(self):
         """Test that multiple extension points can be overridden in the same subclass"""
         node = TextNode(name="test", label="Test")

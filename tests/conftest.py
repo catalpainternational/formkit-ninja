@@ -8,6 +8,9 @@ import os
 
 import pytest
 
+# Import fixtures from tests.fixtures so they're available to all tests
+pytest_plugins = ["tests.fixtures"]
+
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args):
