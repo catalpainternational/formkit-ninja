@@ -8,18 +8,32 @@ class {{this.classname}}Inline(ReadOnlyInline):
     model = models.{{this.classname}}
 {% endif %}
 {% for group in this.groups %}
-    {% with this=group %}
-        {% include "admin.jinja2" %}
-    {% endwith %}
+    {% if not group.is_abstract_base %}
+        {% with this=group %}
+            {% include "admin.jinja2" %}
+        {% endwith %}
+    {% endif %}
 {% endfor %}
 {% if this.is_group or this.is_repeater %}
+{% if not this.is_abstract_base %}
 @admin.register(models.{{this.classname}})
 class {{this.classname}}Admin(admin.ModelAdmin):
-    {% if this.formkits_not_repeaters %}
+    {% if this.formkits_not_repeaters or this.parent_abstract_bases|length > 0 %}
     list_display = [
     {% for attrib in this.formkits_not_repeaters %}
+        {% if not attrib.is_abstract_base and not (attrib.django_type == "OneToOneField" and this.parent_abstract_bases|length > 0) %}
         "{{attrib.django_attrib_name}}",
+        {% endif %}
     {% endfor %}
+    {% if this.parent_abstract_bases|length > 0 %}
+    {% for group in this.groups %}
+        {% if group.is_abstract_base %}
+            {% for attrib in group.formkits_not_repeaters %}
+        "{{attrib.django_attrib_name}}",
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+    {% endif %}
     ]
     {% if this.repeaters %}
     inlines = [
@@ -30,11 +44,23 @@ class {{this.classname}}Admin(admin.ModelAdmin):
     {% endif%}
     readonly_fields = [
     {% for attrib in this.formkits_not_repeaters %}
+        {% if not attrib.is_abstract_base and not (attrib.django_type == "OneToOneField" and this.parent_abstract_bases|length > 0) %}
         "{{attrib.django_attrib_name}}",
+        {% endif %}
     {% endfor %}
+    {% if this.parent_abstract_bases|length > 0 %}
+    {% for group in this.groups %}
+        {% if group.is_abstract_base %}
+            {% for attrib in group.formkits_not_repeaters %}
+        "{{attrib.django_attrib_name}}",
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+    {% endif %}
     ]
     {% else %}
     pass
     {% endif %}
+{% endif %}
 {% endif %}
 

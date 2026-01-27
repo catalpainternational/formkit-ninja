@@ -44,9 +44,19 @@ class NodePath:
     for naming
     """
 
-    def __init__(self, *nodes: FormKitType, type_converter_registry: TypeConverterRegistry | None = None):
+    def __init__(
+        self,
+        *nodes: FormKitType,
+        type_converter_registry: TypeConverterRegistry | None = None,
+        config=None,
+        abstract_base_info: dict | None = None,
+        child_abstract_bases: list[str] | None = None,
+    ):
         self.nodes = nodes
         self._type_converter_registry = type_converter_registry or default_registry
+        self._config = config
+        self._abstract_base_info = abstract_base_info or {}
+        self._child_abstract_bases = child_abstract_bases or []
 
     @classmethod
     def from_obj(cls, obj: dict):
@@ -60,8 +70,21 @@ class NodePath:
         This overrides the builtin '/' operator, like "Path", to allow appending nodes
         """
         if node == "..":
-            return self.__class__(*self.nodes[:-1])
-        return self.__class__(*self.nodes, cast(formkit_schema.FormKitType, node))
+            return self.__class__(
+                *self.nodes[:-1],
+                type_converter_registry=self._type_converter_registry,
+                config=self._config,
+                abstract_base_info=self._abstract_base_info,
+                child_abstract_bases=self._child_abstract_bases,
+            )
+        return self.__class__(
+            *self.nodes,
+            cast(formkit_schema.FormKitType, node),
+            type_converter_registry=self._type_converter_registry,
+            config=self._config,
+            abstract_base_info=self._abstract_base_info,
+            child_abstract_bases=self._child_abstract_bases,
+        )
 
     def suggest_model_name(self) -> str:
         """
@@ -71,7 +94,32 @@ class NodePath:
         return model_name
 
     def suggest_class_name(self):
-        model_name = "".join(map(lambda n: n.capitalize(), map(self.safe_node_name, self.nodes)))
+        # If this is a repeater, skip wrapping group nodes in the classname
+        # Example: TF_6_1_1 > projectoutput > repeaterProjectOutput
+        # Should become: Tf_6_1_1Repeaterprojectoutput (not Tf_6_1_1ProjectoutputRepeaterprojectoutput)
+        if self.is_repeater and len(self.nodes) > 1:
+            # Filter nodes: keep root node(s) and the repeater, skip intermediate groups
+            filtered_nodes = []
+            for i, node in enumerate(self.nodes):
+                # Always include the first node (root)
+                if i == 0:
+                    filtered_nodes.append(node)
+                # Always include the last node (the repeater itself)
+                elif i == len(self.nodes) - 1:
+                    filtered_nodes.append(node)
+                # Skip intermediate nodes that are groups
+                else:
+                    # Check if this intermediate node is a group
+                    # Create a temporary NodePath to check the node type
+                    temp_path = self.__class__(*self.nodes[: i + 1])
+                    if not temp_path.is_group:
+                        # Not a group, include it
+                        filtered_nodes.append(node)
+                    # If it is a group, skip it
+            model_name = "".join(map(lambda n: n.capitalize(), map(self.safe_node_name, filtered_nodes)))
+        else:
+            # For non-repeaters, use all nodes as before
+            model_name = "".join(map(lambda n: n.capitalize(), map(self.safe_node_name, self.nodes)))
         return model_name
 
     def suggest_field_name(self):
@@ -221,6 +269,67 @@ class NodePath:
     def parent_class_name(self):
         return (self / "..").classname
 
+    @property
+    def is_abstract_base(self) -> bool:
+        """
+        Returns True if this NodePath should be generated as an abstract base class.
+
+        This is True when:
+        - This is an immediate child group of a root-level group (depth=2)
+        - Merging is enabled in config
+        - This NodePath is marked as an abstract base in abstract_base_info
+        """
+        if not self.is_group:
+            return False
+        if not self._config or not getattr(self._config, "merge_top_level_groups", False):
+            return False
+        # Check if this NodePath classname is marked as abstract base
+        return self._abstract_base_info.get(self.classname, False)
+
+    @property
+    def abstract_class_name(self) -> str:
+        """Returns the abstract class name: f'{classname}Group'"""
+        return f"{self.classname}Group"
+
+    def get_node_path_string(self) -> str:
+        """Returns a string representation of the node path for docstrings."""
+        path_parts = []
+        for node in self.nodes:
+            if hasattr(node, "name") and node.name:
+                path_parts.append(node.name)
+            elif hasattr(node, "id") and node.id:
+                path_parts.append(node.id)
+            elif hasattr(node, "formkit"):
+                path_parts.append(f"${node.formkit}")
+        return " > ".join(path_parts) if path_parts else "root"
+
+    def get_node_info_docstring(self) -> str:
+        """Returns a docstring describing the node origin."""
+        node_type = "Repeater" if self.is_repeater else "Group" if self.is_group else "Field"
+        path = self.get_node_path_string()
+
+        # Get label if available (and different from name)
+        label_info = ""
+        if hasattr(self.node, "label") and self.node.label:
+            node_name = getattr(self.node, "name", "") or getattr(self.node, "id", "")
+            if self.node.label != node_name:
+                label_info = f' (label: "{self.node.label}")'
+
+        return f"Generated from FormKit {node_type} node: {path}{label_info}"
+
+    @property
+    def parent_abstract_bases(self) -> list[str]:
+        """
+        Returns list of abstract base class names that the parent should inherit from.
+
+        This is only relevant for root-level groups when merging is enabled.
+        """
+        if not self.is_group:
+            return []
+        if not self._config or not getattr(self._config, "merge_top_level_groups", False):
+            return []
+        return self._child_abstract_bases
+
     def to_pydantic_type(self) -> Literal["str", "int", "bool", "Decimal", "float", "date"] | str:
         """
         Usually, this should return a well known Python type as a string
@@ -251,7 +360,7 @@ class NodePath:
             case "select" | "dropdown" | "radio" | "autocomplete":
                 return "str"
             case "datepicker":
-                return "datetime"
+                return "date"  # Changed from "datetime" to generate DateField
             case "tel":
                 return "int"
             case "group":

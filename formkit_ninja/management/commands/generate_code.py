@@ -78,16 +78,8 @@ class Command(BaseCommand):
             if not schemas.exists():
                 raise CommandError("No schemas found in database")
 
-        # Initialize generator components
-        config = GeneratorConfig(app_name=app_name, output_dir=output_dir)
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
-
-        generator = CodeGenerator(
-            config=config,
-            template_loader=template_loader,
-            formatter=formatter,
-        )
 
         # Generate code for each schema
         success_count = 0
@@ -95,7 +87,20 @@ class Command(BaseCommand):
 
         for schema in schemas:
             try:
-                self.stdout.write(f"Generating code for schema: {schema.label or schema.id}")
+                schema_name = schema.label or str(schema.id)
+                self.stdout.write(f"Generating code for schema: {schema_name}")
+
+                # Initialize generator components with schema-specific config
+                config = GeneratorConfig(
+                    app_name=app_name,
+                    output_dir=output_dir,
+                    schema_name=schema_name,
+                )
+                generator = CodeGenerator(
+                    config=config,
+                    template_loader=template_loader,
+                    formatter=formatter,
+                )
 
                 # Convert schema to Pydantic format (with recursive=True to include children)
                 # Note: to_pydantic() doesn't support recursive parameter, so we need to

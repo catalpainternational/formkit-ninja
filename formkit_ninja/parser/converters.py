@@ -199,7 +199,7 @@ class DateConverter:
     Converter for date-based FormKit nodes.
 
     Handles: datepicker, date
-    Returns: "datetime" for datepicker, "date" for date
+    Returns: "date" for both datepicker and date nodes (generates DateField)
     """
 
     def can_convert(self, node: FormKitType) -> bool:
@@ -226,17 +226,18 @@ class DateConverter:
             node: The FormKit node to convert
 
         Returns:
-            "datetime" for datepicker nodes, "date" for date nodes
+            "date" for both datepicker and date nodes (generates DateField in Django)
         """
+        # Both datepicker and date return "date" to generate DateField
         if isinstance(node, DatePickerNode):
-            return "datetime"
+            return "date"
         if isinstance(node, DateNode):
             return "date"
 
         # Fallback based on formkit attribute
         if hasattr(node, "formkit"):
             if node.formkit == "datepicker":
-                return "datetime"
+                return "date"
             if node.formkit == "date":
                 return "date"
 

@@ -6,12 +6,37 @@ needed for code generation, including app name, output directory, NodePath class
 template packages, and custom imports.
 """
 
+import re
 from pathlib import Path
-from typing import Any, Type
+from typing import Any, Optional, Type
 
 from pydantic import BaseModel, root_validator, validator
 
 from formkit_ninja.parser.type_convert import NodePath
+
+
+def schema_name_to_filename(schema_name: str) -> str:
+    """
+    Convert a schema name to a valid Python module filename.
+
+    Examples:
+        TF_6_1_1 -> tf611
+        MySchema -> myschema
+        Schema_1_2_3 -> schema123
+
+    Args:
+        schema_name: The schema name/label
+
+    Returns:
+        A valid Python module filename (lowercase, no special chars except underscores)
+    """
+    # Remove all non-alphanumeric characters except underscores
+    cleaned = re.sub(r"[^a-zA-Z0-9_]", "", schema_name)
+    # Convert to lowercase
+    cleaned = cleaned.lower()
+    # Remove underscores
+    cleaned = cleaned.replace("_", "")
+    return cleaned
 
 
 class GeneratorConfig(BaseModel):
@@ -25,6 +50,8 @@ class GeneratorConfig(BaseModel):
         template_packages: List of package paths for template loading (default: [])
         custom_imports: List of custom import statements to include (default: [])
         include_ordinality: Whether to include ordinality field in repeater models (default: True)
+        merge_top_level_groups: Whether to merge top-level groups using abstract inheritance (default: False)
+        schema_name: Optional schema name/label used for generating model filenames (default: None)
     """
 
     app_name: str
@@ -33,6 +60,8 @@ class GeneratorConfig(BaseModel):
     template_packages: list[str] = []
     custom_imports: list[str] = []
     include_ordinality: bool = True
+    merge_top_level_groups: bool = False
+    schema_name: Optional[str] = None
 
     @validator("app_name")
     def validate_app_name(cls, v: str) -> str:

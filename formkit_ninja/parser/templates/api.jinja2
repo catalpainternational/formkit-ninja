@@ -4,17 +4,24 @@
     {% endwith %}
 {% endfor %}
 {% for group in this.groups %}
-    {% with this=group %}
-        {% include "api.jinja2" %}
-    {% endwith %}
+    {% if not group.is_abstract_base %}
+        {% with this=group %}
+            {% include "api.jinja2" %}
+        {% endwith %}
+    {% endif %}
 {% endfor %}
+{% if not this.is_abstract_base %}
 @router.get("{{this.classname_lower}}", response=list[schema_out.{{this.classname_schema}}], exclude_none=True)
 def {{this.classname_lower}}(request):
+    # Schema includes fields: {% if this.parent_abstract_bases|length > 0 %}{% for group in this.groups %}{% if group.is_abstract_base %}{% for f in group.formkits_not_repeaters %}{{f.django_attrib_name}} {% endfor %}{% endif %}{% endfor %}{% endif %}{% for f in this.formkits_not_repeaters %}{% if not f.is_abstract_base and not (f.django_type == "OneToOneField" and this.parent_abstract_bases|length > 0) %}{{f.django_attrib_name}} {% endif %}{% endfor %}
+
     queryset = models.{{this.classname}}.objects.all()
-{% if this.groups%}
+{% if this.groups and this.parent_abstract_bases|length == 0 %}
     queryset = queryset.select_related(
     {% for group in this.groups %}
+        {% if not group.is_abstract_base %}
         "{{group.fieldname}}",
+        {% endif %}
     {% endfor %}
     )
 {% endif %}
@@ -26,4 +33,5 @@ def {{this.classname_lower}}(request):
     )
 {% endif %}
     return queryset
+{% endif %}
 

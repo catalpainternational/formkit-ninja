@@ -5,9 +5,19 @@ Instead, make changes to the template and re-generate this file
 
 
 from django.db import models
+{% if nodepaths|length > 0 %}
+{% set first_nodepath = nodepaths[0] %}
+{% if first_nodepath.get_custom_imports()|length > 0 %}
+{% for import_stmt in first_nodepath.get_custom_imports() %}
+{{import_stmt}}
+{% endfor %}
+{% endif %}
+{% endif %}
 
 {% for nodepath in nodepaths %}
+{% if not nodepath.is_child %}
 {% with this = nodepath %}
 {% include "model.jinja2" %}
 {% endwith %}
+{% endif %}
 {% endfor %}

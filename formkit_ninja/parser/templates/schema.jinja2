@@ -4,24 +4,43 @@
     {% endwith %}
 {% endfor %}
 {% for group in this.groups %}
-    {% with this=group %}
-        {% include "schema.jinja2" %}
-    {% endwith %}
+    {% if not group.is_abstract_base %}
+        {% with this=group %}
+            {% include "schema.jinja2" %}
+        {% endwith %}
+    {% endif %}
 {% endfor %}
+{% if not this.is_abstract_base %}
 class {{this.classname_schema}}(Schema):
 {% for e_a in this.extra_attribs_schema %}
     {{e_a}}
 {% endfor %}
 {% for f in this.formkits_not_repeaters %}
-    {% if f.django_type == "ForeignKey" %}
+    {% if not f.is_abstract_base and not (f.django_type == "OneToOneField" and this.parent_abstract_bases|length > 0) %}
+        {% if f.django_type == "ForeignKey" %}
     {{f.pydantic_attrib_name}}_id: {{f.pydantic_type}} | None = None
-    {% else %}
+        {% else %}
     {{f.pydantic_attrib_name}}: {{f.pydantic_type}} | None = None
+        {% endif %}
     {% endif %}
 {% endfor %}
+{% if this.parent_abstract_bases|length > 0 %}
+{% for group in this.groups %}
+    {% if group.is_abstract_base %}
+        {% for f in group.formkits_not_repeaters %}
+            {% if f.django_type == "ForeignKey" %}
+    {{f.pydantic_attrib_name}}_id: {{f.pydantic_type}} | None = None
+            {% else %}
+    {{f.pydantic_attrib_name}}: {{f.pydantic_type}} | None = None
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endfor %}
+{% endif %}
 {% for repeater in this.repeaters %}
     {{repeater.pydantic_attrib_name}}: list[{{repeater.classname_schema}}] | None = None
 {% endfor %}
 {% if this.is_repeater %}{# If I am a repeater I have the original order of insertion, as "ordinality" #}
     ordinality: int
+{% endif %}
 {% endif %}

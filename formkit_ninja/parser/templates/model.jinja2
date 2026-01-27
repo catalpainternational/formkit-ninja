@@ -4,26 +4,50 @@
     {% endwith %}
 {% endfor %}
 {% for group in this.groups %}
-    {% with this=group %}
-        {% include "model.jinja2" %}
-    {% endwith %}
+    {% if group.is_abstract_base %}
+        {% with this=group %}
+            {% include "abstract_model.jinja2" %}
+        {% endwith %}
+    {% else %}
+        {% with this=group %}
+            {% include "model.jinja2" %}
+        {% endwith %}
+    {% endif %}
 {% endfor %}
+{% if this.is_abstract_base %}
+{% include "abstract_model.jinja2" %}
+{% endif %}
 {% if this.is_group or this.is_repeater %}
+{% if this.is_abstract_base %}
+{# Skip concrete class generation for abstract bases #}
+{% else %}
+{% if this.parent_abstract_bases %}
+class {{this.classname}}({{this.parent_abstract_bases|join(', ')}}, models.Model):
+{% else %}
 class {{this.classname}}(models.Model):
+{% endif %}
+    """
+    {{this.get_node_info_docstring()}}
+    """
 {% if this.is_repeater %}
     # This class is a Repeater: Parent and ordinality fields have been added"
-    parent = models.ForeignKey("{{this.parent_class_name}}", on_delete=models.CASCADE, related_name="{{this.node.name}}")
+    parent = models.ForeignKey("{{this.parent_class_name}}", on_delete=models.CASCADE, related_name="{{this.node.name}}")  # From: {{this.get_node_path_string()}}
 {% if include_ordinality %}
-    ordinality = models.IntegerField()
+    ordinality = models.IntegerField()  # Auto-generated for repeater ordering
 {% endif %}
 {% endif %}
 {% for extra_attrib in this.extra_attribs %}
-    {{extra_attrib}}
+    {{extra_attrib}}  # Added via extra_attribs hook
 {% endfor %}
 {% for attrib in this.formkits_not_repeaters %}
-    {{attrib.django_attrib_name}} = models.{{attrib.django_type}}({{attrib.django_args}})
+    {% if not attrib.is_abstract_base and not (attrib.django_type == "OneToOneField" and this.parent_abstract_bases|length > 0) %}
+    {{attrib.django_attrib_name}} = models.{{attrib.django_type}}({{attrib.django_args}})  # From: {{attrib.get_node_path_string()}}
+    {% endif %}
 {% endfor %}
-{% if not this.is_repeater and this.extra_attribs|length == 0 and this.formkits_not_repeaters|length == 0 %}
+{% if not this.is_repeater and this.extra_attribs|length == 0 %}
+    {% if this.formkits_not_repeaters|length == 0 or this.parent_abstract_bases|length > 0 %}
     pass
+    {% endif %}
+{% endif %}
 {% endif %}
 {% endif %}

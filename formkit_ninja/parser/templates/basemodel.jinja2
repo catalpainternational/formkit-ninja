@@ -4,26 +4,41 @@
     {% endwith %}
 {% endfor %}
 {% for group in this.groups %}
-    {% with this=group %}
-        {% include "basemodel.jinja2" %}
-    {% endwith %}
+    {% if not group.is_abstract_base %}
+        {% with this=group %}
+            {% include "basemodel.jinja2" %}
+        {% endwith %}
+    {% endif %}
 {% endfor %}
 {% if this.is_group or this.is_repeater %}
+{% if not this.is_abstract_base %}
 class {{this.classname}}(BaseModel):
 {% for extra_attrib in this.extra_attribs_basemodel %}
     {{extra_attrib}}
 {% endfor %}
 {% for attrib in this.formkits_not_repeaters %}
+    {% if not attrib.is_abstract_base and not (attrib.django_type == "OneToOneField" and this.parent_abstract_bases|length > 0) %}
     {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None
+    {% endif %}
 {% endfor %}
+{% if this.parent_abstract_bases|length > 0 %}
+{% for group in this.groups %}
+    {% if group.is_abstract_base %}
+        {% for attrib in group.formkits_not_repeaters %}
+    {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None
+        {% endfor %}
+    {% endif %}
+{% endfor %}
+{% endif %}
 {% for attrib in this.repeaters %}
     {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None
 {% endfor %}
-{% else %}
-    {{this.pydantic_attrib_name}}: {{this.pydantic_type}}
-{% endif %}
 {% for attrib in this.formkits_not_repeaters %}
     {% for validator in attrib.validators %}
     {{validator}}
     {% endfor %}
 {% endfor %}
+{% endif %}
+{% else %}
+    {{this.pydantic_attrib_name}}: {{this.pydantic_type}}
+{% endif %}
