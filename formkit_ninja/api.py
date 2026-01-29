@@ -7,6 +7,7 @@ from types import ModuleType
 from typing import Sequence, cast
 from uuid import UUID, uuid4
 
+from django.contrib.auth import get_user
 from django.db import transaction
 from django.db.models import F
 from django.db.models.aggregates import Max
@@ -30,6 +31,17 @@ def sentry_message(message: str):
 
 
 router = Router(tags=["FormKit"])
+
+
+def formkit_auth(request: HttpRequest):
+    """
+    Custom authentication function that checks if user is authenticated.
+    Permissions are checked in the endpoint itself to return proper 403 status.
+    """
+    user = get_user(request)
+    if not user or not user.is_authenticated:
+        return None
+    return user
 
 
 class FormKitSchemaIn(ModelSchema):
@@ -252,17 +264,43 @@ class FormKitErrors(BaseModel):
     field_errors: dict[str, str] = {}
 
 
-@router.delete("delete", response=NodeInactiveType, exclude_none=True, by_alias=True)
+@router.delete(
+    "delete/{node_id}",
+    response={
+        HTTPStatus.OK: NodeInactiveType,
+        HTTPStatus.FORBIDDEN: FormKitErrors,
+        HTTPStatus.NOT_FOUND: FormKitErrors,
+    },
+    exclude_none=True,
+    by_alias=True,
+    auth=formkit_auth,
+)
 def delete_node(request, node_id: UUID):
     """
     Delete a node based on its UUID
     """
-    with transaction.atomic():
-        node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
-        node.delete()
-        # node.refresh_from_db()
-        objects: models.NodeQS = cast(models.NodeQS, models.FormKitSchemaNode.objects)
-        return node_queryset_response(objects.filter(pk=node_id))[0]
+    # Authentication is checked by formkit_auth
+    # Check permissions here to return proper 403 status
+    if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
+        error_response = FormKitErrors()
+        error_response.errors.append("You do not have permission to delete FormKit schema nodes.")
+        return HTTPStatus.FORBIDDEN, error_response
+    try:
+        with transaction.atomic():
+            node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
+            node.delete()
+            # node.refresh_from_db()
+            objects: models.NodeQS = cast(models.NodeQS, models.FormKitSchemaNode.objects)
+            return node_queryset_response(objects.filter(pk=node_id))[0]
+    except Exception as e:
+        # Handle protected node deletion or other database errors
+        error_response = FormKitErrors()
+        error_msg = str(e)
+        if "protected" in error_msg.lower() or "cannot delete" in error_msg.lower():
+            error_response.errors.append("This node is protected and cannot be deleted.")
+            return HTTPStatus.FORBIDDEN, error_response
+        # Re-raise other exceptions
+        raise
 
 
 class FormKitNodeIn(Schema):
@@ -310,8 +348,8 @@ class FormKitNodeIn(Schema):
     # Used for Creates
     parent_id: UUID | None = None
 
-    # Used for Updates
-    uuid: UUID = Field(default_factory=uuid4)
+    # Used for Updates - optional for creates, required for updates
+    uuid: UUID | None = None
 
     # Used for "Add Group"
     # This should include an `icon`, `title` and `id` for the second level group
@@ -359,10 +397,15 @@ class FormKitNodeIn(Schema):
     @cached_property
     def child(self):
         # The uuid may belong to a node or may be a new value
+        if self.uuid is None:
+            # Create mode - generate new UUID
+            return models.FormKitSchemaNode(pk=uuid4(), node={})
         try:
+            # Update mode - fetch existing node
             return models.FormKitSchemaNode.objects.get(pk=self.uuid)
         except models.FormKitSchemaNode.DoesNotExist:
-            return models.FormKitSchemaNode(pk=self.uuid, node={})
+            # UUID provided but node doesn't exist - this is an error for updates
+            return None
 
     @cached_property
     def preferred_name(self):
@@ -389,6 +432,15 @@ def create_or_update_child_node(payload: FormKitNodeIn):
 
     if parent_errors:
         return None, parent_errors
+
+    # If uuid was provided but node doesn't exist, return error
+    if payload.uuid is not None and child is None:
+        return None, ["Node with the provided UUID does not exist"]
+
+    # If child is None (shouldn't happen after above check, but safety first)
+    if child is None:
+        return None, ["Failed to create or retrieve node"]
+
     if child.is_active is False:
         return None, ["This node has already been deleted and cannot be edited"]
 
@@ -399,6 +451,9 @@ def create_or_update_child_node(payload: FormKitNodeIn):
     )
     # Ensure the name is unique and suitable
     # Do not replace existing names though
+    # Initialize node dict if it doesn't exist
+    if child.node is None:
+        child.node = {}
     existing_name = child.node.get("name", None) if isinstance(child.node, dict) else None
     if existing_name is None:
         values["name"] = payload.preferred_name
@@ -418,7 +473,12 @@ def create_or_update_child_node(payload: FormKitNodeIn):
     with transaction.atomic():
         child.save()
         if parent:
-            models.NodeChildren.objects.create(parent=parent, child=child)
+            # Use get_or_create to avoid duplicate relationships
+            models.NodeChildren.objects.get_or_create(
+                parent=parent,
+                child=child,
+                defaults={"order": None},  # Order can be set later if needed
+            )
 
     return child, []
 
@@ -446,10 +506,14 @@ def disambiguate_name(name_in: str, used_names: Sequence[str]):
     "create_or_update_node",
     response={
         HTTPStatus.OK: NodeReturnType,
+        HTTPStatus.NOT_FOUND: FormKitErrors,
+        HTTPStatus.BAD_REQUEST: FormKitErrors,
+        HTTPStatus.FORBIDDEN: FormKitErrors,
         HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors,
     },
     exclude_none=True,
     by_alias=True,
+    auth=formkit_auth,
 )
 def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeIn):
     """
@@ -469,6 +533,12 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
         HTTPStatus: The status of the HTTP response.
         FormKitErrors: The errors encountered during the process, if any.
     """
+    # Authentication is checked by formkit_auth
+    # Check permissions here to return proper 403 status
+    if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
+        error_response = FormKitErrors()
+        error_response.errors.append("You do not have permission to create or update FormKit schema nodes.")
+        return HTTPStatus.FORBIDDEN, error_response
 
     error_response = FormKitErrors()
     # Update the payload "name"
@@ -478,9 +548,23 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     try:
         child, errors = create_or_update_child_node(payload)
         if errors:
-            error_response.errors.append(errors)
+            # Flatten errors if it's a list
+            if isinstance(errors, list):
+                error_response.errors.extend(errors)
+            else:
+                error_response.errors.append(errors)
+
+            # Determine appropriate status code based on error type
+            error_text = " ".join(error_response.errors) if error_response.errors else ""
+            if "does not exist" in error_text or "UUID" in error_text:
+                return HTTPStatus.NOT_FOUND, error_response
+            elif "deleted" in error_text or "cannot be edited" in error_text:
+                return HTTPStatus.BAD_REQUEST, error_response
+            else:
+                return HTTPStatus.BAD_REQUEST, error_response
     except Exception as E:
         error_response.errors.append(f"{E}")
+        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
     if error_response.errors or error_response.field_errors:
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response

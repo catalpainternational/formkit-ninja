@@ -63,6 +63,83 @@ formkit-ninja provides multiple extension points for customizing code generation
 
 See the [Code Generation Guide](docs/code_generation.md) for detailed documentation and examples.
 
+## API
+
+Formkit-Ninja provides a REST API for managing FormKit schema nodes. The API requires authentication and specific permissions.
+
+### Authentication
+
+All API endpoints require:
+- **Authentication**: User must be logged in (session-based authentication)
+- **Permission**: User must have the `formkit_ninja.change_formkitschemanode` permission
+
+Unauthenticated requests receive `401 Unauthorized`. Authenticated users without the required permission receive `403 Forbidden`.
+
+### Endpoints
+
+#### Create or Update Node
+
+**POST** `/api/formkit/create_or_update_node`
+
+Creates a new node or updates an existing one.
+
+**Request Body:**
+- `uuid` (optional): UUID of node to update. If omitted, a new node is created.
+- `parent_id` (optional): UUID of parent node (must be a group or repeater)
+- `$formkit`: FormKit node type (e.g., "text", "group", "repeater")
+- Other FormKit node properties (label, name, etc.)
+
+**Response:**
+- `200 OK`: Success, returns `NodeReturnType` with node data
+- `400 Bad Request`: Invalid input (e.g., invalid parent, deleted node)
+- `403 Forbidden`: Insufficient permissions
+- `404 Not Found`: Node with provided UUID does not exist (for updates)
+- `500 Internal Server Error`: Server error
+
+**Update Behavior:**
+- When `uuid` is provided, the node with that UUID is updated
+- If the node doesn't exist, returns `404 Not Found`
+- If the node is inactive (deleted), returns `400 Bad Request`
+- Parent-child relationships are automatically created/updated when `parent_id` is provided
+
+#### Delete Node
+
+**DELETE** `/api/formkit/delete/{node_id}`
+
+Soft deletes a node (sets `is_active=False`).
+
+**Response:**
+- `200 OK`: Success, returns `NodeInactiveType`
+- `403 Forbidden`: Insufficient permissions
+- `404 Not Found`: Node does not exist
+
+### Response Formats
+
+All successful responses return consistent data structures:
+
+- **NodeReturnType**: For active nodes
+  - `key`: UUID of the node
+  - `node`: FormKit node data
+  - `last_updated`: Timestamp of last change
+  - `protected`: Whether the node is protected from deletion
+
+- **NodeInactiveType**: For deleted nodes
+  - `key`: UUID of the node
+  - `is_active`: `false`
+  - `last_updated`: Timestamp of last change
+  - `protected`: Whether the node is protected
+
+- **FormKitErrors**: For error responses
+  - `errors`: List of error messages
+  - `field_errors`: Dictionary of field-specific errors
+
+### Validation
+
+The API validates:
+- **Parent existence**: If `parent_id` is provided, the parent node must exist and be a group or repeater
+- **Node existence**: If `uuid` is provided for updates, the node must exist and be active
+- **FormKit type**: The `$formkit` field must be a valid FormKit node type
+
 ## Test
 
 Pull the repo:
