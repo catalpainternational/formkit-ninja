@@ -9,6 +9,7 @@ from tests.factories import (
     DropdownNodeFactory,
     ElementNodeFactory,
     FormKitSchemaFactory,
+    FormKitSchemaNodeFactory,
     GroupNodeFactory,
     NumberNodeFactory,
     OptionFactory,
@@ -373,8 +374,6 @@ def TF_6_1_1_from_factory(db):
     models.NodeChildren.objects.create(parent=project_output, child=repeater, order=0)
 
     # UUID field in repeater
-    from tests.factories import FormKitSchemaNodeFactory
-
     uuid_field = FormKitSchemaNodeFactory(
         node_type="$formkit",
         label="uuid",
@@ -389,6 +388,298 @@ def TF_6_1_1_from_factory(db):
         node={"$el": "div", "children": "Output "},
     )
     models.NodeChildren.objects.create(parent=repeater, child=element_node, order=1)
+
+    return root
+
+
+@pytest.fixture
+def POM_1_from_factory(db):
+    """
+    Create POM_1 schema structure using factoryboy.
+
+    This fixture recreates the POM_1 form structure with:
+    - Root group (POM_1)
+    - Location group with select and datepicker fields
+    - Activity group with a repeater and mixed node types
+    """
+    from formkit_ninja import models
+
+    root = GroupNodeFactory(
+        label="POM_1",
+        node={"$formkit": "group", "name": "POM_1"},
+    )
+
+    meeting_info = GroupNodeFactory(
+        label="meetingInformation",
+        icon="las la-map-marked-alt",
+        title="Location",
+        node={
+            "$formkit": "group",
+            "id": "meetingInformation",
+            "icon": "las la-map-marked-alt",
+            "title": "Location",
+        },
+    )
+    models.NodeChildren.objects.create(parent=root, child=meeting_info, order=0)
+
+    district = SelectNodeFactory(
+        label="$gettext(Municipality)",
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "key": "district",
+            "id": "district",
+            "name": "district",
+            "label": "$gettext(Municipality)",
+            "validation": "required",
+            "options": "$getLocations()",
+        },
+    )
+    admin_post = SelectNodeFactory(
+        label='$gettext("Administrative Post")',
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "key": "administrative_post",
+            "if": "$get(district).value",
+            "id": "administrative_post",
+            "name": "administrative_post",
+            "label": '$gettext("Administrative Post")',
+            "validation": "required",
+            "options": "$getLocations($get(district).value)",
+        },
+    )
+    suco = SelectNodeFactory(
+        label="$gettext(Suco)",
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "key": "suco",
+            "if": "$get(administrative_post).value",
+            "id": "suco",
+            "name": "suco",
+            "label": "$gettext(Suco)",
+            "validation": "required",
+            "options": "$getLocations($get(district).value, $get(administrative_post).value)",
+        },
+    )
+    datepicker_sections_schema = {
+        "day": {
+            "children": [
+                "$day.getDate()",
+                {
+                    "if": "$attrs._currentDate().day === $day.getDate()",
+                    "children": [
+                        {
+                            "if": "$attrs._currentDate().month === $day.getMonth()",
+                            "children": [
+                                {
+                                    "if": "$attrs._currentDate().year === $day.getFullYear()",
+                                    "$el": "div",
+                                    "attrs": {"class": "formkit-day-highlight"},
+                                }
+                            ],
+                        }
+                    ],
+                },
+            ]
+        }
+    }
+    date_field = DatepickerNodeFactory(
+        label='$gettext("Date")',
+        node={
+            "$formkit": "datepicker",
+            "key": "date",
+            "id": "date",
+            "name": "date",
+            "label": '$gettext("Date")',
+            "validation": "dateInPast",
+            "calendarIcon": "calendar",
+            "format": "DD/MM/YYYY",
+            "nextIcon": "angleRight",
+            "prevIcon": "angleLeft",
+            "_currentDate": "$getCurrentDate",
+            "sectionsSchema": datepicker_sections_schema,
+            "valueFormat": "YYYY-MM-DD",
+        },
+    )
+    year = SelectNodeFactory(
+        label='$gettext("Fiscal year")',
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "name": "year",
+            "label": '$gettext("Fiscal year")',
+            "validation": "required",
+            "placeholder": '$gettext("Select year")',
+            "options": "$ida(year)",
+        },
+    )
+    pom1_infrastructure_status = FormKitSchemaNodeFactory(
+        node_type="$formkit",
+        label="pom1_infrastructure_status",
+        node={
+            "$formkit": "hidden",
+            "key": "pom1_infrastructure_status",
+            "id": "pom1_infrastructure_status",
+            "name": "pom1_infrastructure_status",
+            "value": "1",
+        },
+    )
+    pom1_operational_status = FormKitSchemaNodeFactory(
+        node_type="$formkit",
+        label="pom1_operational_status",
+        node={
+            "$formkit": "hidden",
+            "key": "pom1_operational_status",
+            "id": "pom1_operational_status",
+            "name": "pom1_operational_status",
+            "value": "1",
+        },
+    )
+    models.NodeChildren.objects.create(parent=meeting_info, child=district, order=0)
+    models.NodeChildren.objects.create(parent=meeting_info, child=admin_post, order=1)
+    models.NodeChildren.objects.create(parent=meeting_info, child=suco, order=2)
+    models.NodeChildren.objects.create(parent=meeting_info, child=date_field, order=3)
+    models.NodeChildren.objects.create(parent=meeting_info, child=year, order=4)
+    models.NodeChildren.objects.create(parent=meeting_info, child=pom1_infrastructure_status, order=5)
+    models.NodeChildren.objects.create(parent=meeting_info, child=pom1_operational_status, order=6)
+
+    activity_group = GroupNodeFactory(
+        label="activity",
+        icon="las la-users",
+        title="Activity",
+        node={
+            "$formkit": "group",
+            "id": "activity",
+            "icon": "las la-users",
+            "title": "Activity",
+        },
+    )
+    models.NodeChildren.objects.create(parent=root, child=activity_group, order=1)
+
+    remove_button_schema = {
+        "remove": {
+            "children": [
+                {
+                    "if": "$value.length > 1",
+                    "$el": "button",
+                    "attrs": {
+                        "class": (
+                            "disabled:hidden cursor-pointer flex items-center justify-center "
+                            "flex-row-reverse h-[50px] rounded-2.5xl px-4 w-full bg-white "
+                            "border-2 border-solid border-emerald-600 text-zinc-900 "
+                            "hover:bg-emerald-600 hover:text-white font-bold text-base"
+                        ),
+                        "onClick": "$attrs.removeAction",
+                        "data-index": "$index",
+                        "data-repeaterid": "$id",
+                    },
+                    "children": ["$attrs.removeLabel"],
+                }
+            ]
+        }
+    }
+    repeater = RepeaterNodeFactory(
+        label="repeaterActivity",
+        add_label='$gettext("Add activity")',
+        up_control=False,
+        down_control=False,
+        node={
+            "$formkit": "repeater",
+            "id": "repeaterActivity",
+            "name": "repeaterActivity",
+            "upControl": False,
+            "downControl": False,
+            "addLabel": '$gettext("Add activity")',
+            "itemClass": "repeater-children-index",
+            "itemsClass": "repeater",
+            "removeLabel": '$gettext("Remove")',
+            "removeAction": "$repeaterRemoveAction",
+            "sectionsSchema": remove_button_schema,
+        },
+    )
+    models.NodeChildren.objects.create(parent=activity_group, child=repeater, order=0)
+
+    uuid_field = FormKitSchemaNodeFactory(
+        node_type="$formkit",
+        label="uuid",
+        node={"$formkit": "uuid", "name": "uuid", "readonly": True},
+    )
+    activity_title = ElementNodeFactory(
+        node_type="$el",
+        text_content=None,
+        node={
+            "$el": "div",
+            "attrs": {"class": "rounded-full px-5 py-2 bg-zinc-400 text-lg font-bold mb-5"},
+            "children": [
+                '$gettext("Activity")',
+                {"$el": "span", "attrs": {"class": "mx-1"}, "children": ["$: ($index + 1)"]},
+            ],
+        },
+    )
+    activity_select = SelectNodeFactory(
+        label='$gettext("Activity name")',
+        option_group=None,
+        node={
+            "$formkit": "select",
+            "key": "activity",
+            "id": "activity",
+            "name": "activity",
+            "label": '$gettext("Activity name")',
+            "validation": "required",
+            "placeholder": '$gettext("Please select")',
+            "options": "$ida(cycle, 'current')",
+        },
+    )
+    operational_fund = FormKitSchemaNodeFactory(
+        node_type="$formkit",
+        label='$gettext("Operational fund (USD)")',
+        node={
+            "$formkit": "currency",
+            "key": "operational_fund",
+            "id": "$: (operational_fund_ + $index)",
+            "name": "operational_fund",
+            "label": '$gettext("Operational fund (USD)")',
+            "validation": "required",
+            "placeholder": '$gettext("Please enter")',
+            "onChange": "$formula.pom1",
+        },
+    )
+    infrastructure_fund = FormKitSchemaNodeFactory(
+        node_type="$formkit",
+        label='$gettext("Infrastructure fund (USD)")',
+        node={
+            "$formkit": "currency",
+            "key": "infrastructure_fund",
+            "id": "$: (infrastructure_fund_ + $index)",
+            "name": "infrastructure_fund",
+            "label": '$gettext("Infrastructure fund (USD)")',
+            "validation": "required",
+            "placeholder": '$gettext("Please enter")',
+            "onChange": "$formula.pom1",
+        },
+    )
+    total_fund = FormKitSchemaNodeFactory(
+        node_type="$formkit",
+        label='$gettext("Total (USD)")',
+        node={
+            "$formkit": "currency",
+            "key": "total_fund",
+            "id": "$: (total_fund_ + $index)",
+            "name": "total_fund",
+            "label": '$gettext("Total (USD)")',
+            "validation": "required",
+            "placeholder": '$gettext("Please enter")',
+            "readonly": True,
+        },
+    )
+    models.NodeChildren.objects.create(parent=repeater, child=uuid_field, order=0)
+    models.NodeChildren.objects.create(parent=repeater, child=activity_title, order=1)
+    models.NodeChildren.objects.create(parent=repeater, child=activity_select, order=2)
+    models.NodeChildren.objects.create(parent=repeater, child=operational_fund, order=3)
+    models.NodeChildren.objects.create(parent=repeater, child=infrastructure_fund, order=4)
+    models.NodeChildren.objects.create(parent=repeater, child=total_fund, order=5)
 
     return root
 

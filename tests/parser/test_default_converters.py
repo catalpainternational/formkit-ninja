@@ -168,7 +168,7 @@ class TestDateConverter:
     @pytest.mark.parametrize(
         "node_class,expected_type",
         [
-            (DatePickerNode, "datetime"),
+            (DatePickerNode, "date"),
             (DateNode, "date"),
         ],
     )
@@ -219,7 +219,7 @@ class TestConverterFallbackPaths:
         "converter_class,formkit_value,expected_type",
         [
             (NumberConverter, "number", "int"),
-            (DateConverter, "datepicker", "datetime"),
+            (DateConverter, "datepicker", "date"),
             (DateConverter, "date", "date"),
         ],
     )

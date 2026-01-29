@@ -370,18 +370,14 @@ class TestCodeGenerator:
 
         generator.generate(schema)
 
-        # Check all expected files exist
-        expected_files = [
-            "schemas.py",
-            "schemas_in.py",
-            "admin.py",
-            "api.py",
-        ]
-
-        for filename in expected_files:
-            file_path = tmp_path / filename
-            assert file_path.exists(), f"Expected file {filename} was not created"
-            assert file_path.stat().st_size > 0, f"File {filename} is empty"
+        # Check all expected files exist in subdirectories
+        expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
+        schema_file = "testgroup.py"
+        
+        for subdir in expected_subdirs:
+            file_path = tmp_path / subdir / schema_file
+            assert file_path.exists(), f"Expected file {subdir}/{schema_file} was not created"
+            assert file_path.stat().st_size > 0, f"File {subdir}/{schema_file} is empty"
 
         # Check that models folder exists with schema-named file
         models_dir = tmp_path / "models"
@@ -415,11 +411,14 @@ class TestCodeGenerator:
 
         generator.generate(schema)
 
-        # Validate all Python files with AST
-        python_files = ["schemas.py", "schemas_in.py", "admin.py", "api.py"]
-        # Also validate models files
-        python_files.append("models/testgroup.py")
-        python_files.append("models/__init__.py")
+        # Validate all Python files with AST (in subdirectories)
+        expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
+        schema_file = "testgroup.py"
+        
+        python_files = []
+        for subdir in expected_subdirs:
+            python_files.append(f"{subdir}/{schema_file}")
+            python_files.append(f"{subdir}/__init__.py")
 
         for filename in python_files:
             file_path = tmp_path / filename
@@ -651,7 +650,7 @@ class TestCodeGenerator:
         for filename in expected_files:
             file_path = output_dir / filename
             assert file_path.exists(), f"Expected file {filename} was not created"
-            assert file_path.stat().st_size > 0, f"File {filename} is empty"
+            assert file_path.stat().st_size > 0, f"File {subdir}/{schema_file} is empty"
 
         # Check that models folder exists with tf611.py (derived from root node Tf_6_1_1)
         models_dir = output_dir / "models"
@@ -707,6 +706,89 @@ class TestCodeGenerator:
         # Output location is persisted as test artifact
         print(f"\n✓ Generated files persisted at: {output_dir.absolute()}")
 
+    def test_generate_with_pom_1_schema(self, POM_1_from_factory):
+        """
+        Test Code Generator with POM_1 schema created via factory fixtures.
+
+        Generated files are persisted as test artifacts in:
+        tests/parser/fixtures/generated_pom_1/
+        """
+        test_file_dir = Path(__file__).parent
+        output_dir = test_file_dir / "fixtures" / "generated_pom_1"
+        output_dir.mkdir(exist_ok=True, parents=True)
+
+        config = GeneratorConfig(app_name="testapp", output_dir=output_dir)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema_dict = POM_1_from_factory.get_node_values(recursive=True)
+        schema = [schema_dict]
+
+        generator.generate(schema)
+
+        # Check that subdirectories exist
+        expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
+        for subdir in expected_subdirs:
+            subdir_path = output_dir / subdir
+            assert subdir_path.exists(), f"Expected subdirectory {subdir}/ was not created"
+            assert subdir_path.is_dir(), f"{subdir}/ should be a directory"
+
+        # Check that per-schema files exist in each subdirectory
+        schema_file = "pom1.py"
+        for subdir in expected_subdirs:
+            file_path = output_dir / subdir / schema_file
+            assert file_path.exists(), f"Expected file {subdir}/{schema_file} was not created"
+            assert file_path.stat().st_size > 0, f"File {subdir}/{schema_file} is empty"
+
+        # Check that __init__.py files exist in each subdirectory
+        for subdir in expected_subdirs:
+            init_file = output_dir / subdir / "__init__.py"
+            assert init_file.exists(), f"__init__.py should be created in {subdir}/ folder"
+
+        # Collect all Python files for syntax validation
+        python_files = []
+        for subdir in expected_subdirs:
+            python_files.append(f"{subdir}/{schema_file}")
+            python_files.append(f"{subdir}/__init__.py")
+
+        for filename in python_files:
+            file_path = output_dir / filename
+            content = file_path.read_text()
+
+            try:
+                ast.parse(content)
+            except SyntaxError as e:
+                pytest.fail(f"Generated {filename} has syntax errors: {e}")
+
+        # Validate content of generated files
+        model_file = output_dir / "models" / schema_file
+        models_content = model_file.read_text()
+        assert "class" in models_content, "pom1.py should contain class definitions"
+        assert "models.Model" in models_content, "pom1.py should contain Django model classes"
+        assert "class Pom_1" in models_content, "pom1.py should contain root class Pom_1"
+
+        schemas_content = (output_dir / "schemas" / schema_file).read_text()
+        assert "BaseModel" in schemas_content or "Schema" in schemas_content, (
+            "schemas/pom1.py should contain Pydantic model definitions"
+        )
+
+        admin_content = (output_dir / "admin" / schema_file).read_text()
+        assert "admin.site.register" in admin_content or "@admin.register" in admin_content, (
+            "admin/pom1.py should contain admin registrations"
+        )
+
+        api_content = (output_dir / "api" / schema_file).read_text()
+        assert "router" in api_content or "APIView" in api_content or "@api_view" in api_content, (
+            "api/pom1.py should contain API endpoint definitions"
+        )
+
+        print(f"\n✓ Generated files persisted at: {output_dir.absolute()}")
+
     def test_generate_with_abstract_inheritance(self, TF_6_1_1_from_factory):
         """
         Test code generation with abstract inheritance enabled.
@@ -745,40 +827,39 @@ class TestCodeGenerator:
         # Generate code from TF_6_1_1 schema with abstract inheritance
         generator.generate(schema)
 
-        # Check all expected files exist
-        expected_files = [
-            "schemas.py",
-            "schemas_in.py",
-            "admin.py",
-            "api.py",
-        ]
+        # Check that subdirectories exist
+        expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
+        for subdir in expected_subdirs:
+            subdir_path = output_dir / subdir
+            assert subdir_path.exists(), f"Expected subdirectory {subdir}/ was not created"
+            assert subdir_path.is_dir(), f"{subdir}/ should be a directory"
 
-        for filename in expected_files:
-            file_path = output_dir / filename
-            assert file_path.exists(), f"Expected file {filename} was not created"
-            assert file_path.stat().st_size > 0, f"File {filename} is empty"
+        # Check that per-schema files exist in each subdirectory
+        schema_file = "tf611.py"
+        for subdir in expected_subdirs:
+            file_path = output_dir / subdir / schema_file
+            assert file_path.exists(), f"Expected file {subdir}/{schema_file} was not created"
+            assert file_path.stat().st_size > 0, f"File {subdir}/{schema_file} is empty"
 
         # Check that models folder exists with tf611.py
         models_dir = output_dir / "models"
-        assert models_dir.exists(), "models/ directory should be created"
-        model_file = models_dir / "tf611.py"
-        assert model_file.exists(), "tf611.py should be created in models/ folder"
+        model_file = models_dir / schema_file
 
         models_content = model_file.read_text()
-        schemas_content = (output_dir / "schemas.py").read_text()
-        admin_content = (output_dir / "admin.py").read_text()
-        api_content = (output_dir / "api.py").read_text()
+        schemas_content = (output_dir / "schemas" / schema_file).read_text()
+        admin_content = (output_dir / "admin" / schema_file).read_text()
+        api_content = (output_dir / "api" / schema_file).read_text()
 
         # 3a. Abstract Classes Generated (RED → GREEN)
-        assert "class Tf_6_1_1MeetinginformationGroup" in models_content
+        assert "class Tf_6_1_1MeetinginformationAbstract" in models_content
         assert "abstract = True" in models_content
         # Verify abstract class has fields
         assert "district" in models_content or "administrative_post" in models_content
 
         # 3b. Parent Inherits from Abstract Bases (RED → GREEN)
         assert "class Tf_6_1_1(" in models_content
-        assert "Tf_6_1_1MeetinginformationGroup" in models_content
-        assert "Tf_6_1_1ProjecttimeframeGroup" in models_content
+        assert "Tf_6_1_1MeetinginformationAbstract" in models_content
+        assert "Tf_6_1_1ProjecttimeframeAbstract" in models_content
         assert "models.Model" in models_content
         # Verify no OneToOneField to child groups
         assert "OneToOneField(Tf_6_1_1Meetinginformation" not in models_content
@@ -786,12 +867,12 @@ class TestCodeGenerator:
         # 3c. No Concrete Child Models (RED → GREEN)
         tree = ast.parse(models_content)
         class_names = [node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
-        # Should not have concrete child group classes (without "Group" suffix)
-        assert "Tf_6_1_1Meetinginformation" not in class_names or "Tf_6_1_1MeetinginformationGroup" in class_names
-        assert "Tf_6_1_1Projecttimeframe" not in class_names or "Tf_6_1_1ProjecttimeframeGroup" in class_names
+        # Should not have concrete child group classes (without "Abstract" suffix)
+        assert "Tf_6_1_1Meetinginformation" not in class_names or "Tf_6_1_1MeetinginformationAbstract" in class_names
+        assert "Tf_6_1_1Projecttimeframe" not in class_names or "Tf_6_1_1ProjecttimeframeAbstract" in class_names
         # Should have abstract classes
-        assert "Tf_6_1_1MeetinginformationGroup" in class_names
-        assert "Tf_6_1_1ProjecttimeframeGroup" in class_names
+        assert "Tf_6_1_1MeetinginformationAbstract" in class_names
+        assert "Tf_6_1_1ProjecttimeframeAbstract" in class_names
 
         # 3d. All Fields Accessible on Parent (RED → GREEN)
         # Fields from MeetingInformation should be in abstract base
@@ -946,18 +1027,14 @@ class TestCodeGenerator:
         assert "class Tf_6_1_1" in models_content, "models file should contain root class Tf_6_1_1"
         assert "class Tf_6_1_1Items" in models_content, "models file should contain repeater class"
 
-        # Verify other files still exist in root
-        expected_files = [
-            "schemas.py",
-            "schemas_in.py",
-            "admin.py",
-            "api.py",
-        ]
-
-        for filename in expected_files:
-            file_path = tmp_path / filename
-            assert file_path.exists(), f"Expected file {filename} was not created"
-            assert file_path.stat().st_size > 0, f"File {filename} is empty"
+        # Verify other files exist in subdirectories
+        expected_subdirs = ["schemas", "schemas_in", "admin", "api"]
+        schema_file = "tf611.py"
+        
+        for subdir in expected_subdirs:
+            file_path = tmp_path / subdir / schema_file
+            assert file_path.exists(), f"Expected file {subdir}/{schema_file} was not created"
+            assert file_path.stat().st_size > 0, f"File {subdir}/{schema_file} is empty"
 
         # Verify models.py does NOT exist in root when schema_name is provided
         root_models_file = tmp_path / "models.py"
@@ -998,3 +1075,1049 @@ class TestCodeGenerator:
         # Check that models.py does NOT exist in root
         root_models_file = tmp_path / "models.py"
         assert not root_models_file.exists(), "models.py should not exist in root"
+
+
+class TestRefactorFileGeneration:
+    """Tests for refactored file generation methods."""
+
+    def test_generate_per_schema_file_method_exists(self, tmp_path: Path):
+        """Test that _generate_per_schema_file() method exists and accepts correct parameters."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        # Method should exist
+        assert hasattr(generator, "_generate_per_schema_file"), "_generate_per_schema_file method should exist"
+        assert callable(generator._generate_per_schema_file), "_generate_per_schema_file should be callable"
+
+    def test_generate_init_file_method_exists(self, tmp_path: Path):
+        """Test that _generate_init_file() method exists."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        # Method should exist
+        assert hasattr(generator, "_generate_init_file"), "_generate_init_file method should exist"
+        assert callable(generator._generate_init_file), "_generate_init_file should be callable"
+
+
+class TestExtractClassesFromCode:
+    """Tests for _extract_classes_from_code() method."""
+
+    def test_extract_classes_from_code_schemas(self, tmp_path: Path):
+        """Test extraction of Schema classes ending with 'Schema'."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        code = """
+from ninja import Schema
+
+class Tf611Schema(Schema):
+    field1: str | None = None
+
+class Tf611RepeaterSchema(Schema):
+    field2: int | None = None
+
+class NotASchema:
+    pass
+"""
+        result = generator._extract_classes_from_code(code, "schemas")
+        assert "Tf611Schema" in result
+        assert "Tf611RepeaterSchema" in result
+        assert "NotASchema" not in result
+
+    def test_extract_classes_from_code_admin(self, tmp_path: Path):
+        """Test extraction of Admin/Inline classes (exclude ReadOnlyInline)."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        code = """
+from django.contrib import admin
+
+class ReadOnlyInline(admin.TabularInline):
+    pass
+
+class Tf611Admin(admin.ModelAdmin):
+    pass
+
+class Tf611RepeaterInline(admin.TabularInline):
+    pass
+"""
+        result = generator._extract_classes_from_code(code, "admin")
+        assert "Tf611Admin" in result
+        assert "Tf611RepeaterInline" in result
+        assert "ReadOnlyInline" not in result
+
+    def test_extract_classes_from_code_api(self, tmp_path: Path):
+        """Test extraction of functions and router variable."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        code = """
+from ninja import Router
+
+router = Router(tags=["forms"])
+
+@router.get("tf611", response=list[...])
+def tf611(request):
+    return []
+
+@router.get("repeater", response=list[...])
+def repeater(request):
+    return []
+"""
+        result = generator._extract_classes_from_code(code, "api")
+        assert "router" in result
+        assert "tf611" in result
+        assert "repeater" in result
+
+    def test_extract_classes_from_code_schemas_in(self, tmp_path: Path):
+        """Test extraction of BaseModel classes."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        code = """
+from pydantic import BaseModel
+
+class Tf611(BaseModel):
+    field1: str | None = None
+
+class Tf611Repeater(BaseModel):
+    field2: int | None = None
+"""
+        result = generator._extract_classes_from_code(code, "schemas_in")
+        assert "Tf611" in result
+        assert "Tf611Repeater" in result
+
+
+class TestUpdateGenerateMethod:
+    """Tests for updated generate() method with subdirectories."""
+
+    def test_generate_creates_schemas_subdirectory(self, tmp_path: Path):
+        """Test that schemas/ subdirectory is created."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        schemas_dir = tmp_path / "schemas"
+        assert schemas_dir.exists(), "schemas/ subdirectory should be created"
+        assert schemas_dir.is_dir(), "schemas/ should be a directory"
+
+    def test_generate_creates_per_schema_files(self, tmp_path: Path):
+        """Test that per-schema files are created in subdirectories."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        # Check per-schema files exist in subdirectories
+        schemas_file = tmp_path / "schemas" / "testform.py"
+        admin_file = tmp_path / "admin" / "testform.py"
+        api_file = tmp_path / "api" / "testform.py"
+
+        assert schemas_file.exists(), "schemas/testform.py should exist"
+        assert admin_file.exists(), "admin/testform.py should exist"
+        assert api_file.exists(), "api/testform.py should exist"
+
+    def test_generate_creates_init_files(self, tmp_path: Path):
+        """Test that __init__.py files are created in each subdirectory."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        # Check __init__.py files exist
+        schemas_init = tmp_path / "schemas" / "__init__.py"
+        admin_init = tmp_path / "admin" / "__init__.py"
+        api_init = tmp_path / "api" / "__init__.py"
+
+        assert schemas_init.exists(), "schemas/__init__.py should exist"
+        assert admin_init.exists(), "admin/__init__.py should exist"
+        assert api_init.exists(), "api/__init__.py should exist"
+
+    def test_generate_multiple_schemas_no_overwrite(self, tmp_path: Path):
+        """Test that second schema doesn't overwrite first schema's files."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        # Generate first schema
+        schema1 = [
+            {
+                "$formkit": "group",
+                "name": "form_one",
+                "label": "Form One",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+        generator.generate(schema1)
+
+        # Generate second schema
+        schema2 = [
+            {
+                "$formkit": "group",
+                "name": "form_two",
+                "label": "Form Two",
+                "children": [
+                    {"$formkit": "text", "name": "field2", "label": "Field 2"},
+                ],
+            }
+        ]
+        generator.generate(schema2)
+
+        # Both schema files should exist
+        form_one_file = tmp_path / "schemas" / "formone.py"
+        form_two_file = tmp_path / "schemas" / "formtwo.py"
+
+        assert form_one_file.exists(), "formone.py should still exist"
+        assert form_two_file.exists(), "formtwo.py should exist"
+        
+        # __init__.py should import from both
+        schemas_init = tmp_path / "schemas" / "__init__.py"
+        init_content = schemas_init.read_text()
+        assert "formone" in init_content or "Formone" in init_content
+        assert "formtwo" in init_content or "Formtwo" in init_content
+
+
+class TestUpdateTemplateImports:
+    """Tests for updated template imports."""
+
+    def test_admin_template_imports_from_models(self, tmp_path: Path):
+        """Test that admin.py.jinja2 imports from ..models."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        admin_file = tmp_path / "admin" / "testform.py"
+        admin_content = admin_file.read_text()
+
+        assert "from ..models import" in admin_content or "from ..models import *" in admin_content
+        assert "from . import models" not in admin_content
+
+    def test_api_template_imports_from_models_and_schemas(self, tmp_path: Path):
+        """Test that api.py.jinja2 imports from ..models and ..schemas."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        api_file = tmp_path / "api" / "testform.py"
+        api_content = api_file.read_text()
+
+        assert "from ..models import" in api_content or "from ..models import *" in api_content
+        assert "from .. import schemas as schema_out" in api_content or "from ..schemas" in api_content
+        assert "from . import models, schema_out" not in api_content
+
+    def test_generated_admin_file_has_correct_imports(self, tmp_path: Path):
+        """Test that generated admin file has correct relative imports."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        admin_file = tmp_path / "admin" / "testform.py"
+        admin_content = admin_file.read_text()
+
+        # Should import from parent models directory
+        assert "from ..models" in admin_content
+
+    def test_generated_api_file_has_correct_imports(self, tmp_path: Path):
+        """Test that generated api file has correct relative imports."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        api_file = tmp_path / "api" / "testform.py"
+        api_content = api_file.read_text()
+
+        # Should import from parent models and schemas directories
+        assert "from ..models" in api_content
+        assert "from .. import schemas as schema_out" in api_content or "schema_out" in api_content
+
+
+class TestHandleApiRouter:
+    """Tests for API router merging."""
+
+    def test_api_init_imports_all_routers(self, tmp_path: Path):
+        """Test that api/__init__.py imports routers from all schema files."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        # Generate first schema
+        schema1 = [
+            {
+                "$formkit": "group",
+                "name": "form_one",
+                "label": "Form One",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+        generator.generate(schema1)
+
+        # Generate second schema
+        schema2 = [
+            {
+                "$formkit": "group",
+                "name": "form_two",
+                "label": "Form Two",
+                "children": [
+                    {"$formkit": "text", "name": "field2", "label": "Field 2"},
+                ],
+            }
+        ]
+        generator.generate(schema2)
+
+        api_init = tmp_path / "api" / "__init__.py"
+        init_content = api_init.read_text()
+
+        assert "from .formone import router" in init_content or "from .formone import router as" in init_content
+        assert "from .formtwo import router" in init_content or "from .formtwo import router as" in init_content
+
+    def test_api_init_creates_combined_router(self, tmp_path: Path):
+        """Test that api/__init__.py creates combined router."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        # Generate two schemas
+        schema1 = [
+            {
+                "$formkit": "group",
+                "name": "form_one",
+                "label": "Form One",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+        generator.generate(schema1)
+
+        schema2 = [
+            {
+                "$formkit": "group",
+                "name": "form_two",
+                "label": "Form Two",
+                "children": [
+                    {"$formkit": "text", "name": "field2", "label": "Field 2"},
+                ],
+            }
+        ]
+        generator.generate(schema2)
+
+        api_init = tmp_path / "api" / "__init__.py"
+        init_content = api_init.read_text()
+
+        assert "router = Router" in init_content
+        assert "router.add_router" in init_content or "add_router" in init_content
+
+    def test_api_init_imports_all_functions(self, tmp_path: Path):
+        """Test that api/__init__.py imports all endpoint functions."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        # Generate two schemas
+        schema1 = [
+            {
+                "$formkit": "group",
+                "name": "form_one",
+                "label": "Form One",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+        generator.generate(schema1)
+
+        schema2 = [
+            {
+                "$formkit": "group",
+                "name": "form_two",
+                "label": "Form Two",
+                "children": [
+                    {"$formkit": "text", "name": "field2", "label": "Field 2"},
+                ],
+            }
+        ]
+        generator.generate(schema2)
+
+        api_init = tmp_path / "api" / "__init__.py"
+        init_content = api_init.read_text()
+
+        assert "form_one" in init_content or "formone" in init_content
+        assert "form_two" in init_content or "formtwo" in init_content
+
+    def test_api_router_merges_correctly(self, tmp_path: Path):
+        """Test that combined router includes all endpoints."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        # Generate two schemas
+        schema1 = [
+            {
+                "$formkit": "group",
+                "name": "form_one",
+                "label": "Form One",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+        generator.generate(schema1)
+
+        schema2 = [
+            {
+                "$formkit": "group",
+                "name": "form_two",
+                "label": "Form Two",
+                "children": [
+                    {"$formkit": "text", "name": "field2", "label": "Field 2"},
+                ],
+            }
+        ]
+        generator.generate(schema2)
+
+        api_init = tmp_path / "api" / "__init__.py"
+        init_content = api_init.read_text()
+
+        # Should have router merging logic
+        assert "router" in init_content
+        # Should reference both schema routers
+        assert "formone" in init_content.lower() or "form_one" in init_content
+        assert "formtwo" in init_content.lower() or "form_two" in init_content
+
+
+class TestRefactorModelsInit:
+    """Tests for refactored models/__init__.py generation."""
+
+    def test_models_init_uses_generate_init_file(self, tmp_path: Path):
+        """Test that models/__init__.py generation uses new method."""
+        # This is tested indirectly by verifying the structure
+        # The actual implementation will use _generate_init_file()
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        models_init = tmp_path / "models" / "__init__.py"
+        assert models_init.exists(), "models/__init__.py should exist"
+
+    def test_models_init_still_works(self, tmp_path: Path):
+        """Test that existing models/__init__.py functionality is preserved."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        models_init = tmp_path / "models" / "__init__.py"
+        init_content = models_init.read_text()
+
+        # Should import model classes
+        assert "from .testform import" in init_content or "from .testform import" in init_content.lower()
+        assert "__all__" in init_content
+
+    def test_models_init_handles_multiple_schemas(self, tmp_path: Path):
+        """Test that models/__init__.py imports from all schema model files."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        # Generate first schema
+        schema1 = [
+            {
+                "$formkit": "group",
+                "name": "form_one",
+                "label": "Form One",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+        generator.generate(schema1)
+
+        # Generate second schema
+        schema2 = [
+            {
+                "$formkit": "group",
+                "name": "form_two",
+                "label": "Form Two",
+                "children": [
+                    {"$formkit": "text", "name": "field2", "label": "Field 2"},
+                ],
+            }
+        ]
+        generator.generate(schema2)
+
+        models_init = tmp_path / "models" / "__init__.py"
+        init_content = models_init.read_text()
+
+        # Should import from both schema files
+        assert "formone" in init_content.lower() or "form_one" in init_content.lower()
+        assert "formtwo" in init_content.lower() or "form_two" in init_content.lower()
+
+
+class TestAddTests:
+    """Integration tests for multiple schema generation with subdirectories."""
+
+    def test_generate_multiple_schemas_with_subdirectories(self, tmp_path: Path):
+        """Complete integration test for multiple schema generation."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        # Generate first schema
+        schema1 = [
+            {
+                "$formkit": "group",
+                "name": "form_one",
+                "label": "Form One",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+        generator.generate(schema1)
+
+        # Generate second schema
+        schema2 = [
+            {
+                "$formkit": "group",
+                "name": "form_two",
+                "label": "Form Two",
+                "children": [
+                    {"$formkit": "text", "name": "field2", "label": "Field 2"},
+                ],
+            }
+        ]
+        generator.generate(schema2)
+
+        # Verify per-schema files exist in all subdirectories
+        for subdir in ["schemas", "schemas_in", "admin", "api", "models"]:
+            form_one_file = tmp_path / subdir / "formone.py"
+            form_two_file = tmp_path / subdir / "formtwo.py"
+            
+            assert form_one_file.exists(), f"{subdir}/formone.py should exist"
+            assert form_two_file.exists(), f"{subdir}/formtwo.py should exist"
+
+        # Verify __init__.py files import from both schemas
+        for subdir in ["schemas", "schemas_in", "admin", "api", "models"]:
+            init_file = tmp_path / subdir / "__init__.py"
+            assert init_file.exists(), f"{subdir}/__init__.py should exist"
+            
+            init_content = init_file.read_text()
+            assert "formone" in init_content.lower() or "form_one" in init_content.lower()
+            assert "formtwo" in init_content.lower() or "form_two" in init_content.lower()
+
+        # Verify no file overwriting (both files should have content)
+        form_one_models = tmp_path / "models" / "formone.py"
+        form_two_models = tmp_path / "models" / "formtwo.py"
+        
+        assert form_one_models.stat().st_size > 0, "formone.py should not be empty"
+        assert form_two_models.stat().st_size > 0, "formtwo.py should not be empty"
+
+    def test_backward_compatibility_single_schema(self, tmp_path: Path):
+        """Test that single schema still generates correctly."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        # Verify files exist in subdirectories
+        for subdir in ["schemas", "schemas_in", "admin", "api", "models"]:
+            schema_file = tmp_path / subdir / "testform.py"
+            init_file = tmp_path / subdir / "__init__.py"
+            
+            assert schema_file.exists(), f"{subdir}/testform.py should exist"
+            assert init_file.exists(), f"{subdir}/__init__.py should exist"
+
+    def test_generated_code_is_valid_python(self, tmp_path: Path):
+        """Test that all generated files are valid Python."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        # Try to parse all generated Python files
+        import ast
+        for subdir in ["schemas", "schemas_in", "admin", "api", "models"]:
+            schema_file = tmp_path / subdir / "testform.py"
+            init_file = tmp_path / subdir / "__init__.py"
+            
+            if schema_file.exists():
+                try:
+                    ast.parse(schema_file.read_text())
+                except SyntaxError as e:
+                    pytest.fail(f"{schema_file} has syntax errors: {e}")
+            
+            if init_file.exists():
+                try:
+                    ast.parse(init_file.read_text())
+                except SyntaxError as e:
+                    pytest.fail(f"{init_file} has syntax errors: {e}")
+
+    def test_generated_code_imports_work(self, tmp_path: Path):
+        """Test that all imports resolve correctly."""
+        # This test verifies that the import paths are correct
+        # We can't actually import them in the test environment, but we can verify the syntax
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        schema = [
+            {
+                "$formkit": "group",
+                "name": "test_form",
+                "label": "Test Form",
+                "children": [
+                    {"$formkit": "text", "name": "field1", "label": "Field 1"},
+                ],
+            }
+        ]
+
+        generator.generate(schema)
+
+        # Check that admin file imports from models
+        admin_file = tmp_path / "admin" / "testform.py"
+        admin_content = admin_file.read_text()
+        assert "from ..models import" in admin_content
+
+        # Check that api file imports from models and schemas
+        api_file = tmp_path / "api" / "testform.py"
+        api_content = api_file.read_text()
+        assert "from ..models import" in api_content
+        assert "from .. import schemas" in api_content or "schema_out" in api_content
+
+
+class TestGenerateInitFile:
+    """Tests for _generate_init_file() method."""
+
+    def test_generate_init_file_creates_new_init(self, tmp_path: Path):
+        """Test generating __init__.py when none exists."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        generated_code = """
+from ninja import Schema
+
+class Tf611Schema(Schema):
+    field1: str | None = None
+"""
+        result = generator._generate_init_file(
+            subdirectory="schemas",
+            module_name="tf611",
+            file_type="schemas",
+            generated_file_content=generated_code,
+            existing_init_content=None,
+        )
+
+        assert "from .tf611 import Tf611Schema" in result
+        assert "__all__" in result
+        assert "Tf611Schema" in result
+
+    def test_generate_init_file_appends_to_existing(self, tmp_path: Path):
+        """Test appending imports to existing __init__.py."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        existing_init = """from .cfm2ff4 import Cfm2ff4Schema
+
+__all__ = ["Cfm2ff4Schema"]
+"""
+
+        generated_code = """
+from ninja import Schema
+
+class Tf611Schema(Schema):
+    field1: str | None = None
+"""
+        result = generator._generate_init_file(
+            subdirectory="schemas",
+            module_name="tf611",
+            file_type="schemas",
+            generated_file_content=generated_code,
+            existing_init_content=existing_init,
+        )
+
+        assert "from .cfm2ff4 import Cfm2ff4Schema" in result
+        assert "from .tf611 import Tf611Schema" in result
+        assert "Cfm2ff4Schema" in result
+        assert "Tf611Schema" in result
+
+    def test_generate_init_file_includes_all_classes(self, tmp_path: Path):
+        """Test that all extracted classes are imported."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        generated_code = """
+from ninja import Schema
+
+class Tf611Schema(Schema):
+    field1: str | None = None
+
+class Tf611RepeaterSchema(Schema):
+    field2: int | None = None
+"""
+        result = generator._generate_init_file(
+            subdirectory="schemas",
+            module_name="tf611",
+            file_type="schemas",
+            generated_file_content=generated_code,
+            existing_init_content=None,
+        )
+
+        assert "Tf611Schema" in result
+        assert "Tf611RepeaterSchema" in result
+
+    def test_generate_init_file_updates_all_list(self, tmp_path: Path):
+        """Test that __all__ list includes all classes."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        generated_code = """
+from ninja import Schema
+
+class Tf611Schema(Schema):
+    field1: str | None = None
+"""
+        result = generator._generate_init_file(
+            subdirectory="schemas",
+            module_name="tf611",
+            file_type="schemas",
+            generated_file_content=generated_code,
+            existing_init_content=None,
+        )
+
+        assert "__all__" in result
+        assert '"Tf611Schema"' in result
+
+    def test_generate_init_file_preserves_existing_imports(self, tmp_path: Path):
+        """Test that existing imports from other schemas are preserved."""
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        template_loader = DefaultTemplateLoader()
+        formatter = CodeFormatter()
+        generator = CodeGenerator(
+            config=config,
+            template_loader=template_loader,
+            formatter=formatter,
+        )
+
+        existing_init = """from .schema1 import Schema1Class
+from .schema2 import Schema2Class
+
+__all__ = ["Schema1Class", "Schema2Class"]
+"""
+
+        generated_code = """
+from ninja import Schema
+
+class Tf611Schema(Schema):
+    field1: str | None = None
+"""
+        result = generator._generate_init_file(
+            subdirectory="schemas",
+            module_name="tf611",
+            file_type="schemas",
+            generated_file_content=generated_code,
+            existing_init_content=existing_init,
+        )
+
+        assert "from .schema1 import Schema1Class" in result
+        assert "from .schema2 import Schema2Class" in result
+        assert "from .tf611 import Tf611Schema" in result
+        assert "Schema1Class" in result
+        assert "Schema2Class" in result
+        assert "Tf611Schema" in result

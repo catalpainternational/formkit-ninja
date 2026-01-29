@@ -171,7 +171,12 @@ def test_pd_nested_group_node_field(pydantic_class_template: Template, nested_gr
 
 def test_group_node_field(django_class_template: Template, group_node: NodePath):
     text = django_class_template.render(this=group_node)
-    expect = "class Foo(models.Model):\n    foonum = models.IntegerField(null=True, blank=True)\n"
+    expect = """class Foo(models.Model):
+    \"\"\"
+    Generated from FormKit Group node: foo
+    \"\"\"
+    foonum = models.IntegerField(null=True, blank=True)  # From: foo > foonum
+"""
     assert text.strip() == dedent(expect).strip()
 
 
@@ -179,9 +184,15 @@ def test_nested_group_node_field(django_class_template: Template, nested_group_n
     text = django_class_template.render(this=nested_group_node)
     expect = """
         class BarFoo(models.Model):
-            foonum = models.IntegerField(null=True, blank=True)
+            \"\"\"
+            Generated from FormKit Group node: bar > foo
+            \"\"\"
+            foonum = models.IntegerField(null=True, blank=True)  # From: bar > foo > foonum
         class Bar(models.Model):
-            foo = models.OneToOneField(BarFoo, on_delete=models.CASCADE)
+            \"\"\"
+            Generated from FormKit Group node: bar
+            \"\"\"
+            foo = models.OneToOneField(BarFoo, on_delete=models.CASCADE)  # From: bar > foo
         """
     assert text.strip() == dedent(expect).strip()
 
@@ -210,7 +221,7 @@ Instead, make changes to the template and re-generate this file
 """
 
 from django.contrib import admin
-from . import models
+from ..models import *
 
 class ReadOnlyInline(admin.TabularInline):
     def has_change_permission(self, request, obj=None):
@@ -260,10 +271,12 @@ def test_api_nested_group_node_field(api_template: Template, nested_group_node: 
     expect = """
         @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
         def barfoo(request):
+            # Schema includes fields: foonum 
             queryset = models.BarFoo.objects.all()
             return queryset
         @router.get("bar", response=list[schema_out.BarSchema], exclude_none=True)
         def bar(request):
+            # Schema includes fields: foo 
             queryset = models.Bar.objects.all()
             queryset = queryset.select_related(
                 "foo",
@@ -278,10 +291,12 @@ def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_
     expect = """
         @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
         def barfoo(request):
+            # Schema includes fields: foonum 
             queryset = models.BarFoo.objects.all()
             return queryset
         @router.get("bar", response=list[schema_out.BarSchema], exclude_none=True)
         def bar(request):
+            # Schema includes fields: 
             queryset = models.Bar.objects.all()
             queryset = queryset.prefetch_related(
                 "foo",

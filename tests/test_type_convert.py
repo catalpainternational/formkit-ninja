@@ -406,8 +406,8 @@ class TestNodePathTypeConverterIntegration:
         node = DatePickerNode(name="test", label="Test")
         path = NodePath(node)
         result = path.to_pydantic_type()
-        # Should use DateConverter from registry
-        assert result == "datetime"
+        # Should use DateConverter from registry (returns "date" to generate DateField)
+        assert result == "date"
 
     def test_to_pydantic_type_uses_registry_for_date_node(self):
         """Test that NodePath uses registry for date nodes"""
@@ -773,3 +773,287 @@ class TestNodePathAbstractProperties:
         assert path.get_extra_imports() == ["import1", "import2"]
         assert path.get_custom_imports() == ["custom_import1", "custom_import2"]
         assert path.validators == ["validator1", "validator2"]
+
+
+class TestNodePathHelperMethods:
+    """Tests for NodePath helper methods (has_option, matches_name, get_option_value)."""
+
+    def test_has_option_returns_true_when_options_starts_with_pattern(self):
+        """Test has_option returns True when node options starts with pattern."""
+        # Create a mock node with options
+        class MockNode:
+            options = "$ida(yesno)"
+
+        node = MockNode()
+        path = NodePath(node)
+
+        assert path.has_option("$ida(") is True
+        assert path.has_option("$getoptions") is False
+
+    def test_has_option_returns_false_when_no_options_attribute(self):
+        """Test has_option returns False when node has no options attribute."""
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node)
+
+        assert path.has_option("$ida(") is False
+
+    def test_has_option_returns_false_when_options_is_none(self):
+        """Test has_option returns False when options is None."""
+        # Create a mock node with None options
+        class MockNode:
+            options = None
+
+        node = MockNode()
+        path = NodePath(node)
+
+        assert path.has_option("$ida(") is False
+
+    def test_matches_name_returns_true_when_name_in_set(self):
+        """Test matches_name returns True when node name is in provided set."""
+        node = TextNode(name="district", label="District")
+        path = NodePath(node)
+
+        assert path.matches_name({"district", "suco", "aldeia"}) is True
+        assert path.matches_name(["district", "suco"]) is True
+
+    def test_matches_name_returns_false_when_name_not_in_set(self):
+        """Test matches_name returns False when node name is not in provided set."""
+        node = TextNode(name="other_field", label="Other Field")
+        path = NodePath(node)
+
+        assert path.matches_name({"district", "suco", "aldeia"}) is False
+        assert path.matches_name(["district", "suco"]) is False
+
+    def test_matches_name_returns_false_when_no_name_attribute(self):
+        """Test matches_name returns False when node has no name attribute."""
+        # Create a mock node without name
+        class MockNode:
+            pass
+
+        node = MockNode()
+        path = NodePath(node)
+
+        assert path.matches_name({"district"}) is False
+
+    def test_get_option_value_returns_string_when_options_exists(self):
+        """Test get_option_value returns string when options attribute exists."""
+        # Create a mock node with options
+        class MockNode:
+            options = "$ida(yesno)"
+
+        node = MockNode()
+        path = NodePath(node)
+
+        result = path.get_option_value()
+        assert result == "$ida(yesno)"
+        assert isinstance(result, str)
+
+    def test_get_option_value_returns_none_when_no_options(self):
+        """Test get_option_value returns None when node has no options attribute."""
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node)
+
+        result = path.get_option_value()
+        assert result is None
+
+    def test_get_option_value_returns_none_when_options_is_none(self):
+        """Test get_option_value returns None when options is None."""
+        # Create a mock node with None options
+        class MockNode:
+            options = None
+
+        node = MockNode()
+        path = NodePath(node)
+
+        result = path.get_option_value()
+        assert result is None
+
+
+class TestNodePathDjangoArgsExtension:
+    """Tests for get_django_args_extra() extension point."""
+
+    def test_get_django_args_extra_returns_empty_list_by_default(self):
+        """Test get_django_args_extra returns empty list by default."""
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node)
+
+        result = path.get_django_args_extra()
+        assert result == []
+        assert isinstance(result, list)
+
+    def test_subclass_can_override_get_django_args_extra(self):
+        """Test that NodePath subclasses can override get_django_args_extra."""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            def get_django_args_extra(self) -> list[str]:
+                return ["pnds_data.zDistrict", "on_delete=models.CASCADE"]
+
+        path = CustomNodePath(node)
+        result = path.get_django_args_extra()
+
+        assert result == ["pnds_data.zDistrict", "on_delete=models.CASCADE"]
+
+    def test_to_django_args_includes_extra_args(self):
+        """Test that to_django_args includes extra args from get_django_args_extra."""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            def get_django_args_extra(self) -> list[str]:
+                return ["pnds_data.zDistrict", "on_delete=models.CASCADE"]
+
+        path = CustomNodePath(node)
+        result = path.to_django_args()
+
+        # Should include both extra args and base args
+        assert "pnds_data.zDistrict" in result
+        assert "on_delete=models.CASCADE" in result
+
+    def test_to_django_args_maintains_base_args(self):
+        """Test that to_django_args maintains base args from pydantic type."""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            def get_django_args_extra(self) -> list[str]:
+                return ["custom_arg"]
+
+        path = CustomNodePath(node)
+        result = path.to_django_args()
+
+        # Base args for str type should still be present
+        assert "null=True" in result
+        assert "blank=True" in result
+
+    def test_to_django_args_combines_extra_and_base_correctly(self):
+        """Test that to_django_args combines extra and base args in correct order."""
+        node = TextNode(name="test", label="Test")
+
+        class CustomNodePath(NodePath):
+            def get_django_args_extra(self) -> list[str]:
+                return ["extra1", "extra2"]
+
+        path = CustomNodePath(node)
+        result = path.to_django_args()
+
+        # Extra args should come before base args
+        # Format: "extra1, extra2, null=True, blank=True"
+        parts = [part.strip() for part in result.split(",")]
+        assert "extra1" in parts
+        assert "extra2" in parts
+        assert "null=True" in parts
+        assert "blank=True" in parts
+        # Check order: extra args should come first
+        assert parts.index("extra1") < parts.index("null=True")
+        assert parts.index("extra2") < parts.index("null=True")
+
+
+class TestNodePathPydanticTypeRegistry:
+    """Tests for NodePath.to_pydantic_type() using enhanced registry."""
+
+    def test_to_pydantic_type_uses_registry_for_formkit_nodes(self):
+        """Test that to_pydantic_type uses registry for formkit-based matching."""
+        from formkit_ninja.parser.converters import TypeConverterRegistry
+
+        # Create a custom registry with a converter
+        registry = TypeConverterRegistry()
+
+        class CustomConverter:
+            def can_convert(self, node):
+                return hasattr(node, "formkit") and node.formkit == "text"
+
+            def to_pydantic_type(self, node):
+                return "custom_str"
+
+        registry.register(CustomConverter())
+
+        # Create NodePath with custom registry
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node, type_converter_registry=registry)
+
+        result = path.to_pydantic_type()
+        assert result == "custom_str"
+
+    def test_to_pydantic_type_uses_registry_for_name_based_converters(self):
+        """Test that to_pydantic_type uses registry for name-based converters."""
+        from formkit_ninja.parser.converters import TypeConverterRegistry
+
+        # Create a custom registry with a name-based converter
+        registry = TypeConverterRegistry()
+
+        class NameBasedConverter:
+            def can_convert(self, node):
+                return False  # Don't match by formkit
+
+            def can_convert_by_name(self, node_name: str) -> bool:
+                return node_name == "district"
+
+            def to_pydantic_type(self, node):
+                return "int"
+
+        registry.register(NameBasedConverter())
+
+        # Create a node with name but no formkit
+        class MockNode:
+            name = "district"
+
+        node = MockNode()
+        path = NodePath(node, type_converter_registry=registry)
+
+        result = path.to_pydantic_type()
+        assert result == "int"
+
+    def test_to_pydantic_type_uses_registry_for_options_based_converters(self):
+        """Test that to_pydantic_type uses registry for options-based converters."""
+        from formkit_ninja.parser.converters import TypeConverterRegistry
+
+        # Create a custom registry with an options-based converter
+        registry = TypeConverterRegistry()
+
+        class OptionsBasedConverter:
+            def can_convert(self, node):
+                return False  # Don't match by formkit
+
+            def can_convert_by_options(self, options: str) -> bool:
+                return options.startswith("$ida(")
+
+            def to_pydantic_type(self, node):
+                return "int"
+
+        registry.register(OptionsBasedConverter())
+
+        # Create a node with options but no matching formkit
+        class MockNode:
+            options = "$ida(yesno)"
+
+        node = MockNode()
+        path = NodePath(node, type_converter_registry=registry)
+
+        result = path.to_pydantic_type()
+        assert result == "int"
+
+    def test_to_pydantic_type_falls_back_when_registry_returns_none(self):
+        """Test that to_pydantic_type falls back when registry returns None."""
+        from formkit_ninja.parser.converters import TypeConverterRegistry
+
+        # Create an empty registry
+        registry = TypeConverterRegistry()
+
+        # Create a node with formkit (should use fallback logic)
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node, type_converter_registry=registry)
+
+        result = path.to_pydantic_type()
+        # Should fall back to default logic for text nodes
+        assert result == "str"
+
+    def test_to_pydantic_type_backward_compatible_with_existing_converters(self):
+        """Test that to_pydantic_type works with existing default converters."""
+        from formkit_ninja.parser.converters import default_registry
+
+        # Use default registry (should have all default converters)
+        node = TextNode(name="test", label="Test")
+        path = NodePath(node, type_converter_registry=default_registry)
+
+        result = path.to_pydantic_type()
+        # Should use TextConverter from default registry
+        assert result == "str"

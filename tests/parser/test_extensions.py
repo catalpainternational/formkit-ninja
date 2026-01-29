@@ -190,8 +190,8 @@ class TestExtensionExamples:
 
         generator.generate(schema)
 
-        # Check that generated models.py includes submission field
-        models_file = tmp_path / "models.py"
+        # Check that generated models file includes submission field (in subdirectory)
+        models_file = tmp_path / "models" / "testgroup.py"
         assert models_file.exists()
         content = models_file.read_text()
         assert "submission" in content
@@ -234,7 +234,7 @@ class TestExtensionExamples:
         generator.generate(schema)
 
         # Check that both extensions are applied
-        models_file = tmp_path / "models.py"
+        models_file = tmp_path / "models" / "testgroup.py"
         assert models_file.exists()
         content = models_file.read_text()
         # Check for extra_attribs (submission field)

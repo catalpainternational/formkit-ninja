@@ -61,12 +61,16 @@ def test_generate_code_command_with_valid_args(tmp_path: Path):
     assert output_dir.exists()
     assert output_dir.is_dir()
 
-    # Verify files were generated
-    expected_files = ["models.py", "schemas.py", "schemas_in.py", "admin.py", "api.py"]
-    for filename in expected_files:
-        file_path = output_dir / filename
-        assert file_path.exists(), f"Expected file {filename} was not generated"
-        assert file_path.stat().st_size > 0, f"Generated file {filename} is empty"
+    # Verify subdirectories and per-schema files were generated
+    expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
+    schema_file = "testgroup.py"  # Based on root node name "test_group"
+    
+    for subdir in expected_subdirs:
+        subdir_path = output_dir / subdir
+        assert subdir_path.exists(), f"Expected subdirectory {subdir}/ was not created"
+        file_path = subdir_path / schema_file
+        assert file_path.exists(), f"Expected file {subdir}/{schema_file} was not generated"
+        assert file_path.stat().st_size > 0, f"Generated file {subdir}/{schema_file} is empty"
 
 
 @pytest.mark.django_db
@@ -115,8 +119,8 @@ def test_generate_code_command_with_schema_label(tmp_path: Path):
         stdout=out,
     )
 
-    # Verify files were generated
-    assert (output_dir / "models.py").exists()
+    # Verify files were generated in subdirectories
+    assert (output_dir / "models" / "group1.py").exists()
 
 
 @pytest.mark.django_db
@@ -296,18 +300,20 @@ def test_generate_code_command_generates_all_files(tmp_path: Path):
         stdout=out,
     )
 
-    # Verify all expected files exist and have content
-    expected_files = ["models.py", "schemas.py", "schemas_in.py", "admin.py", "api.py"]
-    for filename in expected_files:
-        file_path = output_dir / filename
-        assert file_path.exists(), f"File {filename} was not generated"
+    # Verify all expected files exist in subdirectories and have content
+    expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
+    schema_file = "testgroup.py"  # Based on root node name "test_group"
+    
+    for subdir in expected_subdirs:
+        file_path = output_dir / subdir / schema_file
+        assert file_path.exists(), f"File {subdir}/{schema_file} was not generated"
         content = file_path.read_text(encoding="utf-8")
-        assert len(content) > 0, f"File {filename} is empty"
+        assert len(content) > 0, f"File {subdir}/{schema_file} is empty"
         # Verify it's valid Python (basic check - no syntax errors)
         try:
-            compile(content, filename, "exec")
+            compile(content, f"{subdir}/{schema_file}", "exec")
         except SyntaxError as e:
-            pytest.fail(f"Generated {filename} has syntax errors: {e}")
+            pytest.fail(f"Generated {subdir}/{schema_file} has syntax errors: {e}")
 
 
 @pytest.mark.django_db
@@ -352,8 +358,8 @@ def test_generate_code_command_multiple_schemas(tmp_path: Path):
         stdout=out,
     )
 
-    # Verify files were generated (last schema's code will be in the files)
-    assert (output_dir / "models.py").exists()
+    # Verify files were generated in subdirectories (both schemas should have files)
+    assert (output_dir / "models" / "group1.py").exists() or (output_dir / "models" / "group2.py").exists()
     output = out.getvalue()
     # Should mention both schemas
     assert "Schema One" in output or "Schema Two" in output
