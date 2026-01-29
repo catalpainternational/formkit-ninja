@@ -4,7 +4,11 @@ Instead, make changes to the template and re-generate this file
 """
 
 from django.contrib import admin
-from . import models
+{% if root_classname %}
+from ..models import {{root_classname}} as models
+{% else %}
+from ..models import *
+{% endif %}
 
 class ReadOnlyInline(admin.TabularInline):
     def has_change_permission(self, request, obj=None):
@@ -15,6 +19,7 @@ class ReadOnlyInline(admin.TabularInline):
         return False
 
 {# 'nodes' here should be a list of 'NodePath' instances #}
+{# Nodepaths are already deduplicated in Python, so we can process all of them #}
 {% for nodepath in nodepaths %}
 {% with this = nodepath %}
 {% include "admin.jinja2" %}

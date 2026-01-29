@@ -5,11 +5,18 @@ Instead, make changes to the template and re-generate this file
 
 from ninja import Router
 
-from . import models, schema_out
+{% if root_classname %}
+from ..models import {{root_classname}} as models
+{% else %}
+from ..models import *
+{% endif %}
+from .. import schemas as schema_out
 
 router = Router(tags=["forms"])
 
 
+{# 'nodes' here should be a list of 'NodePath' instances #}
+{# Nodepaths are already deduplicated in Python, so we can process all of them #}
 {% for nodepath in nodepaths %}
 {% with this = nodepath %}
 {% include "api.jinja2" %}

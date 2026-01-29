@@ -142,6 +142,7 @@ class CodeGenerator:
         template_name: str,
         output_filename: str,
         nodepaths: List[NodePath],
+        root_classname: str | None = None,
     ) -> str:
         """
         Generate a single file from a template.
@@ -150,6 +151,7 @@ class CodeGenerator:
             template_name: Name of the Jinja2 template
             output_filename: Name of the output file (for reference)
             nodepaths: List of NodePath instances to render
+            root_classname: Optional root node classname for imports
 
         Returns:
             Generated code as string (before formatting)
@@ -162,9 +164,304 @@ class CodeGenerator:
             nodepaths=nodepaths,
             app_name=self.config.app_name,
             include_ordinality=self.config.include_ordinality,
+            root_classname=root_classname,
         )
 
         return code
+
+    def _generate_per_schema_file(
+        self,
+        template_name: str,
+        filename: str,
+        subdirectory: str,
+        nodepaths: List[NodePath],
+        root_classname: str | None = None,
+    ) -> None:
+        """
+        Generate a per-schema file in a subdirectory.
+
+        Args:
+            template_name: Name of the Jinja2 template to use
+            filename: Name of the output file
+            subdirectory: Subdirectory within output_dir (e.g., "schemas", "admin")
+            nodepaths: List of NodePath instances to generate code from
+            root_classname: Optional root node classname for imports
+        """
+        # Generate code from template
+        code = self._generate_file(template_name, filename, nodepaths, root_classname=root_classname)
+
+        # Format code (may raise FormattingError)
+        try:
+            formatted_code = self.formatter.format(code)
+        except FormattingError:
+            # If formatting fails, use unformatted code
+            formatted_code = code
+
+        # Validate code syntax
+        self._validate_code(formatted_code, filename)
+
+        # Write to file in subdirectory
+        self._write_file(filename, formatted_code, subdirectory=subdirectory)
+
+    def _extract_classes_from_code(self, code: str, file_type: str) -> List[str]:
+        """
+        Extract class/function names from generated code based on file type.
+
+        Args:
+            code: Generated Python code as string
+            file_type: Type of file ("models", "schemas", "schemas_in", "admin", "api")
+
+        Returns:
+            List of class/function/variable names to import
+        """
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return []
+
+        extracted = []
+
+        for node in tree.body:
+            if file_type == "models":
+                # Extract concrete (non-abstract) classes
+                if isinstance(node, ast.ClassDef):
+                    # Check if this class is abstract by looking for Meta class with abstract = True
+                    is_abstract = False
+                    for child in node.body:
+                        if isinstance(child, ast.ClassDef) and child.name == "Meta":
+                            # Check if Meta class has abstract = True
+                            for meta_attr in child.body:
+                                if (
+                                    isinstance(meta_attr, ast.Assign)
+                                    and len(meta_attr.targets) == 1
+                                    and isinstance(meta_attr.targets[0], ast.Name)
+                                    and meta_attr.targets[0].id == "abstract"
+                                ):
+                                    # Check if the value is True
+                                    if isinstance(meta_attr.value, ast.Constant) and meta_attr.value.value is True:
+                                        is_abstract = True
+                                        break
+                            if is_abstract:
+                                break
+                    # Only include concrete (non-abstract) classes
+                    if not is_abstract:
+                        extracted.append(node.name)
+            elif file_type == "schemas":
+                # Extract classes ending with "Schema" that inherit from Schema
+                if isinstance(node, ast.ClassDef) and node.name.endswith("Schema"):
+                    # Check if class inherits from Schema
+                    for base in node.bases:
+                        if isinstance(base, ast.Name) and base.id == "Schema":
+                            extracted.append(node.name)
+                            break
+                        elif isinstance(base, ast.Attribute):
+                            # Handle cases like "schema_out.Schema"
+                            if isinstance(base.value, ast.Name) and base.attr == "Schema":
+                                extracted.append(node.name)
+                                break
+            elif file_type == "schemas_in":
+                # Extract all classes (BaseModel subclasses)
+                if isinstance(node, ast.ClassDef):
+                    extracted.append(node.name)
+            elif file_type == "admin":
+                # Extract classes ending with "Admin" or "Inline" (exclude ReadOnlyInline)
+                if isinstance(node, ast.ClassDef):
+                    if (node.name.endswith("Admin") or node.name.endswith("Inline")) and node.name != "ReadOnlyInline":
+                        extracted.append(node.name)
+            elif file_type == "api":
+                # Extract functions and router variable
+                if isinstance(node, ast.FunctionDef):
+                    extracted.append(node.name)
+                elif isinstance(node, ast.Assign):
+                    # Check if assigning to "router"
+                    for target in node.targets:
+                        if isinstance(target, ast.Name) and target.id == "router":
+                            extracted.append("router")
+
+        return extracted
+
+    def _generate_init_file(
+        self,
+        subdirectory: str,
+        module_name: str,
+        file_type: str,
+        generated_file_content: str,
+        existing_init_content: str | None = None,
+    ) -> str:
+        """
+        Generate or update __init__.py file for a subdirectory.
+
+        Args:
+            subdirectory: Subdirectory name (e.g., "schemas", "admin")
+            module_name: Name of the module file (without .py extension)
+            file_type: Type of file ("models", "schemas", "schemas_in", "admin", "api")
+            generated_file_content: Content of the generated per-schema file
+            existing_init_content: Existing __init__.py content if updating
+
+        Returns:
+            Generated __init__.py content as string
+        """
+        # Extract classes/functions from generated file
+        extracted_items = self._extract_classes_from_code(generated_file_content, file_type)
+
+        if not extracted_items:
+            # No items to import, return existing content or empty
+            return existing_init_content or ""
+
+        # Parse existing __init__.py to preserve imports
+        existing_import_lines = []
+        existing_all = []
+        if existing_init_content:
+            # Extract existing import statements and __all__
+            try:
+                tree = ast.parse(existing_init_content)
+                for node in tree.body:
+                    if isinstance(node, ast.ImportFrom) and node.module:
+                        # Check if it's a relative import (level > 0 means relative)
+                        is_relative = node.level > 0
+                        if is_relative:
+                            # Relative import - preserve the original line
+                            imported_names = [alias.name for alias in node.names]
+                            names_str = ", ".join(imported_names)
+                            # Reconstruct the line with proper relative import syntax
+                            # node.module doesn't include the dot, so we add it
+                            module_path = "." * node.level + (node.module or "")
+                            # Only add if not from current module
+                            if not module_path.endswith(f".{module_name}") and module_path != f".{module_name}":
+                                line = f"from {module_path} import {names_str}  # noqa: F401"
+                                existing_import_lines.append(line)
+                    elif isinstance(node, ast.Assign):
+                        # Check for __all__ assignment
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and target.id == "__all__":
+                                if isinstance(node.value, (ast.List, ast.Tuple)):
+                                    existing_all = [
+                                        (
+                                            elt.value
+                                            if isinstance(elt, ast.Constant)
+                                            else (elt.s if isinstance(elt, ast.Str) else str(elt))
+                                        )
+                                        for elt in node.value.elts
+                                        if isinstance(elt, (ast.Constant, ast.Str))
+                                    ]
+            except SyntaxError:
+                # If parsing fails, try to extract imports manually
+                for line in existing_init_content.split("\n"):
+                    stripped = line.strip()
+                    if stripped.startswith("from .") and "import" in stripped:
+                        # Check if it's not from current module
+                        if f".{module_name}" not in stripped:
+                            existing_import_lines.append(stripped)
+                    elif stripped.startswith("__all__"):
+                        # Extract __all__ values manually - simple regex-like extraction
+                        import re
+
+                        match = re.search(r"\[(.*?)\]", stripped)
+                        if match:
+                            all_content = match.group(1)
+                            # Extract quoted strings
+                            all_items = re.findall(r'"([^"]+)"', all_content)
+                            existing_all.extend(all_items)
+
+        # Build new __init__.py content
+        init_lines = []
+
+        # Add docstring if this is a new file
+        if not existing_init_content:
+            init_lines.append(f'"""{subdirectory.capitalize()} for all schemas."""')
+            init_lines.append("")
+
+        # Special handling for API router merging
+        if file_type == "api":
+            # Collect all module names that have routers
+            schema_modules = set()
+            all_functions = []
+
+            # Parse existing imports to get module names
+            import re
+
+            for import_line in existing_import_lines:
+                # Extract module name from "from .module import router, ..."
+                match = re.search(r"from \.(\w+) import", import_line)
+                if match and "router" in import_line:
+                    schema_modules.add(match.group(1))
+                # Extract function names from imports
+                if "router" not in import_line:
+                    # This is a function import, preserve it
+                    all_functions.append(import_line)
+
+            # Add current module
+            if extracted_items:
+                has_router = "router" in extracted_items
+                function_items = [item for item in extracted_items if item != "router"]
+
+                if has_router:
+                    schema_modules.add(module_name)
+
+                # Add function imports for current module
+                if function_items:
+                    items_str = ", ".join(function_items)
+                    all_functions.append(f"from .{module_name} import {items_str}  # noqa: F401")
+
+            # Import all functions
+            for func_import in all_functions:
+                init_lines.append(func_import)
+
+            # Create combined router
+            init_lines.append("")
+            init_lines.append("from ninja import Router")
+            init_lines.append("")
+            init_lines.append('router = Router(tags=["forms"])')
+
+            # Add router merging for all schema routers
+            for schema_module in sorted(schema_modules):
+                init_lines.append(f"from .{schema_module} import router as {schema_module}_router")
+                init_lines.append(f'router.add_router("", {schema_module}_router)')
+
+            # Build __all__ list (include router and all functions)
+            all_items = existing_all.copy()
+            all_items.extend(extracted_items)
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_all = []
+            for item in all_items:
+                if item not in seen:
+                    seen.add(item)
+                    unique_all.append(item)
+
+            if unique_all:
+                init_lines.append("")
+                all_str = ", ".join(f'"{item}"' for item in unique_all)
+                init_lines.append(f"__all__ = [{all_str}]")
+        else:
+            # Standard handling for other file types
+            # Add existing imports (excluding the current module)
+            for import_line in existing_import_lines:
+                if f".{module_name}" not in import_line:
+                    init_lines.append(import_line)
+
+            # Add import for current module
+            if extracted_items:
+                items_str = ", ".join(extracted_items)
+                init_lines.append(f"from .{module_name} import {items_str}  # noqa: F401")
+
+            # Build __all__ list
+            all_items = existing_all.copy()
+            all_items.extend(extracted_items)
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_all = []
+            for item in all_items:
+                if item not in seen:
+                    seen.add(item)
+                    unique_all.append(item)
+
+            if unique_all:
+                init_lines.append("")
+                all_str = ", ".join(f'"{item}"' for item in unique_all)
+                init_lines.append(f"__all__ = [{all_str}]")
+
+        return "\n".join(init_lines)
 
     def _validate_code(self, code: str, filename: str) -> None:
         """
@@ -266,12 +563,23 @@ class CodeGenerator:
                 # Put abstract bases first, then concrete classes
                 nodepaths = abstract_bases + concrete_classes
 
+            # Deduplicate nodepaths by classname to prevent duplicate class generation
+            seen_classnames = set()
+            unique_nodepaths = []
+            for np in nodepaths:
+                if np.classname not in seen_classnames:
+                    seen_classnames.add(np.classname)
+                    unique_nodepaths.append(np)
+            nodepaths = unique_nodepaths
+
             # Derive filename from root node classname
             models_filename = f"{schema_name_to_filename(root_classname)}.py"
             models_subdirectory = "models"
 
             # Generate models file
-            models_code = self._generate_file("models.py.jinja2", models_filename, nodepaths)
+            models_code = self._generate_file(
+                "models.py.jinja2", models_filename, nodepaths, root_classname=root_classname
+            )
             try:
                 formatted_models_code = self.formatter.format(models_code)
             except FormattingError:
@@ -279,66 +587,43 @@ class CodeGenerator:
             self._validate_code(formatted_models_code, models_filename)
             self._write_file(models_filename, formatted_models_code, subdirectory=models_subdirectory)
 
-            # Generate __init__.py for models folder
-            # Parse the generated models file to find all class definitions
+            # Generate __init__.py for models folder using the new method
             module_name = schema_name_to_filename(root_classname)
-            init_code = f'"""Models for {root_classname} schema."""\n\n'
 
+            # Read existing __init__.py if it exists
+            init_file_path = self.config.output_dir / models_subdirectory / "__init__.py"
+            existing_init_content = None
+            if init_file_path.exists():
+                existing_init_content = init_file_path.read_text()
+
+            # Generate or update __init__.py
+            init_content = self._generate_init_file(
+                subdirectory=models_subdirectory,
+                module_name=module_name,
+                file_type="models",
+                generated_file_content=formatted_models_code,
+                existing_init_content=existing_init_content,
+            )
+
+            # Format and write __init__.py
             try:
-                tree = ast.parse(formatted_models_code)
-                concrete_class_names = []
-                # Only get top-level class definitions (not nested classes like Meta)
-                # Iterate over tree.body to get only module-level classes
-                for node in tree.body:
-                    if isinstance(node, ast.ClassDef):
-                        # Check if this class is abstract by looking for Meta class with abstract = True
-                        is_abstract = False
-                        for child in node.body:
-                            if isinstance(child, ast.ClassDef) and child.name == "Meta":
-                                # Check if Meta class has abstract = True
-                                for meta_attr in child.body:
-                                    if (
-                                        isinstance(meta_attr, ast.Assign)
-                                        and len(meta_attr.targets) == 1
-                                        and isinstance(meta_attr.targets[0], ast.Name)
-                                        and meta_attr.targets[0].id == "abstract"
-                                    ):
-                                        # Check if the value is True
-                                        if isinstance(meta_attr.value, ast.Constant) and meta_attr.value.value is True:
-                                            is_abstract = True
-                                            break
-                                if is_abstract:
-                                    break
-
-                        # Only include concrete (non-abstract) classes
-                        if not is_abstract:
-                            concrete_class_names.append(node.name)
-
-                # Import only concrete classes from the generated file
-                if concrete_class_names:
-                    # Use a single import statement with all concrete classes
-                    classes_str = ", ".join(concrete_class_names)
-                    init_code += f"from .{module_name} import {classes_str}  # noqa: F401\n\n"
-                    # Add __all__ to explicitly list exported classes
-                    all_str = ", ".join(f'"{name}"' for name in concrete_class_names)
-                    init_code += f"__all__ = [{all_str}]\n"
-                else:
-                    # Fallback: import everything (shouldn't happen in practice)
-                    init_code += f"from .{module_name} import *  # noqa: F403, F405\n"
-            except SyntaxError:
-                # If parsing fails, import everything
-                init_code += f"from .{module_name} import *  # noqa: F403, F405\n"
-
-            try:
-                formatted_init_code = self.formatter.format(init_code)
+                formatted_init_code = self.formatter.format(init_content)
             except FormattingError:
-                formatted_init_code = init_code
+                formatted_init_code = init_content
             self._validate_code(formatted_init_code, "__init__.py")
             self._write_file("__init__.py", formatted_init_code, subdirectory=models_subdirectory)
         else:
             # No root node found - fallback to original behavior
             nodepaths = all_groups_and_repeaters
-            models_code = self._generate_file("models.py.jinja2", "models.py", nodepaths)
+            # Deduplicate nodepaths by classname to prevent duplicate class generation
+            seen_classnames = set()
+            unique_nodepaths = []
+            for np in nodepaths:
+                if np.classname not in seen_classnames:
+                    seen_classnames.add(np.classname)
+                    unique_nodepaths.append(np)
+            nodepaths = unique_nodepaths
+            models_code = self._generate_file("models.py.jinja2", "models.py", nodepaths, root_classname=None)
             try:
                 formatted_models_code = self.formatter.format(models_code)
             except FormattingError:
@@ -346,29 +631,60 @@ class CodeGenerator:
             self._validate_code(formatted_models_code, "models.py")
             self._write_file("models.py", formatted_models_code)
 
-        # Define other files to generate: (template_name, output_filename)
-        other_files_to_generate = [
-            ("schemas.py.jinja2", "schemas.py"),
-            ("schemas_in.py.jinja2", "schemas_in.py"),
-            ("admin.py.jinja2", "admin.py"),
-            ("api.py.jinja2", "api.py"),
+        # Define file mappings: (template_name, subdirectory, file_type)
+        file_mappings = [
+            ("schemas.py.jinja2", "schemas", "schemas"),
+            ("schemas_in.py.jinja2", "schemas_in", "schemas_in"),
+            ("admin.py.jinja2", "admin", "admin"),
+            ("api.py.jinja2", "api", "api"),
         ]
 
-        # Generate each file
-        for template_name, output_filename in other_files_to_generate:
-            # Generate code from template
-            code = self._generate_file(template_name, output_filename, nodepaths)
+        # Generate each file in its subdirectory
+        for template_name, subdirectory, file_type in file_mappings:
+            if root_nodepath:
+                # Generate per-schema file in subdirectory
+                schema_filename = f"{schema_name_to_filename(root_classname)}.py"
+                self._generate_per_schema_file(
+                    template_name=template_name,
+                    filename=schema_filename,
+                    subdirectory=subdirectory,
+                    nodepaths=nodepaths,
+                    root_classname=root_classname,
+                )
 
-            # Format code (may raise FormattingError)
-            try:
-                formatted_code = self.formatter.format(code)
-            except FormattingError:
-                # If formatting fails, use unformatted code
-                # This allows generation to continue even if ruff is not available
-                formatted_code = code
+                # Read the generated file content
+                generated_file_path = self.config.output_dir / subdirectory / schema_filename
+                generated_file_content = generated_file_path.read_text()
 
-            # Validate code syntax
-            self._validate_code(formatted_code, output_filename)
+                # Read existing __init__.py if it exists
+                init_file_path = self.config.output_dir / subdirectory / "__init__.py"
+                existing_init_content = None
+                if init_file_path.exists():
+                    existing_init_content = init_file_path.read_text()
 
-            # Write to file
-            self._write_file(output_filename, formatted_code)
+                # Generate or update __init__.py
+                init_content = self._generate_init_file(
+                    subdirectory=subdirectory,
+                    module_name=schema_name_to_filename(root_classname),
+                    file_type=file_type,
+                    generated_file_content=generated_file_content,
+                    existing_init_content=existing_init_content,
+                )
+
+                # Write __init__.py
+                try:
+                    formatted_init = self.formatter.format(init_content)
+                except FormattingError:
+                    formatted_init = init_content
+                self._validate_code(formatted_init, "__init__.py")
+                self._write_file("__init__.py", formatted_init, subdirectory=subdirectory)
+            else:
+                # Fallback: no root node - use original behavior (write to root)
+                output_filename = f"{subdirectory}.py"
+                code = self._generate_file(template_name, output_filename, nodepaths, root_classname=None)
+                try:
+                    formatted_code = self.formatter.format(code)
+                except FormattingError:
+                    formatted_code = code
+                self._validate_code(formatted_code, output_filename)
+                self._write_file(output_filename, formatted_code)

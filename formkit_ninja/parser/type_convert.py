@@ -288,8 +288,8 @@ class NodePath:
 
     @property
     def abstract_class_name(self) -> str:
-        """Returns the abstract class name: f'{classname}Group'"""
-        return f"{self.classname}Group"
+        """Returns the abstract class name: f'{classname}Abstract'"""
+        return f"{self.classname}Abstract"
 
     def get_node_path_string(self) -> str:
         """Returns a string representation of the node path for docstrings."""
@@ -334,18 +334,21 @@ class NodePath:
         """
         Usually, this should return a well known Python type as a string
 
-        This method first tries to use the type converter registry if available,
-        then falls back to the original hardcoded logic for backward compatibility.
+        This method first tries to use the type converter registry (which now supports
+        matching by formkit, name, and options), then falls back to the original
+        hardcoded logic for backward compatibility.
         """
         node = self.node
 
-        # Try registry first (if node has formkit attribute)
-        if hasattr(node, "formkit"):
-            converter = self._type_converter_registry.get_converter(node)
-            if converter is not None:
-                return converter.to_pydantic_type(node)
+        # Always try registry first (registry now supports formkit, name, and options matching)
+        converter = self._type_converter_registry.get_converter(node)
+        if converter is not None:
+            return converter.to_pydantic_type(node)
 
-        # Fallback to original logic for backward compatibility
+        # Fallback to original logic for backward compatibility (only if node has formkit)
+        if not hasattr(node, "formkit"):
+            return "str"  # Default for nodes without formkit
+
         if node.formkit == "number":
             if node.step is not None:
                 # We don't actually **know** this but it's a good assumption
@@ -431,24 +434,34 @@ class NodePath:
         if self.is_group:
             return f"{self.classname}, on_delete=models.CASCADE"
 
+        # Get base args from pydantic type
         match self.to_pydantic_type():
             case "bool":
-                return "null=True, blank=True"
+                base_args = "null=True, blank=True"
             case "str":
-                return "null=True, blank=True"
+                base_args = "null=True, blank=True"
             case "Decimal":
-                return "max_digits=20, decimal_places=2, null=True, blank=True"
+                base_args = "max_digits=20, decimal_places=2, null=True, blank=True"
             case "int":
-                return "null=True, blank=True"
+                base_args = "null=True, blank=True"
             case "float":
-                return "null=True, blank=True"
+                base_args = "null=True, blank=True"
             case "datetime":
-                return "null=True, blank=True"
+                base_args = "null=True, blank=True"
             case "date":
-                return "null=True, blank=True"
+                base_args = "null=True, blank=True"
             case "UUID":
-                return "editable=False, null=True, blank=True"
-        return "null=True, blank=True"
+                base_args = "editable=False, null=True, blank=True"
+            case _:
+                base_args = "null=True, blank=True"
+
+        # Get extra args from extension point
+        extra_args = self.get_django_args_extra()
+
+        # Combine: extra args come first, then base args
+        if extra_args:
+            return ", ".join([*extra_args, base_args])
+        return base_args
 
     @property
     def django_args(self):
@@ -537,3 +550,62 @@ class NodePath:
             List of import statement strings (default: empty list)
         """
         return []
+
+    def get_django_args_extra(self) -> list[str]:
+        """
+        Extension point: Return additional Django field arguments.
+
+        Override this method in a NodePath subclass to add custom arguments
+        (e.g., model references, custom decimal places, on_delete behavior)
+        without overriding the entire to_django_args() method.
+
+        Returns:
+            List of additional argument strings (e.g., ["pnds_data.zDistrict", "on_delete=models.CASCADE"])
+        """
+        return []
+
+    def has_option(self, pattern: str) -> bool:
+        """
+        Check if node has options attribute that starts with the given pattern.
+
+        Helper method for checking option patterns like '$ida(' or '$getoptions'.
+
+        Args:
+            pattern: The pattern to check for at the start of options string
+
+        Returns:
+            True if node has options attribute and it starts with pattern, False otherwise
+        """
+        if not hasattr(self.node, "options") or self.node.options is None:
+            return False
+        options_str = str(self.node.options)
+        return options_str.startswith(pattern)
+
+    def matches_name(self, names: set[str] | list[str]) -> bool:
+        """
+        Check if node name is in the provided set or list.
+
+        Helper method for checking if a node name matches any of a set of names.
+
+        Args:
+            names: Set or list of node names to check against
+
+        Returns:
+            True if node has name attribute and it's in the provided names, False otherwise
+        """
+        if not hasattr(self.node, "name") or self.node.name is None:
+            return False
+        return self.node.name in names
+
+    def get_option_value(self) -> str | None:
+        """
+        Get the options attribute value as a string.
+
+        Helper method for accessing the options value safely.
+
+        Returns:
+            String representation of options if it exists, None otherwise
+        """
+        if not hasattr(self.node, "options") or self.node.options is None:
+            return None
+        return str(self.node.options)
