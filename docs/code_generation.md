@@ -89,7 +89,12 @@ formkit-ninja provides multiple extension points for customizing code generation
 
 Type converters determine how FormKit nodes are converted to Pydantic types. You can create custom converters for new node types or override existing behavior.
 
-**Example: Custom Converter for a "currency" Node**
+The TypeConverterRegistry supports three matching strategies (checked in order):
+1. **FormKit-based matching**: `can_convert(node)` - matches by `formkit` attribute (existing behavior)
+2. **Name-based matching**: `can_convert_by_name(node_name)` - matches by `name` attribute (new in v0.9+)
+3. **Options-based matching**: `can_convert_by_options(options)` - matches by `options` attribute pattern (new in v0.9+)
+
+**Example: Custom Converter for a "currency" Node (FormKit-based)**
 
 ```python
 from formkit_ninja.parser import TypeConverter, TypeConverterRegistry
@@ -109,6 +114,32 @@ class CurrencyConverter:
 # Register the converter
 registry = TypeConverterRegistry()
 registry.register(CurrencyConverter(), priority=10)  # Higher priority = checked first
+```
+
+**Example: Name-based Converter**
+
+```python
+from formkit_ninja.parser.converters_examples import FieldNameConverter
+
+# Match nodes by field name
+converter = FieldNameConverter(
+    names={"district", "suco", "aldeia"},
+    pydantic_type="int"
+)
+registry.register(converter)
+```
+
+**Example: Options-based Converter**
+
+```python
+from formkit_ninja.parser.converters_examples import OptionsPatternConverter
+
+# Match nodes by options pattern (e.g., IDA options)
+converter = OptionsPatternConverter(
+    pattern="$ida(",
+    pydantic_type="int"
+)
+registry.register(converter)
 ```
 
 **Using a Custom Registry:**
@@ -345,8 +376,19 @@ The `NodePath` class provides several extension points that can be overridden in
 - **`get_custom_imports()`**: Return custom imports for `models.py`
 - **`filter_clause`**: Property returning filter clause class name for admin/API (default: `"SubStatusFilter"`)
 - **`extra_attribs`**: Property returning list of extra field definitions for models.py
+- **`get_django_args_extra()`**: Method returning additional Django field arguments (new in v0.9+)
 - **`to_django_type()`**: Method returning Django field type string
 - **`to_django_args()`**: Method returning Django field arguments string
+
+### Helper Methods
+
+NodePath also provides helper methods for common node attribute checks:
+
+- **`has_option(pattern: str) -> bool`**: Check if node options starts with a pattern
+- **`matches_name(names: set[str] | list[str]) -> bool`**: Check if node name is in a set/list
+- **`get_option_value() -> str | None`**: Get options attribute value as string
+
+These helpers make it easier to write clean, readable customizations without directly accessing node attributes.
 
 ## Extension Points Reference
 
@@ -484,11 +526,43 @@ class PartisipaNodePath(NodePath):
         return self.node.name.lower() in required_fields
 ```
 
+### `get_django_args_extra()` Method (New in v0.9+)
+
+Add additional Django field arguments without overriding the entire `to_django_args()` method. This extension point allows you to add custom arguments (model references, custom decimal places, on_delete behavior) while preserving the base arguments.
+
+**Example: Adding Model References**
+
+```python
+class PartisipaNodePath(NodePath):
+    def get_django_args_extra(self) -> list[str]:
+        """Add model references for ForeignKey fields."""
+        extra_args = []
+        
+        # Check if this is a district field
+        if self.matches_name({"district"}):
+            extra_args.append("pnds_data.zDistrict")
+            extra_args.append("on_delete=models.CASCADE")
+        
+        # Check if this is an IDA option field
+        if self.has_option("$ida("):
+            ida_model = self._get_ida_model()
+            if ida_model:
+                extra_args.append(ida_model)
+                extra_args.append("on_delete=models.DO_NOTHING")
+        
+        return extra_args
+```
+
+**Benefits:**
+- Preserves base arguments (null=True, blank=True, etc.)
+- Easier to maintain than full `to_django_args()` override
+- Can combine multiple custom arguments
+
 ### `to_django_args()` Method
 
 Override Django field arguments. Useful for adding constraints, custom on_delete behavior, or other field options.
 
-**Example: UUID Unique Constraint**
+**Example: UUID Unique Constraint (Full Override)**
 
 ```python
 class PartisipaNodePath(NodePath):
@@ -499,9 +573,55 @@ class PartisipaNodePath(NodePath):
         return super().to_django_args()
 ```
 
+**Note:** For most cases, prefer `get_django_args_extra()` over full `to_django_args()` override.
+
+## Enhanced Type Conversion with Multi-Attribute Matching
+
+The TypeConverterRegistry now supports matching converters by multiple attributes, making it easier to handle complex customization scenarios like those in Partisipa.
+
+**Matching Priority:**
+1. FormKit attribute (`can_convert(node)`) - highest priority
+2. Name attribute (`can_convert_by_name(node_name)`)
+3. Options attribute (`can_convert_by_options(options)`) - lowest priority
+
+**Example: Using Example Converters**
+
+```python
+from formkit_ninja.parser.converters import TypeConverterRegistry
+from formkit_ninja.parser.converters_examples import (
+    OptionsPatternConverter,
+    FieldNameConverter,
+)
+
+# Create custom registry
+registry = TypeConverterRegistry()
+
+# Register IDA options converter (matches $ida(...) patterns)
+registry.register(
+    OptionsPatternConverter(pattern="$ida(", pydantic_type="int"),
+    priority=20  # High priority for IDA options
+)
+
+# Register field name converter (matches specific field names)
+registry.register(
+    FieldNameConverter(
+        names={"district", "suco", "aldeia", "latitude", "longitude"},
+        pydantic_type="int"
+    ),
+    priority=15
+)
+
+# Use with NodePath
+from formkit_ninja.parser.type_convert import NodePath
+
+node = ...  # Your FormKit node
+path = NodePath(node, type_converter_registry=registry)
+pydantic_type = path.to_pydantic_type()  # Uses enhanced registry
+```
+
 ## Complete Partisipa-Specific Extensions Example
 
-Here's a complete example of a Partisipa-specific NodePath that implements all the customizations:
+Here's a complete example of a Partisipa-specific NodePath that implements all the customizations, using the new extension points:
 
 ```python
 from formkit_ninja.parser import NodePath
@@ -558,18 +678,46 @@ class PartisipaNodePath(NodePath):
             return "ForeignKey"
         return super().to_django_type()
     
-    def to_django_args(self) -> str:
-        """Provide args for ForeignKey fields to ida_options."""
+    def get_django_args_extra(self) -> list[str]:
+        """Add model references and custom arguments using extension point."""
+        extra_args = []
+        
+        # Map field to IDA options model
         model_name = self._map_field_to_ida_options_model()
         if model_name:
+            extra_args.append(f'"{model_name}"')
             on_delete = "models.CASCADE" if self._is_required_field() else "models.DO_NOTHING"
-            # Add related_name="+" for YesNo fields to avoid reverse relation conflicts
-            related_name = ', related_name="+"' if "YesNo" in model_name else ""
-            return f'"{model_name}", on_delete={on_delete}{related_name}, null=True, blank=True'
+            extra_args.append(f"on_delete={on_delete}")
+            # Add related_name="+" for YesNo fields
+            if "YesNo" in model_name:
+                extra_args.append('related_name="+"')
+        
+        # Custom decimal places for latitude/longitude
+        if self.matches_name({"latitude", "longitude"}):
+            # Note: This would override base Decimal args, so handle in to_django_args if needed
+            pass
+        
+        return extra_args
+    
+    def to_django_args(self) -> str:
+        """Provide args for ForeignKey fields to ida_options."""
+        # Use helper methods for cleaner code
+        if self.has_option("$ida("):
+            # Handle IDA options via get_django_args_extra
+            extra_args = self.get_django_args_extra()
+            if extra_args:
+                base_args = "null=True, blank=True"
+                return ", ".join([*extra_args, base_args])
         
         # UUID fields get unique=True
         if self.to_pydantic_type() == "UUID":
             return "editable=False, unique=True, null=True, blank=True"
+        
+        # Use extension point for other customizations
+        extra_args = self.get_django_args_extra()
+        if extra_args:
+            base_args = super().to_django_args()
+            return ", ".join([*extra_args, base_args])
         
         return super().to_django_args()
     
@@ -624,17 +772,79 @@ config = GeneratorConfig(
 )
 ```
 
+## Migration Example: Simplifying PartisipaNodePath
+
+Here's how PartisipaNodePath could be simplified using the new features:
+
+**Before (Full Method Overrides):**
+
+```python
+class PartisipaNodePath(NodePath):
+    def to_pydantic_type(self):
+        if getattr(self.node, "options", "") == "$ida(yesno)":
+            return "bool"
+        if self.node.name in {"district", "suco"}:
+            return "int"
+        return super().to_pydantic_type()
+    
+    def to_django_args(self):
+        # Complex logic mixing base and custom args
+        if self.node.name == "district":
+            return "pnds_data.zDistrict, on_delete=models.CASCADE, null=True, blank=True"
+        return super().to_django_args()
+```
+
+**After (Using Enhanced Features):**
+
+```python
+from formkit_ninja.parser.converters import TypeConverterRegistry
+from formkit_ninja.parser.converters_examples import (
+    OptionsPatternConverter,
+    FieldNameConverter,
+)
+
+# Create custom registry with converters
+custom_registry = TypeConverterRegistry()
+custom_registry.register(OptionsPatternConverter(pattern="$ida(yesno)", pydantic_type="bool"))
+custom_registry.register(FieldNameConverter(names={"district", "suco"}, pydantic_type="int"))
+
+class PartisipaNodePath(NodePath):
+    def __init__(self, *args, **kwargs):
+        # Use custom registry
+        if "type_converter_registry" not in kwargs:
+            kwargs["type_converter_registry"] = custom_registry
+        super().__init__(*args, **kwargs)
+    
+    def get_django_args_extra(self) -> list[str]:
+        """Use extension point instead of full override."""
+        extra_args = []
+        if self.matches_name({"district"}):
+            extra_args.append("pnds_data.zDistrict")
+            extra_args.append("on_delete=models.CASCADE")
+        return extra_args
+```
+
+**Benefits:**
+- Cleaner code: Converters handle type conversion logic
+- Easier maintenance: Extension points instead of full overrides
+- Better separation: Type conversion vs. Django args customization
+- Reusable: Converters can be shared across projects
+
 ## Best Practices
 
 1. **Use Plugins for Multiple Extensions**: If you need custom converters, templates, and NodePath extensions, bundle them in a plugin.
 
 2. **Priority Order**: When registering converters, use higher priorities for more specific converters. Converters are checked in priority order (higher first).
 
-3. **Template Inheritance**: Use `ExtendedTemplateLoader` with your project templates first, then base templates, to allow selective overrides.
+3. **Prefer Extension Points**: Use `get_django_args_extra()` instead of full `to_django_args()` override when possible.
 
-4. **Type Hints**: Always use type hints in your custom code for better IDE support and type checking.
+4. **Use Helper Methods**: Use `has_option()`, `matches_name()`, and `get_option_value()` for cleaner attribute checks.
 
-5. **Testing**: Test your custom converters and NodePath extensions with the same test patterns used in formkit-ninja's test suite.
+5. **Template Inheritance**: Use `ExtendedTemplateLoader` with your project templates first, then base templates, to allow selective overrides.
+
+6. **Type Hints**: Always use type hints in your custom code for better IDE support and type checking.
+
+7. **Testing**: Test your custom converters and NodePath extensions with the same test patterns used in formkit-ninja's test suite.
 
 ## Examples
 
