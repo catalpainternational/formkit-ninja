@@ -27,6 +27,10 @@ class TypeConverter(Protocol):
     Converters must implement:
     - can_convert(): Check if this converter can handle a given node
     - to_pydantic_type(): Convert the node to a Pydantic type string
+
+    Optional methods for enhanced matching:
+    - can_convert_by_name(): Check if converter matches by node name
+    - can_convert_by_options(): Check if converter matches by node options
     """
 
     def can_convert(self, node: FormKitType) -> bool:
@@ -52,6 +56,10 @@ class TypeConverter(Protocol):
             A string representing the Pydantic type (e.g., "str", "int", "bool")
         """
         ...
+
+    # Note: can_convert_by_name() and can_convert_by_options() are optional methods.
+    # They are not part of the Protocol to maintain backward compatibility.
+    # The registry checks for their existence using hasattr() before calling them.
 
 
 class TypeConverterRegistry:
@@ -87,15 +95,39 @@ class TypeConverterRegistry:
         If multiple converters have the same priority, they are checked
         in registration order.
 
+        Matching is attempted in this order:
+        1. can_convert(node) - checks formkit attribute (existing behavior)
+        2. can_convert_by_name(node.name) - if node has name attribute
+        3. can_convert_by_options(str(node.options)) - if node has options attribute
+
         Args:
             node: The FormKit node to find a converter for
 
         Returns:
             The first matching converter, or None if no converter matches
         """
+        # First, try can_convert (formkit-based matching)
         for _, converter in self._converters:
             if converter.can_convert(node):
                 return converter
+
+        # If no formkit match and node has name, try name-based matching
+        if hasattr(node, "name") and node.name is not None:
+            for _, converter in self._converters:
+                # Check if converter has can_convert_by_name method
+                if hasattr(converter, "can_convert_by_name"):
+                    if converter.can_convert_by_name(node.name):
+                        return converter
+
+        # If still no match and node has options, try options-based matching
+        if hasattr(node, "options") and node.options is not None:
+            options_str = str(node.options)
+            for _, converter in self._converters:
+                # Check if converter has can_convert_by_options method
+                if hasattr(converter, "can_convert_by_options"):
+                    if converter.can_convert_by_options(options_str):
+                        return converter
+
         return None
 
 
