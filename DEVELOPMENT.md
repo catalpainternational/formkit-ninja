@@ -79,7 +79,36 @@ Expected count: ~647 nodes.
 - `GenerationPipeline` in `formkit_ninja/parser/generation_pipeline.py` composes generation steps without expanding `CodeGenerator.generate`.
 - `SchemaImportService` in `formkit_ninja/services/schema_import.py` owns schema and option import logic used by models and commands.
 - `FormKitNodeFactory` in `formkit_ninja/parser/node_factory.py` standardizes parsing from dict/JSON for node creation.
+- `NodeRegistry` in `formkit_ninja/parser/node_registry.py` maps node type identifiers (e.g., "$formkit" values) to Pydantic model classes. Use `default_registry` for common nodes, or create a custom registry for extensions. The factory uses the registry when parsing, falling back to `FormKitNode.parse_obj` for backward compatibility.
 - `Notifier` in `formkit_ninja/notifications.py` abstracts optional integrations (Sentry vs no-op).
+
+### Node Registry Usage
+
+The `NodeRegistry` provides a centralized way to map FormKit node types to their Pydantic model classes. This enables:
+
+- **Extensibility**: Register custom node types without modifying core parsing logic
+- **Type Safety**: Explicit mapping between node identifiers and classes
+- **Centralized Parsing**: `FormKitNodeFactory` uses the registry as the primary parsing entry point
+
+**Example:**
+```python
+from formkit_ninja.parser.node_registry import NodeRegistry, default_registry
+from formkit_ninja.formkit_schema import TextNode
+
+# Use default registry (pre-populated with common nodes)
+node_class = default_registry.get_formkit_node_class("text")
+assert node_class == TextNode
+
+# Or create a custom registry for extensions
+custom_registry = NodeRegistry()
+custom_registry.register_formkit_node("custom_type", CustomNodeClass)
+```
+
+**Parsing Entry Point:**
+Always use `FormKitNodeFactory.from_dict()` or `FormKitNodeFactory.from_json()` for parsing node data. The factory will:
+1. Check the registry for registered node types
+2. Fall back to `FormKitNode.parse_obj()` for backward compatibility
+3. Raise `ValueError` if parsing fails
 
 ## CI Tooling Notes
 
