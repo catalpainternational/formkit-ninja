@@ -1,10 +1,7 @@
-import importlib
 import json
 import re
 from functools import cached_property
 from http import HTTPStatus
-from importlib.util import find_spec
-from types import ModuleType
 from typing import Sequence, cast
 from uuid import UUID, uuid4
 
@@ -19,16 +16,13 @@ from ninja import Field, ModelSchema, Router, Schema
 from pydantic import BaseModel, validator
 
 from formkit_ninja import formkit_schema, models
+from formkit_ninja.notifications import get_default_notifier
 
-if find_spec("sentry_sdk"):
-    sentry_sdk: ModuleType | None = importlib.import_module("sentry_sdk")
-else:
-    sentry_sdk = None
+notifier = get_default_notifier()
 
 
-def sentry_message(message: str):
-    if sentry_sdk and hasattr(sentry_sdk, "capture_message"):
-        sentry_sdk.capture_message(f"{message}")
+def sentry_message(message: str) -> None:
+    notifier.notify(message)
 
 
 router = Router(tags=["FormKit"])
