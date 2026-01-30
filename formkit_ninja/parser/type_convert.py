@@ -5,8 +5,9 @@ from keyword import iskeyword
 from typing import Generator, Iterable, Literal, cast
 
 from formkit_ninja import formkit_schema
-from formkit_ninja.formkit_schema import FormKitNode, GroupNode, RepeaterNode
+from formkit_ninja.formkit_schema import GroupNode, RepeaterNode
 from formkit_ninja.parser.converters import TypeConverterRegistry, default_registry
+from formkit_ninja.parser.node_factory import FormKitNodeFactory
 
 FormKitType = formkit_schema.FormKitType
 
@@ -60,9 +61,7 @@ class NodePath:
 
     @classmethod
     def from_obj(cls, obj: dict):
-        node = FormKitNode.parse_obj(obj).__root__
-        # node can be a string or a FormKitSchemaNode
-        # NodePath expects FormKitType (which is the union of nodes)
+        node = FormKitNodeFactory.from_dict(obj)
         return cls(cast(FormKitType, node))
 
     def __truediv__(self, node: Literal[".."] | FormKitType):

@@ -2,8 +2,9 @@ import json
 import pathlib
 from importlib.resources import files
 
+from formkit_ninja import formkit_schema
 from formkit_ninja import schemas as schema_path
-from formkit_ninja.formkit_schema import FormKitNode
+from formkit_ninja.services.schema_import import SchemaImportService
 
 
 class Schemas:
@@ -27,9 +28,7 @@ class Schemas:
         return json.dumps(self.as_json(schema))
 
     def import_all(self):
-        from formkit_ninja.models import FormKitSchemaNode
-
-        for schema in self.schemas.keys():
-            node: FormKitNode = FormKitNode.parse_obj(self.as_json(schema))
-            parsed_node = node.__root__
-            list(FormKitSchemaNode.from_pydantic(parsed_node))[0]
+        for schema_name in self.schemas.keys():
+            schema = self.as_json(schema_name)
+            pydantic_schema = formkit_schema.FormKitSchema.parse_obj([schema])
+            SchemaImportService.import_schema(pydantic_schema, label=schema_name)
