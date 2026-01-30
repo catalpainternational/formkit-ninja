@@ -109,13 +109,13 @@ class TestIntegrationGenerator:
         # Note: Golden file comparison skipped due to structure change (files now in subdirectories)
         expected_subdirs = ["models", "schemas", "schemas_in", "admin", "api"]
         schema_file = "testgroup.py"  # Based on root node name "testgroup"
-        
+
         for subdir in expected_subdirs:
             generated_file = tmp_path / subdir / schema_file
             assert generated_file.exists(), f"Generated file {subdir}/{schema_file} does not exist"
             generated_content = generated_file.read_text()
             assert len(generated_content) > 0, f"Generated file {subdir}/{schema_file} is empty"
-            
+
             # Verify it's valid Python
             try:
                 ast.parse(generated_content)
@@ -145,13 +145,13 @@ class TestIntegrationGenerator:
         # Note: Golden file comparison skipped due to structure change (files now in subdirectories)
         expected_subdirs = ["models", "schemas", "schemas_in", "admin", "api"]
         schema_file = "parent.py"  # Based on root node name "parent"
-        
+
         for subdir in expected_subdirs:
             generated_file = tmp_path / subdir / schema_file
             assert generated_file.exists(), f"Generated file {subdir}/{schema_file} does not exist"
             generated_content = generated_file.read_text()
             assert len(generated_content) > 0, f"Generated file {subdir}/{schema_file} is empty"
-            
+
             # Verify it's valid Python
             try:
                 ast.parse(generated_content)
@@ -326,7 +326,7 @@ class TestIntegrationGenerator:
         # Files are now in subdirectories
         expected_subdirs = ["models", "schemas", "schemas_in", "admin", "api"]
         schema_file = "testgroup.py"
-        
+
         for subdir in expected_subdirs:
             file_path = tmp_path / subdir / schema_file
             assert file_path.exists(), f"Expected file {subdir}/{schema_file} was not created"

@@ -64,7 +64,7 @@ def test_generate_code_command_with_valid_args(tmp_path: Path):
     # Verify subdirectories and per-schema files were generated
     expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
     schema_file = "testgroup.py"  # Based on root node name "test_group"
-    
+
     for subdir in expected_subdirs:
         subdir_path = output_dir / subdir
         assert subdir_path.exists(), f"Expected subdirectory {subdir}/ was not created"
@@ -303,7 +303,7 @@ def test_generate_code_command_generates_all_files(tmp_path: Path):
     # Verify all expected files exist in subdirectories and have content
     expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
     schema_file = "testgroup.py"  # Based on root node name "test_group"
-    
+
     for subdir in expected_subdirs:
         file_path = output_dir / subdir / schema_file
         assert file_path.exists(), f"File {subdir}/{schema_file} was not generated"

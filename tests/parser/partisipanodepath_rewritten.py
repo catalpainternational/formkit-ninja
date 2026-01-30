@@ -248,6 +248,10 @@ class PartisipaNodePathRewritten(NodePath):
 
         return extra_args
 
+    # No need to override to_django_args() anymore!
+    # The base class now handles deduplication automatically using a dictionary-based approach.
+    # Extra args from get_django_args_extra() will automatically override base args.
+
     @property
     def validators(self):
         """

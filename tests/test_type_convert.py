@@ -780,6 +780,7 @@ class TestNodePathHelperMethods:
 
     def test_has_option_returns_true_when_options_starts_with_pattern(self):
         """Test has_option returns True when node options starts with pattern."""
+
         # Create a mock node with options
         class MockNode:
             options = "$ida(yesno)"
@@ -799,6 +800,7 @@ class TestNodePathHelperMethods:
 
     def test_has_option_returns_false_when_options_is_none(self):
         """Test has_option returns False when options is None."""
+
         # Create a mock node with None options
         class MockNode:
             options = None
@@ -826,6 +828,7 @@ class TestNodePathHelperMethods:
 
     def test_matches_name_returns_false_when_no_name_attribute(self):
         """Test matches_name returns False when node has no name attribute."""
+
         # Create a mock node without name
         class MockNode:
             pass
@@ -837,6 +840,7 @@ class TestNodePathHelperMethods:
 
     def test_get_option_value_returns_string_when_options_exists(self):
         """Test get_option_value returns string when options attribute exists."""
+
         # Create a mock node with options
         class MockNode:
             options = "$ida(yesno)"
@@ -858,6 +862,7 @@ class TestNodePathHelperMethods:
 
     def test_get_option_value_returns_none_when_options_is_none(self):
         """Test get_option_value returns None when options is None."""
+
         # Create a mock node with None options
         class MockNode:
             options = None
