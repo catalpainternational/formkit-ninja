@@ -4,9 +4,7 @@ Tests for example converters (OptionsPatternConverter, FieldNameConverter).
 These converters serve as examples and can be used by projects like Partisipa.
 """
 
-import pytest
-from formkit_ninja.formkit_schema import FormKitType
-from formkit_ninja.parser.converters import TypeConverter, TypeConverterRegistry
+from formkit_ninja.parser.converters import TypeConverterRegistry
 
 
 class TestOptionsPatternConverter:
