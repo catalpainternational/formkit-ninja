@@ -72,3 +72,16 @@ uv run python manage.py shell -c "from formkit_ninja.models import FormKitSchema
 ```
 
 Expected count: ~647 nodes.
+
+## Architecture Extension Points
+
+- `SchemaWalker` in `formkit_ninja/parser/schema_walker.py` centralizes schema traversal and NodePath collection.
+- `GenerationPipeline` in `formkit_ninja/parser/generation_pipeline.py` composes generation steps without expanding `CodeGenerator.generate`.
+- `SchemaImportService` in `formkit_ninja/services/schema_import.py` owns schema and option import logic used by models and commands.
+- `FormKitNodeFactory` in `formkit_ninja/parser/node_factory.py` standardizes parsing from dict/JSON for node creation.
+- `Notifier` in `formkit_ninja/notifications.py` abstracts optional integrations (Sentry vs no-op).
+
+## CI Tooling Notes
+
+- Prefer `uv run ruff check .`, `uv run ruff format .`, `uv run mypy .`, and `uv run pytest` for local checks.
+- Pre-commit runs `uv run mypy formkit_ninja` (source-only). Full-tree mypy includes test fixtures that currently report errors.
