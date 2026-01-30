@@ -1,8 +1,8 @@
 from django.core.management.base import BaseCommand
 
-from formkit_ninja import models
-from formkit_ninja.formkit_schema import FormKitNode, GroupNode
+from formkit_ninja import formkit_schema, models
 from formkit_ninja.schemas import Schemas
+from formkit_ninja.services.schema_import import SchemaImportService
 
 
 class Command(BaseCommand):
@@ -19,6 +19,5 @@ class Command(BaseCommand):
         for schema_name in schemas.list_schemas():
             # Each part of the form becomes a 'Schema'
             schema = schemas.as_json(schema_name)
-            node: FormKitNode = FormKitNode.parse_obj(schema)
-            parsed_node: GroupNode = node.__root__
-            list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
+            pydantic_schema = formkit_schema.FormKitSchema.parse_obj([schema])
+            SchemaImportService.import_schema(pydantic_schema, label=schema_name)

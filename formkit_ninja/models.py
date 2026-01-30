@@ -191,21 +191,9 @@ class Option(UuidIdModel):
         """
         Yields "Options" in the database based on the input given
         """
-        for option in options:
-            if isinstance(option, str):
-                opt = cls(value=option, group=group)
-                # Capture the effects of triggers
-                # Else we override with the 'default' value of 0
-                opt.save()
-                opt.refresh_from_db()
-                OptionLabel.objects.create(option=opt, lang="en", label=option)
-            elif isinstance(option, dict) and option.keys() == {"value", "label"}:
-                opt = cls(value=option["value"], group=group)
-                OptionLabel.objects.create(option=opt, lang="en", label=option["label"])
-            else:
-                console.log(f"[red]Could not format the given object {option}")
-                continue
-            yield opt
+        from formkit_ninja.services.schema_import import SchemaImportService
+
+        yield from SchemaImportService.import_options(options, group=group)
 
     def __str__(self):
         if self.group:
@@ -766,15 +754,9 @@ class FormKitSchema(UuidIdModel):
         Converts a given Pydantic representation of a Schema
         to Django database fields
         """
-        instance = cls.objects.create(label=label)
-        node: FormKitSchemaNode
-        nodes: Iterable[FormKitSchemaNode] = FormKitSchemaNode.from_pydantic(input_model.__root__)  # type: ignore
-        for node in nodes:
-            log(f"[yellow]Saving {node}")
-            node.save()
-            FormComponents.objects.create(schema=instance, node=node, label=str(f"{str(instance)} {str(node)}"))
-        logger.info("Schema load from JSON done")
-        return instance
+        from formkit_ninja.services.schema_import import SchemaImportService
+
+        return SchemaImportService.import_schema(input_model, label=label)
 
     @classmethod
     def from_json(cls, input_file: dict):
