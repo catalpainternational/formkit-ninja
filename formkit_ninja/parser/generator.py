@@ -11,6 +11,7 @@ from typing import List, Union
 from formkit_ninja.formkit_schema import FormKitSchema
 from formkit_ninja.parser.formatter import CodeFormatter, FormattingError
 from formkit_ninja.parser.generator_config import GeneratorConfig, schema_name_to_filename
+from formkit_ninja.parser.schema_walker import SchemaWalker
 from formkit_ninja.parser.template_loader import TemplateLoader
 from formkit_ninja.parser.type_convert import NodePath
 
@@ -52,56 +53,11 @@ class CodeGenerator:
         Returns:
             List of NodePath instances representing all nodes in the schema
         """
-        nodepaths: List[NodePath] = []
         abstract_base_info: dict[str, bool] = {}  # Use classname as key
         root_child_abstract_bases: dict[str, list[str]] = {}  # Use classname as key
 
-        # Convert to list of dicts if FormKitSchema object
-        if isinstance(schema, FormKitSchema):
-            # Convert FormKitSchema nodes to dicts
-            schema_dicts = []
-            for node in schema.__root__:
-                # Handle string nodes (skip them)
-                if isinstance(node, str):
-                    continue
-                # Convert Pydantic model to dict
-                schema_dicts.append(node.dict(exclude_none=True))
-        else:
-            schema_dicts = schema
-
-        def traverse_node(node_dict: dict, parent_path: NodePath | None = None) -> None:
-            """Recursively traverse a node and its children."""
-            # Create NodePath from node dict to get the node object
-            temp_path = self.config.node_path_class.from_obj(node_dict)
-            node = temp_path.node
-
-            # Build the full path
-            if parent_path is not None:
-                # Append to parent path
-                node_path = parent_path / node
-            else:
-                # Root level node - create new path
-                node_path = self.config.node_path_class(node)
-
-            # Set config and abstract info on all NodePath instances
-            node_path._config = self.config
-            node_path._abstract_base_info = abstract_base_info
-
-            # Add to collection
-            nodepaths.append(node_path)
-
-            # Recursively process children
-            children = node_dict.get("children", [])
-            if children:
-                for child_dict in children:
-                    # Skip string children (text nodes)
-                    if isinstance(child_dict, str):
-                        continue
-                    traverse_node(child_dict, node_path)
-
-        # Process all root-level nodes
-        for node_dict in schema_dicts:
-            traverse_node(node_dict)
+        walker = SchemaWalker(config=self.config)
+        nodepaths = walker.collect_nodepaths(schema, abstract_base_info=abstract_base_info)
 
         # After collecting all nodepaths, identify abstract bases if merging is enabled
         if self.config.merge_top_level_groups:
