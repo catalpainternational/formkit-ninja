@@ -10,6 +10,7 @@ from typing import List, Union
 
 from formkit_ninja.formkit_schema import FormKitSchema
 from formkit_ninja.parser.formatter import CodeFormatter, FormattingError
+from formkit_ninja.parser.generation_pipeline import CallableStep, GenerationContext, GenerationPipeline
 from formkit_ninja.parser.generator_config import GeneratorConfig, schema_name_to_filename
 from formkit_ninja.parser.schema_walker import SchemaWalker
 from formkit_ninja.parser.template_loader import TemplateLoader
@@ -457,6 +458,148 @@ class CodeGenerator:
 
         file_path.write_text(content, encoding="utf-8")
 
+    def _select_root_nodepath(self, nodepaths: List[NodePath]) -> NodePath | None:
+        root_nodepath = next((np for np in nodepaths if not np.is_child and np.is_group), None)
+        if not root_nodepath:
+            root_nodepath = next((np for np in nodepaths if np.is_group), None)
+            if not root_nodepath:
+                root_nodepath = nodepaths[0] if nodepaths else None
+        return root_nodepath
+
+    def _filter_descendants(self, root_nodepath: NodePath, nodepaths: List[NodePath]) -> List[NodePath]:
+        filtered = [root_nodepath]
+        for np in nodepaths:
+            if np == root_nodepath:
+                continue
+            if len(np.nodes) > len(root_nodepath.nodes):
+                is_descendant = all(np.nodes[i] == root_nodepath.nodes[i] for i in range(len(root_nodepath.nodes)))
+                if is_descendant:
+                    filtered.append(np)
+        return filtered
+
+    @staticmethod
+    def _deduplicate_nodepaths(nodepaths: List[NodePath]) -> List[NodePath]:
+        seen_classnames = set()
+        unique_nodepaths = []
+        for np in nodepaths:
+            if np.classname not in seen_classnames:
+                seen_classnames.add(np.classname)
+                unique_nodepaths.append(np)
+        return unique_nodepaths
+
+    def _sort_abstract_bases_first(self, nodepaths: List[NodePath]) -> List[NodePath]:
+        if not self.config.merge_top_level_groups:
+            return nodepaths
+        abstract_bases = [np for np in nodepaths if np.is_abstract_base]
+        concrete_classes = [np for np in nodepaths if not np.is_abstract_base]
+        return abstract_bases + concrete_classes
+
+    def _generate_models_with_root(self, nodepaths: List[NodePath], root_classname: str) -> None:
+        models_filename = f"{schema_name_to_filename(root_classname)}.py"
+        models_subdirectory = "models"
+
+        models_code = self._generate_file(
+            "models.py.jinja2",
+            models_filename,
+            nodepaths,
+            root_classname=root_classname,
+        )
+        try:
+            formatted_models_code = self.formatter.format(models_code)
+        except FormattingError:
+            formatted_models_code = models_code
+        self._validate_code(formatted_models_code, models_filename)
+        self._write_file(models_filename, formatted_models_code, subdirectory=models_subdirectory)
+
+        module_name = schema_name_to_filename(root_classname)
+        init_file_path = self.config.output_dir / models_subdirectory / "__init__.py"
+        existing_init_content = init_file_path.read_text() if init_file_path.exists() else None
+
+        init_content = self._generate_init_file(
+            subdirectory=models_subdirectory,
+            module_name=module_name,
+            file_type="models",
+            generated_file_content=formatted_models_code,
+            existing_init_content=existing_init_content,
+        )
+        try:
+            formatted_init_code = self.formatter.format(init_content)
+        except FormattingError:
+            formatted_init_code = init_content
+        self._validate_code(formatted_init_code, "__init__.py")
+        self._write_file("__init__.py", formatted_init_code, subdirectory=models_subdirectory)
+
+    def _generate_models_without_root(self, nodepaths: List[NodePath]) -> None:
+        models_code = self._generate_file(
+            "models.py.jinja2",
+            "models.py",
+            nodepaths,
+            root_classname=None,
+        )
+        try:
+            formatted_models_code = self.formatter.format(models_code)
+        except FormattingError:
+            formatted_models_code = models_code
+        self._validate_code(formatted_models_code, "models.py")
+        self._write_file("models.py", formatted_models_code)
+
+    def _generate_subdir_files_with_root(self, nodepaths: List[NodePath], root_classname: str) -> None:
+        file_mappings = [
+            ("schemas.py.jinja2", "schemas", "schemas"),
+            ("schemas_in.py.jinja2", "schemas_in", "schemas_in"),
+            ("admin.py.jinja2", "admin", "admin"),
+            ("api.py.jinja2", "api", "api"),
+        ]
+        schema_filename = f"{schema_name_to_filename(root_classname)}.py"
+
+        for template_name, subdirectory, file_type in file_mappings:
+            self._generate_per_schema_file(
+                template_name=template_name,
+                filename=schema_filename,
+                subdirectory=subdirectory,
+                nodepaths=nodepaths,
+                root_classname=root_classname,
+            )
+
+            generated_file_path = self.config.output_dir / subdirectory / schema_filename
+            generated_file_content = generated_file_path.read_text()
+
+            init_file_path = self.config.output_dir / subdirectory / "__init__.py"
+            existing_init_content = init_file_path.read_text() if init_file_path.exists() else None
+
+            init_content = self._generate_init_file(
+                subdirectory=subdirectory,
+                module_name=schema_name_to_filename(root_classname),
+                file_type=file_type,
+                generated_file_content=generated_file_content,
+                existing_init_content=existing_init_content,
+            )
+
+            try:
+                formatted_init = self.formatter.format(init_content)
+            except FormattingError:
+                formatted_init = init_content
+            self._validate_code(formatted_init, "__init__.py")
+            self._write_file("__init__.py", formatted_init, subdirectory=subdirectory)
+
+    def _generate_subdir_files_without_root(self, nodepaths: List[NodePath]) -> None:
+        file_mappings = [
+            ("schemas.py.jinja2", "schemas", "schemas"),
+            ("schemas_in.py.jinja2", "schemas_in", "schemas_in"),
+            ("admin.py.jinja2", "admin", "admin"),
+            ("api.py.jinja2", "api", "api"),
+        ]
+
+        for template_name, subdirectory, _ in file_mappings:
+            output_filename = f"{subdirectory}.py"
+            code = self._generate_file(template_name, output_filename, nodepaths, root_classname=None)
+            try:
+                formatted_code = self.formatter.format(code)
+            except FormattingError:
+                formatted_code = code
+            self._validate_code(formatted_code, output_filename)
+            self._write_file(output_filename, formatted_code)
+
     def generate(self, schema: Union[List[dict], FormKitSchema]) -> None:
         """
         Generate all code files from a FormKit schema.
@@ -476,171 +619,50 @@ class CodeGenerator:
             SyntaxError: If generated code is not valid Python
             FormattingError: If code formatting fails
         """
-        # Collect all NodePath instances
-        all_nodepaths = self._collect_nodepaths(schema)
+        context = GenerationContext(schema=schema, generator=self)
 
-        # Filter to only groups and repeaters (templates handle form fields through parent)
-        all_groups_and_repeaters = [np for np in all_nodepaths if np.is_group or np.is_repeater]
+        def collect_nodepaths_step(ctx: GenerationContext) -> None:
+            all_nodepaths = self._collect_nodepaths(ctx.schema)
+            ctx.data["all_nodepaths"] = all_nodepaths
+            ctx.data["groups_and_repeaters"] = [np for np in all_nodepaths if np.is_group or np.is_repeater]
 
-        # Find root node (first non-child group)
-        root_nodepath = next((np for np in all_groups_and_repeaters if not np.is_child and np.is_group), None)
-
-        if not root_nodepath:
-            # Fallback: use first group or repeater as root
-            root_nodepath = next((np for np in all_groups_and_repeaters if np.is_group), None)
-            if not root_nodepath:
-                root_nodepath = all_groups_and_repeaters[0] if all_groups_and_repeaters else None
-
-        if root_nodepath:
-            # Filter to only include root and its descendants (repeaters and groups)
-            root_classname = root_nodepath.classname
-            nodepaths = [root_nodepath]  # Start with root
-
-            # Add all descendants (children of root)
-            # A descendant is any nodepath that starts with the root node
-            for np in all_groups_and_repeaters:
-                if np != root_nodepath:
-                    # Check if this nodepath is a descendant of root
-                    # A descendant has root as its first node in the path
-                    if len(np.nodes) > len(root_nodepath.nodes):
-                        # Check if the first nodes match the root's nodes
-                        is_descendant = all(
-                            np.nodes[i] == root_nodepath.nodes[i] for i in range(len(root_nodepath.nodes))
-                        )
-                        if is_descendant:
-                            nodepaths.append(np)
-
-            # Sort nodepaths so abstract bases come before classes that inherit from them
-            # This ensures proper class definition order in models.py
-            if self.config.merge_top_level_groups:
-                # Separate abstract bases and concrete classes
-                abstract_bases = [np for np in nodepaths if np.is_abstract_base]
-                concrete_classes = [np for np in nodepaths if not np.is_abstract_base]
-                # Put abstract bases first, then concrete classes
-                nodepaths = abstract_bases + concrete_classes
-
-            # Deduplicate nodepaths by classname to prevent duplicate class generation
-            seen_classnames = set()
-            unique_nodepaths = []
-            for np in nodepaths:
-                if np.classname not in seen_classnames:
-                    seen_classnames.add(np.classname)
-                    unique_nodepaths.append(np)
-            nodepaths = unique_nodepaths
-
-            # Derive filename from root node classname
-            models_filename = f"{schema_name_to_filename(root_classname)}.py"
-            models_subdirectory = "models"
-
-            # Generate models file
-            models_code = self._generate_file(
-                "models.py.jinja2", models_filename, nodepaths, root_classname=root_classname
-            )
-            try:
-                formatted_models_code = self.formatter.format(models_code)
-            except FormattingError:
-                formatted_models_code = models_code
-            self._validate_code(formatted_models_code, models_filename)
-            self._write_file(models_filename, formatted_models_code, subdirectory=models_subdirectory)
-
-            # Generate __init__.py for models folder using the new method
-            module_name = schema_name_to_filename(root_classname)
-
-            # Read existing __init__.py if it exists
-            init_file_path = self.config.output_dir / models_subdirectory / "__init__.py"
-            existing_init_content = None
-            if init_file_path.exists():
-                existing_init_content = init_file_path.read_text()
-
-            # Generate or update __init__.py
-            init_content = self._generate_init_file(
-                subdirectory=models_subdirectory,
-                module_name=module_name,
-                file_type="models",
-                generated_file_content=formatted_models_code,
-                existing_init_content=existing_init_content,
-            )
-
-            # Format and write __init__.py
-            try:
-                formatted_init_code = self.formatter.format(init_content)
-            except FormattingError:
-                formatted_init_code = init_content
-            self._validate_code(formatted_init_code, "__init__.py")
-            self._write_file("__init__.py", formatted_init_code, subdirectory=models_subdirectory)
-        else:
-            # No root node found - fallback to original behavior
-            nodepaths = all_groups_and_repeaters
-            # Deduplicate nodepaths by classname to prevent duplicate class generation
-            seen_classnames = set()
-            unique_nodepaths = []
-            for np in nodepaths:
-                if np.classname not in seen_classnames:
-                    seen_classnames.add(np.classname)
-                    unique_nodepaths.append(np)
-            nodepaths = unique_nodepaths
-            models_code = self._generate_file("models.py.jinja2", "models.py", nodepaths, root_classname=None)
-            try:
-                formatted_models_code = self.formatter.format(models_code)
-            except FormattingError:
-                formatted_models_code = models_code
-            self._validate_code(formatted_models_code, "models.py")
-            self._write_file("models.py", formatted_models_code)
-
-        # Define file mappings: (template_name, subdirectory, file_type)
-        file_mappings = [
-            ("schemas.py.jinja2", "schemas", "schemas"),
-            ("schemas_in.py.jinja2", "schemas_in", "schemas_in"),
-            ("admin.py.jinja2", "admin", "admin"),
-            ("api.py.jinja2", "api", "api"),
-        ]
-
-        # Generate each file in its subdirectory
-        for template_name, subdirectory, file_type in file_mappings:
+        def select_root_step(ctx: GenerationContext) -> None:
+            groups_and_repeaters = ctx.data["groups_and_repeaters"]
+            root_nodepath = self._select_root_nodepath(groups_and_repeaters)
+            ctx.data["root_nodepath"] = root_nodepath
             if root_nodepath:
-                # Generate per-schema file in subdirectory
-                schema_filename = f"{schema_name_to_filename(root_classname)}.py"
-                self._generate_per_schema_file(
-                    template_name=template_name,
-                    filename=schema_filename,
-                    subdirectory=subdirectory,
-                    nodepaths=nodepaths,
-                    root_classname=root_classname,
-                )
-
-                # Read the generated file content
-                generated_file_path = self.config.output_dir / subdirectory / schema_filename
-                generated_file_content = generated_file_path.read_text()
-
-                # Read existing __init__.py if it exists
-                init_file_path = self.config.output_dir / subdirectory / "__init__.py"
-                existing_init_content = None
-                if init_file_path.exists():
-                    existing_init_content = init_file_path.read_text()
-
-                # Generate or update __init__.py
-                init_content = self._generate_init_file(
-                    subdirectory=subdirectory,
-                    module_name=schema_name_to_filename(root_classname),
-                    file_type=file_type,
-                    generated_file_content=generated_file_content,
-                    existing_init_content=existing_init_content,
-                )
-
-                # Write __init__.py
-                try:
-                    formatted_init = self.formatter.format(init_content)
-                except FormattingError:
-                    formatted_init = init_content
-                self._validate_code(formatted_init, "__init__.py")
-                self._write_file("__init__.py", formatted_init, subdirectory=subdirectory)
+                root_classname = root_nodepath.classname
+                nodepaths = self._filter_descendants(root_nodepath, groups_and_repeaters)
+                nodepaths = self._sort_abstract_bases_first(nodepaths)
+                nodepaths = self._deduplicate_nodepaths(nodepaths)
+                ctx.data["nodepaths"] = nodepaths
+                ctx.data["root_classname"] = root_classname
             else:
-                # Fallback: no root node - use original behavior (write to root)
-                output_filename = f"{subdirectory}.py"
-                code = self._generate_file(template_name, output_filename, nodepaths, root_classname=None)
-                try:
-                    formatted_code = self.formatter.format(code)
-                except FormattingError:
-                    formatted_code = code
-                self._validate_code(formatted_code, output_filename)
-                self._write_file(output_filename, formatted_code)
+                nodepaths = self._deduplicate_nodepaths(groups_and_repeaters)
+                ctx.data["nodepaths"] = nodepaths
+
+        def generate_models_step(ctx: GenerationContext) -> None:
+            root_nodepath = ctx.data["root_nodepath"]
+            nodepaths = ctx.data["nodepaths"]
+            if root_nodepath:
+                self._generate_models_with_root(nodepaths, ctx.data["root_classname"])
+            else:
+                self._generate_models_without_root(nodepaths)
+
+        def generate_subdirs_step(ctx: GenerationContext) -> None:
+            root_nodepath = ctx.data["root_nodepath"]
+            nodepaths = ctx.data["nodepaths"]
+            if root_nodepath:
+                self._generate_subdir_files_with_root(nodepaths, ctx.data["root_classname"])
+            else:
+                self._generate_subdir_files_without_root(nodepaths)
+
+        pipeline = GenerationPipeline(
+            [
+                CallableStep(collect_nodepaths_step),
+                CallableStep(select_root_step),
+                CallableStep(generate_models_step),
+                CallableStep(generate_subdirs_step),
+            ]
+        )
+        pipeline.run(context)
