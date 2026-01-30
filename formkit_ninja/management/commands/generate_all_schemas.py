@@ -83,9 +83,7 @@ class Command(BaseCommand):
         all_candidate_nodes = models.FormKitSchemaNode.objects.filter(
             is_active=True,
             node_type="$formkit",
-        ).exclude(
-            pk__in=child_node_ids
-        )
+        ).exclude(pk__in=child_node_ids)
 
         # Filter in Python for groups and repeaters
         root_nodes = []

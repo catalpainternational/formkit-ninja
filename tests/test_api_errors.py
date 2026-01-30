@@ -344,3 +344,350 @@ def test_api_transaction_rollback_on_error(admin_client: Client):
     else:
         # On error, count should not change (transaction rolled back)
         assert final_count == initial_count
+
+
+# =============================================================================
+# Issue 29: Critical API Limitations Tests
+# =============================================================================
+
+
+@pytest.mark.django_db
+def test_update_node_actually_updates(admin_client: Client):
+    """
+    Test that updating an existing node actually changes its values.
+    Issue 29: Update operations don't work - nodes retain original values.
+    """
+    # Create a node first
+    path = reverse("api-1.0.0:create_or_update_node")
+    create_data = {
+        "$formkit": "text",
+        "label": "Original Label",
+        "name": "original_field",
+    }
+    create_response = admin_client.post(
+        path=path,
+        data=create_data,
+        content_type="application/json",
+    )
+    assert create_response.status_code == HTTPStatus.OK
+    node_data = create_response.json()
+    node_uuid = node_data["key"]
+
+    # Update the node with new values
+    update_data = {
+        "uuid": str(node_uuid),
+        "$formkit": "text",
+        "label": "Updated Label",
+        "name": "updated_field",
+    }
+    update_response = admin_client.post(
+        path=path,
+        data=update_data,
+        content_type="application/json",
+    )
+    assert update_response.status_code == HTTPStatus.OK
+
+    # Verify the node was actually updated
+    updated_node_data = update_response.json()
+    assert updated_node_data["node"]["label"] == "Updated Label"
+    assert updated_node_data["node"]["name"] == "updated_field"
+
+    # Verify in database
+    node = models.FormKitSchemaNode.objects.get(pk=node_uuid)
+    assert node.label == "Updated Label"
+    assert node.node["label"] == "Updated Label"
+    assert node.node["name"] == "updated_field"
+
+
+@pytest.mark.django_db
+def test_update_nonexistent_node_returns_error(admin_client: Client):
+    """
+    Test that updating a nonexistent node returns an appropriate error.
+    Issue 29: Should validate that update targets exist.
+    """
+    path = reverse("api-1.0.0:create_or_update_node")
+    nonexistent_uuid = uuid4()
+    update_data = {
+        "uuid": str(nonexistent_uuid),
+        "$formkit": "text",
+        "label": "Should Fail",
+    }
+    response = admin_client.post(
+        path=path,
+        data=update_data,
+        content_type="application/json",
+    )
+    # Should return 404 or 400, not 200 OK
+    assert response.status_code in (
+        HTTPStatus.NOT_FOUND,
+        HTTPStatus.BAD_REQUEST,
+        HTTPStatus.UNPROCESSABLE_ENTITY,
+    )
+
+
+@pytest.mark.django_db
+def test_update_inactive_node_returns_error(admin_client: Client):
+    """
+    Test that updating an inactive (deleted) node returns an error.
+    Issue 29: Should validate that update targets are active.
+    """
+    # Create and then delete a node
+    path = reverse("api-1.0.0:create_or_update_node")
+    create_data = {"$formkit": "text", "label": "To Delete"}
+    create_response = admin_client.post(
+        path=path,
+        data=create_data,
+        content_type="application/json",
+    )
+    assert create_response.status_code == HTTPStatus.OK
+    node_uuid = create_response.json()["key"]
+
+    # Delete the node (soft delete)
+    delete_path = f"/api/formkit/delete/{node_uuid}"
+    delete_response = admin_client.delete(delete_path)
+    assert delete_response.status_code == HTTPStatus.OK
+
+    # Try to update the deleted node
+    update_data = {
+        "uuid": str(node_uuid),
+        "$formkit": "text",
+        "label": "Should Fail",
+    }
+    update_response = admin_client.post(
+        path=path,
+        data=update_data,
+        content_type="application/json",
+    )
+    # Should return error, not 200 OK
+    assert update_response.status_code in (
+        HTTPStatus.NOT_FOUND,
+        HTTPStatus.BAD_REQUEST,
+        HTTPStatus.UNPROCESSABLE_ENTITY,
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+    )
+
+
+@pytest.mark.django_db
+def test_create_node_with_parent_creates_relationship(admin_client: Client):
+    """
+    Test that creating a node with parent_id automatically creates NodeChildren relationship.
+    Issue 29: Parent-child relationships not created automatically.
+    """
+    # Create parent group
+    path = reverse("api-1.0.0:create_or_update_node")
+    parent_data = {
+        "$formkit": "group",
+        "label": "Parent Group",
+        "name": "parent_group",
+    }
+    parent_response = admin_client.post(
+        path=path,
+        data=parent_data,
+        content_type="application/json",
+    )
+    assert parent_response.status_code == HTTPStatus.OK
+    parent_uuid = parent_response.json()["key"]
+
+    # Create child node with parent_id
+    child_data = {
+        "parent_id": str(parent_uuid),
+        "$formkit": "text",
+        "label": "Child Field",
+        "name": "child_field",
+    }
+    child_response = admin_client.post(
+        path=path,
+        data=child_data,
+        content_type="application/json",
+    )
+    assert child_response.status_code == HTTPStatus.OK
+    child_uuid = child_response.json()["key"]
+
+    # Verify NodeChildren relationship was created
+    parent_node = models.FormKitSchemaNode.objects.get(pk=parent_uuid)
+    child_node = models.FormKitSchemaNode.objects.get(pk=child_uuid)
+    assert models.NodeChildren.objects.filter(parent=parent_node, child=child_node).exists()
+
+    # Verify parent has child in children relationship
+    assert child_node in parent_node.children.all()
+
+
+@pytest.mark.django_db
+def test_update_node_with_parent_creates_relationship(admin_client: Client):
+    """
+    Test that updating a node to add a parent creates the relationship.
+    Issue 29: Parent-child relationships not created on update.
+    """
+    # Create parent and child separately
+    path = reverse("api-1.0.0:create_or_update_node")
+    parent_data = {
+        "$formkit": "group",
+        "label": "Parent Group",
+        "name": "parent_group",
+    }
+    parent_response = admin_client.post(
+        path=path,
+        data=parent_data,
+        content_type="application/json",
+    )
+    assert parent_response.status_code == HTTPStatus.OK
+    parent_uuid = parent_response.json()["key"]
+
+    child_data = {
+        "$formkit": "text",
+        "label": "Orphan Field",
+        "name": "orphan_field",
+    }
+    child_response = admin_client.post(
+        path=path,
+        data=child_data,
+        content_type="application/json",
+    )
+    assert child_response.status_code == HTTPStatus.OK
+    child_uuid = child_response.json()["key"]
+
+    # Initially, no relationship should exist
+    parent_node = models.FormKitSchemaNode.objects.get(pk=parent_uuid)
+    child_node = models.FormKitSchemaNode.objects.get(pk=child_uuid)
+    assert not models.NodeChildren.objects.filter(parent=parent_node, child=child_node).exists()
+
+    # Update child to add parent
+    update_data = {
+        "uuid": str(child_uuid),
+        "parent_id": str(parent_uuid),
+        "$formkit": "text",
+        "label": "Orphan Field",
+        "name": "orphan_field",
+    }
+    update_response = admin_client.post(
+        path=path,
+        data=update_data,
+        content_type="application/json",
+    )
+    assert update_response.status_code == HTTPStatus.OK
+
+    # Verify relationship was created
+    assert models.NodeChildren.objects.filter(parent=parent_node, child=child_node).exists()
+    assert child_node in parent_node.children.all()
+
+
+@pytest.mark.django_db
+def test_create_node_with_nonexistent_parent_returns_error(admin_client: Client):
+    """
+    Test that creating a node with nonexistent parent_id returns an error.
+    Issue 29: Invalid parent UUIDs accepted without validation.
+    """
+    path = reverse("api-1.0.0:create_or_update_node")
+    nonexistent_parent_uuid = uuid4()
+    child_data = {
+        "parent_id": str(nonexistent_parent_uuid),
+        "$formkit": "text",
+        "label": "Should Fail",
+    }
+    response = admin_client.post(
+        path=path,
+        data=child_data,
+        content_type="application/json",
+    )
+    # Should return error, not 200 OK
+    assert response.status_code in (
+        HTTPStatus.NOT_FOUND,
+        HTTPStatus.BAD_REQUEST,
+        HTTPStatus.UNPROCESSABLE_ENTITY,
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+    )
+
+
+@pytest.mark.django_db
+def test_api_requires_authentication(admin_client: Client):
+    """
+    Test that API endpoints require authentication.
+    Issue 29: API endpoints accept requests from any authenticated user without permission checks.
+    """
+    from django.test import Client
+
+    # Create unauthenticated client
+    unauthenticated_client = Client()
+
+    path = reverse("api-1.0.0:create_or_update_node")
+    data = {"$formkit": "text", "label": "Unauthorized Test"}
+
+    response = unauthenticated_client.post(
+        path=path,
+        data=data,
+        content_type="application/json",
+    )
+    # Should return 401 Unauthorized or 403 Forbidden
+    assert response.status_code in (
+        HTTPStatus.UNAUTHORIZED,
+        HTTPStatus.FORBIDDEN,
+    )
+
+
+@pytest.mark.django_db
+def test_api_requires_permissions(admin_client: Client):
+    """
+    Test that API endpoints require change_formkitschemanode permission.
+    Issue 29: No permission checking for FormKit operations.
+    """
+    from django.contrib.auth.models import User
+    from django.test import Client
+
+    # Create a regular user without permissions
+    regular_user = User.objects.create_user(
+        username="regular_user",
+        password="testpass123",
+        is_staff=True,  # Staff but no specific permissions
+    )
+
+    # Create client authenticated as regular user
+    regular_client = Client()
+    regular_client.force_login(regular_user)
+
+    path = reverse("api-1.0.0:create_or_update_node")
+    data = {"$formkit": "text", "label": "Permission Test"}
+
+    response = regular_client.post(
+        path=path,
+        data=data,
+        content_type="application/json",
+    )
+    # Should return 403 Forbidden
+    assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_delete_requires_permissions(admin_client: Client):
+    """
+    Test that delete endpoint requires change_formkitschemanode permission.
+    Issue 29: No permission checking for delete operations.
+    """
+    from django.contrib.auth.models import User
+    from django.test import Client
+
+    # Create a node first
+    path = reverse("api-1.0.0:create_or_update_node")
+    create_data = {"$formkit": "text", "label": "To Delete"}
+    create_response = admin_client.post(
+        path=path,
+        data=create_data,
+        content_type="application/json",
+    )
+    assert create_response.status_code == HTTPStatus.OK
+    node_uuid = create_response.json()["key"]
+
+    # Create a regular user without permissions
+    regular_user = User.objects.create_user(
+        username="regular_user2",
+        password="testpass123",
+        is_staff=True,
+    )
+
+    # Create client authenticated as regular user
+    regular_client = Client()
+    regular_client.force_login(regular_user)
+
+    delete_path = f"/api/formkit/delete/{node_uuid}"
+    response = regular_client.delete(delete_path)
+    # Should return 403 Forbidden
+    assert response.status_code == HTTPStatus.FORBIDDEN

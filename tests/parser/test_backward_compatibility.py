@@ -4,7 +4,6 @@ Backward compatibility tests for enhanced TypeConverterRegistry and NodePath fea
 These tests ensure that existing code continues to work after adding new features.
 """
 
-import pytest
 from formkit_ninja.formkit_schema import TextNode
 from formkit_ninja.parser.converters import (
     BooleanConverter,
@@ -94,10 +93,10 @@ class TestBackwardCompatibility:
 
     def test_generated_code_unchanged_for_existing_schemas(self, tmp_path):
         """Test that generated code is unchanged for existing schemas."""
+        from formkit_ninja.parser.formatter import CodeFormatter
         from formkit_ninja.parser.generator import CodeGenerator
         from formkit_ninja.parser.generator_config import GeneratorConfig
         from formkit_ninja.parser.template_loader import DefaultTemplateLoader
-        from formkit_ninja.parser.formatter import CodeFormatter
 
         config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
         template_loader = DefaultTemplateLoader()
@@ -126,10 +125,11 @@ class TestBackwardCompatibility:
         # Check for models.py in root or models/ subdirectory
         models_file_root = tmp_path / "models.py"
         models_file_subdir = tmp_path / "models" / "testgroup.py"
-        
+
         # At least one should exist
-        assert models_file_root.exists() or models_file_subdir.exists(), \
+        assert models_file_root.exists() or models_file_subdir.exists(), (
             f"models.py not found in {tmp_path} or {tmp_path / 'models'}"
+        )
 
         # Read the appropriate file
         if models_file_root.exists():

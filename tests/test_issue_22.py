@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 import pytest
 
 from formkit_ninja import api, models
@@ -17,9 +15,7 @@ def test_issue_22_enhanced_fields():
     models.FormComponents.objects.create(schema=schema, node=group_node)
 
     # 1. Repeater with new properties
-    repeater_uuid = uuid4()
     repeater_payload = api.FormKitNodeIn(
-        uuid=repeater_uuid,
         formkit="repeater",
         label="My Repeater",
         name="myRepeater",
@@ -61,9 +57,7 @@ def test_issue_22_enhanced_fields():
     assert node_data.get("itemsClass") == "my-items-class"
 
     # 2. Conditional Logic
-    conditional_uuid = uuid4()
     conditional_payload = api.FormKitNodeIn(
-        uuid=conditional_uuid,
         formkit="text",
         label="Conditional Field",
         name="conditionalField",
@@ -77,9 +71,7 @@ def test_issue_22_enhanced_fields():
     assert cond_child.node["if"] == "$get(myRepeater).value.length > 0"
 
     # 3. Enhanced Options (just string storage)
-    select_uuid = uuid4()
     select_payload = api.FormKitNodeIn(
-        uuid=select_uuid,
         formkit="select",
         label="Select Field",
         name="selectField",
@@ -92,9 +84,7 @@ def test_issue_22_enhanced_fields():
     assert select_child.node["options"] == '$ida(group, "filter=1")'
 
     # 4. Custom Validation
-    validation_uuid = uuid4()
     validation_payload = api.FormKitNodeIn(
-        uuid=validation_uuid,
         formkit="text",
         label="Validation Field",
         name="validationField",
@@ -109,9 +99,7 @@ def test_issue_22_enhanced_fields():
     assert val_child.node["validation"] == "required|length:5"
 
     # 5. Field Constraints
-    constraints_uuid = uuid4()
     constraints_payload = api.FormKitNodeIn(
-        uuid=constraints_uuid,
         formkit="text",
         label="Constraints Field",
         name="constraintsField",

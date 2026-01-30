@@ -5,8 +5,9 @@ from keyword import iskeyword
 from typing import Generator, Iterable, Literal, cast
 
 from formkit_ninja import formkit_schema
-from formkit_ninja.formkit_schema import FormKitNode, GroupNode, RepeaterNode
+from formkit_ninja.formkit_schema import GroupNode, RepeaterNode
 from formkit_ninja.parser.converters import TypeConverterRegistry, default_registry
+from formkit_ninja.parser.node_factory import FormKitNodeFactory
 
 FormKitType = formkit_schema.FormKitType
 
@@ -60,9 +61,7 @@ class NodePath:
 
     @classmethod
     def from_obj(cls, obj: dict):
-        node = FormKitNode.parse_obj(obj).__root__
-        # node can be a string or a FormKitSchemaNode
-        # NodePath expects FormKitType (which is the union of nodes)
+        node = FormKitNodeFactory.from_dict(obj)
         return cls(cast(FormKitType, node))
 
     def __truediv__(self, node: Literal[".."] | FormKitType):
@@ -430,38 +429,103 @@ class NodePath:
     def django_type(self):
         return self.to_django_type()
 
-    def to_django_args(self) -> str:
-        if self.is_group:
-            return f"{self.classname}, on_delete=models.CASCADE"
+    def _get_django_args_dict(self) -> dict[str, str]:
+        """
+        Get Django field arguments as a dictionary.
+        Returns a dict where keys are argument names and values are argument values.
+        For model references (no "="), the key and value are the same.
 
-        # Get base args from pydantic type
+        Returns:
+            dict: Dictionary of Django field arguments, with order preserved via insertion order
+        """
+        if self.is_group:
+            return {self.classname: self.classname, "on_delete": "models.CASCADE"}
+
+        # Get base args as a dictionary based on pydantic type
+        base_args_dict: dict[str, str] = {}
         match self.to_pydantic_type():
             case "bool":
-                base_args = "null=True, blank=True"
+                base_args_dict = {"null": "True", "blank": "True"}
             case "str":
-                base_args = "null=True, blank=True"
+                base_args_dict = {"null": "True", "blank": "True"}
             case "Decimal":
-                base_args = "max_digits=20, decimal_places=2, null=True, blank=True"
+                base_args_dict = {
+                    "max_digits": "20",
+                    "decimal_places": "2",
+                    "null": "True",
+                    "blank": "True",
+                }
             case "int":
-                base_args = "null=True, blank=True"
+                base_args_dict = {"null": "True", "blank": "True"}
             case "float":
-                base_args = "null=True, blank=True"
+                base_args_dict = {"null": "True", "blank": "True"}
             case "datetime":
-                base_args = "null=True, blank=True"
+                base_args_dict = {"null": "True", "blank": "True"}
             case "date":
-                base_args = "null=True, blank=True"
+                base_args_dict = {"null": "True", "blank": "True"}
             case "UUID":
-                base_args = "editable=False, null=True, blank=True"
+                base_args_dict = {"editable": "False", "null": "True", "blank": "True"}
             case _:
-                base_args = "null=True, blank=True"
+                base_args_dict = {"null": "True", "blank": "True"}
 
         # Get extra args from extension point
         extra_args = self.get_django_args_extra()
 
-        # Combine: extra args come first, then base args
+        # Start with base args
+        args_dict: dict[str, str] = {}
+        arg_order: list[str] = []
+
+        # Helper to add an argument to the dict
+        def add_arg(key: str, value: str, is_extra: bool = False) -> None:
+            """Add an argument to args_dict, preserving order."""
+            # Extra args override base args
+            if key not in args_dict or is_extra:
+                if key not in arg_order:
+                    arg_order.append(key)
+                args_dict[key] = value
+
+        # Parse extra args first (they come first in output and override base args)
         if extra_args:
-            return ", ".join([*extra_args, base_args])
-        return base_args
+            for arg in extra_args:
+                arg = arg.strip()
+                if not arg:
+                    continue
+                # Split by "=" to get key and value
+                if "=" in arg:
+                    key, value = arg.split("=", 1)
+                    key = key.strip()
+                    value = value.strip()
+                    add_arg(key, value, is_extra=True)
+                else:
+                    # Handle args without "=" (e.g., model references like '"pnds_data.zDistrict"')
+                    # Use the full arg as both key and value
+                    add_arg(arg, arg, is_extra=True)
+
+        # Add base args (they fill in missing args and won't override existing ones)
+        for key, value in base_args_dict.items():
+            add_arg(key, value, is_extra=False)
+
+        # Return ordered dict (Python 3.7+ dicts preserve insertion order)
+        return {key: args_dict[key] for key in arg_order}
+
+    def to_django_args(self) -> str:
+        """
+        Get Django field arguments as a string.
+
+        Returns:
+            str: Comma-separated string of Django field arguments
+        """
+        args_dict = self._get_django_args_dict()
+
+        # Convert dictionary to string format
+        result_parts = []
+        for key, value in args_dict.items():
+            if key == value:  # No "=" needed (e.g., model references)
+                result_parts.append(key)
+            else:
+                result_parts.append(f"{key}={value}")
+
+        return ", ".join(result_parts)
 
     @property
     def django_args(self):

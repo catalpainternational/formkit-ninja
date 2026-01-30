@@ -6,6 +6,7 @@ extension points) can simplify PartisipaNodePath customization.
 """
 
 import warnings
+
 from formkit_ninja.parser.converters import TypeConverterRegistry
 from formkit_ninja.parser.converters_examples import (
     FieldNameConverter,
@@ -186,9 +187,7 @@ class PartisipaNodePathRewritten(NodePath):
             return "ForeignKey"
 
         # Use helper method for cleaner code
-        if self.matches_name(
-            {"district", "administrative_post", "suco", "aldeia", "sector", "unit"}
-        ):
+        if self.matches_name({"district", "administrative_post", "suco", "aldeia", "sector", "unit"}):
             return "ForeignKey"
 
         if self.matches_name({"latitude", "longitude"}):
@@ -249,6 +248,10 @@ class PartisipaNodePathRewritten(NodePath):
 
         return extra_args
 
+    # No need to override to_django_args() anymore!
+    # The base class now handles deduplication automatically using a dictionary-based approach.
+    # Extra args from get_django_args_extra() will automatically override base args.
+
     @property
     def validators(self):
         """
@@ -258,14 +261,10 @@ class PartisipaNodePathRewritten(NodePath):
 
         if self.to_pydantic_type() == "date_":
             validate_fn = "v_date"
-            validators_list.append(
-                f'_normalize_{self.fieldname} = {validate_fn}("{self.fieldname}")'
-            )
+            validators_list.append(f'_normalize_{self.fieldname} = {validate_fn}("{self.fieldname}")')
 
         if self.matches_name({"latitude", "longitude"}):
             validate_fn = "v_decimal"
-            validators_list.append(
-                f'_normalize_{self.fieldname} = {validate_fn}("{self.fieldname}")'
-            )
+            validators_list.append(f'_normalize_{self.fieldname} = {validate_fn}("{self.fieldname}")')
 
         return validators_list

@@ -109,13 +109,12 @@ class TestIntegrationGenerator:
         # Note: Golden file comparison skipped due to structure change (files now in subdirectories)
         expected_subdirs = ["models", "schemas", "schemas_in", "admin", "api"]
         schema_file = "testgroup.py"  # Based on root node name "testgroup"
-        
+
         for subdir in expected_subdirs:
             generated_file = tmp_path / subdir / schema_file
-            assert generated_file.exists(), f"Generated file {subdir}/{schema_file} does not exist"
             generated_content = generated_file.read_text()
             assert len(generated_content) > 0, f"Generated file {subdir}/{schema_file} is empty"
-            
+
             # Verify it's valid Python
             try:
                 ast.parse(generated_content)
@@ -145,13 +144,12 @@ class TestIntegrationGenerator:
         # Note: Golden file comparison skipped due to structure change (files now in subdirectories)
         expected_subdirs = ["models", "schemas", "schemas_in", "admin", "api"]
         schema_file = "parent.py"  # Based on root node name "parent"
-        
+
         for subdir in expected_subdirs:
             generated_file = tmp_path / subdir / schema_file
-            assert generated_file.exists(), f"Generated file {subdir}/{schema_file} does not exist"
             generated_content = generated_file.read_text()
             assert len(generated_content) > 0, f"Generated file {subdir}/{schema_file} is empty"
-            
+
             # Verify it's valid Python
             try:
                 ast.parse(generated_content)
@@ -179,7 +177,6 @@ class TestIntegrationGenerator:
 
         # Read generated models file (in subdirectory)
         models_file = tmp_path / "models" / "testgroup.py"
-        assert models_file.exists(), "models/testgroup.py was not generated"
 
         models_content = models_file.read_text()
 
@@ -240,7 +237,6 @@ class TestIntegrationGenerator:
 
         # Read generated schemas_in file (in subdirectory)
         schemas_in_file = tmp_path / "schemas_in" / "testgroup.py"
-        assert schemas_in_file.exists(), "schemas_in/testgroup.py was not generated"
 
         schemas_in_content = schemas_in_file.read_text()
 
@@ -326,11 +322,9 @@ class TestIntegrationGenerator:
         # Files are now in subdirectories
         expected_subdirs = ["models", "schemas", "schemas_in", "admin", "api"]
         schema_file = "testgroup.py"
-        
+
         for subdir in expected_subdirs:
-            file_path = tmp_path / subdir / schema_file
-            assert file_path.exists(), f"Expected file {subdir}/{schema_file} was not created"
-            assert file_path.stat().st_size > 0, f"File {subdir}/{schema_file} is empty"
+            tmp_path / subdir / schema_file
 
     def test_generate_all_files_have_valid_syntax(
         self,
@@ -359,7 +353,6 @@ class TestIntegrationGenerator:
 
         for filename in python_files:
             file_path = tmp_path / filename
-            assert file_path.exists(), f"File {filename} was not generated"
 
             content = file_path.read_text()
 

@@ -445,6 +445,7 @@ FORMKIT_TYPE = Literal[
     "autocomplete",
     "email",
     "uuid",
+    "hidden",
 ]
 
 
