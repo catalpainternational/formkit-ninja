@@ -4,7 +4,9 @@ repos:
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        name: ruff (linting)
       - id: ruff-format
+        name: ruff (formatting)
   - repo: local
     hooks:
       - id: mypy
@@ -15,3 +17,17 @@ repos:
         require_serial: true
         pass_filenames: false
         args: ["formkit_ninja"]
+      - id: check-formatting
+        name: Check formatting
+        entry: uv run ruff format --check
+        language: system
+        types: [python]
+        pass_filenames: true
+        args: ["--"]
+      - id: check-linting
+        name: Check linting
+        entry: uv run ruff check
+        language: system
+        types: [python]
+        pass_filenames: true
+        args: ["--"]
