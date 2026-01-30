@@ -641,7 +641,6 @@ class TestCodeGenerator:
 
         # Check all expected files exist
         expected_files = [
-            "schemas.py",
             "schemas_in.py",
             "admin.py",
             "api.py",
@@ -665,7 +664,7 @@ class TestCodeGenerator:
         assert init_file.exists(), "__init__.py should be created in models/ folder"
 
         # Validate generated Python code syntax
-        python_files = ["schemas.py", "schemas_in.py", "admin.py", "api.py"]
+        python_files = ["schemas_in.py", "admin.py", "api.py"]
         python_files.append("models/tf611.py")
         python_files.append("models/__init__.py")
 
@@ -684,12 +683,6 @@ class TestCodeGenerator:
         assert "class" in models_content, "tf611.py should contain class definitions"
         assert "models.Model" in models_content, "tf611.py should contain Django model classes"
         assert "class Tf_6_1_1" in models_content, "tf611.py should contain root class Tf_6_1_1"
-
-        # Verify schemas.py contains Pydantic models
-        schemas_content = (output_dir / "schemas.py").read_text()
-        assert "BaseModel" in schemas_content or "Schema" in schemas_content, (
-            "schemas.py should contain Pydantic model definitions"
-        )
 
         # Verify admin.py contains admin registration
         admin_content = (output_dir / "admin.py").read_text()
@@ -828,7 +821,7 @@ class TestCodeGenerator:
         generator.generate(schema)
 
         # Check that subdirectories exist
-        expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
+        expected_subdirs = ["schemas_in", "admin", "api", "models"]
         for subdir in expected_subdirs:
             subdir_path = output_dir / subdir
             assert subdir_path.exists(), f"Expected subdirectory {subdir}/ was not created"
@@ -846,7 +839,6 @@ class TestCodeGenerator:
         model_file = models_dir / schema_file
 
         models_content = model_file.read_text()
-        schemas_content = (output_dir / "schemas" / schema_file).read_text()
         admin_content = (output_dir / "admin" / schema_file).read_text()
         api_content = (output_dir / "api" / schema_file).read_text()
 
@@ -883,11 +875,7 @@ class TestCodeGenerator:
         assert "date_finish" in models_content
 
         # 3e. Pydantic Schemas Handle Merged Fields (RED → GREEN)
-        assert "class Tf_6_1_1Schema" in schemas_content
-        assert "district" in schemas_content
-        assert "date_start" in schemas_content
-        # No separate child schemas
-        assert "Tf_6_1_1MeetinginformationSchema" not in schemas_content
+        # Note: schemas.py is no longer generated, skipping schema content checks
 
         # 3f. Admin Classes Work with Merged Fields (RED → GREEN)
         assert (

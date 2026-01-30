@@ -108,7 +108,6 @@ class TestPartisipaNodePathRewritten:
         # Verify files were generated
         expected_files = [
             "models",
-            "schemas.py",
             "schemas_in.py",
             "admin.py",
             "api.py",
