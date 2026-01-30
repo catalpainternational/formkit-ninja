@@ -373,7 +373,7 @@ class TestCodeGenerator:
         # Check all expected files exist in subdirectories
         expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
         schema_file = "testgroup.py"
-        
+
         for subdir in expected_subdirs:
             file_path = tmp_path / subdir / schema_file
             assert file_path.exists(), f"Expected file {subdir}/{schema_file} was not created"
@@ -414,7 +414,7 @@ class TestCodeGenerator:
         # Validate all Python files with AST (in subdirectories)
         expected_subdirs = ["schemas", "schemas_in", "admin", "api", "models"]
         schema_file = "testgroup.py"
-        
+
         python_files = []
         for subdir in expected_subdirs:
             python_files.append(f"{subdir}/{schema_file}")
@@ -650,7 +650,7 @@ class TestCodeGenerator:
         for filename in expected_files:
             file_path = output_dir / filename
             assert file_path.exists(), f"Expected file {filename} was not created"
-            assert file_path.stat().st_size > 0, f"File {subdir}/{schema_file} is empty"
+            assert file_path.stat().st_size > 0, f"File {filename} is empty"
 
         # Check that models folder exists with tf611.py (derived from root node Tf_6_1_1)
         models_dir = output_dir / "models"
@@ -1030,7 +1030,7 @@ class TestCodeGenerator:
         # Verify other files exist in subdirectories
         expected_subdirs = ["schemas", "schemas_in", "admin", "api"]
         schema_file = "tf611.py"
-        
+
         for subdir in expected_subdirs:
             file_path = tmp_path / subdir / schema_file
             assert file_path.exists(), f"Expected file {subdir}/{schema_file} was not created"
@@ -1364,7 +1364,7 @@ class TestUpdateGenerateMethod:
 
         assert form_one_file.exists(), "formone.py should still exist"
         assert form_two_file.exists(), "formtwo.py should exist"
-        
+
         # __init__.py should import from both
         schemas_init = tmp_path / "schemas" / "__init__.py"
         init_content = schemas_init.read_text()
@@ -1826,7 +1826,7 @@ class TestAddTests:
         for subdir in ["schemas", "schemas_in", "admin", "api", "models"]:
             form_one_file = tmp_path / subdir / "formone.py"
             form_two_file = tmp_path / subdir / "formtwo.py"
-            
+
             assert form_one_file.exists(), f"{subdir}/formone.py should exist"
             assert form_two_file.exists(), f"{subdir}/formtwo.py should exist"
 
@@ -1834,7 +1834,7 @@ class TestAddTests:
         for subdir in ["schemas", "schemas_in", "admin", "api", "models"]:
             init_file = tmp_path / subdir / "__init__.py"
             assert init_file.exists(), f"{subdir}/__init__.py should exist"
-            
+
             init_content = init_file.read_text()
             assert "formone" in init_content.lower() or "form_one" in init_content.lower()
             assert "formtwo" in init_content.lower() or "form_two" in init_content.lower()
@@ -1842,7 +1842,7 @@ class TestAddTests:
         # Verify no file overwriting (both files should have content)
         form_one_models = tmp_path / "models" / "formone.py"
         form_two_models = tmp_path / "models" / "formtwo.py"
-        
+
         assert form_one_models.stat().st_size > 0, "formone.py should not be empty"
         assert form_two_models.stat().st_size > 0, "formtwo.py should not be empty"
 
@@ -1874,7 +1874,7 @@ class TestAddTests:
         for subdir in ["schemas", "schemas_in", "admin", "api", "models"]:
             schema_file = tmp_path / subdir / "testform.py"
             init_file = tmp_path / subdir / "__init__.py"
-            
+
             assert schema_file.exists(), f"{subdir}/testform.py should exist"
             assert init_file.exists(), f"{subdir}/__init__.py should exist"
 
@@ -1904,16 +1904,17 @@ class TestAddTests:
 
         # Try to parse all generated Python files
         import ast
+
         for subdir in ["schemas", "schemas_in", "admin", "api", "models"]:
             schema_file = tmp_path / subdir / "testform.py"
             init_file = tmp_path / subdir / "__init__.py"
-            
+
             if schema_file.exists():
                 try:
                     ast.parse(schema_file.read_text())
                 except SyntaxError as e:
                     pytest.fail(f"{schema_file} has syntax errors: {e}")
-            
+
             if init_file.exists():
                 try:
                     ast.parse(init_file.read_text())

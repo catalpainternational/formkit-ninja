@@ -84,7 +84,50 @@ class JSONMappingMixin:
     def save_json_fields(self, instance):
         for field, keys in self.get_json_fields().items():
             existing = getattr(instance, field, {}) or {}
-            setattr(instance, field, self._build_json_data(keys, existing))
+            new_data = self._build_json_data(keys, existing)
+
+            # Extract unrecognized fields from existing data and preserve in additional_props
+            if field == "node" and isinstance(existing, dict):
+                # Get all recognized fields (from form fields and their JSON mappings)
+                recognized_fields = set()
+                for key in keys:
+                    if isinstance(key, tuple):
+                        # (form_field, json_field) tuple
+                        recognized_fields.add(key[1])
+                    else:
+                        # Just json_field
+                        recognized_fields.add(key)
+
+                # Also add special handled keys
+                special_keys = {
+                    "$formkit",
+                    "$el",
+                    "if",
+                    "for",
+                    "then",
+                    "else",
+                    "children",
+                    "node_type",
+                    "formkit",
+                    "id",
+                }
+                recognized_fields.update(special_keys)
+
+                # Extract unrecognized fields
+                unrecognized_fields = {
+                    k: v for k, v in existing.items() if k not in recognized_fields and v is not None
+                }
+
+                # Store unrecognized fields in additional_props
+                if unrecognized_fields:
+                    if instance.additional_props is None:
+                        instance.additional_props = {}
+                    # Merge with existing additional_props (don't overwrite if already set)
+                    for key, value in unrecognized_fields.items():
+                        if key not in instance.additional_props:
+                            instance.additional_props[key] = value
+
+            setattr(instance, field, new_data)
 
     def clean(self) -> dict[str, Any]:
         cleaned_data = super().clean()  # type: ignore[misc]

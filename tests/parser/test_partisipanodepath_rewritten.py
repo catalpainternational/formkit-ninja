@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-from formkit_ninja.formkit_schema import GroupNode, TextNode
 from formkit_ninja.parser.formatter import CodeFormatter
 from formkit_ninja.parser.generator import CodeGenerator
 from formkit_ninja.parser.generator_config import GeneratorConfig
@@ -88,7 +87,7 @@ class TestPartisipaNodePathRewritten:
 
         # Generate code
         generator.generate(schema)
-        
+
         # Debug: Print generated models for inspection
         models_dir = output_dir / "models"
         if models_dir.exists():
@@ -100,8 +99,8 @@ class TestPartisipaNodePathRewritten:
                     ast.parse(models_content_debug)
                 except SyntaxError as e:
                     print(f"\n=== Syntax Error at line {e.lineno} ===")
-                    lines = models_content_debug.split('\n')
-                    for i, line in enumerate(lines[max(0, e.lineno-3):e.lineno+3], start=max(1, e.lineno-2)):
+                    lines = models_content_debug.split("\n")
+                    for i, line in enumerate(lines[max(0, e.lineno - 3) : e.lineno + 3], start=max(1, e.lineno - 2)):
                         marker = ">>> " if i == e.lineno else "    "
                         print(f"{marker}{i:3}: {line}")
                     raise
@@ -119,7 +118,7 @@ class TestPartisipaNodePathRewritten:
             if filename == "models":
                 # Models are in a subdirectory
                 models_dir = output_dir / "models"
-                assert models_dir.exists(), f"Models directory not found"
+                assert models_dir.exists(), "Models directory not found"
                 model_files = list(models_dir.glob("*.py"))
                 assert len(model_files) > 0, f"No model files found in {models_dir}"
             else:
@@ -177,6 +176,7 @@ class TestPartisipaNodePathRewritten:
 
     def test_rewritten_partisipa_uses_converters_for_type_conversion(self):
         """Test that rewritten PartisipaNodePath uses converters for type conversion."""
+
         # Create a node with IDA options
         class MockNode:
             name = "project_status"
@@ -191,6 +191,7 @@ class TestPartisipaNodePathRewritten:
 
     def test_rewritten_partisipa_uses_helper_methods(self):
         """Test that rewritten PartisipaNodePath uses helper methods."""
+
         # Create a node with options
         class MockNode:
             name = "district"
@@ -208,6 +209,7 @@ class TestPartisipaNodePathRewritten:
 
     def test_rewritten_partisipa_uses_extension_point(self):
         """Test that rewritten PartisipaNodePath uses get_django_args_extra extension point."""
+
         # Create a node that should trigger custom args
         class MockNode:
             name = "latitude"
@@ -230,6 +232,7 @@ class TestPartisipaNodePathRewritten:
 
     def test_rewritten_partisipa_ida_model_detection(self):
         """Test that rewritten PartisipaNodePath detects IDA models correctly."""
+
         # Create a node with IDA options
         class MockNode:
             name = "project_status"
@@ -256,6 +259,7 @@ class TestPartisipaNodePathRewritten:
         ]
 
         for field_name, expected_type in test_cases:
+
             class MockNode:
                 name = field_name
                 formkit = "text"

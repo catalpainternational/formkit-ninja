@@ -1,4 +1,5 @@
 import importlib
+import json
 import re
 from functools import cached_property
 from http import HTTPStatus
@@ -316,6 +317,7 @@ class FormKitNodeIn(Schema):
     name: str | None = None
     placeholder: str | None = None
     help: str | None = None
+    value: str | None = None  # Default value for fields (especially hidden fields)
 
     # Fields from "number"
     max: int | str | None = None
@@ -426,7 +428,14 @@ class FormKitNodeIn(Schema):
         keep_untouched = (cached_property,)
 
 
-def create_or_update_child_node(payload: FormKitNodeIn):
+def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict | None = None):
+    """
+    Create or update a child node from API payload.
+
+    Args:
+        payload: Validated FormKitNodeIn payload (only recognized fields)
+        raw_payload_dict: Optional raw payload dict with all fields including unrecognized ones
+    """
     parent, parent_errors = payload.parent
     child = payload.child
 
@@ -460,6 +469,38 @@ def create_or_update_child_node(payload: FormKitNodeIn):
     child.node.update(values)
     if payload.additional_props is not None:
         child.node.update(payload.additional_props)
+        # Also store additional_props in the model field
+        if child.additional_props is None:
+            child.additional_props = {}
+        child.additional_props.update(payload.additional_props)
+
+    # Extract and preserve unrecognized fields from raw payload
+    if raw_payload_dict is not None:
+        # Get set of recognized fields from FormKitNodeIn schema
+        recognized_fields = set(FormKitNodeIn.__fields__.keys())
+        # Also include alias names
+        for field_name, field_info in FormKitNodeIn.__fields__.items():
+            if hasattr(field_info, "alias") and field_info.alias:
+                recognized_fields.add(field_info.alias)
+
+        # Fields that are API-specific and should not go to additional_props
+        api_only_fields = {"parent_id", "uuid"}
+
+        # Extract unrecognized fields (not in schema, not API-only)
+        unrecognized_fields = {
+            k: v
+            for k, v in raw_payload_dict.items()
+            if k not in recognized_fields | api_only_fields and v is not None  # Exclude None values
+        }
+
+        # Store unrecognized fields in additional_props
+        if unrecognized_fields:
+            if child.additional_props is None:
+                child.additional_props = {}
+            # Merge with existing additional_props (don't overwrite if already set)
+            for key, value in unrecognized_fields.items():
+                if key not in child.additional_props:
+                    child.additional_props[key] = value
 
     child.label = payload.label
 
@@ -545,8 +586,17 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     # When label is provided, use the label to generate the name
     # Fetch parent node, if it exists, and check that it is a group or repeater
 
+    # Extract unrecognized fields from raw request body
+    raw_payload_dict = None
     try:
-        child, errors = create_or_update_child_node(payload)
+        if hasattr(request, "body") and request.body:
+            raw_payload_dict = json.loads(request.body)
+    except (json.JSONDecodeError, AttributeError):
+        # If we can't parse the body, continue without extracting unrecognized fields
+        pass
+
+    try:
+        child, errors = create_or_update_child_node(payload, raw_payload_dict)
         if errors:
             # Flatten errors if it's a list
             if isinstance(errors, list):

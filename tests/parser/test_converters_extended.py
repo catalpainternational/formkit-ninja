@@ -8,9 +8,8 @@ Tests cover:
 - Priority ordering across all match types
 """
 
-import pytest
 from formkit_ninja.formkit_schema import FormKitType
-from formkit_ninja.parser.converters import TypeConverter, TypeConverterRegistry
+from formkit_ninja.parser.converters import TypeConverterRegistry
 
 
 class NameBasedConverter:
@@ -185,11 +184,11 @@ class TestTypeConverterRegistryExtended:
     def test_registry_maintains_priority_ordering_across_match_types(self):
         """Test that priority ordering is maintained across all match types."""
         registry = TypeConverterRegistry()
-        
+
         # Register converters with different priorities
         low_priority_name = NameBasedConverter("field", "int")
         high_priority_name = NameBasedConverter("field", "str")
-        
+
         registry.register(low_priority_name, priority=1)
         registry.register(high_priority_name, priority=10)
 

@@ -431,7 +431,7 @@ class CodeGenerator:
 
             if unique_all:
                 init_lines.append("")
-                all_str = ", ".join(f'"{item}"' for item in unique_all)
+                all_str = ", ".join(f'"{str(item)}"' for item in unique_all)
                 init_lines.append(f"__all__ = [{all_str}]")
         else:
             # Standard handling for other file types
@@ -458,7 +458,7 @@ class CodeGenerator:
 
             if unique_all:
                 init_lines.append("")
-                all_str = ", ".join(f'"{item}"' for item in unique_all)
+                all_str = ", ".join(f'"{str(item)}"' for item in unique_all)
                 init_lines.append(f"__all__ = [{all_str}]")
 
         return "\n".join(init_lines)
