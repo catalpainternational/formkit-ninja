@@ -2,10 +2,13 @@
 
 formkit-ninja provides a powerful code generation system that automatically creates Django models, Pydantic schemas, admin classes, and API endpoints from your FormKit schemas.
 
+> **🆕 New in v0.8.1**: Database-driven code generation! Configure type mappings and field overrides through Django admin without writing Python code. See [Database-Driven Code Generation](database_code_generation.md) for details.
+
 ## Table of Contents
 
 - [Basic Usage](#basic-usage)
 - [Programmatic Usage](#programmatic-usage)
+- [Database-Driven Configuration](#database-driven-configuration) ⭐ NEW
 - [Extensibility](#extensibility)
   - [Custom Type Converters](#custom-type-converters)
   - [Custom NodePath](#custom-nodepath)
@@ -80,6 +83,47 @@ generator = CodeGenerator(
 schema = [...]  # Your FormKit schema
 generator.generate(schema)
 ```
+
+## Database-Driven Configuration
+
+⭐ **NEW in v0.8.1** - Configure code generation through Django admin!
+
+Instead of writing custom Python classes, you can now configure type mappings and field overrides through the Django admin interface or settings. This allows for:
+
+- **Zero-code configuration** - Make changes through the admin UI
+- **Dynamic updates** - No redeployment needed
+- **Priority system** - Fine-grained control over rules
+- **Settings fallback** - Support for `settings.py` configuration
+
+### Quick Example
+
+Configure a foreign key relationship through the admin:
+
+```python
+# Via Django Admin → Code generation configs:
+formkit_type = "text"
+node_name = "district"
+django_type = "ForeignKey"
+django_args = {"to": "pnds_data.zDistrict", "on_delete": "models.CASCADE"}
+```
+
+This automatically generates:
+
+```python
+# models/myform.py
+district = models.ForeignKey("pnds_data.zDistrict", on_delete=models.CASCADE)
+```
+
+### Learn More
+
+See the complete guide: **[Database-Driven Code Generation](database_code_generation.md)**
+
+Key topics covered:
+- Priority cascade system
+- Admin interface guide
+- Common use cases (ForeignKeys, Decimals, Enums)
+- Django settings configuration
+- Migration from custom NodePath classes
 
 ## Extensibility
 

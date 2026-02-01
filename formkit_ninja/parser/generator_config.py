@@ -14,6 +14,15 @@ from pydantic import BaseModel, root_validator, validator
 
 from formkit_ninja.parser.type_convert import NodePath
 
+# Import DatabaseNodePath for default
+try:
+    from formkit_ninja.parser.database_node_path import DatabaseNodePath
+
+    DEFAULT_NODE_PATH_CLASS: type[NodePath] = DatabaseNodePath
+except ImportError:
+    # Fallback if database module not available
+    DEFAULT_NODE_PATH_CLASS = NodePath
+
 
 def schema_name_to_filename(schema_name: str) -> str:
     """
@@ -56,7 +65,7 @@ class GeneratorConfig(BaseModel):
 
     app_name: str
     output_dir: Path
-    node_path_class: Type[NodePath] = NodePath
+    node_path_class: Type[NodePath] = DEFAULT_NODE_PATH_CLASS
     template_packages: list[str] = []
     custom_imports: list[str] = []
     include_ordinality: bool = True

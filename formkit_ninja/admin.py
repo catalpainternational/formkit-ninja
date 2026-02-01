@@ -10,7 +10,12 @@ from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
 
-from formkit_ninja import formkit_schema, models
+# Import admin modules to register them
+from formkit_ninja import (
+    admin_code_generation,  # noqa: F401
+    formkit_schema,
+    models,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from formkit_ninja.parser.database_node_path import DatabaseNodePath
 from formkit_ninja.parser.generator_config import GeneratorConfig
 from formkit_ninja.parser.type_convert import NodePath
 
@@ -30,7 +31,7 @@ class TestGeneratorConfig:
 
         assert config.app_name == "test_app"
         assert config.output_dir == output_dir
-        assert config.node_path_class == NodePath
+        assert config.node_path_class == DatabaseNodePath  # Now defaults to DatabaseNodePath
         assert config.template_packages == []
         assert config.custom_imports == []
 
@@ -207,7 +208,7 @@ class TestGeneratorConfig:
             output_dir="/tmp/test_output",
         )
 
-        assert config.node_path_class == NodePath
+        assert config.node_path_class == DatabaseNodePath  # Now defaults to DatabaseNodePath
         assert config.template_packages == []
         assert config.custom_imports == []
 

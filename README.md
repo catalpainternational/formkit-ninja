@@ -26,7 +26,28 @@ INSTALLED_APPS = [
 
 ## Code Generation
 
+⭐ **NEW in v0.8.1** - Database-driven code generation! Configure type mappings and field overrides through Django admin without writing Python code.
+
 formkit-ninja can automatically generate Django models, Pydantic schemas, admin classes, and API endpoints from your FormKit schemas.
+
+### Database-Driven Configuration
+
+Configure code generation rules through the Django admin:
+
+```python
+# Django Admin → Code generation configs
+formkit_type = "text"
+node_name = "district"
+django_type = "ForeignKey"
+django_args = {"to": "pnds_data.zDistrict", "on_delete": "models.CASCADE"}
+```
+
+Generates:
+
+```python
+# models.py
+district = models.ForeignKey("pnds_data.zDistrict", on_delete=models.CASCADE)
+```
 
 ### Quick Start
 
@@ -56,12 +77,13 @@ The code generator creates the following files:
 
 formkit-ninja provides multiple extension points for customizing code generation:
 
+- **Database-Driven Config**: Configure through Django admin (no code needed!) ⭐ NEW
 - **Custom Type Converters**: Add support for custom FormKit node types
 - **Custom NodePath**: Extend NodePath with project-specific logic
 - **Plugin System**: Bundle multiple extensions together
 - **Custom Templates**: Override Jinja2 templates for generated code
 
-See the [Code Generation Guide](docs/code_generation.md) for detailed documentation and examples.
+See the [Database-Driven Code Generation](docs/database_code_generation.md) guide for the new database configuration feature, or the [Code Generation Guide](docs/code_generation.md) for detailed documentation and examples.
 
 ## API
 
