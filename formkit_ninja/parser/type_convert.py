@@ -56,8 +56,8 @@ class NodePath:
         self.nodes = nodes
         self._type_converter_registry = type_converter_registry or default_registry
         self._config = config
-        self._abstract_base_info = abstract_base_info or {}
-        self._child_abstract_bases = child_abstract_bases or []
+        self._abstract_base_info: dict[str, bool] = abstract_base_info or {}
+        self._child_abstract_bases: list[str] = child_abstract_bases or []
 
     @classmethod
     def from_obj(cls, obj: dict):
@@ -366,9 +366,9 @@ class NodePath:
             case "tel":
                 return "int"
             case "group":
-                return self.classname
+                return self.classname_schema
             case "repeater":
-                return f"list[{self.classname}]"
+                return f"list[{self.classname_schema}]"
             case "hidden":
                 return "str"
             case "uuid":
@@ -540,12 +540,74 @@ class NodePath:
         return []
 
     @property
+    def has_schema_content(self) -> bool:
+        """
+        Returns True if this NodePath would generate any content in a schema class.
+        Used to determine if a 'pass' statement is needed for empty classes.
+        """
+        # Check extra attributes
+        if self.extra_attribs_schema:
+            return True
+        # Check parent abstract bases (would add fields)
+        if self.parent_abstract_bases:
+            # Only return True if we actually find abstract base groups with fields
+            # Logic mirrors schema.jinja2 lines 27-39
+            for group in self.groups:
+                if group.is_abstract_base:
+                    if any(True for _ in group.formkits_not_repeaters):
+                        return True
+        # Check repeaters (would add list fields)
+        if self.repeaters:
+            return True
+        # Check if this is a repeater (would add ordinality)
+        if self.is_repeater:
+            return True
+        # Check if any formkits_not_repeaters would be outputtable
+        # A field is outputtable if:
+        # - not is_abstract_base AND
+        # - not (django_type == "OneToOneField" and parent_abstract_bases exists)
+        for f in self.formkits_not_repeaters:
+            if not f.is_abstract_base:
+                # Check if it would be filtered out (same logic as template)
+                if not (f.django_type == "OneToOneField" and len(self.parent_abstract_bases) > 0):
+                    return True
+        return False
+
+    @property
     def extra_attribs_schema(self):
         """
         Returns extra attributes to be appended to "schema_out.py"
         For Partisipa this included a foreign key to "Submission"
         """
         return []
+
+    @property
+    def has_basemodel_content(self) -> bool:
+        """
+        Returns True if this NodePath would generate any content in a basemodel class.
+        """
+        # Check extra attributes
+        if self.extra_attribs_basemodel:
+            return True
+        # Check parent abstract bases
+        if self.parent_abstract_bases:
+            # Only return True if we actually find abstract base groups with fields
+            for group in self.groups:
+                if group.is_abstract_base:
+                    if any(True for _ in group.formkits_not_repeaters):
+                        return True
+        # Check repeaters
+        if self.repeaters:
+            return True
+        # Check formkits_not_repeaters
+        for f in self.formkits_not_repeaters:
+            if not f.is_abstract_base:
+                if not (f.django_type == "OneToOneField" and len(self.parent_abstract_bases) > 0):
+                    return True
+            # Also check validators!
+            if f.validators:
+                return True
+        return False
 
     @property
     def extra_attribs_basemodel(self):

@@ -1,15 +1,4 @@
-{% for repeater in this.repeaters %}
-    {% with this=repeater %}
-        {% include "api.jinja2" %}
-    {% endwith %}
-{% endfor %}
-{% for group in this.groups %}
-    {% if not group.is_abstract_base %}
-        {% with this=group %}
-            {% include "api.jinja2" %}
-        {% endwith %}
-    {% endif %}
-{% endfor %}
+{# Recursion removed to avoid duplicate generation #}
 {% if not this.is_abstract_base %}
 @router.get("{{this.classname_lower}}", response=list[schema_out.{{this.classname_schema}}], exclude_none=True)
 def {{this.classname_lower}}(request):

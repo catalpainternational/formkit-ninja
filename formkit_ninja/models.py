@@ -185,7 +185,7 @@ class Option(UuidIdModel):
     @classmethod
     def from_pydantic(
         cls,
-        options: list[str] | list[OptionDict],
+        options: list[str | OptionDict],
         group: OptionGroup | None = None,
     ) -> Iterable["Option"]:
         """

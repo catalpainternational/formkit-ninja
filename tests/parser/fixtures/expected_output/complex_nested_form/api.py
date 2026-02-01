@@ -5,7 +5,8 @@ Instead, make changes to the template and re-generate this file
 
 from ninja import Router
 
-from . import models, schema_out
+from . import models
+from . import schemas as schema_out
 
 router = Router(tags=["forms"])
 
@@ -31,16 +32,4 @@ def parent(request):
     queryset = queryset.prefetch_related(
         "items",
     )
-    return queryset
-
-
-@router.get("parentchild", response=list[schema_out.ParentChildSchema], exclude_none=True)
-def parentchild(request):
-    queryset = models.ParentChild.objects.all()
-    return queryset
-
-
-@router.get("parentitems", response=list[schema_out.ParentItemsSchema], exclude_none=True)
-def parentitems(request):
-    queryset = models.ParentItems.objects.all()
     return queryset

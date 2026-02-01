@@ -56,29 +56,3 @@ class ParentAdmin(admin.ModelAdmin):
     readonly_fields = [
         "child",
     ]
-
-
-@admin.register(models.ParentChild)
-class ParentChildAdmin(admin.ModelAdmin):
-    list_display = [
-        "child_field",
-    ]
-    readonly_fields = [
-        "child_field",
-    ]
-
-
-class ParentItemsInline(ReadOnlyInline):
-    model = models.ParentItems
-
-
-@admin.register(models.ParentItems)
-class ParentItemsAdmin(admin.ModelAdmin):
-    list_display = [
-        "item_name",
-        "item_count",
-    ]
-    readonly_fields = [
-        "item_name",
-        "item_count",
-    ]

@@ -100,7 +100,8 @@ class TestPartisipaNodePathRewritten:
                 except SyntaxError as e:
                     print(f"\n=== Syntax Error at line {e.lineno} ===")
                     lines = models_content_debug.split("\n")
-                    for i, line in enumerate(lines[max(0, e.lineno - 3) : e.lineno + 3], start=max(1, e.lineno - 2)):
+                    lineno = e.lineno or 0
+                    for i, line in enumerate(lines[max(0, lineno - 3) : lineno + 3], start=max(1, lineno - 2)):
                         marker = ">>> " if i == e.lineno else "    "
                         print(f"{marker}{i:3}: {line}")
                     raise
@@ -142,13 +143,13 @@ class TestPartisipaNodePathRewritten:
         # Note: schemas.py is no longer generated, skipping schema content checks
 
         # Verify schemas_in.py
-        schemas_in_content = (output_dir / "schemas_in.py").read_text()
+        schemas_in_content = (output_dir / "schemas_in" / "testform.py").read_text()
         assert "id: UUID" in schemas_in_content
         assert 'form_type: Literal["test_form"]' in schemas_in_content
 
         # Verify all generated files are valid Python (only if they exist)
-        for filename in ["schemas_in.py", "admin.py", "api.py"]:
-            file_path = output_dir / filename
+        for subdir, filename in [("schemas_in", "testform.py"), ("admin", "admin.py"), ("api", "api.py")]:
+            file_path = output_dir / subdir / filename
             if not file_path.exists():
                 continue
             content = file_path.read_text()
@@ -237,7 +238,7 @@ class TestPartisipaNodePathRewritten:
         test_cases = [
             ("district", "int"),
             ("latitude", "Decimal"),
-            ("date_exit_committee", "date_"),
+            ("date_exit_committee", "date"),
             ("other_field", "str"),  # Should fall back to default
         ]
 

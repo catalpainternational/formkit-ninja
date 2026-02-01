@@ -47,11 +47,11 @@ class FormKitSchemaNodeFactory(DjangoModelFactory):
         model = models.FormKitSchemaNode
 
     node_type = "$formkit"
-    label = Faker("sentence", nb_words=3)
+    label: Faker | None = Faker("sentence", nb_words=3)
     node = LazyAttribute(lambda obj: {"$formkit": "text", "name": obj.label.lower().replace(" ", "_")})
     is_active = True
     protected = False
-    option_group = None
+    option_group: SubFactory | None = None
 
 
 class TextNodeFactory(FormKitSchemaNodeFactory):

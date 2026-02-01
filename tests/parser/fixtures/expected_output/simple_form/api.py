@@ -5,7 +5,8 @@ Instead, make changes to the template and re-generate this file
 
 from ninja import Router
 
-from . import models, schema_out
+from . import models
+from . import schemas as schema_out
 
 router = Router(tags=["forms"])
 

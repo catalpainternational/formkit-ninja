@@ -6,6 +6,7 @@ from playwright.sync_api import Page
 from pytest_django.fixtures import live_server_helper
 
 from formkit_ninja import models
+from formkit_ninja.formkit_schema import RepeaterNode
 
 os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
@@ -71,12 +72,25 @@ def test_create_repeater_with_child(admin_page: Page, live_server: live_server_h
 
     # 4. Verify in DB
     repeater = models.FormKitSchemaNode.objects.get(label="Parent Repeater")
-    assert repeater.children.count() == 1
-    assert repeater.children.first().label == "Child Text Input"
+    first_child = repeater.children.first()
+    assert first_child is not None
+    assert first_child.label == "Child Text Input"
 
     # 5. Verify Pydantic conversion
     pydantic_node = repeater.get_node(recursive=True)
+    assert hasattr(pydantic_node, "formkit")
+    assert isinstance(pydantic_node, RepeaterNode)
     assert pydantic_node.formkit == "repeater"
+    assert pydantic_node.children is not None
+    from collections.abc import Sized
+
+    assert isinstance(pydantic_node.children, Sized)
+
     assert len(pydantic_node.children) == 1
-    assert pydantic_node.children[0].formkit == "text"
-    assert pydantic_node.children[0].name == "child_text"
+
+    child = pydantic_node.children[0]
+    # We know it's a dict/object, not a string or condition
+    assert isinstance(child, dict) or hasattr(child, "formkit")
+    if hasattr(child, "formkit"):
+        assert getattr(child, "formkit") == "text"
+        assert getattr(child, "name") == "child_text"

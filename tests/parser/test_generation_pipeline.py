@@ -1,10 +1,12 @@
 import pytest
 
 from formkit_ninja.parser.generation_pipeline import CallableStep, GenerationContext, GenerationPipeline
+from formkit_ninja.parser.generator import CodeGenerator
 
 
-class DummyGenerator:
-    pass
+class DummyGenerator(CodeGenerator):
+    def __init__(self):
+        pass
 
 
 def test_pipeline_runs_steps_in_order() -> None:

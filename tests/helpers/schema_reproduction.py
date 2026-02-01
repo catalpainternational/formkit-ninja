@@ -24,7 +24,7 @@ def get_supported_api_fields() -> set[str]:
         Set of field names (using API aliases where applicable).
     """
     # Get all fields from FormKitNodeIn, including aliases
-    fields = set()
+    fields: set[str] = set()
     for field_name, field_info in FormKitNodeIn.__fields__.items():
         # Add the field name
         fields.add(field_name)
@@ -116,7 +116,7 @@ def extract_fields_from_schema(schema: dict | list) -> set[str]:
     Returns:
         Set of all field names found in the schema.
     """
-    fields = set()
+    fields: set[str] = set()
 
     def extract_from_node(node: dict):
         """Recursively extract fields from a node."""
@@ -737,6 +737,7 @@ def create_schema_via_admin(schema: dict | list, schema_label: str | None = None
             return None
 
         # Determine which form to use based on node type
+        form_class: type[FormKitNodeForm] | type[FormKitNodeGroupForm] | type[FormKitNodeRepeaterForm]
         if formkit_type == "group":
             form_class = FormKitNodeGroupForm
         elif formkit_type == "repeater":
@@ -756,7 +757,7 @@ def create_schema_via_admin(schema: dict | list, schema_label: str | None = None
                 if not node.node_type:
                     node.node_type = "$formkit"
                 # Ensure $formkit is in node dict
-                if not node.node.get("$formkit"):
+                if node.node and not node.node.get("$formkit"):
                     node.node["$formkit"] = node_data["$formkit"]
                 node.save()
             created_nodes.append(node)

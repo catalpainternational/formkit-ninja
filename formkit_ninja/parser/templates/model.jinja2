@@ -1,19 +1,4 @@
-{% for repeater in this.repeaters %}
-    {% with this=repeater %}
-        {% include "model.jinja2" %}
-    {% endwith %}
-{% endfor %}
-{% for group in this.groups %}
-    {% if group.is_abstract_base %}
-        {% with this=group %}
-            {% include "abstract_model.jinja2" %}
-        {% endwith %}
-    {% else %}
-        {% with this=group %}
-            {% include "model.jinja2" %}
-        {% endwith %}
-    {% endif %}
-{% endfor %}
+{# Recursion removed to avoid duplicate generation #}
 {% if this.is_abstract_base %}
 {% include "abstract_model.jinja2" %}
 {% endif %}

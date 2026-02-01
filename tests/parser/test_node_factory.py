@@ -6,7 +6,7 @@ from formkit_ninja.parser.type_convert import NodePath
 
 def test_formkit_node_factory_from_dict() -> None:
     node = FormKitNodeFactory.from_dict({"$formkit": "text", "name": "field1"})
-
+    assert node is not None
     assert node.name == "field1"
 
 

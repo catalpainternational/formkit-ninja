@@ -50,13 +50,34 @@ class FormKitNodeFactory:
             ValueError: If the data is invalid or cannot be parsed
         """
         # Try to use registry if this is a formkit node
+        node: formkit_schema.FormKitType | None = None
         if "$formkit" in data:
             formkit_type = data["$formkit"]
             node_class = default_registry.get_formkit_node_class(formkit_type)
+
             if node_class is not None:
                 try:
                     # Use the registered class directly
-                    return cast(formkit_schema.FormKitType, node_class.parse_obj(data))
+                    node = node_class.parse_obj(data)
+
+                    # Recursively parse children if present
+                    # This is necessary because Pydantic models define children as FormKitSchemaProps
+                    # but we need the specific node types
+                    if "children" in data and hasattr(node, "children"):
+                        children_in = data["children"]
+                        if isinstance(children_in, list):
+                            children_out: list[Any] = []
+                            for child_data in children_in:
+                                if isinstance(child_data, dict):
+                                    # Recursively use the factory
+                                    children_out.append(FormKitNodeFactory.from_dict(child_data))
+                                elif isinstance(child_data, str):
+                                    children_out.append(child_data)
+
+                            # mypy doesn't know that node.children is a list of FormKitType
+                            node.children = children_out  # type: ignore[assignment]
+
+                    return cast(formkit_schema.FormKitType, node)
                 except Exception:
                     # If direct parsing fails, fall back to FormKitNode.parse_obj
                     # This maintains backward compatibility
@@ -64,7 +85,7 @@ class FormKitNodeFactory:
 
         # Fall back to original behavior for backward compatibility
         try:
-            node = FormKitNode.parse_obj(data).__root__
+            node = FormKitNode.parse_obj(data).__root__  # type: ignore[assignment]
         except Exception as exc:
             raise ValueError("Invalid FormKit node data") from exc
         return cast(formkit_schema.FormKitType, node)

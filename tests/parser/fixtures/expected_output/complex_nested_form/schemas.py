@@ -17,15 +17,5 @@ class ParentChildSchema(Schema):
 
 
 class ParentSchema(Schema):
-    child: ParentChild | None = None
+    child: ParentChildSchema | None = None
     items: list[ParentItemsSchema] | None = None
-
-
-class ParentChildSchema(Schema):
-    child_field: str | None = None
-
-
-class ParentItemsSchema(Schema):
-    item_name: str | None = None
-    item_count: int | None = None
-    ordinality: int

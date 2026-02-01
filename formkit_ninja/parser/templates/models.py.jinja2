@@ -15,9 +15,7 @@ from django.db import models
 {% endif %}
 
 {% for nodepath in nodepaths %}
-{% if not nodepath.is_child %}
 {% with this = nodepath %}
 {% include "model.jinja2" %}
 {% endwith %}
-{% endif %}
 {% endfor %}

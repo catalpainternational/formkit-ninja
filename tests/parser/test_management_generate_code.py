@@ -11,6 +11,7 @@ This module tests:
 
 from io import StringIO
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,19 +21,28 @@ from django.core.management.base import CommandError
 from formkit_ninja import models
 from tests.factories import FormKitSchemaFactory, GroupNodeFactory, TextNodeFactory
 
+if TYPE_CHECKING:
+    from formkit_ninja.models import FormKitSchema, FormKitSchemaNode
+
 
 @pytest.mark.django_db
 def test_generate_code_command_with_valid_args(tmp_path: Path):
     """Test generate_code command runs successfully with valid args"""
     # Create a schema with nodes
-    schema = FormKitSchemaFactory(label="Test Schema")
-    group = GroupNodeFactory(
-        label="Test Group",
-        node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+    schema = cast("FormKitSchema", FormKitSchemaFactory(label="Test Schema"))
+    group = cast(
+        "FormKitSchemaNode",
+        GroupNodeFactory(
+            label="Test Group",
+            node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+        ),
     )
-    text_node = TextNodeFactory(
-        label="Test Field",
-        node={"$formkit": "text", "name": "test_field", "label": "Test Field"},
+    text_node = cast(
+        "FormKitSchemaNode",
+        TextNodeFactory(
+            label="Test Field",
+            node={"$formkit": "text", "name": "test_field", "label": "Test Field"},
+        ),
     )
 
     # Link nodes to schema
@@ -72,29 +82,41 @@ def test_generate_code_command_with_valid_args(tmp_path: Path):
 def test_generate_code_command_with_schema_label(tmp_path: Path):
     """Test generate_code command with specific schema label"""
     # Create multiple schemas
-    schema1 = FormKitSchemaFactory(label="Schema One")
-    schema2 = FormKitSchemaFactory(label="Schema Two")
+    schema1 = cast("FormKitSchema", FormKitSchemaFactory(label="Schema One"))
+    schema2 = cast("FormKitSchema", FormKitSchemaFactory(label="Schema Two"))
 
     # Add nodes to schema1
-    group1 = GroupNodeFactory(
-        label="Group 1",
-        node={"$formkit": "group", "name": "group1", "label": "Group 1"},
+    group1 = cast(
+        "FormKitSchemaNode",
+        GroupNodeFactory(
+            label="Group 1",
+            node={"$formkit": "group", "name": "group1", "label": "Group 1"},
+        ),
     )
-    text1 = TextNodeFactory(
-        label="Field 1",
-        node={"$formkit": "text", "name": "field1", "label": "Field 1"},
+    text1 = cast(
+        "FormKitSchemaNode",
+        TextNodeFactory(
+            label="Field 1",
+            node={"$formkit": "text", "name": "field1", "label": "Field 1"},
+        ),
     )
     models.FormComponents.objects.create(schema=schema1, node=group1, order=0, label="Group")
     models.NodeChildren.objects.create(parent=group1, child=text1, order=0)
 
     # Add nodes to schema2
-    group2 = GroupNodeFactory(
-        label="Group 2",
-        node={"$formkit": "group", "name": "group2", "label": "Group 2"},
+    group2 = cast(
+        "FormKitSchemaNode",
+        GroupNodeFactory(
+            label="Group 2",
+            node={"$formkit": "group", "name": "group2", "label": "Group 2"},
+        ),
     )
-    text2 = TextNodeFactory(
-        label="Field 2",
-        node={"$formkit": "text", "name": "field2", "label": "Field 2"},
+    text2 = cast(
+        "FormKitSchemaNode",
+        TextNodeFactory(
+            label="Field 2",
+            node={"$formkit": "text", "name": "field2", "label": "Field 2"},
+        ),
     )
     models.FormComponents.objects.create(schema=schema2, node=group2, order=0, label="Group")
     models.NodeChildren.objects.create(parent=group2, child=text2, order=0)
@@ -165,14 +187,20 @@ def test_generate_code_command_no_schemas_in_database(tmp_path: Path):
 def test_generate_code_command_validates_output_dir_exists(tmp_path: Path):
     """Test generate_code command validates output directory exists"""
     # Create a schema
-    schema = FormKitSchemaFactory(label="Test Schema")
-    group = GroupNodeFactory(
-        label="Test Group",
-        node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+    schema = cast("FormKitSchema", FormKitSchemaFactory(label="Test Schema"))
+    group = cast(
+        "FormKitSchemaNode",
+        GroupNodeFactory(
+            label="Test Group",
+            node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+        ),
     )
-    text_node = TextNodeFactory(
-        label="Test Field",
-        node={"$formkit": "text", "name": "test_field", "label": "Test Field"},
+    text_node = cast(
+        "FormKitSchemaNode",
+        TextNodeFactory(
+            label="Test Field",
+            node={"$formkit": "text", "name": "test_field", "label": "Test Field"},
+        ),
     )
     models.FormComponents.objects.create(schema=schema, node=group, order=0, label="Group")
     models.NodeChildren.objects.create(parent=group, child=text_node, order=0)
@@ -197,10 +225,13 @@ def test_generate_code_command_validates_output_dir_exists(tmp_path: Path):
 def test_generate_code_command_validates_output_dir_is_directory(tmp_path: Path):
     """Test generate_code command validates output path is a directory, not a file"""
     # Create a schema
-    schema = FormKitSchemaFactory(label="Test Schema")
-    group = GroupNodeFactory(
-        label="Test Group",
-        node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+    schema = cast("FormKitSchema", FormKitSchemaFactory(label="Test Schema"))
+    group = cast(
+        "FormKitSchemaNode",
+        GroupNodeFactory(
+            label="Test Group",
+            node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+        ),
     )
     models.FormComponents.objects.create(schema=schema, node=group, order=0, label="Group")
 
@@ -227,11 +258,14 @@ def test_generate_code_command_validates_output_dir_is_directory(tmp_path: Path)
 def test_generate_code_command_handles_generation_errors(tmp_path: Path):
     """Test generate_code command handles errors during generation gracefully"""
     # Create a schema with invalid structure that might cause generation errors
-    schema = FormKitSchemaFactory(label="Test Schema")
+    schema = cast("FormKitSchema", FormKitSchemaFactory(label="Test Schema"))
     # Create a node without proper structure
-    text_node = TextNodeFactory(
-        label="Test Field",
-        node={"$formkit": "text", "name": "test_field", "label": "Test Field"},
+    text_node = cast(
+        "FormKitSchemaNode",
+        TextNodeFactory(
+            label="Test Field",
+            node={"$formkit": "text", "name": "test_field", "label": "Test Field"},
+        ),
     )
     models.FormComponents.objects.create(schema=schema, node=text_node, order=0, label="Field")
 
@@ -266,14 +300,20 @@ def test_generate_code_command_handles_generation_errors(tmp_path: Path):
 def test_generate_code_command_generates_all_files(tmp_path: Path):
     """Test generate_code command generates all expected code files"""
     # Create a schema with a group node
-    schema = FormKitSchemaFactory(label="Test Schema")
-    group = GroupNodeFactory(
-        label="Test Group",
-        node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+    schema = cast("FormKitSchema", FormKitSchemaFactory(label="Test Schema"))
+    group = cast(
+        "FormKitSchemaNode",
+        GroupNodeFactory(
+            label="Test Group",
+            node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+        ),
     )
-    text_node = TextNodeFactory(
-        label="Test Field",
-        node={"$formkit": "text", "name": "test_field", "label": "Test Field"},
+    text_node = cast(
+        "FormKitSchemaNode",
+        TextNodeFactory(
+            label="Test Field",
+            node={"$formkit": "text", "name": "test_field", "label": "Test Field"},
+        ),
     )
 
     models.FormComponents.objects.create(schema=schema, node=group, order=0, label="Group")
@@ -310,25 +350,37 @@ def test_generate_code_command_generates_all_files(tmp_path: Path):
 def test_generate_code_command_multiple_schemas(tmp_path: Path):
     """Test generate_code command processes multiple schemas"""
     # Create multiple schemas
-    schema1 = FormKitSchemaFactory(label="Schema One")
-    schema2 = FormKitSchemaFactory(label="Schema Two")
+    schema1 = cast("FormKitSchema", FormKitSchemaFactory(label="Schema One"))
+    schema2 = cast("FormKitSchema", FormKitSchemaFactory(label="Schema Two"))
 
     # Add nodes to both schemas
-    group1 = GroupNodeFactory(
-        label="Group 1",
-        node={"$formkit": "group", "name": "group1", "label": "Group 1"},
+    group1 = cast(
+        "FormKitSchemaNode",
+        GroupNodeFactory(
+            label="Group 1",
+            node={"$formkit": "group", "name": "group1", "label": "Group 1"},
+        ),
     )
-    text1 = TextNodeFactory(
-        label="Field 1",
-        node={"$formkit": "text", "name": "field1", "label": "Field 1"},
+    text1 = cast(
+        "FormKitSchemaNode",
+        TextNodeFactory(
+            label="Field 1",
+            node={"$formkit": "text", "name": "field1", "label": "Field 1"},
+        ),
     )
-    group2 = GroupNodeFactory(
-        label="Group 2",
-        node={"$formkit": "group", "name": "group2", "label": "Group 2"},
+    group2 = cast(
+        "FormKitSchemaNode",
+        GroupNodeFactory(
+            label="Group 2",
+            node={"$formkit": "group", "name": "group2", "label": "Group 2"},
+        ),
     )
-    text2 = TextNodeFactory(
-        label="Field 2",
-        node={"$formkit": "text", "name": "field2", "label": "Field 2"},
+    text2 = cast(
+        "FormKitSchemaNode",
+        TextNodeFactory(
+            label="Field 2",
+            node={"$formkit": "text", "name": "field2", "label": "Field 2"},
+        ),
     )
 
     models.FormComponents.objects.create(schema=schema1, node=group1, order=0, label="Group")
@@ -357,10 +409,13 @@ def test_generate_code_command_multiple_schemas(tmp_path: Path):
 @pytest.mark.django_db
 def test_generate_code_command_invalid_output_dir():
     """Test generate_code command handles invalid output directory"""
-    schema = FormKitSchemaFactory(label="Test Schema")
-    group = GroupNodeFactory(
-        label="Test Group",
-        node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+    schema = cast("FormKitSchema", FormKitSchemaFactory(label="Test Schema"))
+    group = cast(
+        "FormKitSchemaNode",
+        GroupNodeFactory(
+            label="Test Group",
+            node={"$formkit": "group", "name": "test_group", "label": "Test Group"},
+        ),
     )
     models.FormComponents.objects.create(schema=schema, node=group, order=0, label="Group")
 

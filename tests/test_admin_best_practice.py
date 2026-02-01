@@ -39,6 +39,7 @@ def test_create_formkit_node(admin_page: Page):
 
     # Verify in DB
     node = models.FormKitSchemaNode.objects.get(label="Test Text Node")
+    assert node.node is not None
     assert node.node["$formkit"] == "text"
     assert node.node["name"] == "test_name"
     assert node.node["placeholder"] == "test_placeholder"
@@ -77,6 +78,7 @@ def test_create_element_node(admin_page: Page):
     admin_page.get_by_role("button", name="Save", exact=True).click()
 
     node = models.FormKitSchemaNode.objects.get(label="Test Div Node")
+    assert node.node is not None
     assert node.node["$el"] == "p"
     assert node.node["name"] == "test_el_name"
     assert node.node["attrs"]["class"] == "my-class"
@@ -96,6 +98,7 @@ def test_preserve_unmapped_json_fields(admin_page: Page, live_server):
     admin_page.get_by_role("button", name="Save", exact=True).click()
 
     node.refresh_from_db()
+    assert node.node is not None
     assert node.node["name"] == "updated_name"
     assert node.node["secret_field"] == "keep_me"
 
@@ -120,6 +123,7 @@ def test_repeater_node_fields(admin_page: Page):
     admin_page.get_by_role("button", name="Save", exact=True).click()
 
     node = models.FormKitSchemaNode.objects.get(label="Test Repeater")
+    assert node.node is not None
     assert node.node["$formkit"] == "repeater"
     assert node.node["name"] == "test_repeater_name"
     assert node.add_label == "Add row"
@@ -141,4 +145,5 @@ def test_invalid_django_id_validation(admin_page: Page):
 
     # Check for error message
     error_locator = admin_page.locator(".errorlist")
-    assert "1test is not valid, it cannot start with a digit" in error_locator.text_content()
+    error_text = error_locator.text_content() or ""
+    assert "1test is not valid, it cannot start with a digit" in error_text

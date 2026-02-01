@@ -426,8 +426,8 @@ class TestNodePathTypeConverterIntegration:
         node = GroupNode(name="test", label="Test")
         path = NodePath(node)
         result = path.to_pydantic_type()
-        # Group nodes should use original logic (return classname)
-        assert result == path.classname
+        # Group nodes should use original logic (return classname_schema)
+        assert result == path.classname_schema
 
     def test_to_pydantic_type_fallback_for_repeater_node(self):
         """Test that NodePath falls back to original logic for repeater nodes"""
@@ -436,8 +436,8 @@ class TestNodePathTypeConverterIntegration:
         node = RepeaterNode(name="test", label="Test")
         path = NodePath(node)
         result = path.to_pydantic_type()
-        # Repeater nodes should use original logic (return list[classname])
-        assert result == f"list[{path.classname}]"
+        # Repeater nodes should use original logic (return list[classname_schema])
+        assert result == f"list[{path.classname_schema}]"
 
     def test_to_pydantic_type_with_custom_registry(self):
         """Test that NodePath can use a custom registry"""

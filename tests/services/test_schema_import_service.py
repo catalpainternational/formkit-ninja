@@ -7,7 +7,7 @@ from formkit_ninja.services.schema_import import SchemaImportService
 @pytest.mark.django_db
 def test_import_options_creates_options_and_labels() -> None:
     group = models.OptionGroup.objects.create(group="test-group")
-    options = ["Option A", {"value": "option-b", "label": "Option B"}]
+    options: list[str | models.OptionDict] = ["Option A", {"value": "option-b", "label": "Option B"}]
 
     created = list(SchemaImportService.import_options(options, group=group))
 

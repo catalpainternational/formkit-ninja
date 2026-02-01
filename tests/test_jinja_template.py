@@ -154,17 +154,15 @@ def test_pd_number_node_field(pydantic_class_template: Template, number_node: No
 
 def test_pd_group_node_field(pydantic_class_template: Template, group_node: NodePath):
     text = pydantic_class_template.render(this=group_node)
-    expect = "class Foo(BaseModel):\n    foonum: int | None = None\n"
+    expect = "class FooSchema(BaseModel):\n    foonum: int | None = None\n"
     assert text.strip() == dedent(expect).strip()
 
 
 def test_pd_nested_group_node_field(pydantic_class_template: Template, nested_group_node: NodePath):
     text = pydantic_class_template.render(this=nested_group_node)
     expect = """
-        class BarFoo(BaseModel):
-            foonum: int | None = None
-        class Bar(BaseModel):
-            foo: BarFoo | None = None
+        class BarSchema(BaseModel):
+            foo: BarFooSchema | None = None
         """
     assert text.strip() == dedent(expect).strip()
 
@@ -183,11 +181,6 @@ def test_group_node_field(django_class_template: Template, group_node: NodePath)
 def test_nested_group_node_field(django_class_template: Template, nested_group_node: NodePath):
     text = django_class_template.render(this=nested_group_node)
     expect = """
-        class BarFoo(models.Model):
-            \"\"\"
-            Generated from FormKit Group node: bar > foo
-            \"\"\"
-            foonum = models.IntegerField(null=True, blank=True)  # From: bar > foo > foonum
         class Bar(models.Model):
             \"\"\"
             Generated from FormKit Group node: bar
@@ -221,7 +214,7 @@ Instead, make changes to the template and re-generate this file
 """
 
 from django.contrib import admin
-from ..models import *
+from .. import models
 
 class ReadOnlyInline(admin.TabularInline):
     def has_change_permission(self, request, obj=None):
@@ -246,14 +239,6 @@ class FooAdmin(admin.ModelAdmin):
 def test_admin_nested_group_node_field(admin_template: Template, nested_group_node: NodePath):
     text = admin_template.render(this=nested_group_node)
     expect = """
-        @admin.register(models.BarFoo)
-        class BarFooAdmin(admin.ModelAdmin):
-            list_display = [
-                "foonum",
-            ]
-            readonly_fields = [
-                "foonum",
-            ]
         @admin.register(models.Bar)
         class BarAdmin(admin.ModelAdmin):
             list_display = [
@@ -269,11 +254,6 @@ def test_admin_nested_group_node_field(admin_template: Template, nested_group_no
 def test_api_nested_group_node_field(api_template: Template, nested_group_node: NodePath):
     text = api_template.render(this=nested_group_node)
     expect = """
-        @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
-        def barfoo(request):
-            # Schema includes fields: foonum 
-            queryset = models.BarFoo.objects.all()
-            return queryset
         @router.get("bar", response=list[schema_out.BarSchema], exclude_none=True)
         def bar(request):
             # Schema includes fields: foo 
@@ -289,11 +269,6 @@ def test_api_nested_group_node_field(api_template: Template, nested_group_node: 
 def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_node: NodePath):
     text = api_template.render(this=nested_repeater_node)
     expect = """
-        @router.get("barfoo", response=list[schema_out.BarFooSchema], exclude_none=True)
-        def barfoo(request):
-            # Schema includes fields: foonum 
-            queryset = models.BarFoo.objects.all()
-            return queryset
         @router.get("bar", response=list[schema_out.BarSchema], exclude_none=True)
         def bar(request):
             # Schema includes fields: 
@@ -309,9 +284,7 @@ def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_
 def test_schema_out_nested_group_node_field(schema_out_template: Template, nested_group_node: NodePath):
     text = schema_out_template.render(this=nested_group_node)
     expect = """
-        class BarFooSchema(Schema):
-            foonum: int | None = None
         class BarSchema(Schema):
-            foo: BarFoo | None = None
+            foo: BarFooSchema | None = None
     """
     assert text.strip() == dedent(expect).strip()

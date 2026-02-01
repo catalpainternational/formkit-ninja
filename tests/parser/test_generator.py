@@ -824,8 +824,8 @@ class TestCodeGenerator:
         assert "date_start" in api_content
 
         # 3h. Generated Code is Valid Python (RED → GREEN)
-        for filename in ["schemas.py", "schemas_in.py", "admin.py", "api.py"]:
-            content = (output_dir / filename).read_text()
+        for subdir in ["models", "schemas", "schemas_in", "admin", "api"]:
+            content = (output_dir / subdir / schema_file).read_text()
             ast.parse(content)  # Should not raise SyntaxError
         # Also validate models files
         ast.parse(models_content)  # Should not raise SyntaxError
@@ -1299,7 +1299,7 @@ class TestUpdateTemplateImports:
         admin_file = tmp_path / "admin" / "testform.py"
         admin_content = admin_file.read_text()
 
-        assert "from ..models import" in admin_content or "from ..models import *" in admin_content
+        assert "from .. import models" in admin_content or "from ..models import *" in admin_content
         assert "from . import models" not in admin_content
 
     def test_api_template_imports_from_models_and_schemas(self, tmp_path: Path):
@@ -1329,7 +1329,7 @@ class TestUpdateTemplateImports:
         api_file = tmp_path / "api" / "testform.py"
         api_content = api_file.read_text()
 
-        assert "from ..models import" in api_content or "from ..models import *" in api_content
+        assert "from .. import models" in api_content or "from ..models import *" in api_content
         assert "from .. import schemas as schema_out" in api_content or "from ..schemas" in api_content
         assert "from . import models, schema_out" not in api_content
 
@@ -1361,7 +1361,7 @@ class TestUpdateTemplateImports:
         admin_content = admin_file.read_text()
 
         # Should import from parent models directory
-        assert "from ..models" in admin_content
+        assert "from .. import models" in admin_content
 
     def test_generated_api_file_has_correct_imports(self, tmp_path: Path):
         """Test that generated api file has correct relative imports."""
@@ -1391,7 +1391,7 @@ class TestUpdateTemplateImports:
         api_content = api_file.read_text()
 
         # Should import from parent models and schemas directories
-        assert "from ..models" in api_content
+        assert "from .. import models" in api_content
         assert "from .. import schemas as schema_out" in api_content or "schema_out" in api_content
 
 
@@ -1836,12 +1836,12 @@ class TestAddTests:
         # Check that admin file imports from models
         admin_file = tmp_path / "admin" / "testform.py"
         admin_content = admin_file.read_text()
-        assert "from ..models import" in admin_content
+        assert "from .. import models" in admin_content
 
         # Check that api file imports from models and schemas
         api_file = tmp_path / "api" / "testform.py"
         api_content = api_file.read_text()
-        assert "from ..models import" in api_content
+        assert "from .. import models" in api_content
         assert "from .. import schemas" in api_content or "schema_out" in api_content
 
 

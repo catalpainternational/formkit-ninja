@@ -1,18 +1,7 @@
-{% for repeater in this.repeaters %}
-    {% with this=repeater %}
-        {% include "basemodel.jinja2" %}
-    {% endwith %}
-{% endfor %}
-{% for group in this.groups %}
-    {% if not group.is_abstract_base %}
-        {% with this=group %}
-            {% include "basemodel.jinja2" %}
-        {% endwith %}
-    {% endif %}
-{% endfor %}
+{# Recursion removed #}
 {% if this.is_group or this.is_repeater %}
 {% if not this.is_abstract_base %}
-class {{this.classname}}(BaseModel):
+class {{this.classname_schema}}(BaseModel):
 {% for extra_attrib in this.extra_attribs_basemodel %}
     {{extra_attrib}}
 {% endfor %}
@@ -38,6 +27,9 @@ class {{this.classname}}(BaseModel):
     {{validator}}
     {% endfor %}
 {% endfor %}
+{% if not this.has_basemodel_content %}
+    pass
+{% endif %}
 {% endif %}
 {% else %}
     {{this.pydantic_attrib_name}}: {{this.pydantic_type}}

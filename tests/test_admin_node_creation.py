@@ -266,6 +266,9 @@ def test_create_node_via_admin_form(node_data: dict, form_class):
 
     # Verify node can be retrieved from database
     retrieved_node = models.FormKitSchemaNode.objects.get(pk=node.pk)
+    if retrieved_node.node is None:
+        retrieved_node.node = {}
+
     assert retrieved_node.node.get("$formkit") == node_data.get("$formkit"), "Retrieved node should match original"
 
     # Verify additional fields if present in node_data

@@ -1,15 +1,4 @@
-{% for repeater in this.repeaters %}
-    {% with this=repeater %}
-        {% include "schema.jinja2" %}
-    {% endwith %}
-{% endfor %}
-{% for group in this.groups %}
-    {% if not group.is_abstract_base %}
-        {% with this=group %}
-            {% include "schema.jinja2" %}
-        {% endwith %}
-    {% endif %}
-{% endfor %}
+{# Recursion removed to avoid duplicate generation #}
 {% if not this.is_abstract_base %}
 class {{this.classname_schema}}(Schema):
 {% for e_a in this.extra_attribs_schema %}
@@ -25,7 +14,10 @@ class {{this.classname_schema}}(Schema):
     {% endif %}
 {% endfor %}
 {% if this.parent_abstract_bases|length > 0 %}
+# DEBUG: parent_abstract_bases: {{this.parent_abstract_bases}}
+# DEBUG: groups: {{this.groups|length}}
 {% for group in this.groups %}
+# DEBUG: checking group {{group.classname}} is_abstract={{group.is_abstract_base}} fields={{group.formkits_not_repeaters|length}}
     {% if group.is_abstract_base %}
         {% for f in group.formkits_not_repeaters %}
             {% if f.django_type == "ForeignKey" %}
@@ -43,4 +35,10 @@ class {{this.classname_schema}}(Schema):
 {% if this.is_repeater %}{# If I am a repeater I have the original order of insertion, as "ordinality" #}
     ordinality: int
 {% endif %}
+{# Add pass if class body would be completely empty #}
+{% if not this.has_schema_content %}
+    pass
+{% endif %}
+
+
 {% endif %}

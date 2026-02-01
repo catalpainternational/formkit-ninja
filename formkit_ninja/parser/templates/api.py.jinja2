@@ -5,11 +5,7 @@ Instead, make changes to the template and re-generate this file
 
 from ninja import Router
 
-{% if root_classname %}
-from ..models import {{root_classname}} as models
-{% else %}
-from ..models import *
-{% endif %}
+from .. import models
 from .. import schemas as schema_out
 
 router = Router(tags=["forms"])

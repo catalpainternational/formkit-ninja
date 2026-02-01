@@ -1,0 +1,237 @@
+---
+description: Instructions for starting Podman database container and running pytest
+globs: "**/*"
+tags: [ai, database, podman, testing, workflow]
+priority: 1
+version: 1.0.0
+---
+
+# Database Container Setup and Testing Workflow
+
+## Critical Instruction: Run Pytest on Significant Changes
+
+**Start or restart a Podman database container and run `pytest` on any significant change.**
+
+This ensures that:
+- Database is available and properly configured
+- Tests can run successfully
+- Code changes don't break existing functionality
+- Database state is clean for each test run
+
+## When to Start/Restart Container
+
+Start or restart the database container when:
+- Starting a new development session
+- After system reboot
+- When database connection errors occur
+- Before running tests after significant code changes
+- When database state seems corrupted or inconsistent
+
+## Podman Container Setup
+
+### Start Database Container
+
+```bash
+podman run -d --name formkit-postgres -p 5433:5432 -e POSTGRES_HOST_AUTH_METHOD=trust docker.io/library/postgres:14-alpine
+```
+
+### Restart Existing Container
+
+```bash
+podman restart formkit-postgres
+```
+
+### Check Container Status
+
+```bash
+podman ps -a | grep formkit-postgres
+```
+
+### Stop Container (if needed)
+
+```bash
+podman stop formkit-postgres
+```
+
+### Remove Container (if needed for clean start)
+
+```bash
+podman stop formkit-postgres
+podman rm formkit-postgres
+# Then start a new one with the start command above
+```
+
+## Database Configuration
+
+The test project uses these database settings (from `testproject/settings.py`):
+
+- **Host**: `localhost`
+- **Port**: `5433` (mapped from container's 5432)
+- **Database**: `postgres` (default)
+- **User**: `postgres` (default)
+- **Password**: `postgres` (default, or from `POSTGRES_PASSWORD` env var)
+- **Authentication**: Trust (no password required in container)
+
+Environment variables can override defaults:
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_HOST`
+- `POSTGRES_PORT`
+
+## Running Tests After Container Setup
+
+### 1. Verify Container is Running
+
+```bash
+podman ps | grep formkit-postgres
+```
+
+Expected output should show the container as "Up".
+
+### 2. Verify Database Connection
+
+```bash
+uv run python manage.py dbshell
+```
+
+Or test connection directly:
+```bash
+uv run python -c "from django.db import connection; connection.ensure_connection(); print('Connected!')"
+```
+
+### 3. Run Migrations (if needed)
+
+```bash
+uv run python manage.py migrate
+```
+
+### 4. Run Pytest
+
+```bash
+uv run pytest
+```
+
+## AI Agent Workflow
+
+### Before Making Significant Changes
+
+1. **Check container status**:
+   ```bash
+   podman ps | grep formkit-postgres
+   ```
+
+2. **Start or restart container if needed**:
+   ```bash
+   podman restart formkit-postgres || podman run -d --name formkit-postgres -p 5433:5432 -e POSTGRES_HOST_AUTH_METHOD=trust docker.io/library/postgres:14-alpine
+   ```
+
+3. **Verify database connection** (optional but recommended)
+
+### After Making Significant Changes
+
+1. **Run pytest** to verify tests still pass:
+   ```bash
+   uv run pytest
+   ```
+
+2. **If tests fail**:
+   - Check database container is running
+   - Check database connection
+   - Fix any test failures
+   - Re-run pytest until all tests pass
+
+### What Counts as "Significant Change"
+
+- Code generation logic changes
+- Model changes (Django models)
+- Database schema changes
+- API endpoint changes
+- Admin interface changes
+- Template changes that affect generated code
+- Any change that could affect test behavior
+
+## Troubleshooting
+
+### Container Won't Start
+
+```bash
+# Check if container already exists
+podman ps -a | grep formkit-postgres
+
+# If exists but stopped, restart it
+podman restart formkit-postgres
+
+# If exists but has issues, remove and recreate
+podman stop formkit-postgres
+podman rm formkit-postgres
+podman run -d --name formkit-postgres -p 5433:5432 -e POSTGRES_HOST_AUTH_METHOD=trust docker.io/library/postgres:14-alpine
+```
+
+### Port Already in Use
+
+If port 5433 is already in use:
+- Find what's using it: `podman ps | grep 5433` or `ss -tlnp | grep 5433`
+- Stop the conflicting container/service
+- Or use a different port and update `POSTGRES_PORT` env var
+
+### Database Connection Errors
+
+```bash
+# Check container logs
+podman logs formkit-postgres
+
+# Verify container is running
+podman ps | grep formkit-postgres
+
+# Test connection manually
+uv run python manage.py dbshell
+```
+
+### Tests Fail with Database Errors
+
+1. **Restart container** to get clean state
+2. **Run migrations**: `uv run python manage.py migrate`
+3. **Re-run tests**: `uv run pytest`
+
+## Integration with Pytest Rule
+
+This rule works in conjunction with rule 004 (pytest requirements):
+
+1. **Start/restart container** (this rule)
+2. **Run pytest** (rule 004)
+3. **Fix any failures** (rule 004)
+4. **Only mark complete when tests pass** (rule 004)
+
+## Quick Reference Commands
+
+```bash
+# Start container
+podman run -d --name formkit-postgres -p 5433:5432 -e POSTGRES_HOST_AUTH_METHOD=trust docker.io/library/postgres:14-alpine
+
+# Restart container
+podman restart formkit-postgres
+
+# Check status
+podman ps | grep formkit-postgres
+
+# Run tests
+uv run pytest
+
+# Full workflow: restart + test
+podman restart formkit-postgres && uv run pytest
+```
+
+## Alternative: Docker
+
+If Podman is not available, Docker can be used instead:
+
+```bash
+docker run -d --name formkit-postgres -p 5433:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:14-alpine
+```
+
+Replace `podman` with `docker` in all commands above.
+
+---
+
+**Remember: Start/restart the database container and run pytest on any significant change.**

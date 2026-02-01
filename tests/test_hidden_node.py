@@ -66,6 +66,7 @@ def test_create_hidden_node_via_api(admin_client: Client, hidden_node_data: dict
     # Verify node was created in database
     node_uuid = response_data["key"]
     node = models.FormKitSchemaNode.objects.get(pk=node_uuid)
+    assert node.node is not None
     assert node.node["$formkit"] == "hidden", "Node should have hidden type"
     assert node.node.get("name") == hidden_node_data["name"], "Node should have correct name"
     if "value" in hidden_node_data:

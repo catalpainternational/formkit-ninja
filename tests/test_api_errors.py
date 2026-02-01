@@ -395,6 +395,7 @@ def test_update_node_actually_updates(admin_client: Client):
     # Verify in database
     node = models.FormKitSchemaNode.objects.get(pk=node_uuid)
     assert node.label == "Updated Label"
+    assert node.node is not None
     assert node.node["label"] == "Updated Label"
     assert node.node["name"] == "updated_field"
 

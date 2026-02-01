@@ -64,9 +64,9 @@ def create_partisipa_registry() -> TypeConverterRegistry:
         priority=10,
     )
 
-    # Register date_exit_committee as date_
+    # Register date_exit_committee as date_ (now as "date")
     registry.register(
-        FieldNameConverter(names={"date_exit_committee"}, pydantic_type="date_"),
+        FieldNameConverter(names={"date_exit_committee"}, pydantic_type="date"),
         priority=10,
     )
 
@@ -193,7 +193,7 @@ class PartisipaNodePathRewritten(NodePath):
         if self.matches_name({"latitude", "longitude"}):
             return "DecimalField"
 
-        if self.to_pydantic_type() == "date_":
+        if self.to_pydantic_type() == "date":
             return "DateField"
 
         return super().to_django_type()
@@ -247,24 +247,3 @@ class PartisipaNodePathRewritten(NodePath):
             extra_args.append("on_delete=models.CASCADE")
 
         return extra_args
-
-    # No need to override to_django_args() anymore!
-    # The base class now handles deduplication automatically using a dictionary-based approach.
-    # Extra args from get_django_args_extra() will automatically override base args.
-
-    @property
-    def validators(self):
-        """
-        Return "extra" validation field for schemas.py.
-        """
-        validators_list = list(super().validators)
-
-        if self.to_pydantic_type() == "date_":
-            validate_fn = "v_date"
-            validators_list.append(f'_normalize_{self.fieldname} = {validate_fn}("{self.fieldname}")')
-
-        if self.matches_name({"latitude", "longitude"}):
-            validate_fn = "v_decimal"
-            validators_list.append(f'_normalize_{self.fieldname} = {validate_fn}("{self.fieldname}")')
-
-        return validators_list

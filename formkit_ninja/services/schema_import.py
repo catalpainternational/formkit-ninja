@@ -14,7 +14,7 @@ class SchemaImportService:
 
     @staticmethod
     def import_options(
-        options: list[str] | list[models.OptionDict],
+        options: list[str | models.OptionDict],
         group: models.OptionGroup | None = None,
     ) -> Iterable[models.Option]:
         for option in options:
