@@ -1,0 +1,19 @@
+"""
+Don't make changes to this code directly
+Instead, make changes to the template and re-generate this file
+"""
+
+from __future__ import annotations
+from datetime import date, datetime
+from decimal import Decimal
+from uuid import UUID
+
+from ninja import Schema
+
+
+class PersonalInfoSchema(Schema):
+    full_name: str | None = None
+    email_address: str | None = None
+
+
+PersonalInfoSchema.update_forward_refs()
