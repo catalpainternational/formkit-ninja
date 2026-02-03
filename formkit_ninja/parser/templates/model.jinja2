@@ -26,7 +26,7 @@ class {{this.classname}}(models.Model):
 {% endfor %}
 {% for attrib in this.formkits_not_repeaters %}
     {% if not attrib.is_abstract_base and not (attrib.django_type == "OneToOneField" and this.parent_abstract_bases|length > 0) %}
-    {{attrib.django_attrib_name}} = models.{{attrib.django_type}}({{attrib.django_args}})  # From: {{attrib.get_node_path_string()}}
+    {{attrib.django_code}}  # From: {{attrib.get_node_path_string()}}
     {% endif %}
 {% endfor %}
 {% if not this.is_repeater and this.extra_attribs|length == 0 %}

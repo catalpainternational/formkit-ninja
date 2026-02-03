@@ -59,6 +59,45 @@ graph LR
     style G fill:#87CEEB
 ```
 
+---
+
+## Lifecycle of a Node
+
+How does a single field in your FormKit JSON become a line of code in `models.py`? 
+
+### 1. The Source: `FormKitSchema`
+A `FormKitSchema` record in your database contains a JSON array. For example:
+```json
+{ "$formkit": "text", "name": "district_name" }
+```
+
+### 2. The Bridge: `DatabaseNodePath`
+The `CodeGenerator` walks through this JSON. For the "district_name" node, it creates a `DatabaseNodePath` instance. This instance is responsible for answering questions like *"What is your Django type?"*.
+
+### 3. The Instruction: `CodeGenerationConfig` (The DB "Node")
+The `DatabaseNodePath` queries the database for a `CodeGenerationConfig` that matches:
+- `formkit_type="text"`
+- `node_name="district_name"` (Highest priority)
+
+If it finds an entry, it "loads" the instructions:
+- **Django Type**: `ForeignKey`
+- **Django Args**: `{"to": "pnds.District", "null": true}`
+
+### 4. The Blueprint: Jinja2 Templates
+The `CodeGenerator` passes the `DatabaseNodePath` to the `models.py.jinja2` template. The template contains code like this:
+
+```jinja2
+{{ nodepath.name }} = models.{{ nodepath.to_django_type }}({{ nodepath.to_django_args }})
+```
+
+### 5. The Output: Generated Python
+The final result written to your disk is:
+```python
+district_name = models.ForeignKey("pnds.District", null=True)
+```
+
+By changing the `CodeGenerationConfig` **in the database**, you change the behavior of the `DatabaseNodePath`, which in turn changes the rendered output of the template without ever touching the generator's source code.
+
 ## Quick Start
 
 ### 1. Enable Database-Driven Generation

@@ -19,6 +19,12 @@ from formkit_ninja import (
 
 logger = logging.getLogger(__name__)
 
+# Use PrettyJSONWidget from admin_code_generation if possible
+try:
+    from formkit_ninja.admin_code_generation import PrettyJSONWidget
+except ImportError:
+    PrettyJSONWidget = forms.Textarea
+
 
 # Define fields in JSON with a tuple of fields
 # The key of the dict provided is a JSON field on the model
@@ -260,6 +266,13 @@ class FormKitNodeForm(FormKitBaseForm):
     min = forms.IntegerField(required=False)
     step = forms.IntegerField(required=False)
 
+    # Code Generation Overrides
+    django_field_type = forms.CharField(required=False)
+    django_field_args = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
+    pydantic_field_type = forms.CharField(required=False)
+    extra_imports = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
+    validators = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
+
     def get_fields(self, request, obj: models.FormKitSchemaNode):
         """
         Customise the returned fields based on the type
@@ -410,10 +423,25 @@ NODE_CONFIG: dict[type | str, dict[str, Any]] = {
                         "validationRules",
                     )
                 },
-            )
+            ),
+            (
+                "Code Generation (Source of Truth)",
+                {
+                    "fields": (
+                        "django_field_type",
+                        "django_field_args",
+                        "pydantic_field_type",
+                        "extra_imports",
+                        "validators",
+                    ),
+                    "description": "These values are the primary source of truth for code generation. If empty, they are auto-resolved on save from global configs.",
+                },
+            ),
         ],
     },
 }
+
+# Admin site registration continues below...
 
 
 @admin.register(models.FormKitSchemaNode)
@@ -469,6 +497,23 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
 
         grouped_fields: set[str] = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
         fieldsets.insert(0, (None, {"fields": [f for f in self.get_fields(request, obj) if f not in grouped_fields]}))
+
+        # Add Code Generation Source of Truth fieldset
+        fieldsets.append(
+            (
+                "Code Generation (Source of Truth)",
+                {
+                    "fields": (
+                        "django_field_type",
+                        "django_field_args",
+                        "pydantic_field_type",
+                        "extra_imports",
+                        "validators",
+                    ),
+                    "description": "These values are the primary source of truth for code generation. If empty, they are auto-resolved on save from global configs.",
+                },
+            )
+        )
         return fieldsets
 
     def get_form(

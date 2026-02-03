@@ -159,7 +159,7 @@ class CodeGenerationConfigAdmin(admin.ModelAdmin):
         "django_type",
     )
 
-    readonly_fields = ("created", "updated")
+    readonly_fields = ("created", "updated", "django_code_preview", "pydantic_code_preview")
 
     fieldsets = (
         (
@@ -174,6 +174,13 @@ class CodeGenerationConfigAdmin(admin.ModelAdmin):
             {
                 "fields": ("pydantic_type", "django_type"),
                 "description": "Override the default type conversions for Pydantic schemas and Django models.",
+            },
+        ),
+        (
+            "Code Preview (Live)",
+            {
+                "fields": ("django_code_preview", "pydantic_code_preview"),
+                "description": "Preview of how a field might look using this configuration. Note: Uses 'example_field' as a placeholder name.",
             },
         ),
         (
@@ -201,6 +208,80 @@ class CodeGenerationConfigAdmin(admin.ModelAdmin):
     )
 
     ordering = ("-priority", "formkit_type", "node_name")
+
+    @admin.display(description="Django Model Preview")
+    def django_code_preview(self, obj):
+        """Show what the Django model field code will look like."""
+        from django.utils.html import format_html
+
+        from formkit_ninja.parser.type_convert import NodePath
+
+        # Create a mock node that matches this config's criteria
+        class MockNode:
+            def __init__(self, formkit, name):
+                self.formkit = formkit
+                self.name = name or "example_field"
+                self.options = obj.options_pattern or ""
+
+        # Use a custom NodePath that forces this config's values
+        class PreviewNodePath(NodePath):
+            def to_django_type(self):
+                return obj.django_type or super().to_django_type()
+
+            def to_django_args(self):
+                if obj.django_args:
+                    return obj.get_django_args_str()
+                return super().to_django_args()
+
+            def get_validators(self):
+                return obj.validators or super().get_validators()
+
+            def get_extra_imports(self):
+                return obj.extra_imports or super().get_extra_imports()
+
+        node = MockNode(obj.formkit_type, obj.node_name)
+        path = PreviewNodePath(node)
+
+        try:
+            code = path.django_code
+            return format_html(
+                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">{}</pre>',
+                code,
+            )
+        except Exception as e:
+            return format_html('<div style="color: red;">Error generating preview: {}</div>', str(e))
+
+    @admin.display(description="Pydantic Schema Preview")
+    def pydantic_code_preview(self, obj):
+        """Show what the Pydantic schema field code will look like."""
+        from django.utils.html import format_html
+
+        from formkit_ninja.parser.type_convert import NodePath
+
+        class MockNode:
+            def __init__(self, formkit, name):
+                self.formkit = formkit
+                self.name = name or "example_field"
+                self.options = obj.options_pattern or ""
+
+        class PreviewNodePath(NodePath):
+            def to_pydantic_type(self):
+                return obj.pydantic_type or super().to_pydantic_type()
+
+            def to_django_type(self):
+                return obj.django_type or super().to_django_type()
+
+        node = MockNode(obj.formkit_type, obj.node_name)
+        path = PreviewNodePath(node)
+
+        try:
+            code = path.pydantic_code
+            return format_html(
+                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">{}</pre>',
+                code,
+            )
+        except Exception as e:
+            return format_html('<div style="color: red;">Error generating preview: {}</div>', str(e))
 
     # Custom display methods
     @admin.display(description="Configuration", ordering="formkit_type")

@@ -120,6 +120,13 @@ class FormKitSchemaProps(BaseModel):
     readonly: bool | None = Field(None)
     sectionsSchema: dict[str, Any] | None = Field(None)
 
+    # Code Generation Source of Truth
+    django_field_type: str | None = Field(None)
+    django_field_args: dict[str, Any] = Field(default_factory=dict)
+    pydantic_field_type: str | None = Field(None)
+    extra_imports: list[str] = Field(default_factory=list)
+    validators: list[str] = Field(default_factory=list)
+
     # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
     additional_props: None | dict[str, str | dict[str, Any]] = Field(None)

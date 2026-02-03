@@ -6,11 +6,7 @@ class {{this.classname_schema}}(Schema):
 {% endfor %}
 {% for f in this.formkits_not_repeaters %}
     {% if not f.is_abstract_base and not (f.django_type == "OneToOneField" and this.parent_abstract_bases|length > 0) %}
-        {% if f.django_type == "ForeignKey" %}
-    {{f.pydantic_attrib_name}}_id: {{f.pydantic_type}} | None = None
-        {% else %}
-    {{f.pydantic_attrib_name}}: {{f.pydantic_type}} | None = None
-        {% endif %}
+    {{f.pydantic_code}}
     {% endif %}
 {% endfor %}
 {% if this.parent_abstract_bases|length > 0 %}
@@ -20,17 +16,13 @@ class {{this.classname_schema}}(Schema):
 # DEBUG: checking group {{group.classname}} is_abstract={{group.is_abstract_base}} fields={{group.formkits_not_repeaters|length}}
     {% if group.is_abstract_base %}
         {% for f in group.formkits_not_repeaters %}
-            {% if f.django_type == "ForeignKey" %}
-    {{f.pydantic_attrib_name}}_id: {{f.pydantic_type}} | None = None
-            {% else %}
-    {{f.pydantic_attrib_name}}: {{f.pydantic_type}} | None = None
-            {% endif %}
+    {{f.pydantic_code}}
         {% endfor %}
     {% endif %}
 {% endfor %}
 {% endif %}
 {% for repeater in this.repeaters %}
-    {{repeater.pydantic_attrib_name}}: list[{{repeater.classname_schema}}] | None = None
+    {{repeater.pydantic_code}}
 {% endfor %}
 {% if this.is_repeater %}{# If I am a repeater I have the original order of insertion, as "ordinality" #}
     ordinality: int

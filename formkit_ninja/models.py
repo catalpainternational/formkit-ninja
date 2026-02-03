@@ -391,6 +391,25 @@ class FormKitSchemaNode(UuidIdModel):
     up_control = models.BooleanField(default=True)
     down_control = models.BooleanField(default=True)
 
+    # Code Generation Source of Truth
+    django_field_type = models.CharField(max_length=100, null=True, blank=True, help_text="Override Django field type")
+    django_field_args = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Django field arguments as JSON dict (e.g., {"null": true, "blank": true})',
+    )
+    pydantic_field_type = models.CharField(max_length=100, null=True, blank=True, help_text="Override Pydantic type")
+    extra_imports = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of import statements (e.g., ["from decimal import Decimal"])',
+    )
+    validators = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of validator strings (e.g., ["MinValueValidator(0)"])',
+    )
+
     text_content = models.TextField(
         null=True, blank=True, help_text="Content for a text element, for children of an $el type component"
     )
@@ -446,7 +465,49 @@ class FormKitSchemaNode(UuidIdModel):
                         val = str(val)
                     setattr(self, target_field, val)
 
+        # Resolve code generation defaults if not set
+        self.resolve_code_generation_defaults()
+
         return super().save(*args, **kwargs)
+
+    def resolve_code_generation_defaults(self, force=False):
+        """
+        Populate code generation fields from CodeGenerationConfig and settings
+        if they are not already set.
+        """
+        # We need a node structure to match against
+        node = self.get_node(recursive=False)
+        if isinstance(node, str):
+            # Text nodes don't typically generate fields themselves
+            return
+
+        from formkit_ninja.parser.database_node_path import DatabaseNodePath
+
+        # Create a transient DatabaseNodePath to leverage its resolution logic
+        path = DatabaseNodePath(node)
+
+        if force or not self.django_field_type:
+            self.django_field_type = path.to_django_type()
+
+        if force or not self.django_field_args:
+            # We want the dict, not the string
+            # DatabaseNodePath uses _get_config and _get_from_settings
+            config = path._get_config()
+            if config:
+                self.django_field_args = config.django_args
+            else:
+                settings_args = path._get_from_settings("django_args")
+                if isinstance(settings_args, dict):
+                    self.django_field_args = settings_args
+
+        if force or not self.pydantic_field_type:
+            self.pydantic_field_type = path.to_pydantic_type()
+
+        if force or not self.extra_imports:
+            self.extra_imports = path.get_extra_imports()
+
+        if force or not self.validators:
+            self.validators = path.get_validators()
 
     @property
     def node_options(self) -> str | list[dict] | None:
@@ -526,6 +587,18 @@ class FormKitSchemaNode(UuidIdModel):
         if not self.down_control:
             values["downControl"] = self.down_control
 
+        # Code Generation fields
+        if self.django_field_type:
+            values["django_field_type"] = self.django_field_type
+        if self.django_field_args:
+            values["django_field_args"] = self.django_field_args
+        if self.pydantic_field_type:
+            values["pydantic_field_type"] = self.pydantic_field_type
+        if self.extra_imports:
+            values["extra_imports"] = self.extra_imports
+        if self.validators:
+            values["validators"] = self.validators
+
         if self.additional_props and len(self.additional_props) > 0:
             values.update(self.additional_props)
 
@@ -601,6 +674,18 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.up_control = up_control
             if (down_control := getattr(input_model, "downControl", None)) is not None:
                 instance.down_control = down_control
+
+            # Code Generation Fields
+            if (django_field_type := getattr(input_model, "django_field_type", None)) is not None:
+                instance.django_field_type = django_field_type
+            if (django_field_args := getattr(input_model, "django_field_args", None)) is not None:
+                instance.django_field_args = django_field_args
+            if (pydantic_field_type := getattr(input_model, "pydantic_field_type", None)) is not None:
+                instance.pydantic_field_type = pydantic_field_type
+            if (extra_imports := getattr(input_model, "extra_imports", None)) is not None:
+                instance.extra_imports = extra_imports
+            if (validators := getattr(input_model, "validators", None)) is not None:
+                instance.validators = validators
 
             # Fields that are valid Pydantic fields but not promoted to columns must be saved in additional_props
             # otherwise they are lost.
@@ -792,3 +877,6 @@ class SchemaDescription(models.Model):
     lang = models.CharField(
         max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
     )
+
+
+# Import submission models to register them with the app

@@ -5,6 +5,12 @@ Instead, make changes to the template and re-generate this file
 
 
 from django.db import models
+{% if custom_imports %}
+{% for import_stmt in custom_imports %}
+{{ import_stmt }}
+{% endfor %}
+{% endif %}
+
 {% if nodepaths|length > 0 %}
 {% set first_nodepath = nodepaths[0] %}
 {% if first_nodepath.get_custom_imports()|length > 0 %}

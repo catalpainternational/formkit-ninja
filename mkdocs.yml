@@ -26,6 +26,21 @@ theme:
       primary: teal
       accent: lime
 
+nav:
+  - Home: index.md
+  - Architecture:
+      - Submission Pipeline: submission_architecture.md
+      - Code Generation: code_generation.md
+      - Database Config: database_code_generation.md
+  - Features:
+      - Feature Matrix: feature_matrix.md
+      - Inputs: inputs.md
+      - Options: options.md
+      - Admin: admin.md
+  - API:
+      - Classes: classes.md
+
+
 plugins:
   - mkdocstrings
 

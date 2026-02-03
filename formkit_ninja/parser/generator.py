@@ -122,6 +122,7 @@ class CodeGenerator:
             app_name=self.config.app_name,
             include_ordinality=self.config.include_ordinality,
             root_classname=root_classname,
+            custom_imports=self.config.custom_imports,
         )
 
         return code

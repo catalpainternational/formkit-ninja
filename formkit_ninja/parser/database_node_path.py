@@ -163,16 +163,16 @@ class DatabaseNodePath(NodePath):
     def to_pydantic_type(self) -> str:
         """
         Get Pydantic type for this node.
-
-        Priority:
-        1. Database config
-        2. Django settings
-        3. Default converter
-
-        Returns:
-            Pydantic type string (e.g., 'int', 'str', 'Decimal')
+        Prioritizes fields already on the node (via super()).
         """
-        # Check database config
+        # 1. Check if it's already on the node
+        res = super().to_pydantic_type()
+        # super().to_pydantic_type() returns converter.pydantic_type if not found on node.
+        # We need to know if it was found on the node or not.
+        if hasattr(self.node, "pydantic_field_type") and self.node.pydantic_field_type:
+            return res
+
+        # 2. Check database config
         config = self._get_config()
         if config and config.pydantic_type:
             return config.pydantic_type
@@ -188,16 +188,13 @@ class DatabaseNodePath(NodePath):
     def to_django_type(self) -> str:
         """
         Get Django field type for this node.
-
-        Priority:
-        1. Database config
-        2. Django settings
-        3. Default converter
-
-        Returns:
-            Django field type string (e.g., 'ForeignKey', 'DateField')
+        Prioritizes fields already on the node (via super()).
         """
-        # Check database config
+        # 1. Check if it's already on the node
+        if hasattr(self.node, "django_field_type") and self.node.django_field_type:
+            return self.node.django_field_type
+
+        # 2. Check database config
         config = self._get_config()
         if config and config.django_type:
             return config.django_type
@@ -213,16 +210,13 @@ class DatabaseNodePath(NodePath):
     def to_django_args(self) -> str:
         """
         Get Django field arguments for this node.
-
-        Priority:
-        1. Database config
-        2. Django settings
-        3. Default arguments
-
-        Returns:
-            Django field arguments string (e.g., 'null=True, blank=True')
+        Prioritizes fields already on the node (via super()).
         """
-        # Check database config
+        # 1. Check if it's already on the node
+        if hasattr(self.node, "django_field_args") and self.node.django_field_args:
+            return super().to_django_args()
+
+        # 2. Check database config
         config = self._get_config()
         if config and config.django_args:
             return config.get_django_args_str()
@@ -241,11 +235,17 @@ class DatabaseNodePath(NodePath):
 
     def get_validators(self) -> list[str]:
         """
-        Get validators for this node from database config.
-
-        Returns:
-            List of validator strings
+        Get validators for this node.
+        Prioritizes fields already on the node (via super()).
         """
+        # 1. Check if it's already on the node (handled by super())
+        res = super().get_validators()
+        # super().get_validators() returns an empty list if not found on node.
+        # If `res` is not empty, it means it came from the node.
+        if res:
+            return res
+
+        # 2. Check database config
         config = self._get_config()
         if config and config.validators:
             return config.validators
@@ -255,15 +255,21 @@ class DatabaseNodePath(NodePath):
         if settings_validators and isinstance(settings_validators, list):
             return settings_validators
 
-        return super().get_validators()
+        return []
 
     def get_extra_imports(self) -> list[str]:
         """
-        Get extra imports for this node from database config.
-
-        Returns:
-            List of import statement strings
+        Get extra imports for this node.
+        Prioritizes fields already on the node (via super()).
         """
+        # 1. Check if it's already on the node (handled by super())
+        res = super().get_extra_imports()
+        # super().get_extra_imports() returns an empty list if not found on node.
+        # If `res` is not empty, it means it came from the node.
+        if res:
+            return res
+
+        # 2. Check database config
         config = self._get_config()
         if config and config.extra_imports:
             return config.extra_imports

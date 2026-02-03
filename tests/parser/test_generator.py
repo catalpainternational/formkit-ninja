@@ -21,6 +21,8 @@ from formkit_ninja.parser.generator_config import GeneratorConfig
 from formkit_ninja.parser.template_loader import DefaultTemplateLoader
 from formkit_ninja.parser.type_convert import NodePath
 
+pytestmark = pytest.mark.django_db
+
 
 class Tf61NodePath(NodePath):
     """

@@ -7,20 +7,20 @@ class {{this.classname_schema}}(BaseModel):
 {% endfor %}
 {% for attrib in this.formkits_not_repeaters %}
     {% if not attrib.is_abstract_base and not (attrib.django_type == "OneToOneField" and this.parent_abstract_bases|length > 0) %}
-    {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None
+    {{attrib.pydantic_code}}
     {% endif %}
 {% endfor %}
 {% if this.parent_abstract_bases|length > 0 %}
 {% for group in this.groups %}
     {% if group.is_abstract_base %}
         {% for attrib in group.formkits_not_repeaters %}
-    {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None
+    {{attrib.pydantic_code}}
         {% endfor %}
     {% endif %}
 {% endfor %}
 {% endif %}
 {% for attrib in this.repeaters %}
-    {{attrib.pydantic_attrib_name}}: {{attrib.pydantic_type}} | None = None
+    {{attrib.pydantic_code}}
 {% endfor %}
 {% for attrib in this.formkits_not_repeaters %}
     {% for validator in attrib.validators %}
@@ -32,5 +32,5 @@ class {{this.classname_schema}}(BaseModel):
 {% endif %}
 {% endif %}
 {% else %}
-    {{this.pydantic_attrib_name}}: {{this.pydantic_type}}
+    {{this.pydantic_code}}
 {% endif %}

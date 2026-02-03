@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import warnings
 from keyword import iskeyword
 from typing import Generator, Iterable, Literal, cast
@@ -329,24 +330,24 @@ class NodePath:
             return []
         return self._child_abstract_bases
 
-    def to_pydantic_type(self) -> Literal["str", "int", "bool", "Decimal", "float", "date"] | str:
+    def to_pydantic_type(self) -> str:
         """
-        Usually, this should return a well known Python type as a string
+        Usually, this should return a well known Python type as a string.
+        Prioritizes fields stored on the node instance if available.
+        """
+        # 1. Check for database-derived override on the node
+        if hasattr(self.node, "pydantic_field_type") and self.node.pydantic_field_type:
+            return self.node.pydantic_field_type
 
-        This method first tries to use the type converter registry (which now supports
-        matching by formkit, name, and options), then falls back to the original
-        hardcoded logic for backward compatibility.
-        """
+        # 2. Fall back to registry/legacy logic
         node = self.node
-
-        # Always try registry first (registry now supports formkit, name, and options matching)
         converter = self._type_converter_registry.get_converter(node)
         if converter is not None:
             return converter.to_pydantic_type(node)
 
-        # Fallback to original logic for backward compatibility (only if node has formkit)
+        # Fallback to original logic for backward compatibility
         if not hasattr(node, "formkit"):
-            return "str"  # Default for nodes without formkit
+            return "str"
 
         if node.formkit == "number":
             if node.step is not None:
@@ -401,16 +402,27 @@ class NodePath:
 
     def to_django_type(self) -> str:
         """
-        Return the "models.ModelField" which would match this data type
+        Convert formkit type to equivalent django field type.
+        Prioritizes fields stored on the node instance if available.
         """
+        # 1. Check for database-derived override on the node
+        if hasattr(self.node, "django_field_type") and self.node.django_field_type:
+            return self.node.django_field_type
+
+        # 2. Handle group nodes
         if self.is_group:
             return "OneToOneField"
 
+        # 3. Fall back to default converter/registry
+        node = self.node
+        converter = self._type_converter_registry.get_converter(node)
+        if converter is not None:
+            return converter.to_django_type(node)
+
+        # Fallback to match logic based on pydantic type
         match self.to_pydantic_type():
             case "bool":
                 return "BooleanField"
-            case "str":
-                return "TextField"
             case "Decimal":
                 return "DecimalField"
             case "int":
@@ -510,14 +522,28 @@ class NodePath:
 
     def to_django_args(self) -> str:
         """
-        Get Django field arguments as a string.
-
-        Returns:
-            str: Comma-separated string of Django field arguments
+        Default arguments for the field.
+        Prioritizes fields stored on the node instance if available.
         """
-        args_dict = self._get_django_args_dict()
+        # 1. Check for database-derived override on the node
+        if hasattr(self.node, "django_field_args") and self.node.django_field_args:
+            # We need to convert the dict back to a string for the template
+            from formkit_ninja.parser.database_node_path import DatabaseNodePath
 
-        # Convert dictionary to string format
+            return DatabaseNodePath._django_args_dict_to_str(self.node.django_field_args)
+
+        # 2. Use converter/registry defaults if available
+        node = self.node
+        converter = self._type_converter_registry.get_converter(node)
+        if converter is not None:
+            args_dict = converter.to_django_args(node)
+            # Logic to convert dict to string (same as DatabaseNodePath uses)
+            from formkit_ninja.parser.database_node_path import DatabaseNodePath
+
+            return DatabaseNodePath._django_args_dict_to_str(args_dict)
+
+        # 3. Fall back to legacy dict-based resolution
+        args_dict = self._get_django_args_dict()
         result_parts = []
         for key, value in args_dict.items():
             if key == value:  # No "=" needed (e.g., model references)
@@ -630,14 +656,20 @@ class NodePath:
 
     def get_validators(self) -> list[str]:
         """
-        Extension point: Return list of validator strings for this node.
-
-        Override this method in a NodePath subclass to provide custom validators.
-        Validators are typically Pydantic validator decorators or field validators.
-
-        Returns:
-            List of validator strings (default: empty list)
+        Get all validators related to this specific node.
+        Prioritizes fields stored on the node instance if available.
         """
+        # 1. Check for database-derived override on the node
+        if hasattr(self.node, "validators") and self.node.validators:
+            return self.node.validators
+
+        # 2. Fall back to converter
+        node = self.node
+        converter = self._type_converter_registry.get_converter(node)
+        if converter is not None:
+            return converter.validators
+
+        # 3. Legacy logic (actually the original get_validators was mostly empty or delegating)
         return []
 
     @property
@@ -655,14 +687,19 @@ class NodePath:
 
     def get_extra_imports(self) -> list[str]:
         """
-        Extension point: Return list of extra import statements.
-
-        Override this method in a NodePath subclass to provide additional imports
-        that should be included in generated schema files (schemas.py, schemas_in.py).
-
-        Returns:
-            List of import statement strings (default: empty list)
+        Return any extra imports required for this field.
+        Prioritizes fields stored on the node instance if available.
         """
+        # 1. Check for database-derived override on the node
+        if hasattr(self.node, "extra_imports") and self.node.extra_imports:
+            return self.node.extra_imports
+
+        # 2. Fall back to converter
+        node = self.node
+        converter = self._type_converter_registry.get_converter(node)
+        if converter is not None:
+            return converter.extra_imports
+
         return []
 
     def get_custom_imports(self) -> list[str]:
@@ -735,3 +772,48 @@ class NodePath:
         if not hasattr(self.node, "options") or self.node.options is None:
             return None
         return str(self.node.options)
+
+    @property
+    def django_code(self) -> str:
+        """
+        Generate the Full Django Model field code line.
+        Includes field name, type, and arguments.
+        """
+        code = f"{self.django_attrib_name} = models.{self.django_type}({self.django_args})"
+
+        # Validate syntax
+        try:
+            ast.parse(code)
+        except SyntaxError as e:
+            raise SyntaxError(
+                f"Generated Django code for node '{self.get_node_path_string()}' has syntax errors: {e.msg}\nCode: {code}"
+            ) from e
+
+        return code
+
+    @property
+    def pydantic_code(self) -> str:
+        """
+        Generate the Pydantic field code line for schemas.
+        """
+        name = self.pydantic_attrib_name
+        type_hint = self.to_pydantic_type()  # Call the method to get the type
+
+        # Suffix _id for ForeignKeys in output schemas (Django Ninja convention)
+        if self.django_type == "OneToOneField" or self.django_type == "ForeignKey":
+            if not self.is_group and not self.is_repeater:
+                name = f"{name}_id"
+
+        # FormKit schemas often use 'T | None = None' as a default pattern for optional fields
+        code = f"{name}: {type_hint} | None = None"
+
+        # Pydantic code can be a class attribute, let's wrap it in a class to validate
+        validation_code = f"class Model:\n    {code}"
+        try:
+            ast.parse(validation_code)
+        except SyntaxError as e:
+            raise SyntaxError(
+                f"Generated Pydantic code for node '{self.get_node_path_string()}' has syntax errors: {e.msg}\nCode: {code}"
+            ) from e
+
+        return code
