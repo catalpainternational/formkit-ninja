@@ -115,7 +115,7 @@ def pre_validation(obj: dict):
         warnings.warn("pre_validation expected a dict")
         return obj
 
-    _obj = {}
+    _obj: dict[str, Any] = {}
     if _skip_value(obj):
         return _obj
     for k, v in obj.items():
@@ -139,7 +139,8 @@ def get_foreignkey(from_model: models.Model, to_model: models.Model) -> models.F
     """
     for field in from_model._meta.fields:
         if getattr(field, "related_model", None) == to_model:
-            return field
+            return field  # type: ignore[return-value]
+    return None
 
 
 T = TypeVar("T", bound=models.Model)
@@ -149,7 +150,7 @@ def get_foreignkey_value(from_instance: models.Model, to_model: T) -> T | None:
     """
     Return the value of a foreign key where the field name might not be known
     """
-    field: models.ForeignKey = get_foreignkey(from_instance, to_model)
+    field: models.ForeignKey | None = get_foreignkey(from_instance, to_model)  # type: ignore[assignment]
     return getattr(from_instance, field.name) if field else None
 
 
@@ -178,7 +179,10 @@ def get_repeaters_uuids(obj: dict[str, dict[str, list]]) -> Iterable[uuid.UUID]:
 
 
 def flatten(
-    obj: dict[str, Any], parent_key: list[str] = None, parent_uuid: uuid.UUID | str | None = None, index: int = 0
+    obj: dict[str, Any],
+    parent_key: list[str] | None = None,
+    parent_uuid: uuid.UUID | str | None = None,
+    index: int = 0,
 ) -> Iterable[tuple[list[str], uuid.UUID | str | None, dict, int]]:
     """
     This is a generator which returns nested ('repeater') values first
@@ -196,7 +200,7 @@ def flatten(
     yield parent_key, parent_uuid, klone, index
 
 
-def igetattr(thing: any, prop: str):
+def igetattr(thing: Any, prop: str):
     """
     A case insensitive 'getattr'
     """

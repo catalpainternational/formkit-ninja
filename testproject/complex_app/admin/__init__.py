@@ -1,3 +1,3 @@
-from .mainform import MainFormLineItemsInline, MainFormAdmin, MainFormLineItemsAdmin  # noqa: F401
+from .mainform import MainFormAdmin, MainFormLineItemsAdmin, MainFormLineItemsInline  # noqa: F401
 
 __all__ = ["MainFormLineItemsInline", "MainFormAdmin", "MainFormLineItemsAdmin"]

@@ -5,10 +5,11 @@ Instead, make changes to the template and re-generate this file
 
 from ninja import Router
 
+from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
+
 from .. import models
 from .. import schemas as schema_out
 from .. import schemas_in as schema_in
-from formkit_ninja.form_submission.models import Submission, SeparatedSubmission
 
 router = Router(tags=["forms"])
 

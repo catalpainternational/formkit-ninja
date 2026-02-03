@@ -181,6 +181,5 @@ LOGGING = {
 }
 
 
-
-INSTALLED_APPS.append('testproject.complex_app')
-INSTALLED_APPS.append('testproject.partisipa')
+INSTALLED_APPS.append("testproject.complex_app")
+INSTALLED_APPS.append("testproject.partisipa")

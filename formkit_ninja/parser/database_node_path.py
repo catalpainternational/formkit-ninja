@@ -300,7 +300,9 @@ class DatabaseNodePath(NodePath):
                 parts.append(f"{key}={value}")
             elif isinstance(value, str):
                 # Handle model references (e.g., "app.Model" or models.CASCADE)
-                if value.startswith("models.") or ("." in value and not value.startswith('"')):
+                if value in {"True", "False", "None"}:
+                    parts.append(f"{key}={value}")
+                elif value.startswith("models.") or ("." in value and not value.startswith('"')):
                     parts.append(f"{key}={value}")
                 else:
                     parts.append(f'{key}="{value}"')

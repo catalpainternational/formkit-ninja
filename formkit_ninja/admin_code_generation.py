@@ -180,7 +180,10 @@ class CodeGenerationConfigAdmin(admin.ModelAdmin):
             "Code Preview (Live)",
             {
                 "fields": ("django_code_preview", "pydantic_code_preview"),
-                "description": "Preview of how a field might look using this configuration. Note: Uses 'example_field' as a placeholder name.",
+                "description": (
+                    "Preview of how a field might look using this configuration. "
+                    "Note: Uses 'example_field' as a placeholder name."
+                ),
             },
         ),
         (
@@ -244,8 +247,10 @@ class CodeGenerationConfigAdmin(admin.ModelAdmin):
 
         try:
             code = path.django_code
+            style = "background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;"
             return format_html(
-                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">{}</pre>',
+                '<pre style="{}">{}</pre>',
+                style,
                 code,
             )
         except Exception as e:
@@ -276,8 +281,10 @@ class CodeGenerationConfigAdmin(admin.ModelAdmin):
 
         try:
             code = path.pydantic_code
+            style = "background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;"
             return format_html(
-                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">{}</pre>',
+                '<pre style="{}">{}</pre>',
+                style,
                 code,
             )
         except Exception as e:

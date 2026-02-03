@@ -23,10 +23,7 @@ def make_valid_identifier(input_string: str):
     try:
         output = "".join(ch if ch.isalnum() else "_" for ch in input_string)
 
-        while output[-1].isdigit():
-            output = output[:-1]
-
-        while output[0].isdigit():
+        while output and output[0].isdigit():
             output = output[1:]
 
         while output[-1] == "_":
@@ -94,7 +91,14 @@ class NodePath:
         return model_name
 
     def _to_pascal(self, s: str) -> str:
-        return "".join(part.capitalize() for part in s.split("_") if part)
+        parts = s.split("_")
+        result = []
+        for i, part in enumerate(parts):
+            if part.isdigit() and i > 0:
+                result.append("_" + part)
+            else:
+                result.append(part.capitalize())
+        return "".join(result)
 
     def suggest_class_name(self):
         # If this is a repeater, skip wrapping group nodes in the classname
@@ -181,14 +185,17 @@ class NodePath:
         """
         Return either the "name" or "id" field
         """
-        if node.name:
-            name = self.safe_name(node.name)
-        elif node.id:
-            name = self.safe_name(node.id)
-        else:
-            raise AttributeError("Could not determine a suitable 'name' for this node")
+        name = getattr(node, "name", None)
+        if name:
+            return self.safe_name(name)
 
-        return name
+        node_id = getattr(node, "id", None)
+        if node_id:
+            return self.safe_name(str(node_id))
+
+        # Return a fallback rather than raising AttributeError
+        # to support incomplete/transient nodes during dev/tests
+        return "unknown"
 
     @property
     def is_repeater(self):
@@ -206,7 +213,7 @@ class NodePath:
     @property
     def formkits(self) -> Iterable["NodePath"]:
         """
-        Iterate over FormKit nodes, recursing through layout elements ($el) 
+        Iterate over FormKit nodes, recursing through layout elements ($el)
         to find nested inputs.
         """
         for n in self.children:
@@ -606,7 +613,8 @@ class NodePath:
         if self.is_abstract_base:
             return []
         return [
-            'submission = models.OneToOneField("formkit_ninja.SeparatedSubmission", on_delete=models.CASCADE, primary_key=True, related_name="+")'
+            'submission = models.OneToOneField("formkit_ninja.SeparatedSubmission", '
+            'on_delete=models.CASCADE, primary_key=True, related_name="+")'
         ]
 
     @property
@@ -866,9 +874,11 @@ class NodePath:
         try:
             ast.parse(code)
         except SyntaxError as e:
-            raise SyntaxError(
-                f"Generated Django code for node '{self.get_node_path_string()}' has syntax errors: {e.msg}\nCode: {code}"
-            ) from e
+            msg = (
+                f"Generated Django code for node '{self.get_node_path_string()}' "
+                f"has syntax errors: {e.msg}\nCode: {code}"
+            )
+            raise SyntaxError(msg) from e
 
         return code
 
@@ -895,9 +905,11 @@ class NodePath:
         try:
             ast.parse(validation_code)
         except SyntaxError as e:
-            raise SyntaxError(
-                f"Generated Pydantic code for node '{self.get_node_path_string()}' has syntax errors: {e.msg}\nCode: {code}"
-            ) from e
+            msg = (
+                f"Generated Pydantic code for node '{self.get_node_path_string()}' "
+                f"has syntax errors: {e.msg}\nCode: {code}"
+            )
+            raise SyntaxError(msg) from e
 
         return code
 
@@ -917,7 +929,7 @@ class NodePath:
             return "# $el (HTML layout element) nodes do not generate Django fields"
         if isinstance(self.node, str):
             return "# Text nodes do not generate Django fields"
-        
+
         if not (self.is_group or self.is_repeater):
             # For simple fields, just return the field definition
             return self.django_code
@@ -955,7 +967,8 @@ class NodePath:
                     parent_name = "ParentModel"
                 node_name = getattr(self.node, "name", "repeater_field") or "repeater_field"
                 lines.append(
-                    f'    parent = models.ForeignKey("{parent_name}", on_delete=models.CASCADE, related_name="{node_name}")'
+                    f'    parent = models.ForeignKey("{parent_name}", '
+                    f'on_delete=models.CASCADE, related_name="{node_name}")'
                 )
 
             # Ordinality for list ordering
@@ -977,7 +990,10 @@ class NodePath:
             if group_path.is_abstract_base:
                 lines.append(f"    # Inherits fields from {group_path.classname}Abstract")
             else:
-                lines.append(f"    {group_path.fieldname} = models.OneToOneField({group_path.classname}, on_delete=models.CASCADE)")
+                lines.append(
+                    f"    {group_path.fieldname} = models.OneToOneField("
+                    f"{group_path.classname}, on_delete=models.CASCADE)"
+                )
             has_content = True
 
         # Show child repeaters (as related name reference)
@@ -1009,7 +1025,7 @@ class NodePath:
             return "# $el (HTML layout element) nodes do not generate Pydantic fields"
         if isinstance(self.node, str):
             return "# Text nodes do not generate Pydantic fields"
-        
+
         if not (self.is_group or self.is_repeater):
             # For simple fields, just return the field definition
             return self.pydantic_code

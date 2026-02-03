@@ -40,15 +40,15 @@ class TestMakeValidIdentifier:
         result = make_valid_identifier("123hello")
         assert result == "hello"
 
-    def test_trailing_digits_removed(self):
-        """Test trailing digits are removed"""
+    def test_trailing_digits_preserved(self):
+        """Test trailing digits are preserved"""
         result = make_valid_identifier("hello123")
-        assert result == "hello"
+        assert result == "hello123"
 
-    def test_leading_and_trailing_digits_removed(self):
-        """Test both leading and trailing digits are removed"""
+    def test_leading_removed_trailing_preserved(self):
+        """Test leading digits are removed but trailing are preserved"""
         result = make_valid_identifier("123hello456")
-        assert result == "hello"
+        assert result == "hello456"
 
     def test_leading_underscore_removed(self):
         """Test leading underscore is removed"""
@@ -93,7 +93,7 @@ class TestMakeValidIdentifier:
     def test_complex_string(self):
         """Test complex string with multiple transformations"""
         result = make_valid_identifier("123Hello-World_Test@456")
-        assert result == "hello_world_test"
+        assert result == "hello_world_test456"
 
     def test_preserves_internal_underscores(self):
         """Test internal underscores are preserved"""

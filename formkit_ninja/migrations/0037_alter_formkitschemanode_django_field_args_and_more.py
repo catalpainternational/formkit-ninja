@@ -4,60 +4,103 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('formkit_ninja', '0036_remove_formkitschemanode_insert_insert_and_more'),
+        ("formkit_ninja", "0036_remove_formkitschemanode_insert_insert_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='formkitschemanode',
-            name='django_field_args',
-            field=models.JSONField(blank=True, default=dict, help_text="Arguments passed to the Django field as a JSON dictionary. Example: {'null': true, 'blank': true, 'max_length': 255}. For ForeignKeys, include the model name: {'to': 'auth.User', 'on_delete': 'models.CASCADE'}."),
+            model_name="formkitschemanode",
+            name="django_field_args",
+            field=models.JSONField(
+                blank=True,
+                default=dict,
+                help_text="Arguments passed to the Django field as a JSON dictionary. Example: {'null': true, 'blank': true, 'max_length': 255}. For ForeignKeys, include the model name: {'to': 'auth.User', 'on_delete': 'models.CASCADE'}.",
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanode',
-            name='django_field_type',
-            field=models.CharField(blank=True, help_text="The Django Model Field class to use (e.g., 'CharField', 'IntegerField', 'ForeignKey'). Providing this makes this field the primary source of truth for code generation.", max_length=100, null=True),
+            model_name="formkitschemanode",
+            name="django_field_type",
+            field=models.CharField(
+                blank=True,
+                help_text="The Django Model Field class to use (e.g., 'CharField', 'IntegerField', 'ForeignKey'). Providing this makes this field the primary source of truth for code generation.",
+                max_length=100,
+                null=True,
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanode',
-            name='extra_imports',
-            field=models.JSONField(blank=True, default=list, help_text="A list of additional Python import statements required by this field. Example: ['from decimal import Decimal', 'from django.core.validators import MinValueValidator']."),
+            model_name="formkitschemanode",
+            name="extra_imports",
+            field=models.JSONField(
+                blank=True,
+                default=list,
+                help_text="A list of additional Python import statements required by this field. Example: ['from decimal import Decimal', 'from django.core.validators import MinValueValidator'].",
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanode',
-            name='pydantic_field_type',
-            field=models.CharField(blank=True, help_text="The Python/Pydantic type for this field (e.g., 'str', 'int', 'Decimal', 'UUID', 'date').", max_length=100, null=True),
+            model_name="formkitschemanode",
+            name="pydantic_field_type",
+            field=models.CharField(
+                blank=True,
+                help_text="The Python/Pydantic type for this field (e.g., 'str', 'int', 'Decimal', 'UUID', 'date').",
+                max_length=100,
+                null=True,
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanode',
-            name='validators',
-            field=models.JSONField(blank=True, default=list, help_text="A list of Django/Pydantic validator strings to be applied to this field. Example: ['MinValueValidator(0)', 'validate_v_date']."),
+            model_name="formkitschemanode",
+            name="validators",
+            field=models.JSONField(
+                blank=True,
+                default=list,
+                help_text="A list of Django/Pydantic validator strings to be applied to this field. Example: ['MinValueValidator(0)', 'validate_v_date'].",
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanodeevent',
-            name='django_field_args',
-            field=models.JSONField(blank=True, default=dict, help_text="Arguments passed to the Django field as a JSON dictionary. Example: {'null': true, 'blank': true, 'max_length': 255}. For ForeignKeys, include the model name: {'to': 'auth.User', 'on_delete': 'models.CASCADE'}."),
+            model_name="formkitschemanodeevent",
+            name="django_field_args",
+            field=models.JSONField(
+                blank=True,
+                default=dict,
+                help_text="Arguments passed to the Django field as a JSON dictionary. Example: {'null': true, 'blank': true, 'max_length': 255}. For ForeignKeys, include the model name: {'to': 'auth.User', 'on_delete': 'models.CASCADE'}.",
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanodeevent',
-            name='django_field_type',
-            field=models.CharField(blank=True, help_text="The Django Model Field class to use (e.g., 'CharField', 'IntegerField', 'ForeignKey'). Providing this makes this field the primary source of truth for code generation.", max_length=100, null=True),
+            model_name="formkitschemanodeevent",
+            name="django_field_type",
+            field=models.CharField(
+                blank=True,
+                help_text="The Django Model Field class to use (e.g., 'CharField', 'IntegerField', 'ForeignKey'). Providing this makes this field the primary source of truth for code generation.",
+                max_length=100,
+                null=True,
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanodeevent',
-            name='extra_imports',
-            field=models.JSONField(blank=True, default=list, help_text="A list of additional Python import statements required by this field. Example: ['from decimal import Decimal', 'from django.core.validators import MinValueValidator']."),
+            model_name="formkitschemanodeevent",
+            name="extra_imports",
+            field=models.JSONField(
+                blank=True,
+                default=list,
+                help_text="A list of additional Python import statements required by this field. Example: ['from decimal import Decimal', 'from django.core.validators import MinValueValidator'].",
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanodeevent',
-            name='pydantic_field_type',
-            field=models.CharField(blank=True, help_text="The Python/Pydantic type for this field (e.g., 'str', 'int', 'Decimal', 'UUID', 'date').", max_length=100, null=True),
+            model_name="formkitschemanodeevent",
+            name="pydantic_field_type",
+            field=models.CharField(
+                blank=True,
+                help_text="The Python/Pydantic type for this field (e.g., 'str', 'int', 'Decimal', 'UUID', 'date').",
+                max_length=100,
+                null=True,
+            ),
         ),
         migrations.AlterField(
-            model_name='formkitschemanodeevent',
-            name='validators',
-            field=models.JSONField(blank=True, default=list, help_text="A list of Django/Pydantic validator strings to be applied to this field. Example: ['MinValueValidator(0)', 'validate_v_date']."),
+            model_name="formkitschemanodeevent",
+            name="validators",
+            field=models.JSONField(
+                blank=True,
+                default=list,
+                help_text="A list of Django/Pydantic validator strings to be applied to this field. Example: ['MinValueValidator(0)', 'validate_v_date'].",
+            ),
         ),
     ]

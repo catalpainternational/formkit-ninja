@@ -8,8 +8,6 @@ This command:
 4. Updates settings.py to include the new app
 """
 
-import os
-import sys
 from pathlib import Path
 
 from django.core.management import call_command
@@ -72,7 +70,7 @@ class Command(BaseCommand):
 
         # Determine app directory
         app_dir = Path(app_dir_str).resolve() / app_name
-        
+
         # Step 1: Create Django app if needed
         if not skip_startapp:
             if app_dir.exists():
@@ -80,12 +78,12 @@ class Command(BaseCommand):
                     self.style.WARNING(f"App directory already exists: {app_dir}. Use --skip-startapp to continue.")
                 )
                 raise CommandError(f"App directory already exists: {app_dir}")
-            
+
             self.stdout.write(f"Creating Django app: {app_name}")
             try:
                 # Ensure app directory exists (Django's startapp requires this)
                 app_dir.mkdir(parents=True, exist_ok=False)
-                
+
                 # Create the app in the specified directory
                 call_command("startapp", app_name, str(app_dir))
                 self.stdout.write(self.style.SUCCESS(f"✓ Created Django app: {app_name}"))
@@ -98,10 +96,10 @@ class Command(BaseCommand):
 
         # Step 2: Generate code from schema
         self.stdout.write(f"\nGenerating code from schema: {schema_label}")
-        
+
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
-        
+
         config = GeneratorConfig(
             app_name=app_name,
             output_dir=app_dir,
@@ -128,7 +126,7 @@ class Command(BaseCommand):
         self.stdout.write("\nCreating signals file...")
         signals_file = app_dir / "signals.py"
         signals_content = self._generate_signals_file(app_name, schema_label)
-        
+
         try:
             with open(signals_file, "w") as f:
                 f.write(signals_content)
@@ -139,7 +137,7 @@ class Command(BaseCommand):
         # Step 4: Update apps.py to connect signals
         self.stdout.write("\nUpdating apps.py to connect signals...")
         apps_file = app_dir / "apps.py"
-        
+
         try:
             apps_content = self._generate_apps_file(app_name)
             with open(apps_file, "w") as f:
@@ -151,7 +149,7 @@ class Command(BaseCommand):
         # Step 5: Create __init__.py with default_app_config
         self.stdout.write("\nUpdating __init__.py...")
         init_file = app_dir / "__init__.py"
-        
+
         try:
             init_content = f'default_app_config = "{app_name}.apps.{app_name.capitalize()}Config"\n'
             with open(init_file, "w") as f:
@@ -167,12 +165,12 @@ class Command(BaseCommand):
         self.stdout.write(f"\nApp name: {app_name}")
         self.stdout.write(f"App directory: {app_dir}")
         self.stdout.write(f"Schema: {schema_label}")
-        
+
         self.stdout.write("\n" + self.style.WARNING("Next steps:"))
         self.stdout.write(f"1. Add '{app_name}' to INSTALLED_APPS in settings.py")
         self.stdout.write("2. Run migrations: ./manage.py makemigrations && ./manage.py migrate")
         self.stdout.write("3. Test the API endpoints and admin interface")
-        self.stdout.write(f"4. Submit form data to see signals in action\n")
+        self.stdout.write("4. Submit form data to see signals in action\n")
 
     def _generate_signals_file(self, app_name: str, schema_label: str) -> str:
         """Generate the signals.py file content."""
@@ -231,7 +229,7 @@ def handle_separated_submission(sender, instance, created, **kwargs):
     def _generate_apps_file(self, app_name: str) -> str:
         """Generate the apps.py file content."""
         config_name = app_name.capitalize() + "Config"
-        
+
         return f'''"""
 Django app configuration for {app_name}.
 """

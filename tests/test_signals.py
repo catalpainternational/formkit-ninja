@@ -6,11 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from formkit_ninja.form_submission.models import SeparatedSubmission
+from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
 from formkit_ninja.form_submission.signals import (
     separated_submission_created,
 )
-from formkit_ninja.models import Submission
 
 
 @pytest.mark.django_db

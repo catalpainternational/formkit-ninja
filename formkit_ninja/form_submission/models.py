@@ -3,11 +3,8 @@ from __future__ import annotations
 import logging
 import uuid
 import warnings
-from collections import Counter
 from contextlib import contextmanager
 from copy import deepcopy
-
-from typing import Any, Iterable
 
 import pghistory
 from django.apps import apps
@@ -47,7 +44,7 @@ def immediate_constraints():
 
 
 class SubmissionField(models.JSONField):
-    def pre_save(self, model_instance: Submission, add):
+    def pre_save(self, model_instance: models.Model, add):  # type: ignore[override]
         value = getattr(model_instance, self.attname)
         validated = pre_validation(value)
         # Ensure that all repeaters have a UUID set on save
@@ -89,7 +86,7 @@ class Submission(models.Model):
     is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
-        was_created = self._state.adding
+        # Note: was_created logic removed as SeparatedSubmission handles this
 
         # Determine changed UUIDs to clean up SeparatedSubmission
         # (Simplified logic from reference)
@@ -107,10 +104,10 @@ class SeparatedSubmissionManager(models.Manager):
         Create SeparatedSubmission(s) from one Submission
         """
         fields = list(flatten(sub.fields, [sub.form_type], parent_uuid=sub.pk))
-        
+
         # Save the top level first (last in flattening list)
         root_data = fields[-1]
-        
+
         main, main_created = self.update_or_create(
             pk=sub.pk,
             defaults=dict(
@@ -123,18 +120,18 @@ class SeparatedSubmissionManager(models.Manager):
             ),
         )
 
-        results = []
-        
+        results: list[tuple[SeparatedSubmission, bool]] = []
+
         # Process repeaters. 'fields[:-1]' are the children.
         # We reverse to process top-level children before deeper children (Top-Down)
         repeater_data = reversed(fields[:-1])
-        
+
         for item_data in repeater_data:
-            res = self._save_repeater_chunk(main, item_data)
+            res = self._save_repeater_chunk(main, item_data)  # type: ignore[arg-type]
             if res:
                 results.append(res)
 
-        results.append((main, main_created))
+        results.append((main, main_created))  # type: ignore[arg-type]
 
         # Emit signals for each created/updated SeparatedSubmission
         from .signals import separated_submission_created
@@ -149,15 +146,13 @@ class SeparatedSubmissionManager(models.Manager):
         return results
 
     def _save_repeater_chunk(
-        self, 
-        main: SeparatedSubmission, 
-        data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int]
+        self, main: SeparatedSubmission, data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int]
     ) -> tuple[SeparatedSubmission, bool] | None:
         """
         Helper to save a single repeater item.
         """
         form_type_path, parent_uuid_val, form_fields, index = data_tuple
-        
+
         # The repeater name is the last element in the form_type list
         repeater_name = form_type_path[-1]
 
@@ -281,7 +276,7 @@ class SeparatedSubmission(models.Model):
             return None, False
 
         data = deepcopy(self.fields)
-        update_foreign_keys(model, data)
+        update_foreign_keys(model, data)  # type: ignore[arg-type]
 
         # If this is a 'repeater' it will also have the ID of its parent submission
         if self.repeater_parent:
@@ -311,7 +306,7 @@ class SeparatedSubmission(models.Model):
             has_submission_link = any(f.name == "submission" for f in model._meta.fields)
 
             if has_submission_link:
-                instance, created = model.objects.update_or_create(submission_id=self.pk, defaults=defaults)
+                instance, created = model.objects.update_or_create(submission_id=self.pk, defaults=defaults)  # type: ignore[attr-defined, union-attr]
                 return instance, created
             else:
                 logger.warning(f"Model {model} does not have a 'submission' field link.")

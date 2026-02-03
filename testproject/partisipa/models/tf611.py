@@ -51,7 +51,9 @@ class Tf611ProjectdetailsAbstract(models.Model):
 
     project_status = models.TextField(null=True, blank=True)  # From: tf_6_1_1 > projectdetails > project_status
     project_sector = models.TextField(null=True, blank=True)  # From: tf_6_1_1 > projectdetails > project_sector
-    project_sub_sector = models.TextField(null=True, blank=True)  # From: tf_6_1_1 > projectdetails > project_sub_sector
+    project_sub_sector = models.TextField(
+        null=True, blank=True
+    )  # From: tf_6_1_1 > projectdetails > project_sub_sector
     project_name = models.TextField(null=True, blank=True)  # From: tf_6_1_1 > projectdetails > project_name
     objective = models.TextField(null=True, blank=True)  # From: tf_6_1_1 > projectdetails > objective
     latitude = models.DecimalField(
@@ -71,11 +73,17 @@ class Tf611ProjectbeneficiariesAbstract(models.Model):
     class Meta:
         abstract = True
 
-    number_of_households = models.IntegerField(null=True, blank=True)  # From: tf_6_1_1 > projectbeneficiaries > number_of_households
+    number_of_households = models.IntegerField(
+        null=True, blank=True
+    )  # From: tf_6_1_1 > projectbeneficiaries > number_of_households
     no_of_women = models.IntegerField(null=True, blank=True)  # From: tf_6_1_1 > projectbeneficiaries > no_of_women
     no_of_men = models.IntegerField(null=True, blank=True)  # From: tf_6_1_1 > projectbeneficiaries > no_of_men
-    no_of_pwd_male = models.IntegerField(null=True, blank=True)  # From: tf_6_1_1 > projectbeneficiaries > no_of_pwd_male
-    no_of_pwd_female = models.IntegerField(null=True, blank=True)  # From: tf_6_1_1 > projectbeneficiaries > no_of_pwd_female
+    no_of_pwd_male = models.IntegerField(
+        null=True, blank=True
+    )  # From: tf_6_1_1 > projectbeneficiaries > no_of_pwd_male
+    no_of_pwd_female = models.IntegerField(
+        null=True, blank=True
+    )  # From: tf_6_1_1 > projectbeneficiaries > no_of_pwd_female
 
 
 class Tf611(
@@ -134,18 +142,14 @@ class Tf611Repeaterprojectoutput(models.Model):
     uuid = models.UUIDField(
         editable=False, null=True, blank=True
     )  # From: tf_6_1_1 > projectoutput > repeaterprojectoutput > uuid
-    output = models.TextField(
-        null=True, blank=True
-    )  # From: tf_6_1_1 > projectoutput > repeaterprojectoutput > output
+    output = models.TextField(null=True, blank=True)  # From: tf_6_1_1 > projectoutput > repeaterprojectoutput > output
     activity = models.TextField(
         null=True, blank=True
     )  # From: tf_6_1_1 > projectoutput > repeaterprojectoutput > activity
     quantity = models.IntegerField(
         null=True, blank=True
     )  # From: tf_6_1_1 > projectoutput > repeaterprojectoutput > quantity
-    unit = models.TextField(
-        null=True, blank=True
-    )  # From: tf_6_1_1 > projectoutput > repeaterprojectoutput > unit
+    unit = models.TextField(null=True, blank=True)  # From: tf_6_1_1 > projectoutput > repeaterprojectoutput > unit
     woman_priority = models.TextField(
         null=True, blank=True
     )  # From: tf_6_1_1 > projectoutput > repeaterprojectoutput > woman_priority

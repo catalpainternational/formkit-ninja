@@ -7,9 +7,9 @@ from django.apps import AppConfig
 
 class Complex_appConfig(AppConfig):
     """Configuration for complex_app app."""
-    
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'testproject.complex_app'
+
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "testproject.complex_app"
 
     def ready(self):
         """Import signal handlers when Django starts."""

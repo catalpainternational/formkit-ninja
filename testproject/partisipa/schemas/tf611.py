@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from typing import List, Optional
+from typing import List
 from uuid import UUID
 
 from ninja import Schema

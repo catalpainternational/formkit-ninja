@@ -1,6 +1,6 @@
-import pytest
-from formkit_ninja.formkit_schema import RepeaterNode, TextNode, GroupNode
+from formkit_ninja.formkit_schema import GroupNode, RepeaterNode, TextNode
 from formkit_ninja.parser.type_convert import NodePath
+
 
 def test_repeater_generation_root_empty():
     """
@@ -9,14 +9,15 @@ def test_repeater_generation_root_empty():
     """
     repeater = RepeaterNode(name="my_repeater", label="My Repeater", children=[])
     path = NodePath(repeater)
-    
+
     code = path.django_model_code
-    
+
     assert "class MyRepeater(models.Model):" in code
     assert 'submission = models.ForeignKey("SeparatedSubmission"' in code
     assert "ordinality = models.IntegerField()" in code
     # Root repeater has no parent FK
     assert "parent = models.ForeignKey" not in code
+
 
 def test_repeater_generation_with_children():
     """
@@ -25,12 +26,13 @@ def test_repeater_generation_with_children():
     child = TextNode(name="child_field", label="Child Field")
     repeater = RepeaterNode(name="my_repeater", label="My Repeater", children=[child])
     path = NodePath(repeater)
-    
+
     code = path.django_model_code
-    
+
     assert "class MyRepeater(models.Model):" in code
     assert "child_field = models.TextField" in code
     assert "pass" not in code
+
 
 def test_nested_repeater_generation():
     """
@@ -38,16 +40,17 @@ def test_nested_repeater_generation():
     """
     inner_repeater = RepeaterNode(name="inner", label="Inner", children=[])
     outer_group = GroupNode(name="outer", label="Outer", children=[inner_repeater])
-    
+
     outer_path = NodePath(outer_group)
     inner_path = outer_path / inner_repeater
-    
+
     code = inner_path.django_model_code
-    
+
     assert "class OuterInner(models.Model):" in code
     # Nested repeater has both parent AND submission FK
     assert 'parent = models.ForeignKey("Outer"' in code
     assert 'submission = models.ForeignKey("SeparatedSubmission"' in code
+
 
 def test_pydantic_repeater_generation():
     """
@@ -56,12 +59,13 @@ def test_pydantic_repeater_generation():
     child = TextNode(name="child_field", label="Child Field")
     repeater = RepeaterNode(name="my_repeater", label="My Repeater", children=[child])
     path = NodePath(repeater)
-    
+
     code = path.pydantic_model_code
-    
+
     assert "class MyRepeaterSchema(BaseModel):" in code
     assert "child_field: str | None = None" in code
     assert "ordinality: int | None = None" in code
+
 
 def test_nested_group_generates_abstract():
     """
@@ -69,15 +73,16 @@ def test_nested_group_generates_abstract():
     """
     inner_group = GroupNode(name="inner", label="Inner", children=[])
     outer_group = GroupNode(name="outer", label="Outer", children=[inner_group])
-    
+
     outer_path = NodePath(outer_group)
     inner_path = outer_path / inner_group
-    
+
     code = inner_path.django_model_code
-    
+
     assert "class OuterInnerAbstract(models.Model):" in code
     assert "class Meta:" in code
     assert "abstract = True" in code
+
 
 def test_root_group_generates_concrete():
     """
@@ -85,12 +90,13 @@ def test_root_group_generates_concrete():
     """
     group = GroupNode(name="my_group", label="My Group", children=[])
     path = NodePath(group)
-    
+
     code = path.django_model_code
-    
+
     assert "class MyGroup(models.Model):" in code
     assert "Abstract" not in code
     assert "abstract = True" not in code
+
 
 def test_nested_group_inheritance_preview():
     """
@@ -98,11 +104,10 @@ def test_nested_group_inheritance_preview():
     """
     inner_group = GroupNode(name="inner", label="Inner", children=[])
     outer_group = GroupNode(name="outer", label="Outer", children=[inner_group])
-    
+
     path = NodePath(outer_group)
     code = path.django_model_code
-    
+
     # Root inherits from nested abstract base
     assert "class Outer(OuterInnerAbstract, models.Model):" in code
     assert "# Inherits fields from OuterInnerAbstract" in code
-

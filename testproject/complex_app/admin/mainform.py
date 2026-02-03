@@ -4,6 +4,7 @@ Instead, make changes to the template and re-generate this file
 """
 
 from django.contrib import admin
+
 from .. import models
 
 

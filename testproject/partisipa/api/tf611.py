@@ -5,10 +5,11 @@ Instead, make changes to the template and re-generate this file
 
 from ninja import Router
 
+from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
+
 from .. import models
 from .. import schemas as schema_out
 from .. import schemas_in as schema_in
-from formkit_ninja.form_submission.models import Submission, SeparatedSubmission
 
 router = Router(tags=["tf611"])
 
@@ -30,9 +31,7 @@ def get_tf611(request, submission_id: str):
     """
     Get a single TF611 submission by ID.
     """
-    instance = models.Tf611.objects.prefetch_related("project_outputs").get(
-        submission_id=submission_id
-    )
+    instance = models.Tf611.objects.prefetch_related("project_outputs").get(submission_id=submission_id)
     return instance
 
 
@@ -65,9 +64,7 @@ def create_tf611(request, payload: schema_in.Tf611SchemaIn):
         )
 
         # Get the model instance linked to it
-        instance = models.Tf611.objects.prefetch_related("project_outputs").get(
-            submission=sep_sub
-        )
+        instance = models.Tf611.objects.prefetch_related("project_outputs").get(submission=sep_sub)
         return instance
 
     except (SeparatedSubmission.DoesNotExist, models.Tf611.DoesNotExist):

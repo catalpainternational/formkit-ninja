@@ -19,7 +19,6 @@ from django.db.models.functions import Greatest
 from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
-from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
 
 console = Console()
 log = console.log
@@ -431,6 +430,14 @@ class FormKitSchemaNode(UuidIdModel):
     )
     track_change = models.BigIntegerField(null=True, blank=True)
 
+    @property
+    def formkit(self):
+        return self.node.get("$formkit") if isinstance(self.node, dict) else None
+
+    @property
+    def name(self):
+        return self.node.get("name") if isinstance(self.node, dict) else None
+
     def __str__(self):
         return f"Node: {self.label}" if self.label else f"{self.node_type} {self.id}"
 
@@ -639,7 +646,7 @@ class FormKitSchemaNode(UuidIdModel):
         Return a list of ancestor nodes by following the nodechildren_set relationship upwards.
         Follows the first parent found for each node.
         """
-        ancestors = []
+        ancestors: list[FormKitSchemaNode] = []
         current = self
         while True:
             # nodechildren_set contains objects where current is the child
@@ -654,12 +661,12 @@ class FormKitSchemaNode(UuidIdModel):
                 break
         return ancestors
 
-    def get_node_path(self, recursive=True) -> list[formkit_schema.Node]:
+    def get_node_path(self, recursive=True) -> list[formkit_schema.Node | str]:
         """
         Return a list of Pydantic nodes representing the path from the root to this node.
         """
         ancestors = self.get_ancestors()
-        return [a.get_node(recursive=False) for a in ancestors] + [self.get_node(recursive=recursive)]
+        return [a.get_node(recursive=False) for a in ancestors] + [self.get_node(recursive=recursive)]  # type: ignore[return-value]
 
     def get_node(self, recursive=False, options=False, **kwargs) -> formkit_schema.Node | str:
         """

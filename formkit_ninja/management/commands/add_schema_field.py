@@ -8,7 +8,9 @@ This command allows users to:
 """
 
 from pathlib import Path
+
 from django.core.management.base import BaseCommand, CommandError
+
 from formkit_ninja import formkit_schema, models
 from formkit_ninja.parser.formatter import CodeFormatter
 from formkit_ninja.parser.generator import CodeGenerator
@@ -94,14 +96,14 @@ class Command(BaseCommand):
                 if component.node and component.node.node and component.node.node.get("name") == parent_node_name:
                     parent_node = component.node
                     break
-            
+
             if not parent_node:
                 # Also check children of components
                 for node in models.FormKitSchemaNode.objects.all():
                     if node.node and node.node.get("name") == parent_node_name:
                         parent_node = node
                         break
-            
+
             if not parent_node:
                 raise CommandError(f"Parent node '{parent_node_name}' not found in schema '{schema_label}'")
         else:
@@ -117,7 +119,7 @@ class Command(BaseCommand):
         parent_node_data = parent_node.node or {}
         parent_name = parent_node_data.get("name", "unknown")
         parent_formkit = parent_node_data.get("$formkit", "unknown")
-        
+
         self.stdout.write(f"Adding field to parent: {parent_name} ({parent_formkit})")
 
         # Check if parent can have children
@@ -132,7 +134,7 @@ class Command(BaseCommand):
 
         # Create the new field
         self.stdout.write(f"\nCreating new field: {field_name} ({field_type})")
-        
+
         new_node = models.FormKitSchemaNode.objects.create(
             node={"$formkit": field_type, "name": field_name},
             label=field_label,
@@ -156,9 +158,7 @@ class Command(BaseCommand):
             self._regenerate_code(schema, app_name, app_dir_str)
         elif app_name or app_dir_str:
             self.stdout.write(
-                self.style.WARNING(
-                    "\nWarning: Both --app-name and --app-dir are required to regenerate code"
-                )
+                self.style.WARNING("\nWarning: Both --app-name and --app-dir are required to regenerate code")
             )
 
         # Summary
@@ -168,7 +168,7 @@ class Command(BaseCommand):
         self.stdout.write(f"\nSchema: {schema_label}")
         self.stdout.write(f"Parent: {parent_name}")
         self.stdout.write(f"New field: {field_name} ({field_type})")
-        
+
         if app_name and app_dir_str:
             self.stdout.write("\n" + self.style.WARNING("Next steps:"))
             self.stdout.write("1. Review the generated code changes")
@@ -177,7 +177,7 @@ class Command(BaseCommand):
         else:
             self.stdout.write("\n" + self.style.WARNING("To regenerate code, run:"))
             self.stdout.write(
-                f"  ./manage.py add_schema_field --schema-label \"{schema_label}\" "
+                f'  ./manage.py add_schema_field --schema-label "{schema_label}" '
                 f"--field-type {field_type} --field-name {field_name} "
                 f"--app-name YOUR_APP --app-dir ./YOUR_APP\n"
             )
@@ -185,13 +185,13 @@ class Command(BaseCommand):
     def _regenerate_code(self, schema: models.FormKitSchema, app_name: str, app_dir_str: str):
         """Regenerate code for the app."""
         app_dir = Path(app_dir_str).resolve()
-        
+
         if not app_dir.exists():
             raise CommandError(f"App directory does not exist: {app_dir}")
 
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
-        
+
         config = GeneratorConfig(
             app_name=app_name,
             output_dir=app_dir,

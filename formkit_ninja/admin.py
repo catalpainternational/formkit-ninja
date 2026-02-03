@@ -6,6 +6,7 @@ from functools import reduce
 from typing import Any
 
 import django.core.exceptions
+import pghistory.admin
 from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
@@ -16,7 +17,10 @@ from formkit_ninja import (
     formkit_schema,
     models,
 )
-import pghistory.admin
+from formkit_ninja.form_submission.models import (
+    SeparatedSubmission,
+    Submission,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -343,12 +347,12 @@ class FormKitNodeRepeaterForm(FormKitNodeForm):
 
 class FormKitTextNode(FormKitBaseForm):
     class Meta(FormKitBaseForm.Meta):
-        fields = FormKitBaseForm.Meta.fields + ("text_content",)
+        fields = FormKitBaseForm.Meta.fields + ("text_content",)  # type: ignore[assignment]
 
 
 class FormKitElementForm(FormKitBaseForm):
     class Meta(FormKitBaseForm.Meta):
-        fields = FormKitBaseForm.Meta.fields + ("text_content",)
+        fields = FormKitBaseForm.Meta.fields + ("text_content",)  # type: ignore[assignment]
 
     _json_fields = {"node": (("el", "$el"), "name", "if_condition", "attrs__class")}
 
@@ -535,7 +539,10 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                         "pydantic_code_preview",
                         "formkit_node_preview",
                     ),
-                    "description": "These values are the primary source of truth for code generation. If empty, they are auto-resolved on save from global configs.",
+                    "description": (
+                        "These values are the source of truth for code generation. "
+                        "If empty, they are auto-resolved on save from global configs."
+                    ),
                 },
             )
         )
@@ -545,6 +552,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     def django_code_preview(self, obj):
         """Show what the Django model field code will look like."""
         from django.utils.html import format_html
+
         if not obj or not obj.pk:
             return "(Save node to see preview)"
 
@@ -559,8 +567,13 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             path = NodePath(*nodes)
             code = path.django_model_code
 
+            style = (
+                "background: #f8f9fa; padding: 10px; border-radius: 4px; "
+                "border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;"
+            )
             return format_html(
-                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;">{}</pre>',
+                '<pre style="{}">{}</pre>',
+                style,
                 code,
             )
         except Exception as e:
@@ -570,6 +583,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     def pydantic_code_preview(self, obj):
         """Show what the Pydantic schema code will look like."""
         from django.utils.html import format_html
+
         if not obj or not obj.pk:
             return "(Save node to see preview)"
 
@@ -584,8 +598,13 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             path = NodePath(*nodes)
             code = path.pydantic_model_code
 
+            style = (
+                "background: #f8f9fa; padding: 10px; border-radius: 4px; "
+                "border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;"
+            )
             return format_html(
-                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;">{}</pre>',
+                '<pre style="{}">{}</pre>',
+                style,
                 code,
             )
         except Exception as e:
@@ -597,6 +616,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         import json
 
         from django.utils.html import format_html
+
         if not obj or not obj.pk:
             return "(Save node to see preview)"
 
@@ -614,8 +634,15 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             # Format as pretty JSON
             code = json.dumps(node_values, indent=2, ensure_ascii=False)
 
+            style = (
+                "background: #f1f3f5; padding: 10px; border-radius: 4px; "
+                "border: 1px solid #ced4da; color: #212529; overflow: auto; "
+                "max-height: 400px; font-family: monospace; font-size: 11px; "
+                "white-space: pre-wrap; word-break: break-all;"
+            )
             return format_html(
-                '<pre style="background: #f1f3f5; padding: 10px; border-radius: 4px; border: 1px solid #ced4da; color: #212529; overflow: auto; max-height: 400px; font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all;">{}</pre>',
+                '<pre style="{}">{}</pre>',
+                style,
                 code,
             )
         except Exception as e:
@@ -714,27 +741,24 @@ class OptionLabelAdmin(admin.ModelAdmin):
     search_fields = ("label",)
 
 
-# Import submission models
-from formkit_ninja.form_submission.models import (
-    SeparatedSubmission,
-    Submission,
-)
-from django.apps import apps
+# NOTE: SeparatedSubmission and Submission are imported at the top of the file
 
 
-@admin.register(Submission.pgh_event_model)
+@admin.register(Submission.pgh_event_model)  # type: ignore[attr-defined]
 class SubmissionEventAdmin(pghistory.admin.EventModelAdmin):
     """
     Admin for Submission events.
     """
+
     pass
 
 
-@admin.register(SeparatedSubmission.pgh_event_model)
+@admin.register(SeparatedSubmission.pgh_event_model)  # type: ignore[attr-defined]
 class SeparatedSubmissionEventAdmin(pghistory.admin.EventModelAdmin):
     """
     Admin for SeparatedSubmission events.
     """
+
     pass
 
 
@@ -749,6 +773,7 @@ class SeparatedSubmissionForm(forms.ModelForm):
 
 class SeparatedSubmissionInline(admin.TabularInline):
     """Inline for showing separated submissions within a Submission."""
+
     model = SeparatedSubmission
     form = SeparatedSubmissionForm
     extra = 0
@@ -760,6 +785,7 @@ class SeparatedSubmissionInline(admin.TabularInline):
 @admin.register(Submission)
 class SubmissionAdmin(admin.ModelAdmin):
     """Admin for Submission model."""
+
     list_display = ("key", "user", "created", "status", "form_type", "is_verified", "is_active")
     list_filter = ("is_active", "user", "status", "form_type")
     readonly_fields = ("key", "created", "updated")
@@ -775,6 +801,7 @@ class SubmissionAdmin(admin.ModelAdmin):
 @admin.register(SeparatedSubmission)
 class SeparatedSubmissionAdmin(admin.ModelAdmin):
     """Admin for SeparatedSubmission model."""
+
     list_display = ("id", "user", "created", "status", "form_type", "is_verified", "repeater_key", "repeater_order")
     list_filter = ("user", "status", "form_type")
     readonly_fields = [f.name for f in SeparatedSubmission._meta.fields]
