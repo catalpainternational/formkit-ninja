@@ -19,6 +19,7 @@ from django.db.models.functions import Greatest
 from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
+from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
 
 console = Console()
 log = console.log
@@ -392,22 +393,37 @@ class FormKitSchemaNode(UuidIdModel):
     down_control = models.BooleanField(default=True)
 
     # Code Generation Source of Truth
-    django_field_type = models.CharField(max_length=100, null=True, blank=True, help_text="Override Django field type")
+    django_field_type = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="The Django Model Field class to use (e.g., 'CharField', 'IntegerField', 'ForeignKey'). "
+        "Providing this makes this field the primary source of truth for code generation.",
+    )
     django_field_args = models.JSONField(
         default=dict,
         blank=True,
-        help_text='Django field arguments as JSON dict (e.g., {"null": true, "blank": true})',
+        help_text="Arguments passed to the Django field as a JSON dictionary. "
+        "Example: {'null': true, 'blank': true, 'max_length': 255}. "
+        "For ForeignKeys, include the model name: {'to': 'auth.User', 'on_delete': 'models.CASCADE'}.",
     )
-    pydantic_field_type = models.CharField(max_length=100, null=True, blank=True, help_text="Override Pydantic type")
+    pydantic_field_type = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="The Python/Pydantic type for this field (e.g., 'str', 'int', 'Decimal', 'UUID', 'date').",
+    )
     extra_imports = models.JSONField(
         default=list,
         blank=True,
-        help_text='List of import statements (e.g., ["from decimal import Decimal"])',
+        help_text="A list of additional Python import statements required by this field. "
+        "Example: ['from decimal import Decimal', 'from django.core.validators import MinValueValidator'].",
     )
     validators = models.JSONField(
         default=list,
         blank=True,
-        help_text='List of validator strings (e.g., ["MinValueValidator(0)"])',
+        help_text="A list of Django/Pydantic validator strings to be applied to this field. "
+        "Example: ['MinValueValidator(0)', 'validate_v_date'].",
     )
 
     text_content = models.TextField(
@@ -599,8 +615,16 @@ class FormKitSchemaNode(UuidIdModel):
         if self.validators:
             values["validators"] = self.validators
 
+        # Merge additional_props into the top level and ensure it's removed as a separate key
+        values.pop("additional_props", None)
         if self.additional_props and len(self.additional_props) > 0:
-            values.update(self.additional_props)
+            # Handle nested additional_props structure
+            props_to_merge = self.additional_props
+            if "additional_props" in props_to_merge:
+                props_to_merge = props_to_merge["additional_props"]
+            # Filter out None values to prevent Pydantic validation errors
+            clean_props = {k: v for k, v in props_to_merge.items() if v is not None}
+            values.update(clean_props)
 
         if values == {}:
             if self.node_type == "$el":
@@ -609,6 +633,33 @@ class FormKitSchemaNode(UuidIdModel):
                 values.update({"$formkit": "text"})
 
         return values
+
+    def get_ancestors(self) -> list["FormKitSchemaNode"]:
+        """
+        Return a list of ancestor nodes by following the nodechildren_set relationship upwards.
+        Follows the first parent found for each node.
+        """
+        ancestors = []
+        current = self
+        while True:
+            # nodechildren_set contains objects where current is the child
+            nc = current.nodechildren_set.first()
+            if not nc:
+                break
+            current = nc.parent
+            if current in ancestors:  # Avoid infinite cycles
+                break
+            ancestors.insert(0, current)
+            if len(ancestors) > 20:  # Safety limit
+                break
+        return ancestors
+
+    def get_node_path(self, recursive=True) -> list[formkit_schema.Node]:
+        """
+        Return a list of Pydantic nodes representing the path from the root to this node.
+        """
+        ancestors = self.get_ancestors()
+        return [a.get_node(recursive=False) for a in ancestors] + [self.get_node(recursive=recursive)]
 
     def get_node(self, recursive=False, options=False, **kwargs) -> formkit_schema.Node | str:
         """

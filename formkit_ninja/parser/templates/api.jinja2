@@ -24,3 +24,37 @@ def {{this.classname_lower}}(request):
     return queryset
 {% endif %}
 
+
+{% if not this.is_abstract_base %}
+@router.post("{{this.classname_lower}}", response=schema_out.{{this.classname_schema}})
+def create_{{this.classname_lower}}(request, payload: schema_in.{{this.classname_schema}}):
+    data = payload.dict(exclude_unset=True)
+    
+    # Create a Submission entry
+    submission = Submission.objects.create(
+        fields=data,
+        form_type="{{this.classname}}",
+    )
+    
+    # The signal handlers should have run synchronously.
+    # We need to find the specific model instance that was created.
+    # 1. Find the parent SeparatedSubmission
+    try:
+        # For the root object, repeater_parent is None and form_type matches
+        sep_sub = SeparatedSubmission.objects.get(
+            submission=submission,
+            form_type="{{this.classname}}",
+            repeater_parent__isnull=True
+        )
+        
+        # 2. Get the model instance linked to it
+        instance = models.{{this.classname}}.objects.get(submission=sep_sub)
+        return instance
+        
+    except (SeparatedSubmission.DoesNotExist, models.{{this.classname}}.DoesNotExist):
+        # Fallback or error handling
+        # If signal failed or async, we might return something else or 202 Accepted
+        # But here we expect synchronous success
+        raise Exception("Submission processing failed or model not created.")
+{% endif %}
+

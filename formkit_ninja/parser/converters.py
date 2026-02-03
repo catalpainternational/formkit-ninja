@@ -57,9 +57,48 @@ class TypeConverter(Protocol):
         """
         ...
 
-    # Note: can_convert_by_name() and can_convert_by_options() are optional methods.
-    # They are not part of the Protocol to maintain backward compatibility.
-    # The registry checks for their existence using hasattr() before calling them.
+    def to_django_type(self, node: FormKitType) -> str:
+        """Return the Django field type string."""
+        ...
+
+    def to_django_args(self, node: FormKitType) -> dict[str, str]:
+        """Return a dict of Django field arguments."""
+        ...
+
+    @property
+    def validators(self) -> list[str]:
+        """Return a list of validator strings."""
+        ...
+
+    @property
+    def extra_imports(self) -> list[str]:
+        """Return a list of extra import statements."""
+        ...
+
+
+class BaseConverter:
+    """
+    Optional base class for converters that provides default implementations
+    for the new Django and metadata methods.
+    """
+
+    def to_django_type(self, node: FormKitType) -> str:
+        """Default fallback to TextField."""
+        return "TextField"
+
+    def to_django_args(self, node: FormKitType) -> dict[str, str]:
+        """Default fallback to null=True, blank=True."""
+        return {"null": "True", "blank": "True"}
+
+    @property
+    def validators(self) -> list[str]:
+        """Default to no validators."""
+        return []
+
+    @property
+    def extra_imports(self) -> list[str]:
+        """Default to no extra imports."""
+        return []
 
 
 class TypeConverterRegistry:
@@ -131,13 +170,27 @@ class TypeConverterRegistry:
         return None
 
 
-class TextConverter:
+class TextConverter(BaseConverter):
     """
     Converter for text-based FormKit nodes.
 
     Handles: text, textarea, email, password, hidden, select, dropdown, radio, autocomplete
     Returns: "str"
     """
+
+    @property
+    def validators(self) -> list[str]:
+        return []
+
+    @property
+    def extra_imports(self) -> list[str]:
+        return []
+
+    def to_django_type(self, node: FormKitType) -> str:
+        return "TextField"
+
+    def to_django_args(self, node: FormKitType) -> dict[str, str]:
+        return {"null": "True", "blank": "True"}
 
     def can_convert(self, node: FormKitType) -> bool:
         """
@@ -178,13 +231,29 @@ class TextConverter:
         return "str"
 
 
-class NumberConverter:
+class NumberConverter(BaseConverter):
     """
     Converter for number-based FormKit nodes.
 
     Handles: number, tel
     Returns: "int" or "float" depending on step attribute
     """
+
+    @property
+    def validators(self) -> list[str]:
+        return []
+
+    @property
+    def extra_imports(self) -> list[str]:
+        return []
+
+    def to_django_type(self, node: FormKitType) -> str:
+        if self.to_pydantic_type(node) == "float":
+            return "FloatField"
+        return "IntegerField"
+
+    def to_django_args(self, node: FormKitType) -> dict[str, str]:
+        return {"null": "True", "blank": "True"}
 
     def can_convert(self, node: FormKitType) -> bool:
         """
@@ -226,13 +295,27 @@ class NumberConverter:
         return "int"
 
 
-class DateConverter:
+class DateConverter(BaseConverter):
     """
     Converter for date-based FormKit nodes.
 
     Handles: datepicker, date
     Returns: "date" for both datepicker and date nodes (generates DateField)
     """
+
+    @property
+    def validators(self) -> list[str]:
+        return []
+
+    @property
+    def extra_imports(self) -> list[str]:
+        return []
+
+    def to_django_type(self, node: FormKitType) -> str:
+        return "DateField"
+
+    def to_django_args(self, node: FormKitType) -> dict[str, str]:
+        return {"null": "True", "blank": "True"}
 
     def can_convert(self, node: FormKitType) -> bool:
         """
@@ -277,13 +360,27 @@ class DateConverter:
         return "date"
 
 
-class BooleanConverter:
+class BooleanConverter(BaseConverter):
     """
     Converter for boolean FormKit nodes.
 
     Handles: checkbox
     Returns: "bool"
     """
+
+    @property
+    def validators(self) -> list[str]:
+        return []
+
+    @property
+    def extra_imports(self) -> list[str]:
+        return []
+
+    def to_django_type(self, node: FormKitType) -> str:
+        return "BooleanField"
+
+    def to_django_args(self, node: FormKitType) -> dict[str, str]:
+        return {"null": "True", "blank": "True"}
 
     def can_convert(self, node: FormKitType) -> bool:
         """
@@ -313,13 +410,27 @@ class BooleanConverter:
         return "bool"
 
 
-class UuidConverter:
+class UuidConverter(BaseConverter):
     """
     Converter for UUID FormKit nodes.
 
     Handles: uuid
     Returns: "UUID"
     """
+
+    @property
+    def validators(self) -> list[str]:
+        return []
+
+    @property
+    def extra_imports(self) -> list[str]:
+        return []
+
+    def to_django_type(self, node: FormKitType) -> str:
+        return "UUIDField"
+
+    def to_django_args(self, node: FormKitType) -> dict[str, str]:
+        return {"editable": "False", "null": "True", "blank": "True"}
 
     def can_convert(self, node: FormKitType) -> bool:
         """
@@ -349,13 +460,32 @@ class UuidConverter:
         return "UUID"
 
 
-class CurrencyConverter:
+class CurrencyConverter(BaseConverter):
     """
     Converter for currency FormKit nodes.
 
     Handles: currency
     Returns: "Decimal"
     """
+
+    @property
+    def validators(self) -> list[str]:
+        return []
+
+    @property
+    def extra_imports(self) -> list[str]:
+        return ["from decimal import Decimal"]
+
+    def to_django_type(self, node: FormKitType) -> str:
+        return "DecimalField"
+
+    def to_django_args(self, node: FormKitType) -> dict[str, str]:
+        return {
+            "max_digits": "20",
+            "decimal_places": "2",
+            "null": "True",
+            "blank": "True",
+        }
 
     def can_convert(self, node: FormKitType) -> bool:
         """

@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from formkit_ninja.code_generation_config import CodeGenerationConfig
-from formkit_ninja.form_submission.models import SeparatedSubmission
 from formkit_ninja.models import SeparatedSubmission, Submission
 from formkit_ninja.parser.database_node_path import DatabaseNodePath
 from formkit_ninja.parser.formatter import CodeFormatter

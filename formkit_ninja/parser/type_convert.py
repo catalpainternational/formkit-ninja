@@ -6,7 +6,7 @@ from keyword import iskeyword
 from typing import Generator, Iterable, Literal, cast
 
 from formkit_ninja import formkit_schema
-from formkit_ninja.formkit_schema import GroupNode, RepeaterNode
+from formkit_ninja.formkit_schema import FormKitSchemaDOMNode, GroupNode, RepeaterNode
 from formkit_ninja.parser.converters import TypeConverterRegistry, default_registry
 from formkit_ninja.parser.node_factory import FormKitNodeFactory
 
@@ -93,6 +93,9 @@ class NodePath:
         model_name = "".join(map(self.safe_node_name, self.nodes))
         return model_name
 
+    def _to_pascal(self, s: str) -> str:
+        return "".join(part.capitalize() for part in s.split("_") if part)
+
     def suggest_class_name(self):
         # If this is a repeater, skip wrapping group nodes in the classname
         # Example: TF_6_1_1 > projectoutput > repeaterProjectOutput
@@ -116,10 +119,10 @@ class NodePath:
                         # Not a group, include it
                         filtered_nodes.append(node)
                     # If it is a group, skip it
-            model_name = "".join(map(lambda n: n.capitalize(), map(self.safe_node_name, filtered_nodes)))
+            model_name = "".join(map(self._to_pascal, map(self.safe_node_name, filtered_nodes)))
         else:
             # For non-repeaters, use all nodes as before
-            model_name = "".join(map(lambda n: n.capitalize(), map(self.safe_node_name, self.nodes)))
+            model_name = "".join(map(self._to_pascal, map(self.safe_node_name, self.nodes)))
         return model_name
 
     def suggest_field_name(self):
@@ -196,10 +199,23 @@ class NodePath:
         return isinstance(self.node, GroupNode)
 
     @property
+    def is_el(self):
+        """Returns True if this is a $el (HTML element) node."""
+        return isinstance(self.node, FormKitSchemaDOMNode)
+
+    @property
     def formkits(self) -> Iterable["NodePath"]:
+        """
+        Iterate over FormKit nodes, recursing through layout elements ($el) 
+        to find nested inputs.
+        """
         for n in self.children:
+            child_path = self / n
             if hasattr(n, "formkit"):
-                yield self / n
+                yield child_path
+            elif child_path.is_el:
+                # Recurse into $el layout nodes to find nested FormKit inputs
+                yield from child_path.formkits
 
     @property
     def formkits_not_repeaters(self) -> Iterable["NodePath"]:
@@ -209,6 +225,20 @@ class NodePath:
                     yield self / n
 
         return tuple(_get())
+
+    @property
+    def flat_pydantic_fields(self) -> Iterable["NodePath"]:
+        """
+        Recursively collect all fields that should be part of this Pydantic model's flat structure.
+        Groups are merged, repeaters remain as separate field entries.
+        """
+        for child in self.formkits:
+            if child.is_group:
+                # Recurse into groups to merge their fields
+                yield from child.flat_pydantic_fields
+            else:
+                # Fields and Repeaters remain as fields in this model
+                yield child
 
     @property
     def children(self):
@@ -274,13 +304,16 @@ class NodePath:
         """
         Returns True if this NodePath should be generated as an abstract base class.
 
-        This is True when:
-        - This is an immediate child group of a root-level group (depth=2)
-        - Merging is enabled in config
-        - This NodePath is marked as an abstract base in abstract_base_info
+        In the admin preview (and for general nested groups), any nested group
+        is handled as an abstract base for its parent.
         """
         if not self.is_group:
             return False
+
+        # In the admin preview/general case, nested groups are abstract
+        if self.is_child:
+            return True
+
         if not self._config or not getattr(self._config, "merge_top_level_groups", False):
             return False
         # Check if this NodePath classname is marked as abstract base
@@ -320,15 +353,22 @@ class NodePath:
     @property
     def parent_abstract_bases(self) -> list[str]:
         """
-        Returns list of abstract base class names that the parent should inherit from.
-
-        This is only relevant for root-level groups when merging is enabled.
+        Returns list of abstract base class names that this class should inherit from.
         """
-        if not self.is_group:
+        if not (self.is_group or self.is_repeater):
             return []
-        if not self._config or not getattr(self._config, "merge_top_level_groups", False):
-            return []
-        return self._child_abstract_bases
+
+        bases = []
+        for group in self.groups:
+            if group.is_abstract_base:
+                bases.append(group.abstract_class_name)
+
+        # Fallback to config-driven bases if merge_top_level_groups is enabled
+        if self._config and getattr(self._config, "merge_top_level_groups", False):
+            for base in self._child_abstract_bases:
+                if base not in bases:
+                    bases.append(base)
+        return bases
 
     def to_pydantic_type(self) -> str:
         """
@@ -416,7 +456,7 @@ class NodePath:
         # 3. Fall back to default converter/registry
         node = self.node
         converter = self._type_converter_registry.get_converter(node)
-        if converter is not None:
+        if converter is not None and hasattr(converter, "to_django_type"):
             return converter.to_django_type(node)
 
         # Fallback to match logic based on pydantic type
@@ -535,7 +575,7 @@ class NodePath:
         # 2. Use converter/registry defaults if available
         node = self.node
         converter = self._type_converter_registry.get_converter(node)
-        if converter is not None:
+        if converter is not None and hasattr(converter, "to_django_args"):
             args_dict = converter.to_django_args(node)
             # Logic to convert dict to string (same as DatabaseNodePath uses)
             from formkit_ninja.parser.database_node_path import DatabaseNodePath
@@ -563,7 +603,11 @@ class NodePath:
         Returns extra fields to be appended to this group or
         repeater node in "models.py"
         """
-        return []
+        if self.is_abstract_base:
+            return []
+        return [
+            'submission = models.OneToOneField("formkit_ninja.SeparatedSubmission", on_delete=models.CASCADE, primary_key=True, related_name="+")'
+        ]
 
     @property
     def has_schema_content(self) -> bool:
@@ -644,6 +688,43 @@ class NodePath:
         return []
 
     @property
+    def pydantic_extra_attribs(self) -> list[str]:
+        """
+        Returns extra fields to be added to the Pydantic model.
+        For the root model, we often need submission ID and other metadata.
+        """
+        if self.is_child:
+            return []
+
+        # This matches the user example for Sf_6_2
+        attribs = [
+            'id: UUID = Field(alias="submission")',
+            f'form_type: Literal["{self.classname}"] = "{self.classname}"',
+        ]
+
+        # Specific metadata fields often needed for questionnaires
+        metadata = [
+            "district: int | None = None",
+            "administrative_post: int | None = None",
+            "suco: int | None = None",
+            "aldeia: int | None = None",
+            "date: date | None = None",
+            "month: int | None = None",
+            "year: int | None = None",
+            "project_name: int | None = None",
+            "project: int | None = None",
+        ]
+
+        # Avoid duplication if they are already in the FormKit schema
+        schema_names = {f.fieldname for f in self.flat_pydantic_fields}
+        for m in metadata:
+            name = m.split(":")[0].strip()
+            if name not in schema_names:
+                attribs.append(m)
+
+        return attribs
+
+    @property
     def validators(self) -> list[str]:
         """
         Hook to allow extra processing for
@@ -666,7 +747,7 @@ class NodePath:
         # 2. Fall back to converter
         node = self.node
         converter = self._type_converter_registry.get_converter(node)
-        if converter is not None:
+        if converter is not None and hasattr(converter, "validators"):
             return converter.validators
 
         # 3. Legacy logic (actually the original get_validators was mostly empty or delegating)
@@ -697,7 +778,7 @@ class NodePath:
         # 2. Fall back to converter
         node = self.node
         converter = self._type_converter_registry.get_converter(node)
-        if converter is not None:
+        if converter is not None and hasattr(converter, "extra_imports"):
             return converter.extra_imports
 
         return []
@@ -791,6 +872,8 @@ class NodePath:
 
         return code
 
+        return code
+
     @property
     def pydantic_code(self) -> str:
         """
@@ -817,3 +900,150 @@ class NodePath:
             ) from e
 
         return code
+
+    @property
+    def django_model_code(self) -> str:
+        """
+        Generate the complete Django model code for this node (if it's a group or repeater).
+
+        Includes:
+        - Class definition (abstract for nested groups)
+        - ForeignKey relationships for repeaters
+        - Child field definitions
+        - Nested groups and repeaters as comments
+        """
+        # $el (layout) nodes and text nodes don't generate Django models/fields
+        if self.is_el:
+            return "# $el (HTML layout element) nodes do not generate Django fields"
+        if isinstance(self.node, str):
+            return "# Text nodes do not generate Django fields"
+        
+        if not (self.is_group or self.is_repeater):
+            # For simple fields, just return the field definition
+            return self.django_code
+
+        lines = []
+
+        # Determine class name and inheritance
+        is_abstract = self.is_abstract_base
+        class_suffix = "Abstract" if is_abstract else ""
+        class_name = f"{self.classname}{class_suffix}"
+
+        if self.parent_abstract_bases:
+            lines.append(f"class {class_name}({', '.join(self.parent_abstract_bases)}, models.Model):")
+        else:
+            lines.append(f"class {class_name}(models.Model):")
+
+        lines.append('    """')
+        lines.append(f"    {self.get_node_info_docstring()}")
+        lines.append('    """')
+
+        has_content = False
+
+        if self.is_repeater:
+            # Repeaters always have submission FK
+            lines.append(
+                '    submission = models.ForeignKey("SeparatedSubmission", on_delete=models.CASCADE, null=True)'
+            )
+            has_content = True
+
+            # Nested repeaters also have parent FK
+            if self.depth > 1:
+                try:
+                    parent_name = (self / "..").classname
+                except Exception:
+                    parent_name = "ParentModel"
+                node_name = getattr(self.node, "name", "repeater_field") or "repeater_field"
+                lines.append(
+                    f'    parent = models.ForeignKey("{parent_name}", on_delete=models.CASCADE, related_name="{node_name}")'
+                )
+
+            # Ordinality for list ordering
+            lines.append("    ordinality = models.IntegerField()")
+
+        # Extra attributes (submission, project, etc.)
+        for extra in self.extra_attribs:
+            lines.append(f"    {extra}")
+            has_content = True
+
+        # Add fields from children (non-repeater, non-group fields)
+        for child_path in self.formkits_not_repeaters:
+            if not child_path.is_abstract_base and not child_path.is_group:
+                lines.append(f"    {child_path.django_code}")
+                has_content = True
+
+        # Show child groups (as OneToOneField or abstract reference)
+        for group_path in self.groups:
+            if group_path.is_abstract_base:
+                lines.append(f"    # Inherits fields from {group_path.classname}Abstract")
+            else:
+                lines.append(f"    {group_path.fieldname} = models.OneToOneField({group_path.classname}, on_delete=models.CASCADE)")
+            has_content = True
+
+        # Show child repeaters (as related name reference)
+        for repeater_path in self.repeaters:
+            node_name = getattr(repeater_path.node, "name", "items") or "items"
+            lines.append(f"    # {node_name}: list[{repeater_path.classname}] via ForeignKey")
+            has_content = True
+
+        # Abstract class Meta
+        if is_abstract:
+            lines.append("")
+            lines.append("    class Meta:")
+            lines.append("        abstract = True")
+            has_content = True
+
+        # If no fields at all, add pass
+        if not has_content:
+            lines.append("    pass")
+
+        return "\n".join(lines)
+
+    @property
+    def pydantic_model_code(self) -> str:
+        """
+        Generate the complete Pydantic model code for this node (if it's a group or repeater).
+        """
+        # $el (layout) nodes and text nodes don't generate Pydantic models/fields
+        if self.is_el:
+            return "# $el (HTML layout element) nodes do not generate Pydantic fields"
+        if isinstance(self.node, str):
+            return "# Text nodes do not generate Pydantic fields"
+        
+        if not (self.is_group or self.is_repeater):
+            # For simple fields, just return the field definition
+            return self.pydantic_code
+
+        lines = []
+        lines.append(f"class {self.classname_schema}(BaseModel):")
+        lines.append('    """')
+        lines.append(f"    {self.get_node_info_docstring()}")
+        lines.append('    """')
+
+        has_content = False
+
+        # Add fields from flat descendants (merges nested groups)
+        for child_path in self.flat_pydantic_fields:
+            lines.append(f"    {child_path.pydantic_code}")
+            has_content = True
+
+        # Add extra attributes (metadata for root model)
+        for extra in self.pydantic_extra_attribs:
+            lines.append(f"    {extra}")
+            has_content = True
+
+        if self.is_repeater:
+            # Repeaters often include an ordinality/index in Pydantic too
+            lines.append("    ordinality: int | None = None")
+            has_content = True
+
+        # Add validators
+        for child_path in self.flat_pydantic_fields:
+            for v in child_path.validators:
+                lines.append(f"    {v}")
+                has_content = True
+
+        if not has_content:
+            lines.append("    pass")
+
+        return "\n".join(lines)

@@ -121,11 +121,11 @@ class FormKitSchemaProps(BaseModel):
     sectionsSchema: dict[str, Any] | None = Field(None)
 
     # Code Generation Source of Truth
-    django_field_type: str | None = Field(None)
-    django_field_args: dict[str, Any] = Field(default_factory=dict)
-    pydantic_field_type: str | None = Field(None)
-    extra_imports: list[str] = Field(default_factory=list)
-    validators: list[str] = Field(default_factory=list)
+    django_field_type: str | None = Field(None, exclude=True)
+    django_field_args: dict[str, Any] = Field(default_factory=dict, exclude=True)
+    pydantic_field_type: str | None = Field(None, exclude=True)
+    extra_imports: list[str] = Field(default_factory=list, exclude=True)
+    validators: list[str] = Field(default_factory=list, exclude=True)
 
     # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
@@ -141,10 +141,17 @@ class FormKitSchemaProps(BaseModel):
         if "exclude_none" not in kwargs:
             kwargs["exclude_none"] = True
         _ = super().dict(*args, **kwargs)
+
+        # Merge additional_props if they exist
         if "additional_props" in _:
-            _.update(_["additional_props"])
+            additional = _["additional_props"]
+            if additional:
+                _.update(additional)
             del _["additional_props"]
-        return _
+
+        # Filter out empty strings
+        # We do this after merging additional_props so they are also cleaned
+        return {k: v for k, v in _.items() if v != ""}
 
 
 # We defined this after the model above as it's a circular reference

@@ -16,3 +16,9 @@ from ninja import Schema
 {% include "schema.jinja2" %}
 {% endwith %}
 {% endfor %}
+
+{% for nodepath in nodepaths %}
+{% if not nodepath.is_abstract_base %}
+{{nodepath.classname_schema}}.update_forward_refs()
+{% endif %}
+{% endfor %}

@@ -24,6 +24,27 @@ INSTALLED_APPS = [
 ]
 ```
 
+## Quick Start for New Users
+
+⭐ **NEW** - Create complete data collection apps with minimal coding!
+
+```bash
+# 1. Create a FormKit schema
+./manage.py create_schema --label "Contact Form"
+
+# 2. Bootstrap a complete Django app
+./manage.py bootstrap_app --schema-label "Contact Form" --app-name contacts
+
+# 3. Add to INSTALLED_APPS and migrate
+# (Edit settings.py to add 'contacts')
+./manage.py makemigrations && ./manage.py migrate
+
+# 4. Start collecting data!
+./manage.py runserver
+```
+
+See the [Quick Start Guide](docs/quick_start.md) for a complete walkthrough.
+
 ## Code Generation
 
 ⭐ **NEW in v0.8.1** - Database-driven code generation! Configure type mappings and field overrides through Django admin without writing Python code.

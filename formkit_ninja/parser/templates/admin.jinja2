@@ -1,8 +1,6 @@
 {# Recursion removed to avoid duplicate generation #}
-{% if this.is_repeater %}
-class {{this.classname}}Inline(ReadOnlyInline):
-    model = models.{{this.classname}}
-{% endif %}
+{# Inline classes are generated in admin.py.jinja2 (first pass) #}
+{# This template only generates admin classes (second pass) #}
 {% if this.is_group or this.is_repeater %}
 {% if not this.is_abstract_base %}
 @admin.register(models.{{this.classname}})

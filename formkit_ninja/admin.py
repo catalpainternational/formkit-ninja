@@ -16,6 +16,7 @@ from formkit_ninja import (
     formkit_schema,
     models,
 )
+import pghistory.admin
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 try:
     from formkit_ninja.admin_code_generation import PrettyJSONWidget
 except ImportError:
-    PrettyJSONWidget = forms.Textarea
+    PrettyJSONWidget = forms.Textarea  # type: ignore[assignment, misc]
 
 
 # Define fields in JSON with a tuple of fields
@@ -161,6 +162,27 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
     Base form for all FormKit-related nodes.
     """
 
+    class Meta:
+        model = models.FormKitSchemaNode
+        fields = (
+            "label",
+            "description",
+            "is_active",
+            "protected",
+            "django_field_type",
+            "django_field_args",
+            "pydantic_field_type",
+            "extra_imports",
+            "validators",
+        )
+
+    # Code Generation Overrides
+    django_field_type = forms.CharField(required=False)
+    django_field_args = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
+    pydantic_field_type = forms.CharField(required=False)
+    extra_imports = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
+    validators = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if instance := kwargs.get("instance"):
@@ -206,7 +228,18 @@ class FormKitSchemaComponentInline(admin.TabularInline):
 class FormKitNodeGroupForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "additional_props", "is_active", "protected")
+        fields = (
+            "label",
+            "description",
+            "additional_props",
+            "is_active",
+            "protected",
+            "django_field_type",
+            "django_field_args",
+            "pydantic_field_type",
+            "extra_imports",
+            "validators",
+        )
 
     _json_fields = {
         "node": ("name", ("formkit", "$formkit"), "if_condition", ("html_id", "id")),
@@ -220,7 +253,19 @@ class FormKitNodeGroupForm(FormKitBaseForm):
 class FormKitNodeForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = ("label", "description", "additional_props", "option_group", "is_active", "protected")
+        fields = (
+            "label",
+            "description",
+            "additional_props",
+            "option_group",
+            "is_active",
+            "protected",
+            "django_field_type",
+            "django_field_args",
+            "pydantic_field_type",
+            "extra_imports",
+            "validators",
+        )
 
     _json_fields = {
         "node": (
@@ -266,13 +311,6 @@ class FormKitNodeForm(FormKitBaseForm):
     min = forms.IntegerField(required=False)
     step = forms.IntegerField(required=False)
 
-    # Code Generation Overrides
-    django_field_type = forms.CharField(required=False)
-    django_field_args = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
-    pydantic_field_type = forms.CharField(required=False)
-    extra_imports = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
-    validators = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
-
     def get_fields(self, request, obj: models.FormKitSchemaNode):
         """
         Customise the returned fields based on the type
@@ -303,16 +341,14 @@ class FormKitNodeRepeaterForm(FormKitNodeForm):
     min = forms.IntegerField(required=False)
 
 
-class FormKitTextNode(forms.ModelForm):
-    class Meta:
-        model = models.FormKitSchemaNode
-        fields = ("label", "description", "text_content", "is_active", "protected")
+class FormKitTextNode(FormKitBaseForm):
+    class Meta(FormKitBaseForm.Meta):
+        fields = FormKitBaseForm.Meta.fields + ("text_content",)
 
 
 class FormKitElementForm(FormKitBaseForm):
-    class Meta:
-        model = models.FormKitSchemaNode
-        fields = ("label", "description", "text_content", "is_active", "protected")
+    class Meta(FormKitBaseForm.Meta):
+        fields = FormKitBaseForm.Meta.fields + ("text_content",)
 
     _json_fields = {"node": (("el", "$el"), "name", "if_condition", "attrs__class")}
 
@@ -323,9 +359,8 @@ class FormKitElementForm(FormKitBaseForm):
 
 
 class FormKitConditionForm(FormKitBaseForm):
-    class Meta:
-        model = models.FormKitSchemaNode
-        fields = ("label", "description")
+    class Meta(FormKitBaseForm.Meta):
+        pass
 
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
     if_condition = forms.CharField(widget=forms.TextInput, required=False)
@@ -334,9 +369,8 @@ class FormKitConditionForm(FormKitBaseForm):
 
 
 class FormKitComponentForm(FormKitBaseForm):
-    class Meta:
-        model = models.FormKitSchemaNode
-        fields = ("label", "description", "is_active", "protected")
+    class Meta(FormKitBaseForm.Meta):
+        pass
 
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
@@ -409,36 +443,7 @@ NODE_CONFIG: dict[type | str, dict[str, Any]] = {
     formkit_schema.FormKitSchemaDOMNode: {"form": FormKitElementForm},
     formkit_schema.FormKitSchemaComponent: {"form": FormKitComponentForm},
     formkit_schema.FormKitSchemaCondition: {"form": FormKitConditionForm},
-    formkit_schema.FormKitSchemaProps: {
-        "form": FormKitNodeForm,
-        "fieldsets": [
-            (
-                "Field Validation",
-                {
-                    "fields": (
-                        "validation",
-                        "validationLabel",
-                        "validationVisibility",
-                        "validationMessages",
-                        "validationRules",
-                    )
-                },
-            ),
-            (
-                "Code Generation (Source of Truth)",
-                {
-                    "fields": (
-                        "django_field_type",
-                        "django_field_args",
-                        "pydantic_field_type",
-                        "extra_imports",
-                        "validators",
-                    ),
-                    "description": "These values are the primary source of truth for code generation. If empty, they are auto-resolved on save from global configs.",
-                },
-            ),
-        ],
-    },
+    formkit_schema.FormKitSchemaProps: {"form": FormKitNodeForm},
 }
 
 # Admin site registration continues below...
@@ -453,14 +458,19 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         "node_type",
         "option_group",
         "formkit_or_el_type",
-        "track_change",
         "key_is_valid",
-        "protected",
+        "track_change",
+        "django_code_preview",
+        "pydantic_code_preview",
+        "formkit_node_preview",
     )
-    list_filter = ("node_type", "is_active", "protected")
-    readonly_fields = ("track_change",)
+    readonly_fields = ("django_code_preview", "pydantic_code_preview", "formkit_node_preview")
     search_fields = ["label", "description", "node", "node__el"]
     inlines = [NodeChildrenInline, NodeParentsInline]
+
+    def get_readonly_fields(self, request, obj=None):
+        ro = super().get_readonly_fields(request, obj)
+        return list(ro) + ["django_code_preview", "pydantic_code_preview", "formkit_node_preview"]
 
     @admin.display(boolean=True)
     def key_is_valid(self, obj) -> bool:
@@ -496,6 +506,18 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                 break
 
         grouped_fields: set[str] = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
+        # Also include code generation fields to avoid them being duplicated in the default fieldset
+        code_gen_fields = {
+            "django_field_type",
+            "django_field_args",
+            "pydantic_field_type",
+            "extra_imports",
+            "validators",
+            "django_code_preview",
+            "pydantic_code_preview",
+            "formkit_node_preview",
+        }
+        grouped_fields.update(code_gen_fields)
         fieldsets.insert(0, (None, {"fields": [f for f in self.get_fields(request, obj) if f not in grouped_fields]}))
 
         # Add Code Generation Source of Truth fieldset
@@ -509,12 +531,95 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                         "pydantic_field_type",
                         "extra_imports",
                         "validators",
+                        "django_code_preview",
+                        "pydantic_code_preview",
+                        "formkit_node_preview",
                     ),
                     "description": "These values are the primary source of truth for code generation. If empty, they are auto-resolved on save from global configs.",
                 },
             )
         )
         return fieldsets
+
+    @admin.display(description="Django Model Field Preview")
+    def django_code_preview(self, obj):
+        """Show what the Django model field code will look like."""
+        from django.utils.html import format_html
+        if not obj or not obj.pk:
+            return "(Save node to see preview)"
+
+        try:
+            from formkit_ninja.parser.type_convert import NodePath
+
+            # Ensure defaults are resolved for the preview
+            obj.resolve_code_generation_defaults()
+
+            nodes = obj.get_node_path(recursive=True)
+
+            path = NodePath(*nodes)
+            code = path.django_model_code
+
+            return format_html(
+                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;">{}</pre>',
+                code,
+            )
+        except Exception as e:
+            return format_html('<div style="color: red;">Error generating preview: {}</div>', str(e))
+
+    @admin.display(description="Pydantic Schema Preview")
+    def pydantic_code_preview(self, obj):
+        """Show what the Pydantic schema code will look like."""
+        from django.utils.html import format_html
+        if not obj or not obj.pk:
+            return "(Save node to see preview)"
+
+        try:
+            from formkit_ninja.parser.type_convert import NodePath
+
+            # Ensure defaults are resolved for the preview
+            obj.resolve_code_generation_defaults()
+
+            nodes = obj.get_node_path(recursive=True)
+
+            path = NodePath(*nodes)
+            code = path.pydantic_model_code
+
+            return format_html(
+                '<pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;">{}</pre>',
+                code,
+            )
+        except Exception as e:
+            return format_html('<div style="color: red;">Error generating preview: {}</div>', str(e))
+
+    @admin.display(description="FormKit Node JSON Preview")
+    def formkit_node_preview(self, obj):
+        """Show the generated FormKit Node JSON."""
+        import json
+
+        from django.utils.html import format_html
+        if not obj or not obj.pk:
+            return "(Save node to see preview)"
+
+        try:
+            # Get the node via the Pydantic generator (recursive=True)
+            node = obj.get_node(recursive=True)
+
+            # If it's a Pydantic model, convert to dict
+            if hasattr(node, "dict"):
+                node_values = node.dict(exclude_none=True)
+            else:
+                # Could be a string (TextNode) or other primitive
+                node_values = node
+
+            # Format as pretty JSON
+            code = json.dumps(node_values, indent=2, ensure_ascii=False)
+
+            return format_html(
+                '<pre style="background: #f1f3f5; padding: 10px; border-radius: 4px; border: 1px solid #ced4da; color: #212529; overflow: auto; max-height: 400px; font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all;">{}</pre>',
+                code,
+            )
+        except Exception as e:
+            return format_html('<div style="color: red;">Error generating JSON preview: {}</div>', str(e))
 
     def get_form(
         self, request: HttpRequest, obj: Any | None = None, change: bool = False, **kwargs: Any
@@ -607,3 +712,76 @@ class OptionLabelAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("option",)
     search_fields = ("label",)
+
+
+# Import submission models
+from formkit_ninja.form_submission.models import (
+    SeparatedSubmission,
+    Submission,
+)
+from django.apps import apps
+
+
+@admin.register(Submission.pgh_event_model)
+class SubmissionEventAdmin(pghistory.admin.EventModelAdmin):
+    """
+    Admin for Submission events.
+    """
+    pass
+
+
+@admin.register(SeparatedSubmission.pgh_event_model)
+class SeparatedSubmissionEventAdmin(pghistory.admin.EventModelAdmin):
+    """
+    Admin for SeparatedSubmission events.
+    """
+    pass
+
+
+class SeparatedSubmissionForm(forms.ModelForm):
+    class Meta:
+        model = SeparatedSubmission
+        fields = "__all__"
+        widgets = {
+            "id": forms.HiddenInput(),
+        }
+
+
+class SeparatedSubmissionInline(admin.TabularInline):
+    """Inline for showing separated submissions within a Submission."""
+    model = SeparatedSubmission
+    form = SeparatedSubmissionForm
+    extra = 0
+    show_change_link = True
+    can_delete = False
+    readonly_fields = [f.name for f in SeparatedSubmission._meta.fields if f.name != "id"]
+
+
+@admin.register(Submission)
+class SubmissionAdmin(admin.ModelAdmin):
+    """Admin for Submission model."""
+    list_display = ("key", "user", "created", "status", "form_type", "is_verified", "is_active")
+    list_filter = ("is_active", "user", "status", "form_type")
+    readonly_fields = ("key", "created", "updated")
+    inlines = [SeparatedSubmissionInline]
+    date_hierarchy = "created"
+
+    @admin.display(boolean=True)
+    def is_verified(self, obj: Submission) -> bool:
+        """Returns whether this submission is verified."""
+        return obj.status == Submission.Status.VERIFIED
+
+
+@admin.register(SeparatedSubmission)
+class SeparatedSubmissionAdmin(admin.ModelAdmin):
+    """Admin for SeparatedSubmission model."""
+    list_display = ("id", "user", "created", "status", "form_type", "is_verified", "repeater_key", "repeater_order")
+    list_filter = ("user", "status", "form_type")
+    readonly_fields = [f.name for f in SeparatedSubmission._meta.fields]
+    list_select_related = ("submission", "user", "repeater_parent")
+    date_hierarchy = "created"
+
+    @admin.display(boolean=True)
+    def is_verified(self, obj: SeparatedSubmission) -> bool:
+        """Returns whether the parent submission is verified."""
+        return obj.submission.status == Submission.Status.VERIFIED

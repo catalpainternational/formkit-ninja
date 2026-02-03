@@ -14,8 +14,16 @@ class ReadOnlyInline(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
-{# 'nodes' here should be a list of 'NodePath' instances #}
-{# Nodepaths are already deduplicated in Python, so we can process all of them #}
+{# FIRST PASS: Generate all inline classes for repeaters #}
+{# This must come before admin classes that reference them #}
+{% for nodepath in nodepaths %}
+{% if nodepath.is_repeater %}
+class {{nodepath.classname}}Inline(ReadOnlyInline):
+    model = models.{{nodepath.classname}}
+{% endif %}
+{% endfor %}
+
+{# SECOND PASS: Generate admin classes for groups and repeaters #}
 {% for nodepath in nodepaths %}
 {% with this = nodepath %}
 {% include "admin.jinja2" %}

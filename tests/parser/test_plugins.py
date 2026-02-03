@@ -15,7 +15,7 @@ from typing import List, Type
 import pytest
 
 from formkit_ninja.formkit_schema import NumberNode, TextNode
-from formkit_ninja.parser.converters import TypeConverterRegistry
+from formkit_ninja.parser.converters import BaseConverter, TypeConverterRegistry
 from formkit_ninja.parser.plugins import (
     GeneratorPlugin,
     PluginRegistry,
@@ -96,7 +96,7 @@ class TestPluginRegisterConverters:
     def test_plugin_can_register_converters(self):
         """Test that a plugin can register converters to a registry"""
 
-        class TestConverter:
+        class TestConverter(BaseConverter):
             def can_convert(self, node):
                 return isinstance(node, TextNode)
 
@@ -125,14 +125,14 @@ class TestPluginRegisterConverters:
     def test_plugin_can_register_multiple_converters(self):
         """Test that a plugin can register multiple converters"""
 
-        class TextConverter:
+        class TextConverter(BaseConverter):
             def can_convert(self, node):
                 return isinstance(node, TextNode)
 
             def to_pydantic_type(self, node):
                 return "str"
 
-        class NumberConverter:
+        class NumberConverter(BaseConverter):
             def can_convert(self, node):
                 return isinstance(node, NumberNode)
 
@@ -167,14 +167,14 @@ class TestPluginRegisterConverters:
     def test_plugin_can_register_converters_with_priority(self):
         """Test that a plugin can register converters with priority"""
 
-        class LowPriorityConverter:
+        class LowPriorityConverter(BaseConverter):
             def can_convert(self, node):
                 return isinstance(node, TextNode)
 
             def to_pydantic_type(self, node):
                 return "low_priority"
 
-        class HighPriorityConverter:
+        class HighPriorityConverter(BaseConverter):
             def can_convert(self, node):
                 return isinstance(node, TextNode)
 
@@ -431,7 +431,7 @@ class TestPluginRegistry:
     def test_registry_apply_converters(self):
         """Test registry can apply all plugin converters to a registry"""
 
-        class TestConverter:
+        class TestConverter(BaseConverter):
             def can_convert(self, node):
                 return isinstance(node, TextNode)
 

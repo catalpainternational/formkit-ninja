@@ -17,9 +17,10 @@ Example usage:
 from __future__ import annotations
 
 from formkit_ninja.formkit_schema import FormKitType
+from formkit_ninja.parser.converters import BaseConverter
 
 
-class OptionsPatternConverter:
+class OptionsPatternConverter(BaseConverter):
     """
     Converter that matches nodes by options pattern.
 
@@ -76,7 +77,7 @@ class OptionsPatternConverter:
         return self.pydantic_type
 
 
-class FieldNameConverter:
+class FieldNameConverter(BaseConverter):
     """
     Converter that matches nodes by field name.
 
