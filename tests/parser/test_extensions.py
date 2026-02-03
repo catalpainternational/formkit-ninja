@@ -39,16 +39,10 @@ class ExampleNodePathWithExtraAttribs(NodePath):
             # Example: Add a submission field
             if self.is_group and not self.is_child:
                 # Parent model: use as primary key
-                attribs.append(
-                    "submission = models.OneToOneField("
-                    '"example.Submission", '
-                    "on_delete=models.CASCADE, primary_key=True)"
-                )
+                attribs.append('submission = models.OneToOneField("example.Submission", on_delete=models.CASCADE, primary_key=True)')
             else:
                 # Repeater model: nullable
-                attribs.append(
-                    'submission = models.OneToOneField("example.Submission", on_delete=models.CASCADE, null=True)'
-                )
+                attribs.append('submission = models.OneToOneField("example.Submission", on_delete=models.CASCADE, null=True)')
         return attribs
 
 

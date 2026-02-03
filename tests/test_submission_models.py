@@ -21,9 +21,7 @@ class TestSubmissionLifecycle:
         assert "repeater" not in main.fields
 
         # 2. Repeater items should be separated
-        repeaters = SeparatedSubmission.objects.filter(submission=sub, repeater_key="repeater").order_by(
-            "repeater_order"
-        )
+        repeaters = SeparatedSubmission.objects.filter(submission=sub, repeater_key="repeater").order_by("repeater_order")
         assert repeaters.count() == 2
 
         rep1 = repeaters[0]

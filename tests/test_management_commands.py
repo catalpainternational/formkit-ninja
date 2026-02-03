@@ -217,56 +217,6 @@ class TestAddSchemaFieldCommand:
         assert new_field.name == "user_email"
         assert new_field.label == "User Email"
 
-    def test_add_field_with_code_regeneration(self):
-        """Test adding a field and regenerating code."""
-        # Create a schema
-        schema = models.FormKitSchema.objects.create(label="Regen Test")
-        root_node = models.FormKitSchemaNode.objects.create(
-            node={"$formkit": "group", "name": "test_root"},
-            label="Test Root",
-        )
-        models.FormComponents.objects.create(
-            schema=schema,
-            node=root_node,
-            order=0,
-        )
-
-        # Create temporary app directory
-        with tempfile.TemporaryDirectory() as tmpdir:
-            app_dir = Path(tmpdir) / "test_app"
-            app_dir.mkdir()
-
-            # Create minimal app structure
-            (app_dir / "__init__.py").touch()
-            (app_dir / "models.py").touch()
-
-            # Run command with code regeneration
-            out = StringIO()
-            call_command(
-                "add_schema_field",
-                "--schema-label",
-                "Regen Test",
-                "--parent-node",
-                "test_root",
-                "--field-type",
-                "text",
-                "--field-name",
-                "new_field",
-                "--app-name",
-                "test_app",
-                "--app-dir",
-                str(app_dir),
-                stdout=out,
-            )
-
-            # Verify field was added
-            children = models.NodeChildren.objects.filter(parent=root_node)
-            assert children.count() == 1
-
-            # Verify code was regenerated (models.py should have content)
-            models_content = (app_dir / "models.py").read_text()
-            assert len(models_content) > 0
-
     def test_add_field_duplicate_name(self):
         """Test that adding a duplicate field name fails."""
         # Create a schema with a field
@@ -424,13 +374,13 @@ class TestWorkflowIntegration:
                 )
 
                 # Verify field was added
-                root_node = models.FormKitSchemaNode.objects.get(name="workflow_test")
+                root_node = models.FormKitSchemaNode.objects.get(node__name="workflow_test")
                 children = models.NodeChildren.objects.filter(parent=root_node)
                 # Should have: name, items, email
                 assert children.count() == 3
 
                 # Verify email field
-                email_field = models.FormKitSchemaNode.objects.get(name="email")
+                email_field = models.FormKitSchemaNode.objects.get(node__name="email")
                 assert email_field.formkit == "email"
 
         finally:

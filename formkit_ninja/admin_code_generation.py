@@ -114,10 +114,7 @@ class CodeGenerationConfigAdminForm(forms.ModelForm):
                 cleaned_data.get("validators"),
             ]
         ):
-            raise forms.ValidationError(
-                "At least one override field should be specified "
-                "(pydantic_type, django_type, django_args, extra_imports, or validators)"
-            )
+            raise forms.ValidationError("At least one override field should be specified (pydantic_type, django_type, django_args, extra_imports, or validators)")
 
         return cleaned_data
 
@@ -180,10 +177,7 @@ class CodeGenerationConfigAdmin(admin.ModelAdmin):
             "Code Preview (Live)",
             {
                 "fields": ("django_code_preview", "pydantic_code_preview"),
-                "description": (
-                    "Preview of how a field might look using this configuration. "
-                    "Note: Uses 'example_field' as a placeholder name."
-                ),
+                "description": ("Preview of how a field might look using this configuration. Note: Uses 'example_field' as a placeholder name."),
             },
         ),
         (
@@ -320,8 +314,7 @@ class CodeGenerationConfigAdmin(admin.ModelAdmin):
         if not change:
             messages.success(
                 request,
-                f"Created code generation config for {obj.formkit_type}"
-                + (f" field '{obj.node_name}'" if obj.node_name else ""),
+                f"Created code generation config for {obj.formkit_type}" + (f" field '{obj.node_name}'" if obj.node_name else ""),
             )
         else:
             messages.info(request, f"Updated config: {obj}")

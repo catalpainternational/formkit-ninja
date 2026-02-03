@@ -119,10 +119,7 @@ class PartisipaNodePathRewritten(NodePath):
         If this node has a depth of 1 (root level), it has a ForeignKey to Submission.
         """
         if self.depth == 1:
-            return [
-                'submission = models.OneToOneField("form_submission.Submission", '
-                "on_delete=models.CASCADE, primary_key=True)"
-            ]
+            return ['submission = models.OneToOneField("form_submission.Submission", on_delete=models.CASCADE, primary_key=True)']
         return super().extra_attribs
 
     @property

@@ -32,9 +32,7 @@ class Migration(migrations.Migration):
                 ("label", models.CharField(max_length=1024)),
                 (
                     "lang",
-                    models.CharField(
-                        choices=[("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")], default="en", max_length=4
-                    ),
+                    models.CharField(choices=[("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")], default="en", max_length=4),
                 ),
                 ("option", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.option")),
             ],

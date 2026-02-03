@@ -25,9 +25,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "parent",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.formkitschemanode"
-                    ),
+                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.formkitschemanode"),
                 ),
             ],
             options={
@@ -37,8 +35,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formkitschemanode",
             name="children",
-            field=models.ManyToManyField(
-                blank=True, through="formkit_ninja.NodeChildren", to="formkit_ninja.formkitschemanode"
-            ),
+            field=models.ManyToManyField(blank=True, through="formkit_ninja.NodeChildren", to="formkit_ninja.formkitschemanode"),
         ),
     ]

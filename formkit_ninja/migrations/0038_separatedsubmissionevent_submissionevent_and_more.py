@@ -39,15 +39,11 @@ class Migration(migrations.Migration):
                 ("form_type", models.CharField(help_text="The type of form used in the submission", max_length=256)),
                 (
                     "repeater_key",
-                    models.CharField(
-                        blank=True, help_text="The field name in the original JSON document", max_length=256, null=True
-                    ),
+                    models.CharField(blank=True, help_text="The field name in the original JSON document", max_length=256, null=True),
                 ),
                 (
                     "repeater_order",
-                    models.IntegerField(
-                        blank=True, help_text="The original order of a repeater in the JSON", null=True
-                    ),
+                    models.IntegerField(blank=True, help_text="The original order of a repeater in the JSON", null=True),
                 ),
             ],
             options={
@@ -72,9 +68,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "fields",
-                    formkit_ninja.form_submission.models.SubmissionField(
-                        encoder=django.core.serializers.json.DjangoJSONEncoder
-                    ),
+                    formkit_ninja.form_submission.models.SubmissionField(encoder=django.core.serializers.json.DjangoJSONEncoder),
                 ),
                 ("form_type", models.CharField(help_text="The type of form used in the submission", max_length=128)),
                 ("is_active", models.BooleanField(default=True)),

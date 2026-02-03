@@ -36,9 +36,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formkitschemanode",
             name="extra_imports",
-            field=models.JSONField(
-                blank=True, default=list, help_text='List of import statements (e.g., ["from decimal import Decimal"])'
-            ),
+            field=models.JSONField(blank=True, default=list, help_text='List of import statements (e.g., ["from decimal import Decimal"])'),
         ),
         migrations.AddField(
             model_name="formkitschemanode",
@@ -48,9 +46,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formkitschemanode",
             name="validators",
-            field=models.JSONField(
-                blank=True, default=list, help_text='List of validator strings (e.g., ["MinValueValidator(0)"])'
-            ),
+            field=models.JSONField(blank=True, default=list, help_text='List of validator strings (e.g., ["MinValueValidator(0)"])'),
         ),
         migrations.AddField(
             model_name="formkitschemanodeevent",
@@ -69,9 +65,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formkitschemanodeevent",
             name="extra_imports",
-            field=models.JSONField(
-                blank=True, default=list, help_text='List of import statements (e.g., ["from decimal import Decimal"])'
-            ),
+            field=models.JSONField(blank=True, default=list, help_text='List of import statements (e.g., ["from decimal import Decimal"])'),
         ),
         migrations.AddField(
             model_name="formkitschemanodeevent",
@@ -81,9 +75,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formkitschemanodeevent",
             name="validators",
-            field=models.JSONField(
-                blank=True, default=list, help_text='List of validator strings (e.g., ["MinValueValidator(0)"])'
-            ),
+            field=models.JSONField(blank=True, default=list, help_text='List of validator strings (e.g., ["MinValueValidator(0)"])'),
         ),
         pgtrigger.migrations.AddTrigger(
             model_name="formkitschemanode",

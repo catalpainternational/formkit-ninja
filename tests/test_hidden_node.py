@@ -96,7 +96,7 @@ def test_create_hidden_node_via_admin(admin_client: Client, hidden_node_data: di
     form = FormKitNodeForm(data=form_data)
     assert form.is_valid(), f"Form should be valid: {form.errors}"
 
-    node = form.save()
+    node = form.save(commit=False)
 
     # Manually set the node type and value
     node.node = {

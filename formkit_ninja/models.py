@@ -54,12 +54,8 @@ class UuidIdModel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True
-    )
-    updated_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True
-    )
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True)
 
 
 class OptionDict(TypedDict):
@@ -81,10 +77,7 @@ class OptionGroup(models.Model):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text=(
-            "This is an optional reference to the original source object "
-            "for this set of options (typically a table from which we copy options)"
-        ),
+        help_text=("This is an optional reference to the original source object for this set of options (typically a table from which we copy options)"),
     )
 
     # If the object is a "Content Type" we expect it to have a similar layout to this
@@ -104,17 +97,13 @@ class OptionGroup(models.Model):
         return f"{self.group}"
 
     @classmethod
-    def copy_table(
-        cls, model: type[models.Model], field: str, language: str | None = "en", group_name: str | None = None
-    ):
+    def copy_table(cls, model: type[models.Model], field: str, language: str | None = "en", group_name: str | None = None):
         """
         Copy an existing table of options into this OptionGroup
         """
 
         with transaction.atomic():
-            group_obj, group_created = cls.objects.get_or_create(
-                group=group_name, content_type=ContentType.objects.get_for_model(model)
-            )
+            group_obj, group_created = cls.objects.get_or_create(group=group_name, content_type=ContentType.objects.get_for_model(model))
             log(group_obj)
 
             from typing import Any, cast
@@ -140,13 +129,8 @@ class OptionQuerySet(models.Manager):
         lang_codes = (n[0] for n in settings.LANGUAGES)
 
         label_model = OptionLabel
-        annotated_fields = {
-            f"label_{lang}": label_model.objects.filter(lang=lang, option=models.OuterRef("pk")) for lang in lang_codes
-        }
-        annotated_fields_subquery = {
-            field: models.Subquery(query.values("label")[:1], output_field=models.CharField())
-            for field, query in annotated_fields.items()
-        }
+        annotated_fields = {f"label_{lang}": label_model.objects.filter(lang=lang, option=models.OuterRef("pk")) for lang in lang_codes}
+        annotated_fields_subquery = {field: models.Subquery(query.values("label")[:1], output_field=models.CharField()) for field, query in annotated_fields.items()}
         return super().get_queryset().annotate(**annotated_fields_subquery)
 
 
@@ -159,10 +143,7 @@ class Option(UuidIdModel):
     object_id = models.IntegerField(
         null=True,
         blank=True,
-        help_text=(
-            "This is a reference to the primary key of the original source object "
-            "(typically a PNDS ztable ID) or a user-specified ID for a new group"
-        ),
+        help_text=("This is a reference to the primary key of the original source object (typically a PNDS ztable ID) or a user-specified ID for a new group"),
     )
     last_updated = models.DateTimeField(auto_now=True)
     group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE, null=True, blank=True)
@@ -205,9 +186,7 @@ class Option(UuidIdModel):
 class OptionLabel(models.Model):
     option = models.ForeignKey("Option", on_delete=models.CASCADE)
     label = models.CharField(max_length=1024)
-    lang = models.CharField(
-        max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
-    )
+    lang = models.CharField(max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")))
 
     def save(self, *args, **kwargs):
         """
@@ -295,9 +274,7 @@ class NodeQS(models.QuerySet):
     def from_change(self, track_change: int = -1):
         return self.filter(track_change__gt=track_change)
 
-    def to_response(
-        self, ignore_errors: bool = True, options: bool = True
-    ) -> Iterable[tuple[uuid.UUID, int | None, formkit_schema.Node | str | None, bool]]:
+    def to_response(self, ignore_errors: bool = True, options: bool = True) -> Iterable[tuple[uuid.UUID, int | None, formkit_schema.Node | str | None, bool]]:
         """
         Return a set of FormKit nodes
         """
@@ -396,8 +373,7 @@ class FormKitSchemaNode(UuidIdModel):
         max_length=100,
         null=True,
         blank=True,
-        help_text="The Django Model Field class to use (e.g., 'CharField', 'IntegerField', 'ForeignKey'). "
-        "Providing this makes this field the primary source of truth for code generation.",
+        help_text="The Django Model Field class to use (e.g., 'CharField', 'IntegerField', 'ForeignKey'). Providing this makes this field the primary source of truth for code generation.",
     )
     django_field_args = models.JSONField(
         default=dict,
@@ -415,19 +391,15 @@ class FormKitSchemaNode(UuidIdModel):
     extra_imports = models.JSONField(
         default=list,
         blank=True,
-        help_text="A list of additional Python import statements required by this field. "
-        "Example: ['from decimal import Decimal', 'from django.core.validators import MinValueValidator'].",
+        help_text="A list of additional Python import statements required by this field. Example: ['from decimal import Decimal', 'from django.core.validators import MinValueValidator'].",
     )
     validators = models.JSONField(
         default=list,
         blank=True,
-        help_text="A list of Django/Pydantic validator strings to be applied to this field. "
-        "Example: ['MinValueValidator(0)', 'validate_v_date'].",
+        help_text="A list of Django/Pydantic validator strings to be applied to this field. Example: ['MinValueValidator(0)', 'validate_v_date'].",
     )
 
-    text_content = models.TextField(
-        null=True, blank=True, help_text="Content for a text element, for children of an $el type component"
-    )
+    text_content = models.TextField(null=True, blank=True, help_text="Content for a text element, for children of an $el type component")
     track_change = models.BigIntegerField(null=True, blank=True)
 
     @property
@@ -633,13 +605,12 @@ class FormKitSchemaNode(UuidIdModel):
             clean_props = {k: v for k, v in props_to_merge.items() if v is not None}
             values.update(clean_props)
 
-        if values == {}:
-            if self.node_type == "$el":
-                values.update({"$el": "span"})
-            elif self.node_type == "$formkit":
-                values.update({"$formkit": "text"})
+        if self.node_type == "$el" and not values.get("$el"):
+            values["$el"] = "span"
+        elif self.node_type == "$formkit" and not values.get("$formkit"):
+            values["$formkit"] = "text"
 
-        return values
+        return {k: v for k, v in values.items() if v != ""}
 
     def get_ancestors(self) -> list["FormKitSchemaNode"]:
         """
@@ -822,9 +793,7 @@ class FormKitSchemaNode(UuidIdModel):
             elif isinstance(options, Iterable):
                 # Create a new "group" to assign these options to
                 # Here we use a random UUID as the group name
-                instance.option_group = OptionGroup.objects.create(
-                    group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}"
-                )
+                instance.option_group = OptionGroup.objects.create(group=f"Auto generated group for {str(instance)} {uuid.uuid4().hex[0:8]}")
                 for option in Option.from_pydantic(options, group=instance.option_group):  # type: ignore[arg-type]
                     pass
                 instance.save()
@@ -842,9 +811,7 @@ class FormKitSchemaNode(UuidIdModel):
     def to_pydantic(self, recursive=False, options=False, **kwargs):
         if self.text_content:
             return self.text_content
-        return formkit_schema.FormKitNode.parse_obj(
-            self.get_node_values(recursive=recursive, options=options, **kwargs)
-        )
+        return formkit_schema.FormKitNode.parse_obj(self.get_node_values(recursive=recursive, options=options, **kwargs))
 
 
 class SchemaManager(models.Manager):
@@ -919,9 +886,7 @@ class SchemaLabel(models.Model):
 
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     label = models.CharField(max_length=1024)
-    lang = models.CharField(
-        max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
-    )
+    lang = models.CharField(max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")))
 
 
 class SchemaDescription(models.Model):
@@ -932,9 +897,7 @@ class SchemaDescription(models.Model):
 
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     label = models.CharField(max_length=1024)
-    lang = models.CharField(
-        max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese"))
-    )
+    lang = models.CharField(max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")))
 
 
 # Import submission models to register them with the app

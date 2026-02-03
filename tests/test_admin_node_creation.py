@@ -248,9 +248,7 @@ def test_create_node_via_admin_form(node_data: dict, form_class):
     assert node.node_type == "$formkit", f"Node should have correct node_type, got '{node.node_type}'"
 
     # Verify node data matches input - check formkit type
-    assert node.node.get("$formkit") == node_data.get("$formkit"), (
-        f"Node should have correct formkit type, got '{node.node.get('$formkit')}' in node dict: {node.node}"
-    )
+    assert node.node.get("$formkit") == node_data.get("$formkit"), f"Node should have correct formkit type, got '{node.node.get('$formkit')}' in node dict: {node.node}"
 
     # Verify name field if present
     if "name" in node_data:

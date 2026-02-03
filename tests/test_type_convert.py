@@ -93,7 +93,7 @@ class TestMakeValidIdentifier:
     def test_complex_string(self):
         """Test complex string with multiple transformations"""
         result = make_valid_identifier("123Hello-World_Test@456")
-        assert result == "hello_world_test456"
+        assert result == "hello_world_test_456"
 
     def test_preserves_internal_underscores(self):
         """Test internal underscores are preserved"""

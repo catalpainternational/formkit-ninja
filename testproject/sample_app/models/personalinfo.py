@@ -11,8 +11,6 @@ class PersonalInfo(models.Model):
     Generated from FormKit Group node: personal_info (label: "Personal Information")
     """
 
-    submission = models.OneToOneField(
-        "formkit_ninja.SeparatedSubmission", on_delete=models.CASCADE, primary_key=True, related_name="+"
-    )  # Added via extra_attribs hook
+    submission = models.OneToOneField("formkit_ninja.SeparatedSubmission", on_delete=models.CASCADE, primary_key=True, related_name="+")  # Added via extra_attribs hook
     full_name = models.TextField(null="True", blank="True")  # From: personal_info > full_name
     email_address = models.TextField(null="True", blank="True")  # From: personal_info > email_address

@@ -116,9 +116,7 @@ class TranslatedValues(WhitelistedKeysDict):
             return ""
 
         if isinstance(dict_, str):
-            warnings.warn(
-                "TranslatedValues received a str, you may have a new model which hasn't called `refresh_from_db` yet"
-            )
+            warnings.warn("TranslatedValues received a str, you may have a new model which hasn't called `refresh_from_db` yet")
             return dict_
         if len(list(dict_)) == 0:
             return "empty"

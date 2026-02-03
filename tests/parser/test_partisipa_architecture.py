@@ -35,20 +35,12 @@ class PartisipaNodePath(DatabaseNodePath):
 
         if self.is_group and self.depth == 1:
             # Root Group -> Primary Key OneToOne
-            attribs.append(
-                "submission = models.OneToOneField("
-                '"form_submission.SeparatedSubmission", '
-                "on_delete=models.CASCADE, primary_key=True)"
-            )
+            attribs.append('submission = models.OneToOneField("form_submission.SeparatedSubmission", on_delete=models.CASCADE, primary_key=True)')
 
         elif self.is_repeater:
             # Repeater -> Foreign Key (or OneToOne per row, depending on your design)
             # User requested: OneToOneField to SeparatedSubmission for repeaters too
-            attribs.append(
-                "submission = models.OneToOneField("
-                '"form_submission.SeparatedSubmission", '
-                "on_delete=models.CASCADE, null=True)"
-            )
+            attribs.append('submission = models.OneToOneField("form_submission.SeparatedSubmission", on_delete=models.CASCADE, null=True)')
 
         return attribs
 

@@ -52,13 +52,10 @@ def test_admin_roundtrip_preserves_onclick_handler():
     # Verify onClick IS PRESERVED in additional_props (test PASSES if preserved, FAILS if lost)
     assert retrieved_node.additional_props is not None, "additional_props should exist to store unrecognized fields"
     assert "onClick" in retrieved_node.additional_props, (
-        "onClick handler should be PRESERVED in additional_props when creating via admin form, "
-        f"but was LOST. additional_props: {retrieved_node.additional_props}"
+        f"onClick handler should be PRESERVED in additional_props when creating via admin form, but was LOST. additional_props: {retrieved_node.additional_props}"
     )
     assert retrieved_node.additional_props["onClick"] == original_node_data["onClick"], (
-        f"onClick value should match. "
-        f"Expected: {original_node_data['onClick']}, "
-        f"Got: {retrieved_node.additional_props.get('onClick')}"
+        f"onClick value should match. Expected: {original_node_data['onClick']}, Got: {retrieved_node.additional_props.get('onClick')}"
     )
 
     # Also verify it appears in the node dict when retrieved (merged from additional_props)
@@ -104,15 +101,8 @@ def test_admin_roundtrip_preserves_onchange_handler():
     retrieved_node = models.FormKitSchemaNode.objects.get(pk=node.pk)
 
     # Verify onChange IS preserved (this test should PASS)
-    assert "onChange" in retrieved_node.node, (
-        "onChange handler SHOULD be preserved when explicitly set in admin form, "
-        f"but was not found. Node: {retrieved_node.node}"
-    )
-    assert retrieved_node.node["onChange"] == original_node_data["onChange"], (
-        f"onChange value should match. "
-        f"Expected: {original_node_data['onChange']}, "
-        f"Got: {retrieved_node.node.get('onChange')}"
-    )
+    assert "onChange" in retrieved_node.node, f"onChange handler SHOULD be preserved when explicitly set in admin form, but was not found. Node: {retrieved_node.node}"
+    assert retrieved_node.node["onChange"] == original_node_data["onChange"], f"onChange value should match. Expected: {original_node_data['onChange']}, Got: {retrieved_node.node.get('onChange')}"
 
 
 @pytest.mark.django_db
@@ -152,32 +142,24 @@ def test_admin_roundtrip_preserves_datepicker_format():
     # Verify format IS PRESERVED in additional_props (test PASSES if preserved, FAILS if lost)
     assert retrieved_node.additional_props is not None, "additional_props should exist to store unrecognized fields"
     assert "format" in retrieved_node.additional_props, (
-        "Datepicker format should be PRESERVED in additional_props when creating via admin form, "
-        f"but was LOST. additional_props: {retrieved_node.additional_props}"
+        f"Datepicker format should be PRESERVED in additional_props when creating via admin form, but was LOST. additional_props: {retrieved_node.additional_props}"
     )
     assert retrieved_node.additional_props["format"] == original_node_data["format"], (
-        f"Format value should match. "
-        f"Expected: {original_node_data['format']}, "
-        f"Got: {retrieved_node.additional_props.get('format')}"
+        f"Format value should match. Expected: {original_node_data['format']}, Got: {retrieved_node.additional_props.get('format')}"
     )
 
     # Verify calendarIcon IS PRESERVED in additional_props
     assert "calendarIcon" in retrieved_node.additional_props, (
-        "Datepicker calendarIcon should be PRESERVED in additional_props when creating via admin form, "
-        f"but was LOST. additional_props: {retrieved_node.additional_props}"
+        f"Datepicker calendarIcon should be PRESERVED in additional_props when creating via admin form, but was LOST. additional_props: {retrieved_node.additional_props}"
     )
     assert retrieved_node.additional_props["calendarIcon"] == original_node_data["calendarIcon"], (
-        f"CalendarIcon value should match. "
-        f"Expected: {original_node_data['calendarIcon']}, "
-        f"Got: {retrieved_node.additional_props.get('calendarIcon')}"
+        f"CalendarIcon value should match. Expected: {original_node_data['calendarIcon']}, Got: {retrieved_node.additional_props.get('calendarIcon')}"
     )
 
     # Also verify they appear in the node dict when retrieved (merged from additional_props)
     node_values = retrieved_node.get_node_values()
     assert "format" in node_values, "format should appear in node dict when retrieved (merged from additional_props)"
-    assert "calendarIcon" in node_values, (
-        "calendarIcon should appear in node dict when retrieved (merged from additional_props)"
-    )
+    assert "calendarIcon" in node_values, "calendarIcon should appear in node dict when retrieved (merged from additional_props)"
 
 
 @pytest.mark.django_db
@@ -216,14 +198,9 @@ def test_api_roundtrip_preserves_onclick_handler(admin_client):
     # Verify onClick IS PRESERVED in additional_props (test PASSES if preserved, FAILS if lost)
     assert retrieved_node.additional_props is not None, "additional_props should exist to store unrecognized fields"
     assert "onClick" in retrieved_node.additional_props, (
-        "onClick handler should be PRESERVED in additional_props when creating via API, "
-        f"but was LOST. additional_props: {retrieved_node.additional_props}"
+        f"onClick handler should be PRESERVED in additional_props when creating via API, but was LOST. additional_props: {retrieved_node.additional_props}"
     )
-    assert retrieved_node.additional_props["onClick"] == original_onclick, (
-        f"onClick value should match. "
-        f"Expected: {original_onclick}, "
-        f"Got: {retrieved_node.additional_props.get('onClick')}"
-    )
+    assert retrieved_node.additional_props["onClick"] == original_onclick, f"onClick value should match. Expected: {original_onclick}, Got: {retrieved_node.additional_props.get('onClick')}"
 
     # Also verify it appears in the node dict when retrieved (merged from additional_props)
     node_values = retrieved_node.get_node_values()
@@ -268,30 +245,22 @@ def test_api_roundtrip_preserves_datepicker_format(admin_client):
     # Verify format IS PRESERVED in additional_props (test PASSES if preserved, FAILS if lost)
     assert retrieved_node.additional_props is not None, "additional_props should exist to store unrecognized fields"
     assert "format" in retrieved_node.additional_props, (
-        "Datepicker format should be PRESERVED in additional_props when creating via API, "
-        f"but was LOST. additional_props: {retrieved_node.additional_props}"
+        f"Datepicker format should be PRESERVED in additional_props when creating via API, but was LOST. additional_props: {retrieved_node.additional_props}"
     )
-    assert retrieved_node.additional_props["format"] == original_format, (
-        f"Format value should match. Expected: {original_format}, Got: {retrieved_node.additional_props.get('format')}"
-    )
+    assert retrieved_node.additional_props["format"] == original_format, f"Format value should match. Expected: {original_format}, Got: {retrieved_node.additional_props.get('format')}"
 
     # Verify calendarIcon IS PRESERVED in additional_props
     assert "calendarIcon" in retrieved_node.additional_props, (
-        "Datepicker calendarIcon should be PRESERVED in additional_props when creating via API, "
-        f"but was LOST. additional_props: {retrieved_node.additional_props}"
+        f"Datepicker calendarIcon should be PRESERVED in additional_props when creating via API, but was LOST. additional_props: {retrieved_node.additional_props}"
     )
     assert retrieved_node.additional_props["calendarIcon"] == original_calendar_icon, (
-        f"CalendarIcon value should match. "
-        f"Expected: {original_calendar_icon}, "
-        f"Got: {retrieved_node.additional_props.get('calendarIcon')}"
+        f"CalendarIcon value should match. Expected: {original_calendar_icon}, Got: {retrieved_node.additional_props.get('calendarIcon')}"
     )
 
     # Also verify they appear in the node dict when retrieved (merged from additional_props)
     node_values = retrieved_node.get_node_values()
     assert "format" in node_values, "format should appear in node dict when retrieved (merged from additional_props)"
-    assert "calendarIcon" in node_values, (
-        "calendarIcon should appear in node dict when retrieved (merged from additional_props)"
-    )
+    assert "calendarIcon" in node_values, "calendarIcon should appear in node dict when retrieved (merged from additional_props)"
 
 
 @pytest.mark.django_db
@@ -329,20 +298,14 @@ def test_complete_schema_roundtrip_preserves_data(admin_client):
 
     # Verify onClick IS PRESERVED in additional_props (test PASSES if preserved, FAILS if lost)
     assert text_node.additional_props is not None, "additional_props should exist to store unrecognized fields"
-    assert "onClick" in text_node.additional_props, (
-        "onClick handler should be PRESERVED in additional_props when creating via API, "
-        f"but was LOST. additional_props: {text_node.additional_props}"
-    )
-    assert text_node.additional_props["onClick"] == original_onclick, (
-        f"onClick value should match. Expected: {original_onclick}, Got: {text_node.additional_props.get('onClick')}"
-    )
+    assert "onClick" in text_node.additional_props, f"onClick handler should be PRESERVED in additional_props when creating via API, but was LOST. additional_props: {text_node.additional_props}"
+    assert text_node.additional_props["onClick"] == original_onclick, f"onClick value should match. Expected: {original_onclick}, Got: {text_node.additional_props.get('onClick')}"
 
     # Verify onChange IS PRESERVED (onChange is recognized, so it may be in node or additional_props)
     # Check both node and additional_props
     node_values = text_node.get_node_values()
     assert "onChange" in node_values or "onChange" in (text_node.additional_props or {}), (
-        "onChange handler should be PRESERVED when creating via API, "
-        f"but was LOST. Node values: {node_values}, additional_props: {text_node.additional_props}"
+        f"onChange handler should be PRESERVED when creating via API, but was LOST. Node values: {node_values}, additional_props: {text_node.additional_props}"
     )
 
     # Test 2: Datepicker node with format
@@ -366,30 +329,22 @@ def test_complete_schema_roundtrip_preserves_data(admin_client):
     # Verify format IS PRESERVED in additional_props (test PASSES if preserved, FAILS if lost)
     assert datepicker_node.additional_props is not None, "additional_props should exist to store unrecognized fields"
     assert "format" in datepicker_node.additional_props, (
-        "Datepicker format should be PRESERVED in additional_props when creating via API, "
-        f"but was LOST. additional_props: {datepicker_node.additional_props}"
+        f"Datepicker format should be PRESERVED in additional_props when creating via API, but was LOST. additional_props: {datepicker_node.additional_props}"
     )
-    assert datepicker_node.additional_props["format"] == original_format, (
-        f"Format value should match. Expected: {original_format}, "
-        f"Got: {datepicker_node.additional_props.get('format')}"
-    )
+    assert datepicker_node.additional_props["format"] == original_format, f"Format value should match. Expected: {original_format}, Got: {datepicker_node.additional_props.get('format')}"
 
     # Verify calendarIcon IS PRESERVED in additional_props
     assert "calendarIcon" in datepicker_node.additional_props, (
-        "Datepicker calendarIcon should be PRESERVED in additional_props when creating via API, "
-        f"but was LOST. additional_props: {datepicker_node.additional_props}"
+        f"Datepicker calendarIcon should be PRESERVED in additional_props when creating via API, but was LOST. additional_props: {datepicker_node.additional_props}"
     )
     assert datepicker_node.additional_props["calendarIcon"] == original_calendar_icon, (
-        f"CalendarIcon value should match. Expected: {original_calendar_icon}, "
-        f"Got: {datepicker_node.additional_props.get('calendarIcon')}"
+        f"CalendarIcon value should match. Expected: {original_calendar_icon}, Got: {datepicker_node.additional_props.get('calendarIcon')}"
     )
 
     # Also verify they appear in the node dict when retrieved (merged from additional_props)
     node_values = datepicker_node.get_node_values()
     assert "format" in node_values, "format should appear in node dict when retrieved (merged from additional_props)"
-    assert "calendarIcon" in node_values, (
-        "calendarIcon should appear in node dict when retrieved (merged from additional_props)"
-    )
+    assert "calendarIcon" in node_values, "calendarIcon should appear in node dict when retrieved (merged from additional_props)"
 
 
 @pytest.mark.django_db
@@ -430,26 +385,16 @@ def test_api_roundtrip_preserves_arbitrary_unrecognized_field(admin_client):
     # Verify arbitrary field IS PRESERVED in additional_props (test PASSES if preserved, FAILS if lost)
     assert retrieved_node.additional_props is not None, "additional_props should exist to store unrecognized fields"
     assert arbitrary_field in retrieved_node.additional_props, (
-        f"Arbitrary unrecognized field '{arbitrary_field}' should be PRESERVED in additional_props "
-        f"when creating via API, but was LOST. additional_props: {retrieved_node.additional_props}"
+        f"Arbitrary unrecognized field '{arbitrary_field}' should be PRESERVED in additional_props when creating via API, but was LOST. additional_props: {retrieved_node.additional_props}"
     )
     assert retrieved_node.additional_props[arbitrary_field] == arbitrary_value, (
-        f"Arbitrary field value should match. "
-        f"Expected: {arbitrary_value}, "
-        f"Got: {retrieved_node.additional_props.get(arbitrary_field)}"
+        f"Arbitrary field value should match. Expected: {arbitrary_value}, Got: {retrieved_node.additional_props.get(arbitrary_field)}"
     )
 
     # Also verify it appears in the node dict when retrieved (via get_node_values merge)
     node_values = retrieved_node.get_node_values()
-    assert arbitrary_field in node_values, (
-        f"Arbitrary field should appear in node dict when retrieved "
-        f"(merged from additional_props), but was missing. Node values: {node_values}"
-    )
-    assert node_values[arbitrary_field] == arbitrary_value, (
-        f"Arbitrary field value in node dict should match. "
-        f"Expected: {arbitrary_value}, "
-        f"Got: {node_values.get(arbitrary_field)}"
-    )
+    assert arbitrary_field in node_values, f"Arbitrary field should appear in node dict when retrieved (merged from additional_props), but was missing. Node values: {node_values}"
+    assert node_values[arbitrary_field] == arbitrary_value, f"Arbitrary field value in node dict should match. Expected: {arbitrary_value}, Got: {node_values.get(arbitrary_field)}"
 
 
 @pytest.mark.django_db
@@ -493,26 +438,16 @@ def test_admin_roundtrip_preserves_arbitrary_unrecognized_field():
     # Verify arbitrary field IS PRESERVED in additional_props (test PASSES if preserved, FAILS if lost)
     assert retrieved_node.additional_props is not None, "additional_props should exist to store unrecognized fields"
     assert arbitrary_field in retrieved_node.additional_props, (
-        f"Arbitrary unrecognized field '{arbitrary_field}' should be PRESERVED in additional_props "
-        f"when creating via admin form, but was LOST. additional_props: {retrieved_node.additional_props}"
+        f"Arbitrary unrecognized field '{arbitrary_field}' should be PRESERVED in additional_props when creating via admin form, but was LOST. additional_props: {retrieved_node.additional_props}"
     )
     assert retrieved_node.additional_props[arbitrary_field] == arbitrary_value, (
-        f"Arbitrary field value should match. "
-        f"Expected: {arbitrary_value}, "
-        f"Got: {retrieved_node.additional_props.get(arbitrary_field)}"
+        f"Arbitrary field value should match. Expected: {arbitrary_value}, Got: {retrieved_node.additional_props.get(arbitrary_field)}"
     )
 
     # Also verify it appears in the node dict when retrieved
     node_values = retrieved_node.get_node_values()
-    assert arbitrary_field in node_values, (
-        f"Arbitrary field should appear in node dict when retrieved "
-        f"(merged from additional_props), but was missing. Node values: {node_values}"
-    )
-    assert node_values[arbitrary_field] == arbitrary_value, (
-        f"Arbitrary field value in node dict should match. "
-        f"Expected: {arbitrary_value}, "
-        f"Got: {node_values.get(arbitrary_field)}"
-    )
+    assert arbitrary_field in node_values, f"Arbitrary field should appear in node dict when retrieved (merged from additional_props), but was missing. Node values: {node_values}"
+    assert node_values[arbitrary_field] == arbitrary_value, f"Arbitrary field value in node dict should match. Expected: {arbitrary_value}, Got: {node_values.get(arbitrary_field)}"
 
 
 @pytest.mark.django_db
@@ -552,15 +487,9 @@ def test_api_preserves_additional_props_in_database(admin_client):
     # Verify additional_props is preserved in database
     assert retrieved_node.additional_props is not None, "additional_props should be stored in database"
     assert "onClick" in retrieved_node.additional_props, "onClick should be preserved in additional_props in database"
-    assert retrieved_node.additional_props["onClick"] == "$attrs.removeAction", (
-        f"onClick value should match. "
-        f"Expected: $attrs.removeAction, "
-        f"Got: {retrieved_node.additional_props.get('onClick')}"
-    )
+    assert retrieved_node.additional_props["onClick"] == "$attrs.removeAction", f"onClick value should match. Expected: $attrs.removeAction, Got: {retrieved_node.additional_props.get('onClick')}"
     assert "format" in retrieved_node.additional_props, "format should be preserved in additional_props in database"
-    assert "customField" in retrieved_node.additional_props, (
-        "customField should be preserved in additional_props in database"
-    )
+    assert "customField" in retrieved_node.additional_props, "customField should be preserved in additional_props in database"
 
 
 @pytest.mark.django_db
@@ -602,13 +531,9 @@ def test_api_returns_additional_props_in_response(admin_client):
 
     # Verify additional_props fields appear in API response (merged into node)
     assert "onClick" in node_data, "onClick from additional_props should appear in API response node dict"
-    assert node_data["onClick"] == "$attrs.removeAction", (
-        f"onClick value in API response should match. Expected: $attrs.removeAction, Got: {node_data.get('onClick')}"
-    )
+    assert node_data["onClick"] == "$attrs.removeAction", f"onClick value in API response should match. Expected: $attrs.removeAction, Got: {node_data.get('onClick')}"
     assert "format" in node_data, "format from additional_props should appear in API response node dict"
-    assert node_data["format"] == "DD/MM/YYYY", (
-        f"format value in API response should match. Expected: DD/MM/YYYY, Got: {node_data.get('format')}"
-    )
+    assert node_data["format"] == "DD/MM/YYYY", f"format value in API response should match. Expected: DD/MM/YYYY, Got: {node_data.get('format')}"
 
 
 @pytest.mark.django_db
@@ -653,12 +578,6 @@ def test_admin_preserves_additional_props_in_database():
     # Verify additional_props is preserved in database
     assert retrieved_node.additional_props is not None, "additional_props should be stored in database"
     assert "onClick" in retrieved_node.additional_props, "onClick should be preserved in additional_props in database"
-    assert retrieved_node.additional_props["onClick"] == "$attrs.removeAction", (
-        f"onClick value should match. "
-        f"Expected: $attrs.removeAction, "
-        f"Got: {retrieved_node.additional_props.get('onClick')}"
-    )
+    assert retrieved_node.additional_props["onClick"] == "$attrs.removeAction", f"onClick value should match. Expected: $attrs.removeAction, Got: {retrieved_node.additional_props.get('onClick')}"
     assert "format" in retrieved_node.additional_props, "format should be preserved in additional_props in database"
-    assert "customField" in retrieved_node.additional_props, (
-        "customField should be preserved in additional_props in database"
-    )
+    assert "customField" in retrieved_node.additional_props, "customField should be preserved in additional_props in database"

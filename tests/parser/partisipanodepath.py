@@ -132,9 +132,7 @@ class PartisipaNodePath(NodePath):
                 return None
             return ida_option_candidate
         elif isinstance(opts, str) and opts.startswith("$getoptions.tf1321.outputs"):
-            warnings.warn(
-                "There is a reference to `getoptions` which should be altered to an `ida`", DeprecationWarning
-            )
+            warnings.warn("There is a reference to `getoptions` which should be altered to an `ida`", DeprecationWarning)
             warnings.warn("Faking this as an ida Output not a zOutput")
             return Option.str_to_model("$ida(output)")._meta.label
         else:

@@ -24,9 +24,7 @@ class Migration(migrations.Migration):
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 (
                     "label",
-                    models.CharField(
-                        default=uuid.uuid4, help_text="Used as a human-readable label", max_length=1024, unique=True
-                    ),
+                    models.CharField(default=uuid.uuid4, help_text="Used as a human-readable label", max_length=1024, unique=True),
                 ),
                 (
                     "created_by",
@@ -76,9 +74,7 @@ class Migration(migrations.Migration):
                 ("label", models.CharField(help_text="Used as a human-readable label", max_length=1024, unique=True)),
                 (
                     "node",
-                    models.JSONField(
-                        blank=True, help_text="A JSON representation of select parts of the FormKit schema", null=True
-                    ),
+                    models.JSONField(blank=True, help_text="A JSON representation of select parts of the FormKit schema", null=True),
                 ),
                 (
                     "additional_props",
@@ -106,16 +102,12 @@ class Migration(migrations.Migration):
                 ("updated", models.DateTimeField(auto_now=True, null=True)),
                 (
                     "object_id",
-                    models.UUIDField(
-                        editable=False, help_text="The UUID of the model which this translation relates to"
-                    ),
+                    models.UUIDField(editable=False, help_text="The UUID of the model which this translation relates to"),
                 ),
                 ("language_code", models.CharField(editable=False, max_length=3)),
                 (
                     "field",
-                    models.CharField(
-                        editable=False, help_text="The field on the generic model to translate", max_length=100
-                    ),
+                    models.CharField(editable=False, help_text="The field on the generic model to translate", max_length=100),
                 ),
                 ("value", models.CharField(blank=True, editable=False, max_length=5000, null=True)),
                 ("context", models.CharField(blank=True, editable=False, max_length=1024, null=True)),
@@ -288,9 +280,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formkitschemanode",
             name="children",
-            field=models.ManyToManyField(
-                blank=True, through="formkit_ninja.NodeChildren", to="formkit_ninja.formkitschemanode"
-            ),
+            field=models.ManyToManyField(blank=True, through="formkit_ninja.NodeChildren", to="formkit_ninja.formkitschemanode"),
         ),
         migrations.AddField(
             model_name="formkitschemanode",
@@ -306,9 +296,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formkitschemanode",
             name="group",
-            field=models.ManyToManyField(
-                blank=True, through="formkit_ninja.Membership", to="formkit_ninja.formkitschemanode"
-            ),
+            field=models.ManyToManyField(blank=True, through="formkit_ninja.Membership", to="formkit_ninja.formkitschemanode"),
         ),
         migrations.AddField(
             model_name="formkitschemanode",
@@ -340,9 +328,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "nodes",
-                    models.ManyToManyField(
-                        through="formkit_ninja.FormComponents", to="formkit_ninja.formkitschemanode"
-                    ),
+                    models.ManyToManyField(through="formkit_ninja.FormComponents", to="formkit_ninja.formkitschemanode"),
                 ),
                 (
                     "updated_by",

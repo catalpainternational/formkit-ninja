@@ -148,7 +148,7 @@ def test_number_node_field(number_node: NodePath):
 
 def test_pd_number_node_field(pydantic_class_template: Template, number_node: NodePath):
     text = pydantic_class_template.render(this=number_node)
-    expect = "    foonum: int\n"
+    expect = "    foonum: int | None = None\n"
     assert text.strip() == dedent(expect).strip()
 
 
@@ -173,6 +173,7 @@ def test_group_node_field(django_class_template: Template, group_node: NodePath)
     \"\"\"
     Generated from FormKit Group node: foo
     \"\"\"
+    submission = models.OneToOneField("formkit_ninja.SeparatedSubmission", on_delete=models.CASCADE, primary_key=True, related_name="+")  # Added via extra_attribs hook
     foonum = models.IntegerField(null=True, blank=True)  # From: foo > foonum
 """
     assert text.strip() == dedent(expect).strip()
@@ -185,6 +186,7 @@ def test_nested_group_node_field(django_class_template: Template, nested_group_n
             \"\"\"
             Generated from FormKit Group node: bar
             \"\"\"
+            submission = models.OneToOneField("formkit_ninja.SeparatedSubmission", on_delete=models.CASCADE, primary_key=True, related_name="+")  # Added via extra_attribs hook
             foo = models.OneToOneField(BarFoo, on_delete=models.CASCADE)  # From: bar > foo
         """
     assert text.strip() == dedent(expect).strip()
@@ -224,6 +226,7 @@ class ReadOnlyInline(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
 @admin.register(models.Foo)
 class FooAdmin(admin.ModelAdmin):
     list_display = [
@@ -262,8 +265,42 @@ def test_api_nested_group_node_field(api_template: Template, nested_group_node: 
                 "foo",
             )
             return queryset
+
+
+        @router.post("bar", response=schema_out.BarSchema)
+        def create_bar(request, payload: schema_in.BarSchema):
+            data = payload.dict(exclude_unset=True)
+            
+            # Create a Submission entry
+            submission = Submission.objects.create(
+                fields=data,
+                form_type="Bar",
+            )
+            
+            # The signal handlers should have run synchronously.
+            # We need to find the specific model instance that was created.
+            # 1. Find the parent SeparatedSubmission
+            try:
+                # For the root object, repeater_parent is None and form_type matches
+                sep_sub = SeparatedSubmission.objects.get(
+                    submission=submission,
+                    form_type="Bar",
+                    repeater_parent__isnull=True
+                )
+                
+                # 2. Get the model instance linked to it
+                instance = models.Bar.objects.get(submission=sep_sub)
+                return instance
+                
+            except (SeparatedSubmission.DoesNotExist, models.Bar.DoesNotExist):
+                # Fallback or error handling
+                # If signal failed or async, we might return something else or 202 Accepted
+                # But here we expect synchronous success
+                raise Exception("Submission processing failed or model not created.")
         """
-    assert text.strip() == dedent(expect).strip()
+    expected_clean = "\n".join([line.rstrip() for line in dedent(expect).strip().splitlines()])
+    actual_clean = "\n".join([line.rstrip() for line in text.strip().splitlines()])
+    assert actual_clean == expected_clean
 
 
 def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_node: NodePath):
@@ -277,8 +314,42 @@ def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_
                 "foo",
             )
             return queryset
+
+
+        @router.post("bar", response=schema_out.BarSchema)
+        def create_bar(request, payload: schema_in.BarSchema):
+            data = payload.dict(exclude_unset=True)
+            
+            # Create a Submission entry
+            submission = Submission.objects.create(
+                fields=data,
+                form_type="Bar",
+            )
+            
+            # The signal handlers should have run synchronously.
+            # We need to find the specific model instance that was created.
+            # 1. Find the parent SeparatedSubmission
+            try:
+                # For the root object, repeater_parent is None and form_type matches
+                sep_sub = SeparatedSubmission.objects.get(
+                    submission=submission,
+                    form_type="Bar",
+                    repeater_parent__isnull=True
+                )
+                
+                # 2. Get the model instance linked to it
+                instance = models.Bar.objects.get(submission=sep_sub)
+                return instance
+                
+            except (SeparatedSubmission.DoesNotExist, models.Bar.DoesNotExist):
+                # Fallback or error handling
+                # If signal failed or async, we might return something else or 202 Accepted
+                # But here we expect synchronous success
+                raise Exception("Submission processing failed or model not created.")
         """
-    assert text.strip() == dedent(expect).strip()
+    expected_clean = "\n".join([line.rstrip() for line in dedent(expect).strip().splitlines()])
+    actual_clean = "\n".join([line.rstrip() for line in text.strip().splitlines()])
+    assert actual_clean == expected_clean
 
 
 def test_schema_out_nested_group_node_field(schema_out_template: Template, nested_group_node: NodePath):

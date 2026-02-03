@@ -130,9 +130,7 @@ class JSONMappingMixin:
                 recognized_fields.update(special_keys)
 
                 # Extract unrecognized fields
-                unrecognized_fields = {
-                    k: v for k, v in existing.items() if k not in recognized_fields and v is not None
-                }
+                unrecognized_fields = {k: v for k, v in existing.items() if k not in recognized_fields and v is not None}
 
                 # Store unrecognized fields in additional_props
                 if unrecognized_fields:
@@ -250,7 +248,7 @@ class FormKitNodeGroupForm(FormKitBaseForm):
     }
     html_id = forms.CharField(required=False)
     name = forms.CharField(required=True)
-    formkit = forms.ChoiceField(required=False, choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
+    formkit = forms.ChoiceField(required=False, initial="group", choices=models.FormKitSchemaNode.FORMKIT_CHOICES, disabled=True)
     if_condition = forms.CharField(widget=forms.TextInput, required=False)
 
 
@@ -308,9 +306,7 @@ class FormKitNodeForm(FormKitBaseForm):
     validationVisibility = forms.CharField(required=False)
     validationMessages = forms.JSONField(required=False)
     prefixIcon = forms.CharField(required=False)
-    validationRules = forms.CharField(
-        required=False, help_text="A function for validation passed into the schema: a key on `formSchemaData`"
-    )
+    validationRules = forms.CharField(required=False, help_text="A function for validation passed into the schema: a key on `formSchemaData`")
     max = forms.IntegerField(required=False)
     min = forms.IntegerField(required=False)
     step = forms.IntegerField(required=False)
@@ -539,10 +535,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                         "pydantic_code_preview",
                         "formkit_node_preview",
                     ),
-                    "description": (
-                        "These values are the source of truth for code generation. "
-                        "If empty, they are auto-resolved on save from global configs."
-                    ),
+                    "description": ("These values are the source of truth for code generation. If empty, they are auto-resolved on save from global configs."),
                 },
             )
         )
@@ -567,10 +560,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             path = NodePath(*nodes)
             code = path.django_model_code
 
-            style = (
-                "background: #f8f9fa; padding: 10px; border-radius: 4px; "
-                "border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;"
-            )
+            style = "background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;"
             return format_html(
                 '<pre style="{}">{}</pre>',
                 style,
@@ -598,10 +588,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             path = NodePath(*nodes)
             code = path.pydantic_model_code
 
-            style = (
-                "background: #f8f9fa; padding: 10px; border-radius: 4px; "
-                "border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;"
-            )
+            style = "background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; color: #333; overflow: auto; max-height: 400px;"
             return format_html(
                 '<pre style="{}">{}</pre>',
                 style,
@@ -648,9 +635,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         except Exception as e:
             return format_html('<div style="color: red;">Error generating JSON preview: {}</div>', str(e))
 
-    def get_form(
-        self, request: HttpRequest, obj: Any | None = None, change: bool = False, **kwargs: Any
-    ) -> type[forms.ModelForm[Any]]:
+    def get_form(self, request: HttpRequest, obj: Any | None = None, change: bool = False, **kwargs: Any) -> type[forms.ModelForm[Any]]:
         if not obj:
             return NewFormKitForm
         try:

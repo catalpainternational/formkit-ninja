@@ -23,11 +23,7 @@ def _first_record(predicate):
 
 
 def test_yaml_preserve_additional_props_on_save():
-    rec, fields, node = _first_record(
-        lambda _rec, f, n: isinstance(f.get("additional_props"), dict)
-        and "validation-messages" in f["additional_props"]
-        and isinstance(n.get("validation"), str)
-    )
+    rec, fields, node = _first_record(lambda _rec, f, n: isinstance(f.get("additional_props"), dict) and "validation-messages" in f["additional_props"] and isinstance(n.get("validation"), str))
 
     instance = models.FormKitSchemaNode(
         node_type="$formkit",

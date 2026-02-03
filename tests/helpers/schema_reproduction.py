@@ -298,9 +298,7 @@ def schema_to_api_payloads(schema: dict | list, parent_id: UUID | None = None) -
     return [p[0] for p in payloads]
 
 
-def create_schema_via_api(
-    client: Client, schema: dict | list, schema_label: str | None = None
-) -> tuple[models.FormKitSchema, dict[str, UUID]]:
+def create_schema_via_api(client: Client, schema: dict | list, schema_label: str | None = None) -> tuple[models.FormKitSchema, dict[str, UUID]]:
     """
     Create a schema via API calls.
 
@@ -441,9 +439,7 @@ def create_schema_via_api(
     schema_obj = models.FormKitSchema.objects.create(label=schema_label or "Test Schema")
     for order, node_uuid in enumerate(root_node_uuids):
         node = models.FormKitSchemaNode.objects.get(pk=node_uuid)
-        models.FormComponents.objects.create(
-            schema=schema_obj, node=node, order=order, label=node.label or str(node.id)
-        )
+        models.FormComponents.objects.create(schema=schema_obj, node=node, order=order, label=node.label or str(node.id))
 
     return schema_obj, node_uuid_map
 
@@ -502,18 +498,13 @@ def verify_schema_equivalence(original: dict | list, recreated: dict | list) -> 
 
     # Basic structure check
     assert len(recreated_normalized) > 0, "Recreated schema should have nodes"
-    assert len(recreated_normalized) == len(original_normalized), (
-        f"Recreated schema should have same number of root nodes. "
-        f"Expected {len(original_normalized)}, got {len(recreated_normalized)}"
-    )
+    assert len(recreated_normalized) == len(original_normalized), f"Recreated schema should have same number of root nodes. Expected {len(original_normalized)}, got {len(recreated_normalized)}"
 
     # Compare each node recursively
     def compare_nodes(orig_node: dict, recreated_node: dict, path: str = "root") -> None:
         """Compare two nodes recursively."""
         if not isinstance(orig_node, dict) or not isinstance(recreated_node, dict):
-            assert orig_node == recreated_node, (
-                f"Node at {path}: type mismatch. Original: {type(orig_node)}, Recreated: {type(recreated_node)}"
-            )
+            assert orig_node == recreated_node, f"Node at {path}: type mismatch. Original: {type(orig_node)}, Recreated: {type(recreated_node)}"
             return
 
         # Get all keys from both nodes
@@ -552,11 +543,7 @@ def verify_schema_equivalence(original: dict | list, recreated: dict | list) -> 
             if key == "name" and str(orig_value).lower() == str(recreated_value).lower():
                 continue
 
-            assert orig_value == recreated_value, (
-                f"Node at {path}, field '{key}': "
-                f"Original: {orig_value!r} (type {type(orig_value)}) != "
-                f"Recreated: {recreated_value!r} (type {type(recreated_value)})"
-            )
+            assert orig_value == recreated_value, f"Node at {path}, field '{key}': Original: {orig_value!r} (type {type(orig_value)}) != Recreated: {recreated_value!r} (type {type(recreated_value)})"
 
         # Recursively compare children
         if "children" in orig_node:
@@ -569,10 +556,7 @@ def verify_schema_equivalence(original: dict | list, recreated: dict | list) -> 
             if not isinstance(recreated_children, list):
                 recreated_children = [recreated_children] if isinstance(recreated_children, dict) else []
 
-            assert len(recreated_children) == len(orig_children), (
-                f"Node at {path}: Children count mismatch. "
-                f"Expected {len(orig_children)}, got {len(recreated_children)}"
-            )
+            assert len(recreated_children) == len(orig_children), f"Node at {path}: Children count mismatch. Expected {len(orig_children)}, got {len(recreated_children)}"
 
             for idx, (orig_child, recreated_child) in enumerate(zip(orig_children, recreated_children)):
                 if isinstance(orig_child, dict) and isinstance(recreated_child, dict):
@@ -847,8 +831,6 @@ def create_schema_via_admin(schema: dict | list, schema_label: str | None = None
     schema_obj = models.FormKitSchema.objects.create(label=schema_label or "Test Schema")
     root_level_nodes = [n for n in created_nodes if not models.NodeChildren.objects.filter(child=n).exists()]
     for order, node in enumerate(root_level_nodes):
-        models.FormComponents.objects.create(
-            schema=schema_obj, node=node, order=order, label=node.label or str(node.id)
-        )
+        models.FormComponents.objects.create(schema=schema_obj, node=node, order=order, label=node.label or str(node.id))
 
     return schema_obj

@@ -62,10 +62,7 @@ def insert_group_trigger(order_by_field: str):
         name="order_on_insert_option",
         when=pgtrigger.Before,
         operation=pgtrigger.Insert,
-        func=pgtrigger.Func(
-            f'NEW."order" = (SELECT coalesce(max("order"), 0) + 1 FROM {{meta.db_table}} '
-            f'WHERE {{meta.db_table}}."{order_by_field}" = NEW."{order_by_field}"); RETURN NEW;'
-        ),
+        func=pgtrigger.Func(f'NEW."order" = (SELECT coalesce(max("order"), 0) + 1 FROM {{meta.db_table}} WHERE {{meta.db_table}}."{order_by_field}" = NEW."{order_by_field}"); RETURN NEW;'),
     )
 
 

@@ -10,9 +10,7 @@ from formkit_ninja.parser.type_convert import NodePath
 def test_node_auto_population_on_save():
     """Verify that a new node picks up values from CodeGenerationConfig."""
     # Create a config for "text" type
-    CodeGenerationConfig.objects.create(
-        formkit_type="text", django_type="CharField", django_args={"max_length": 100}, pydantic_type="str", priority=10
-    )
+    CodeGenerationConfig.objects.create(formkit_type="text", django_type="CharField", django_args={"max_length": 100}, pydantic_type="str", priority=10)
 
     # Create a node of type "text"
     node_instance = FormKitSchemaNode.objects.create(node={"$formkit": "text", "name": "test_field"})
@@ -27,9 +25,7 @@ def test_node_auto_population_on_save():
 def test_node_manual_override_preserved():
     """Verify that manually set fields on a node are not overwritten by defaults."""
     # Create a global config
-    CodeGenerationConfig.objects.create(
-        formkit_type="text", django_type="CharField", django_args={"max_length": 100}, priority=10
-    )
+    CodeGenerationConfig.objects.create(formkit_type="text", django_type="CharField", django_args={"max_length": 100}, priority=10)
 
     # Create a node with manual override
     node_instance = FormKitSchemaNode.objects.create(
@@ -75,9 +71,7 @@ def test_database_node_path_uses_node_fields():
     CodeGenerationConfig.objects.create(formkit_type="text", django_type="CharField", priority=10)
 
     # Node says TextField
-    node_instance = FormKitSchemaNode.objects.create(
-        node={"$formkit": "text", "name": "db_overridden"}, django_field_type="TextField"
-    )
+    node_instance = FormKitSchemaNode.objects.create(node={"$formkit": "text", "name": "db_overridden"}, django_field_type="TextField")
 
     pydantic_node = node_instance.get_node()
     path = DatabaseNodePath(pydantic_node)

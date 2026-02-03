@@ -59,9 +59,7 @@ def create_tf611(request, payload: schema_in.Tf611SchemaIn):
     # We need to find the specific model instance that was created.
     try:
         # For the root object, repeater_parent is None and form_type matches
-        sep_sub = SeparatedSubmission.objects.get(
-            submission=submission, form_type="Tf611", repeater_parent__isnull=True
-        )
+        sep_sub = SeparatedSubmission.objects.get(submission=submission, form_type="Tf611", repeater_parent__isnull=True)
 
         # Get the model instance linked to it
         instance = models.Tf611.objects.prefetch_related("project_outputs").get(submission=sep_sub)

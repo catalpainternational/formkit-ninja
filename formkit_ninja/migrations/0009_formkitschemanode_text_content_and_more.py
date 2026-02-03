@@ -13,9 +13,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="formkitschemanode",
             name="text_content",
-            field=models.TextField(
-                blank=True, help_text="Content for a text element, for children of an $el type component", null=True
-            ),
+            field=models.TextField(blank=True, help_text="Content for a text element, for children of an $el type component", null=True),
         ),
         migrations.AlterField(
             model_name="nodechildren",

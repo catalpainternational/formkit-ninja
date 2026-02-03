@@ -36,9 +36,7 @@ def create_personalinfo(request, payload: schema_in.PersonalInfoSchema):
     # 1. Find the parent SeparatedSubmission
     try:
         # For the root object, repeater_parent is None and form_type matches
-        sep_sub = SeparatedSubmission.objects.get(
-            submission=submission, form_type="PersonalInfo", repeater_parent__isnull=True
-        )
+        sep_sub = SeparatedSubmission.objects.get(submission=submission, form_type="PersonalInfo", repeater_parent__isnull=True)
 
         # 2. Get the model instance linked to it
         instance = models.PersonalInfo.objects.get(submission=sep_sub)

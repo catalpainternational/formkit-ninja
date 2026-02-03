@@ -144,9 +144,7 @@ def test_field_coverage(method: str):
 @pytest.mark.parametrize("schema_name", ["POM_1", "SF_1_3", "TF_6_1_1"])
 @pytest.mark.parametrize("method", ["api", "admin"])
 @pytest.mark.django_db
-def test_reproduce_schema_via_method(
-    admin_client: Client, schema_name: str, method: str, request: pytest.FixtureRequest
-):
+def test_reproduce_schema_via_method(admin_client: Client, schema_name: str, method: str, request: pytest.FixtureRequest):
     """
     Test reproducing schemas via API or admin forms.
 
@@ -189,10 +187,6 @@ def test_reproduce_schema_via_method(
 
         # Basic structure validation - ensure we have nodes
         if isinstance(original_normalized, list):
-            assert len(recreated_normalized) > 0, (
-                f"Recreated schema should have nodes. Equivalence check failed with: {str(e)}"
-            )
+            assert len(recreated_normalized) > 0, f"Recreated schema should have nodes. Equivalence check failed with: {str(e)}"
         elif isinstance(original_normalized, dict):
-            assert isinstance(recreated_normalized, (dict, list)), (
-                f"Recreated schema should be a dict or list. Equivalence check failed with: {str(e)}"
-            )
+            assert isinstance(recreated_normalized, (dict, list)), f"Recreated schema should be a dict or list. Equivalence check failed with: {str(e)}"

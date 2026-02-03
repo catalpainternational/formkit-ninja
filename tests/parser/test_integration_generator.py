@@ -20,6 +20,7 @@ from formkit_ninja.parser.formatter import CodeFormatter
 from formkit_ninja.parser.generator import CodeGenerator
 from formkit_ninja.parser.generator_config import GeneratorConfig
 from formkit_ninja.parser.template_loader import DefaultTemplateLoader
+from formkit_ninja.parser.type_convert import NodePath
 
 
 def normalize_whitespace(text: str) -> str:
@@ -93,7 +94,7 @@ class TestIntegrationGenerator:
     ) -> None:
         """Test that generated code for simple form matches expected output."""
         # Setup generator
-        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path, node_path_class=NodePath)
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
         generator = CodeGenerator(
@@ -128,7 +129,7 @@ class TestIntegrationGenerator:
     ) -> None:
         """Test that generated code for complex nested form matches expected output."""
         # Setup generator
-        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path, node_path_class=NodePath)
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
         generator = CodeGenerator(
@@ -163,7 +164,7 @@ class TestIntegrationGenerator:
     ) -> None:
         """Test that generated models can be imported and used."""
         # Setup generator
-        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path, node_path_class=NodePath)
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
         generator = CodeGenerator(
@@ -195,18 +196,10 @@ class TestIntegrationGenerator:
             node
             for node in ast.walk(tree)
             if isinstance(node, ast.ClassDef)
-            and any(
-                isinstance(base, ast.Attribute)
-                and isinstance(base.value, ast.Name)
-                and base.value.id == "models"
-                and base.attr == "Model"
-                for base in node.bases
-            )
+            and any(isinstance(base, ast.Attribute) and isinstance(base.value, ast.Name) and base.value.id == "models" and base.attr == "Model" for base in node.bases)
         ]
 
-        assert len(class_definitions) > 0, (
-            "No Django model classes (inheriting from models.Model) found in generated code"
-        )
+        assert len(class_definitions) > 0, "No Django model classes (inheriting from models.Model) found in generated code"
 
         # Check that classes have expected structure (fields, etc.)
         for class_def in class_definitions:
@@ -223,7 +216,7 @@ class TestIntegrationGenerator:
     ) -> None:
         """Test that generated Pydantic schemas validate correctly."""
         # Setup generator
-        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path, node_path_class=NodePath)
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
         generator = CodeGenerator(
@@ -303,7 +296,7 @@ class TestIntegrationGenerator:
     ) -> None:
         """Test that generator accepts FormKitSchema object."""
         # Setup generator
-        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path, node_path_class=NodePath)
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
         generator = CodeGenerator(
@@ -333,7 +326,7 @@ class TestIntegrationGenerator:
     ) -> None:
         """Test that all generated files have valid Python syntax."""
         # Setup generator
-        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path, node_path_class=NodePath)
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
         generator = CodeGenerator(

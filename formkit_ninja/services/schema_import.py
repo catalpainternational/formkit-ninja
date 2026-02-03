@@ -37,9 +37,7 @@ class SchemaImportService:
         label: str | None = None,
     ) -> models.FormKitSchema:
         instance = models.FormKitSchema.objects.create(label=label)
-        nodes: Iterable[models.FormKitSchemaNode] = models.FormKitSchemaNode.from_pydantic(
-            cast(Iterable[formkit_schema.FormKitSchemaProps], input_model.__root__)
-        )
+        nodes: Iterable[models.FormKitSchemaNode] = models.FormKitSchemaNode.from_pydantic(cast(Iterable[formkit_schema.FormKitSchemaProps], input_model.__root__))
         for node in nodes:
             models.log(f"[yellow]Saving {node}")
             node.save()

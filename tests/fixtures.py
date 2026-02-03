@@ -751,11 +751,7 @@ def repeater_with_children(db):
         text_content="Priority 1",
         node={
             "$el": "div",
-            "attrs": {
-                "class": (
-                    "mb-5 bg-zinc-400 text-base text-zinc-900 h-[50px] px-5 flex items-center rounded-full font-bold"
-                )
-            },
+            "attrs": {"class": ("mb-5 bg-zinc-400 text-base text-zinc-900 h-[50px] px-5 flex items-center rounded-full font-bold")},
             "children": "Priority 1",
         },
     )

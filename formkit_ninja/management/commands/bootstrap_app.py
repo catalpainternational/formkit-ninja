@@ -74,9 +74,7 @@ class Command(BaseCommand):
         # Step 1: Create Django app if needed
         if not skip_startapp:
             if app_dir.exists():
-                self.stdout.write(
-                    self.style.WARNING(f"App directory already exists: {app_dir}. Use --skip-startapp to continue.")
-                )
+                self.stdout.write(self.style.WARNING(f"App directory already exists: {app_dir}. Use --skip-startapp to continue."))
                 raise CommandError(f"App directory already exists: {app_dir}")
 
             self.stdout.write(f"Creating Django app: {app_name}")

@@ -74,8 +74,22 @@ def test_nested_group_generates_abstract():
     inner_group = GroupNode(name="inner", label="Inner", children=[])
     outer_group = GroupNode(name="outer", label="Outer", children=[inner_group])
 
-    outer_path = NodePath(outer_group)
+    from types import SimpleNamespace
+
+    config = SimpleNamespace(merge_top_level_groups=True)
+
+    outer_path = NodePath(outer_group, config=config)
     inner_path = outer_path / inner_group
+
+    # We need to manually identify abstract bases in the valid NodePath way
+    # In strict "NodePath only" mode this is hard because it doesn't traverse the whole schema first
+    # But type_convert checks config.
+    # However, for `inner_path` to be abstract, `is_abstract_base` check is:
+    # if self.is_child: if config.merge... return True
+    # So passing config to the parent (which propagates to child?)
+    # `outer_path / inner_group` creates a new NodePath. Does it inherit config?
+    # Checking NodePath implementation: `return NodePath(*self.nodes, child, ... config=self._config)`
+    # Yes, it should propagate.
 
     code = inner_path.django_model_code
 
@@ -105,7 +119,11 @@ def test_nested_group_inheritance_preview():
     inner_group = GroupNode(name="inner", label="Inner", children=[])
     outer_group = GroupNode(name="outer", label="Outer", children=[inner_group])
 
-    path = NodePath(outer_group)
+    from types import SimpleNamespace
+
+    config = SimpleNamespace(merge_top_level_groups=True)
+
+    path = NodePath(outer_group, config=config)
     code = path.django_model_code
 
     # Root inherits from nested abstract base

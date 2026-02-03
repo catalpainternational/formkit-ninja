@@ -145,9 +145,7 @@ class SeparatedSubmissionManager(models.Manager):
 
         return results
 
-    def _save_repeater_chunk(
-        self, main: SeparatedSubmission, data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int]
-    ) -> tuple[SeparatedSubmission, bool] | None:
+    def _save_repeater_chunk(self, main: SeparatedSubmission, data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int]) -> tuple[SeparatedSubmission, bool] | None:
         """
         Helper to save a single repeater item.
         """
@@ -220,12 +218,8 @@ class SeparatedSubmission(models.Model):
         null=True,
         blank=True,
     )
-    repeater_parent = models.ForeignKey(
-        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="repeater_set"
-    )
-    repeater_order = models.IntegerField(
-        null=True, blank=True, help_text="The original order of a repeater in the JSON"
-    )
+    repeater_parent = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="repeater_set")
+    repeater_order = models.IntegerField(null=True, blank=True, help_text="The original order of a repeater in the JSON")
     submission = models.ForeignKey(
         Submission,
         help_text="The original submission.",

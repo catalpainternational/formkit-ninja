@@ -91,9 +91,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "is_active",
-                    models.BooleanField(
-                        default=True, help_text="Set to False to disable this configuration without deleting it"
-                    ),
+                    models.BooleanField(default=True, help_text="Set to False to disable this configuration without deleting it"),
                 ),
                 ("created", models.DateTimeField(auto_now_add=True)),
                 ("updated", models.DateTimeField(auto_now=True)),
@@ -106,8 +104,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name="codegenerationconfig",
-            constraint=models.UniqueConstraint(
-                fields=("formkit_type", "node_name", "options_pattern"), name="unique_code_gen_config"
-            ),
+            constraint=models.UniqueConstraint(fields=("formkit_type", "node_name", "options_pattern"), name="unique_code_gen_config"),
         ),
     ]

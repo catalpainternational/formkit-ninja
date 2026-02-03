@@ -8,9 +8,7 @@ from formkit_ninja.code_generation_config import CodeGenerationConfig
 @pytest.mark.django_db
 def test_admin_code_preview():
     """Verify that admin preview methods return expected HTML."""
-    config = CodeGenerationConfig.objects.create(
-        formkit_type="datepicker", django_type="DateField", django_args={"null": True}, pydantic_type="date"
-    )
+    config = CodeGenerationConfig.objects.create(formkit_type="datepicker", django_type="DateField", django_args={"null": True}, pydantic_type="date")
 
     admin = CodeGenerationConfigAdmin(CodeGenerationConfig, AdminSite())
 
@@ -30,9 +28,7 @@ def test_admin_code_preview_error():
     # Invalid django_args (invalid identifier as key)
     config = CodeGenerationConfig.objects.create(
         formkit_type="text",
-        django_args={
-            "invalid identifier": "value"
-        },  # This will produce "invalid identifier='value'" which is invalid syntax
+        django_args={"invalid identifier": "value"},  # This will produce "invalid identifier='value'" which is invalid syntax
     )
 
     admin = CodeGenerationConfigAdmin(CodeGenerationConfig, AdminSite())

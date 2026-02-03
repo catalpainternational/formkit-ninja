@@ -97,6 +97,16 @@ class TestTF611DatabaseDriven:
 
         # Get schema from factory node
         schema_dict = TF_6_1_1_from_factory.get_node_values(recursive=True)
+
+        # Scrub existing codegen info to ensure it's picked up from CodeGenerationConfig
+        def scrub_codegen_info(d):
+            if isinstance(d, dict):
+                for key in ["django_field_type", "django_field_args", "pydantic_field_type", "extra_imports", "validators"]:
+                    d.pop(key, None)
+                for child in d.get("children", []):
+                    scrub_codegen_info(child)
+
+        scrub_codegen_info(schema_dict)
         generator.generate([schema_dict])
 
         # Verify generated models
@@ -117,10 +127,7 @@ class TestTF611DatabaseDriven:
         # Verify repeater becomes concrete model with ForeignKey to parent
         assert "class Tf_6_1_1Repeaterprojectoutput(models.Model):" in models_content
         assert "parent = models.ForeignKey" in models_content
-        assert (
-            'related_name="repeaterProjectOutput"' in models_content
-            or "related_name='repeaterProjectOutput'" in models_content
-        )
+        assert 'related_name="repeaterProjectOutput"' in models_content or "related_name='repeaterProjectOutput'" in models_content
         assert "ordinality = models.IntegerField()" in models_content
         print("✅ Repeater → Concrete model with parent ForeignKey + ordinality")
 
@@ -175,11 +182,7 @@ class TestTF611DatabaseDriven:
             or "meetinginformation" in models_content.lower()
         )
 
-        assert (
-            "# From: TF_6_1_1 > projectdetails > latitude" in models_content
-            or "# From: Tf_6_1_1 > projectdetails > latitude" in models_content
-            or "projectdetails" in models_content.lower()
-        )
+        assert "# From: TF_6_1_1 > projectdetails > latitude" in models_content or "# From: Tf_6_1_1 > projectdetails > latitude" in models_content or "projectdetails" in models_content.lower()
 
         print("\n✅ Field comments preserve nested group hierarchy")
         print("   Example: TF_6_1_1 > meetinginformation > district")
@@ -216,12 +219,7 @@ class TestTF611DatabaseDriven:
 
         # Verify parent relationship (can be root model or nested group)
         assert "parent = models.ForeignKey" in models_content
-        assert (
-            '"Tf_6_1_1"' in models_content
-            or "'Tf_6_1_1'" in models_content
-            or '"Tf_6_1_1Projectoutput"' in models_content
-            or "'Tf_6_1_1Projectoutput'" in models_content
-        )
+        assert '"Tf_6_1_1"' in models_content or "'Tf_6_1_1'" in models_content or '"Tf_6_1_1Projectoutput"' in models_content or "'Tf_6_1_1Projectoutput'" in models_content
 
         # Verify ordinality for ordering
         assert "ordinality = models.IntegerField()" in models_content

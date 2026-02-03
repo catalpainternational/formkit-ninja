@@ -44,9 +44,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="option",
             name="group",
-            field=models.ForeignKey(
-                blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.optiongroup"
-            ),
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="formkit_ninja.optiongroup"),
         ),
         migrations.AlterField(
             model_name="option",

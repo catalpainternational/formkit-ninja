@@ -101,9 +101,7 @@ def main():
             # Create a test schema
             test_schema = models.FormKitSchema.objects.create(label="Test Schema from Nodes")
             for idx, node in enumerate(root_nodes[:3]):  # Use first 3 nodes
-                FormComponents.objects.create(
-                    schema=test_schema, node=node, order=idx, label=f"Test {node.label or node.id}"
-                )
+                FormComponents.objects.create(schema=test_schema, node=node, order=idx, label=f"Test {node.label or node.id}")
             print(f"   ✓ Created test schema with {len(root_nodes[:3])} nodes")
             schema_count_after = 1
         else:

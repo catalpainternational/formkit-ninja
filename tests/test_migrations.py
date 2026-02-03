@@ -153,9 +153,7 @@ def test_migration_edge_case_bool_strings():
         node_type="$formkit",
         node={"$formkit": "repeater"},
     )
-    models.FormKitSchemaNode.objects.filter(id=node1.id).update(
-        additional_props={"upControl": "false", "downControl": "false"}
-    )
+    models.FormKitSchemaNode.objects.filter(id=node1.id).update(additional_props={"upControl": "false", "downControl": "false"})
 
     migration_0032.forward(apps, None)
     node1.refresh_from_db()
@@ -172,14 +170,10 @@ def test_migration_preserves_non_dict_additional_props():
     migration_0028 = importlib.import_module("formkit_ninja.migrations.0028_migrate_additional_props")
 
     # Create node with None additional_props
-    node1 = models.FormKitSchemaNode.objects.create(
-        node_type="$formkit", node={"$formkit": "text"}, additional_props=None
-    )
+    node1 = models.FormKitSchemaNode.objects.create(node_type="$formkit", node={"$formkit": "text"}, additional_props=None)
 
     # Create node with empty additional_props
-    node2 = models.FormKitSchemaNode.objects.create(
-        node_type="$formkit", node={"$formkit": "text"}, additional_props={}
-    )
+    node2 = models.FormKitSchemaNode.objects.create(node_type="$formkit", node={"$formkit": "text"}, additional_props={})
 
     # Run migration - should not crash
     migration_0028.forward(apps, None)

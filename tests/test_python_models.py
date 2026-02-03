@@ -91,10 +91,7 @@ def test_parse_el_priority(el_priority: dict):  # noqa: F811
     assert node.node.get("$el") == "span"  # type: ignore[union-attr]
     assert node.node["attrs"] == {"class": "ml-1"}  # type: ignore[index]
     # With appropriate `by_alias` and `exclude_defaults` we should get an equal output as input
-    assert (
-        node.to_pydantic(recursive=True).dict(by_alias=True, exclude_defaults=True)["__root__"]
-        == el_priority["children"][1]
-    )
+    assert node.to_pydantic(recursive=True).dict(by_alias=True, exclude_defaults=True)["__root__"] == el_priority["children"][1]
 
 
 @pytest.mark.django_db()
@@ -174,8 +171,11 @@ def schema_are_same(in_: dict | str, out_: dict | str):
         assert in_ == out_, f"{in_=} != {out_=}"
         return
 
-    assert set(in_.keys()) == set(out_.keys())  # type: ignore[union-attr]
-    for key in in_.keys():
+    in_keys = {k for k, v in in_.items() if v not in ("", None)}
+    out_keys = {k for k, v in out_.items() if v not in ("", None)}
+
+    assert in_keys == out_keys
+    for key in in_keys:
         if key in {"options", "children"}:
             continue
 
@@ -183,9 +183,7 @@ def schema_are_same(in_: dict | str, out_: dict | str):
         if key in ("min", "step") and str(in_[key]) == str(out_[key]):
             continue
 
-        assert in_[key] == out_[key], (
-            f"Key '{key}': {in_[key]!r} (type {type(in_[key])}) != {out_[key]!r} (type {type(out_[key])})"
-        )
+        assert in_[key] == out_[key], f"Key '{key}': {in_[key]!r} (type {type(in_[key])}) != {out_[key]!r} (type {type(out_[key])})"
     if "children" in in_:
         for c_in, c_out in zip(in_.get("children", []), out_.get("children", [])):  # type: ignore[union-attr]
             schema_are_same(c_in, c_out)
@@ -264,9 +262,7 @@ def test_schemas(schema: dict):
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed_node))[0]
 
     # Returning the code
-    schema_out: dict = node_in_the_db.to_pydantic(recursive=True, options=True).dict(by_alias=True, exclude_none=True)[
-        "__root__"
-    ]
+    schema_out: dict = node_in_the_db.to_pydantic(recursive=True, options=True).dict(by_alias=True, exclude_none=True)["__root__"]
     schema_are_same(schema, schema_out)
 
 

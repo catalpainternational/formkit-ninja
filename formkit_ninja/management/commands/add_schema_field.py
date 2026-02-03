@@ -157,9 +157,7 @@ class Command(BaseCommand):
             self.stdout.write(f"\nRegenerating code for app: {app_name}")
             self._regenerate_code(schema, app_name, app_dir_str)
         elif app_name or app_dir_str:
-            self.stdout.write(
-                self.style.WARNING("\nWarning: Both --app-name and --app-dir are required to regenerate code")
-            )
+            self.stdout.write(self.style.WARNING("\nWarning: Both --app-name and --app-dir are required to regenerate code"))
 
         # Summary
         self.stdout.write("\n" + "=" * 70)
@@ -176,11 +174,7 @@ class Command(BaseCommand):
             self.stdout.write("3. Test the updated API and admin interface\n")
         else:
             self.stdout.write("\n" + self.style.WARNING("To regenerate code, run:"))
-            self.stdout.write(
-                f'  ./manage.py add_schema_field --schema-label "{schema_label}" '
-                f"--field-type {field_type} --field-name {field_name} "
-                f"--app-name YOUR_APP --app-dir ./YOUR_APP\n"
-            )
+            self.stdout.write(f'  ./manage.py add_schema_field --schema-label "{schema_label}" --field-type {field_type} --field-name {field_name} --app-name YOUR_APP --app-dir ./YOUR_APP\n')
 
     def _regenerate_code(self, schema: models.FormKitSchema, app_name: str, app_dir_str: str):
         """Regenerate code for the app."""

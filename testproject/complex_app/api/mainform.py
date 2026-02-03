@@ -39,9 +39,7 @@ def create_mainform(request, payload: schema_in.MainFormSchema):
     # 1. Find the parent SeparatedSubmission
     try:
         # For the root object, repeater_parent is None and form_type matches
-        sep_sub = SeparatedSubmission.objects.get(
-            submission=submission, form_type="MainForm", repeater_parent__isnull=True
-        )
+        sep_sub = SeparatedSubmission.objects.get(submission=submission, form_type="MainForm", repeater_parent__isnull=True)
 
         # 2. Get the model instance linked to it
         instance = models.MainForm.objects.get(submission=sep_sub)
@@ -76,9 +74,7 @@ def create_mainformlineitems(request, payload: schema_in.MainFormLineItemsSchema
     # 1. Find the parent SeparatedSubmission
     try:
         # For the root object, repeater_parent is None and form_type matches
-        sep_sub = SeparatedSubmission.objects.get(
-            submission=submission, form_type="MainFormLineItems", repeater_parent__isnull=True
-        )
+        sep_sub = SeparatedSubmission.objects.get(submission=submission, form_type="MainFormLineItems", repeater_parent__isnull=True)
 
         # 2. Get the model instance linked to it
         instance = models.MainFormLineItems.objects.get(submission=sep_sub)

@@ -189,12 +189,7 @@ class CodeGenerator:
                         if isinstance(child, ast.ClassDef) and child.name == "Meta":
                             # Check if Meta class has abstract = True
                             for meta_attr in child.body:
-                                if (
-                                    isinstance(meta_attr, ast.Assign)
-                                    and len(meta_attr.targets) == 1
-                                    and isinstance(meta_attr.targets[0], ast.Name)
-                                    and meta_attr.targets[0].id == "abstract"
-                                ):
+                                if isinstance(meta_attr, ast.Assign) and len(meta_attr.targets) == 1 and isinstance(meta_attr.targets[0], ast.Name) and meta_attr.targets[0].id == "abstract":
                                     # Check if the value is True
                                     if isinstance(meta_attr.value, ast.Constant) and meta_attr.value.value is True:
                                         is_abstract = True
@@ -294,11 +289,7 @@ class CodeGenerator:
                             if isinstance(target, ast.Name) and target.id == "__all__":
                                 if isinstance(node.value, (ast.List, ast.Tuple)):
                                     existing_all = [
-                                        (
-                                            elt.value
-                                            if isinstance(elt, ast.Constant)
-                                            else (elt.s if isinstance(elt, ast.Str) else str(elt))
-                                        )
+                                        (elt.value if isinstance(elt, ast.Constant) else (elt.s if isinstance(elt, ast.Str) else str(elt)))
                                         for elt in node.value.elts
                                         if isinstance(elt, (ast.Constant, ast.Str))
                                     ]

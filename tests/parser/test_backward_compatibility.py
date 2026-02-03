@@ -98,7 +98,7 @@ class TestBackwardCompatibility:
         from formkit_ninja.parser.generator_config import GeneratorConfig
         from formkit_ninja.parser.template_loader import DefaultTemplateLoader
 
-        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path)
+        config = GeneratorConfig(app_name="testapp", output_dir=tmp_path, node_path_class=NodePath)
         template_loader = DefaultTemplateLoader()
         formatter = CodeFormatter()
         generator = CodeGenerator(
@@ -127,9 +127,7 @@ class TestBackwardCompatibility:
         models_file_subdir = tmp_path / "models" / "testgroup.py"
 
         # At least one should exist
-        assert models_file_root.exists() or models_file_subdir.exists(), (
-            f"models.py not found in {tmp_path} or {tmp_path / 'models'}"
-        )
+        assert models_file_root.exists() or models_file_subdir.exists(), f"models.py not found in {tmp_path} or {tmp_path / 'models'}"
 
         # Read the appropriate file
         if models_file_root.exists():

@@ -52,16 +52,12 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "label",
-                    models.CharField(
-                        blank=True, help_text="Used as a human-readable label", max_length=1024, null=True
-                    ),
+                    models.CharField(blank=True, help_text="Used as a human-readable label", max_length=1024, null=True),
                 ),
                 ("is_active", models.BooleanField(default=True)),
                 (
                     "node",
-                    models.JSONField(
-                        blank=True, help_text="A JSON representation of select parts of the FormKit schema", null=True
-                    ),
+                    models.JSONField(blank=True, help_text="A JSON representation of select parts of the FormKit schema", null=True),
                 ),
                 (
                     "additional_props",

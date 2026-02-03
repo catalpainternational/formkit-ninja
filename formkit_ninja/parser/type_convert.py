@@ -319,12 +319,15 @@ class NodePath:
 
         # In the admin preview/general case, nested groups are abstract
         if self.is_child:
+            # If we're not merging, or no config provided, children are not abstract bases
+            if not self._config or not getattr(self._config, "merge_top_level_groups", False):
+                return False
             return True
 
         if not self._config or not getattr(self._config, "merge_top_level_groups", False):
             return False
         # Check if this NodePath classname is marked as abstract base
-        return self._abstract_base_info.get(self.classname, False)
+        return (self._abstract_base_info or {}).get(self.classname, False)
 
     @property
     def abstract_class_name(self) -> str:
@@ -502,30 +505,38 @@ class NodePath:
 
         # Get base args as a dictionary based on pydantic type
         base_args_dict: dict[str, str] = {}
-        match self.to_pydantic_type():
-            case "bool":
-                base_args_dict = {"null": "True", "blank": "True"}
-            case "str":
-                base_args_dict = {"null": "True", "blank": "True"}
-            case "Decimal":
-                base_args_dict = {
-                    "max_digits": "20",
-                    "decimal_places": "2",
-                    "null": "True",
-                    "blank": "True",
-                }
-            case "int":
-                base_args_dict = {"null": "True", "blank": "True"}
-            case "float":
-                base_args_dict = {"null": "True", "blank": "True"}
-            case "datetime":
-                base_args_dict = {"null": "True", "blank": "True"}
-            case "date":
-                base_args_dict = {"null": "True", "blank": "True"}
-            case "UUID":
-                base_args_dict = {"editable": "False", "null": "True", "blank": "True"}
-            case _:
-                base_args_dict = {"null": "True", "blank": "True"}
+
+        # First, check if converter provides django args
+        node = self.node
+        converter = self._type_converter_registry.get_converter(node)
+        if converter is not None and hasattr(converter, "to_django_args"):
+            base_args_dict = converter.to_django_args(node)
+        else:
+            # Fallback to defaults based on pydantic type
+            match self.to_pydantic_type():
+                case "bool":
+                    base_args_dict = {"null": "True", "blank": "True"}
+                case "str":
+                    base_args_dict = {"null": "True", "blank": "True"}
+                case "Decimal":
+                    base_args_dict = {
+                        "max_digits": "20",
+                        "decimal_places": "2",
+                        "null": "True",
+                        "blank": "True",
+                    }
+                case "int":
+                    base_args_dict = {"null": "True", "blank": "True"}
+                case "float":
+                    base_args_dict = {"null": "True", "blank": "True"}
+                case "datetime":
+                    base_args_dict = {"null": "True", "blank": "True"}
+                case "date":
+                    base_args_dict = {"null": "True", "blank": "True"}
+                case "UUID":
+                    base_args_dict = {"editable": "False", "null": "True", "blank": "True"}
+                case _:
+                    base_args_dict = {"null": "True", "blank": "True"}
 
         # Get extra args from extension point
         extra_args = self.get_django_args_extra()
@@ -579,17 +590,8 @@ class NodePath:
 
             return DatabaseNodePath._django_args_dict_to_str(self.node.django_field_args)
 
-        # 2. Use converter/registry defaults if available
-        node = self.node
-        converter = self._type_converter_registry.get_converter(node)
-        if converter is not None and hasattr(converter, "to_django_args"):
-            args_dict = converter.to_django_args(node)
-            # Logic to convert dict to string (same as DatabaseNodePath uses)
-            from formkit_ninja.parser.database_node_path import DatabaseNodePath
-
-            return DatabaseNodePath._django_args_dict_to_str(args_dict)
-
-        # 3. Fall back to legacy dict-based resolution
+        # 2. Use args dict from _get_django_args_dict which combines converter logic
+        # and subclass extension point (get_django_args_extra)
         args_dict = self._get_django_args_dict()
         result_parts = []
         for key, value in args_dict.items():
@@ -612,10 +614,7 @@ class NodePath:
         """
         if self.is_abstract_base:
             return []
-        return [
-            'submission = models.OneToOneField("formkit_ninja.SeparatedSubmission", '
-            'on_delete=models.CASCADE, primary_key=True, related_name="+")'
-        ]
+        return ['submission = models.OneToOneField("formkit_ninja.SeparatedSubmission", on_delete=models.CASCADE, primary_key=True, related_name="+")']
 
     @property
     def has_schema_content(self) -> bool:
@@ -874,10 +873,7 @@ class NodePath:
         try:
             ast.parse(code)
         except SyntaxError as e:
-            msg = (
-                f"Generated Django code for node '{self.get_node_path_string()}' "
-                f"has syntax errors: {e.msg}\nCode: {code}"
-            )
+            msg = f"Generated Django code for node '{self.get_node_path_string()}' has syntax errors: {e.msg}\nCode: {code}"
             raise SyntaxError(msg) from e
 
         return code
@@ -905,10 +901,7 @@ class NodePath:
         try:
             ast.parse(validation_code)
         except SyntaxError as e:
-            msg = (
-                f"Generated Pydantic code for node '{self.get_node_path_string()}' "
-                f"has syntax errors: {e.msg}\nCode: {code}"
-            )
+            msg = f"Generated Pydantic code for node '{self.get_node_path_string()}' has syntax errors: {e.msg}\nCode: {code}"
             raise SyntaxError(msg) from e
 
         return code
@@ -954,9 +947,7 @@ class NodePath:
 
         if self.is_repeater:
             # Repeaters always have submission FK
-            lines.append(
-                '    submission = models.ForeignKey("SeparatedSubmission", on_delete=models.CASCADE, null=True)'
-            )
+            lines.append('    submission = models.ForeignKey("SeparatedSubmission", on_delete=models.CASCADE, null=True)')
             has_content = True
 
             # Nested repeaters also have parent FK
@@ -966,10 +957,7 @@ class NodePath:
                 except Exception:
                     parent_name = "ParentModel"
                 node_name = getattr(self.node, "name", "repeater_field") or "repeater_field"
-                lines.append(
-                    f'    parent = models.ForeignKey("{parent_name}", '
-                    f'on_delete=models.CASCADE, related_name="{node_name}")'
-                )
+                lines.append(f'    parent = models.ForeignKey("{parent_name}", on_delete=models.CASCADE, related_name="{node_name}")')
 
             # Ordinality for list ordering
             lines.append("    ordinality = models.IntegerField()")
@@ -990,10 +978,7 @@ class NodePath:
             if group_path.is_abstract_base:
                 lines.append(f"    # Inherits fields from {group_path.classname}Abstract")
             else:
-                lines.append(
-                    f"    {group_path.fieldname} = models.OneToOneField("
-                    f"{group_path.classname}, on_delete=models.CASCADE)"
-                )
+                lines.append(f"    {group_path.fieldname} = models.OneToOneField({group_path.classname}, on_delete=models.CASCADE)")
             has_content = True
 
         # Show child repeaters (as related name reference)

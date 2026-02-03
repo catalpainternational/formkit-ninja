@@ -562,10 +562,7 @@ class TestTF611APICreation:
             # Fields should not include 'uuid' (it's extracted)
             assert "output" in fields
             assert "quantity" in fields
-            print(
-                f"  ✓ Repeater item {sub.repeater_order}: "
-                f"output={fields.get('output')}, quantity={fields.get('quantity')}"
-            )
+            print(f"  ✓ Repeater item {sub.repeater_order}: output={fields.get('output')}, quantity={fields.get('quantity')}")
 
         print("\n" + "=" * 70)
         print("✅ TF611 Submission Flow Verified!")
@@ -651,9 +648,7 @@ class TestTF611APICreation:
             # Check for expected classes
             # Code gen normalizes names - may produce Tf611 or similar
             classes = [line for line in content.split(chr(10)) if "class " in line][:5]
-            assert "class Tf611" in content or "class TF611" in content or "class Tf_6_1_1" in content, (
-                f"Should have root model class, got classes: {classes}"
-            )
+            assert "class Tf611" in content or "class TF611" in content or "class Tf_6_1_1" in content, f"Should have root model class, got classes: {classes}"
             print("✓ Contains TF611 root class")
 
             # Abstract base classes

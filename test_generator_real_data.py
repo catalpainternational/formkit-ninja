@@ -138,16 +138,8 @@ def main():
 
     # Analyze structure
     children = schema_node.children.all()
-    nested_groups = [
-        c
-        for c in children
-        if c.node and isinstance(c.node, dict) and (c.node.get("$formkit") or c.node.get("formkit")) == "group"
-    ]
-    repeaters = [
-        c
-        for c in children
-        if c.node and isinstance(c.node, dict) and (c.node.get("$formkit") or c.node.get("formkit")) == "repeater"
-    ]
+    nested_groups = [c for c in children if c.node and isinstance(c.node, dict) and (c.node.get("$formkit") or c.node.get("formkit")) == "group"]
+    repeaters = [c for c in children if c.node and isinstance(c.node, dict) and (c.node.get("$formkit") or c.node.get("formkit")) == "repeater"]
 
     print(f"   - Total children: {children.count()}")
     print(f"   - Nested GroupNodes: {len(nested_groups)}")

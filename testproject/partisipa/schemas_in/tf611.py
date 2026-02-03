@@ -55,9 +55,7 @@ class Tf611SchemaIn(BaseModel):
     no_of_pwd_female: int | None = None
 
     # Repeater items
-    repeaterProjectOutput: List[Tf611RepeaterprojectoutputSchemaIn] | None = Field(
-        default=None, alias="repeaterProjectOutput"
-    )
+    repeaterProjectOutput: List[Tf611RepeaterprojectoutputSchemaIn] | None = Field(default=None, alias="repeaterProjectOutput")
 
 
 Tf611SchemaIn.update_forward_refs()

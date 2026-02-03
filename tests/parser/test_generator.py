@@ -42,24 +42,14 @@ class Tf61NodePath(NodePath):
             # Add submission field
             if self.is_group and not self.is_child:
                 # Root-level group: submission as primary key
-                attribs.append(
-                    "submission = models.OneToOneField("
-                    '"form_submission.SeparatedSubmission", '
-                    "on_delete=models.CASCADE, primary_key=True)"
-                )
+                attribs.append('submission = models.OneToOneField("form_submission.SeparatedSubmission", on_delete=models.CASCADE, primary_key=True)')
             elif self.is_repeater:
                 # Repeater: nullable submission
-                attribs.append(
-                    "submission = models.OneToOneField("
-                    '"form_submission.SeparatedSubmission", '
-                    "on_delete=models.CASCADE, null=True)"
-                )
+                attribs.append('submission = models.OneToOneField("form_submission.SeparatedSubmission", on_delete=models.CASCADE, null=True)')
 
             # Add project field to root-level groups
             if self.is_group and not self.is_child:
-                attribs.append(
-                    "project = models.ForeignKey(ida_options.Project, null=True, blank=True, on_delete=models.PROTECT)"
-                )
+                attribs.append("project = models.ForeignKey(ida_options.Project, null=True, blank=True, on_delete=models.PROTECT)")
         return attribs
 
     def to_django_type(self) -> str:
@@ -633,17 +623,13 @@ class TestCodeGenerator:
         admin_file = output_dir / "admin.py"
         if admin_file.exists():
             admin_content = admin_file.read_text()
-            assert "admin.site.register" in admin_content or "@admin.register" in admin_content, (
-                "admin.py should contain admin registrations"
-            )
+            assert "admin.site.register" in admin_content or "@admin.register" in admin_content, "admin.py should contain admin registrations"
 
         # Verify api.py contains API endpoints (only if file exists)
         api_file = output_dir / "api.py"
         if api_file.exists():
             api_content = api_file.read_text()
-            assert "router" in api_content or "APIView" in api_content or "@api_view" in api_content, (
-                "api.py should contain API endpoint definitions"
-            )
+            assert "router" in api_content or "APIView" in api_content or "@api_view" in api_content, "api.py should contain API endpoint definitions"
 
         # Output location is persisted as test artifact
         print(f"\n✓ Generated files persisted at: {output_dir.absolute()}")
@@ -712,14 +698,10 @@ class TestCodeGenerator:
         # Note: schemas.py is no longer generated, skipping schema content checks
 
         admin_content = (output_dir / "admin" / schema_file).read_text()
-        assert "admin.site.register" in admin_content or "@admin.register" in admin_content, (
-            "admin/pom1.py should contain admin registrations"
-        )
+        assert "admin.site.register" in admin_content or "@admin.register" in admin_content, "admin/pom1.py should contain admin registrations"
 
         api_content = (output_dir / "api" / schema_file).read_text()
-        assert "router" in api_content or "APIView" in api_content or "@api_view" in api_content, (
-            "api/pom1.py should contain API endpoint definitions"
-        )
+        assert "router" in api_content or "APIView" in api_content or "@api_view" in api_content, "api/pom1.py should contain API endpoint definitions"
 
         print(f"\n✓ Generated files persisted at: {output_dir.absolute()}")
 
@@ -813,10 +795,7 @@ class TestCodeGenerator:
         # Note: schemas.py is no longer generated, skipping schema content checks
 
         # 3f. Admin Classes Work with Merged Fields (RED → GREEN)
-        assert (
-            "@admin.register(models.Tf_6_1_1)" in admin_content
-            or "admin.site.register(models.Tf_6_1_1)" in admin_content
-        )
+        assert "@admin.register(models.Tf_6_1_1)" in admin_content or "admin.site.register(models.Tf_6_1_1)" in admin_content
         assert "district" in admin_content
         assert "Tf_6_1_1Meetinginformation" not in admin_content
 
