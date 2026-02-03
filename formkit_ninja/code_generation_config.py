@@ -64,6 +64,11 @@ class CodeGenerationConfig(models.Model):
         blank=True,
         help_text='Django field arguments as JSON dict (e.g., {"null": true, "blank": true, "to": "app.Model"})',
     )
+    django_positional_args = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Django field positional arguments as JSON list (e.g., ["auth.User"])',
+    )
 
     # Extra configuration
     extra_imports = models.JSONField(
@@ -111,26 +116,42 @@ class CodeGenerationConfig(models.Model):
         return " | ".join(parts)
 
     def get_django_args_str(self) -> str:
-        """Convert django_args dict to string format for generated code."""
-        if not self.django_args:
-            return ""
-
+        """Convert django_args dict and positional args to string format for generated code."""
         parts = []
-        for key, value in self.django_args.items():
-            if isinstance(value, bool):
-                parts.append(f"{key}={str(value)}")
-            elif isinstance(value, (int, float)):
-                parts.append(f"{key}={value}")
-            elif isinstance(value, str):
-                # Handle model references (e.g., "app.Model" or already quoted "'app.Model'")
-                if value.startswith("models.") or "." in value and not value.startswith('"'):
-                    # Model reference or function like models.CASCADE
-                    parts.append(f"{key}={value}")
+
+        # Add positional arguments first
+        if self.django_positional_args:
+            for value in self.django_positional_args:
+                if isinstance(value, bool):
+                    parts.append(str(value))
+                elif isinstance(value, (int, float)):
+                    parts.append(str(value))
+                elif isinstance(value, str):
+                    # Handle model references
+                    if value.startswith("models.") or "." in value and not value.startswith('"'):
+                        parts.append(value)
+                    else:
+                        parts.append(f'"{value}"')
                 else:
-                    # String value
-                    parts.append(f'{key}="{value}"')
-            else:
-                # Other types, convert to string
-                parts.append(f"{key}={value}")
+                    parts.append(str(value))
+
+        # Add keyword arguments
+        if self.django_args:
+            for key, value in self.django_args.items():
+                if isinstance(value, bool):
+                    parts.append(f"{key}={str(value)}")
+                elif isinstance(value, (int, float)):
+                    parts.append(f"{key}={value}")
+                elif isinstance(value, str):
+                    # Handle model references (e.g., "app.Model" or already quoted "'app.Model'")
+                    if value.startswith("models.") or "." in value and not value.startswith('"'):
+                        # Model reference or function like models.CASCADE
+                        parts.append(f"{key}={value}")
+                    else:
+                        # String value
+                        parts.append(f'{key}="{value}"')
+                else:
+                    # Other types, convert to string
+                    parts.append(f"{key}={value}")
 
         return ", ".join(parts)

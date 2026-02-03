@@ -173,6 +173,7 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
             "protected",
             "django_field_type",
             "django_field_args",
+            "django_field_positional_args",
             "pydantic_field_type",
             "extra_imports",
             "validators",
@@ -181,6 +182,7 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
     # Code Generation Overrides
     django_field_type = forms.CharField(required=False)
     django_field_args = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
+    django_field_positional_args = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
     pydantic_field_type = forms.CharField(required=False)
     extra_imports = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
     validators = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
@@ -238,6 +240,7 @@ class FormKitNodeGroupForm(FormKitBaseForm):
             "protected",
             "django_field_type",
             "django_field_args",
+            "django_field_positional_args",
             "pydantic_field_type",
             "extra_imports",
             "validators",
@@ -264,6 +267,7 @@ class FormKitNodeForm(FormKitBaseForm):
             "protected",
             "django_field_type",
             "django_field_args",
+            "django_field_positional_args",
             "pydantic_field_type",
             "extra_imports",
             "validators",
@@ -510,6 +514,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         code_gen_fields = {
             "django_field_type",
             "django_field_args",
+            "django_field_positional_args",
             "pydantic_field_type",
             "extra_imports",
             "validators",
@@ -528,6 +533,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                     "fields": (
                         "django_field_type",
                         "django_field_args",
+                        "django_field_positional_args",
                         "pydantic_field_type",
                         "extra_imports",
                         "validators",

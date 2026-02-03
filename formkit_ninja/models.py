@@ -382,6 +382,11 @@ class FormKitSchemaNode(UuidIdModel):
         "Example: {'null': true, 'blank': true, 'max_length': 255}. "
         "For ForeignKeys, include the model name: {'to': 'auth.User', 'on_delete': 'models.CASCADE'}.",
     )
+    django_field_positional_args = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Positional arguments passed to the Django field as a JSON list. Example: ['auth.User'].",
+    )
     pydantic_field_type = models.CharField(
         max_length=100,
         null=True,
@@ -484,16 +489,24 @@ class FormKitSchemaNode(UuidIdModel):
         if force or not self.django_field_type:
             self.django_field_type = path.to_django_type()
 
-        if force or not self.django_field_args:
-            # We want the dict, not the string
+        if force or not self.django_field_args or not self.django_field_positional_args:
+            # We want the dict/list, not the string
             # DatabaseNodePath uses _get_config and _get_from_settings
             config = path._get_config()
             if config:
-                self.django_field_args = config.django_args
+                if force or not self.django_field_args:
+                    self.django_field_args = config.django_args
+                if force or not self.django_field_positional_args:
+                    self.django_field_positional_args = config.django_positional_args
             else:
-                settings_args = path._get_from_settings("django_args")
-                if isinstance(settings_args, dict):
-                    self.django_field_args = settings_args
+                if force or not self.django_field_args:
+                    settings_args = path._get_from_settings("django_args")
+                    if isinstance(settings_args, dict):
+                        self.django_field_args = settings_args
+                if force or not self.django_field_positional_args:
+                    settings_pos_args = path._get_from_settings("django_positional_args")
+                    if isinstance(settings_pos_args, list):
+                        self.django_field_positional_args = settings_pos_args
 
         if force or not self.pydantic_field_type:
             self.pydantic_field_type = path.to_pydantic_type()
@@ -587,6 +600,8 @@ class FormKitSchemaNode(UuidIdModel):
             values["django_field_type"] = self.django_field_type
         if self.django_field_args:
             values["django_field_args"] = self.django_field_args
+        if self.django_field_positional_args:
+            values["django_field_positional_args"] = self.django_field_positional_args
         if self.pydantic_field_type:
             values["pydantic_field_type"] = self.pydantic_field_type
         if self.extra_imports:
@@ -709,6 +724,8 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.django_field_type = django_field_type
             if (django_field_args := getattr(input_model, "django_field_args", None)) is not None:
                 instance.django_field_args = django_field_args
+            if (django_field_positional_args := getattr(input_model, "django_field_positional_args", None)) is not None:
+                instance.django_field_positional_args = django_field_positional_args
             if (pydantic_field_type := getattr(input_model, "pydantic_field_type", None)) is not None:
                 instance.pydantic_field_type = pydantic_field_type
             if (extra_imports := getattr(input_model, "extra_imports", None)) is not None:

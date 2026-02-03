@@ -123,6 +123,7 @@ class FormKitSchemaProps(BaseModel):
     # Code Generation Source of Truth
     django_field_type: str | None = Field(None, exclude=True)
     django_field_args: dict[str, Any] = Field(default_factory=dict, exclude=True)
+    django_field_positional_args: list[Any] = Field(default_factory=list, exclude=True)
     pydantic_field_type: str | None = Field(None, exclude=True)
     extra_imports: list[str] = Field(default_factory=list, exclude=True)
     validators: list[str] = Field(default_factory=list, exclude=True)

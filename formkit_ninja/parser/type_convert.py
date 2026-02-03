@@ -584,11 +584,13 @@ class NodePath:
         Prioritizes fields stored on the node instance if available.
         """
         # 1. Check for database-derived override on the node
-        if hasattr(self.node, "django_field_args") and self.node.django_field_args:
-            # We need to convert the dict back to a string for the template
+        args = getattr(self.node, "django_field_args", {})
+        pos_args = getattr(self.node, "django_field_positional_args", [])
+        if args or pos_args:
+            # We need to convert the dict/list back to a string for the template
             from formkit_ninja.parser.database_node_path import DatabaseNodePath
 
-            return DatabaseNodePath._django_args_dict_to_str(self.node.django_field_args)
+            return DatabaseNodePath._django_args_dict_to_str(args, pos_args)
 
         # 2. Use args dict from _get_django_args_dict which combines converter logic
         # and subclass extension point (get_django_args_extra)

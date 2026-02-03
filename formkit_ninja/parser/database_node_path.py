@@ -213,22 +213,25 @@ class DatabaseNodePath(NodePath):
         Prioritizes fields already on the node (via super()).
         """
         # 1. Check if it's already on the node
-        if hasattr(self.node, "django_field_args") and self.node.django_field_args:
+        args = getattr(self.node, "django_field_args", {})
+        pos_args = getattr(self.node, "django_field_positional_args", [])
+        if args or pos_args:
             return super().to_django_args()
 
         # 2. Check database config
         config = self._get_config()
-        if config and config.django_args:
+        if config:
             return config.get_django_args_str()
 
         # Check Django settings
         settings_args = self._get_from_settings("django_args")
-        if settings_args:
-            if isinstance(settings_args, dict):
-                # Convert dict to string format
-                return self._django_args_dict_to_str(settings_args)
-            elif isinstance(settings_args, str):
-                return settings_args
+        settings_pos_args = self._get_from_settings("django_positional_args")
+
+        if settings_args or settings_pos_args:
+            return self._django_args_dict_to_str(
+                settings_args if isinstance(settings_args, dict) else {},
+                settings_pos_args if isinstance(settings_pos_args, list) else [],
+            )
 
         # Fall back to parent implementation
         return super().to_django_args()
@@ -282,17 +285,25 @@ class DatabaseNodePath(NodePath):
         return super().get_extra_imports()
 
     @staticmethod
-    def _django_args_dict_to_str(args_dict: dict) -> str:
+    def _django_args_dict_to_str(args_dict: dict, positional_args: list | None = None) -> str:
         """
-        Convert django_args dict to string format.
+        Convert django_args dict and positional_args list to string format.
 
         Args:
-            args_dict: Dict of field arguments
+            args_dict: Dict of keyword field arguments
+            positional_args: List of positional field arguments
 
         Returns:
             Comma-separated string of arguments
         """
         parts = []
+
+        # Handle positional arguments first
+        if positional_args:
+            for value in positional_args:
+                parts.append(str(value))
+
+        # Handle keyword arguments
         for key, value in args_dict.items():
             if isinstance(value, bool):
                 parts.append(f"{key}={str(value)}")
