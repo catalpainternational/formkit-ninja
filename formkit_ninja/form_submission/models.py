@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 
 import pghistory
+import pgtrigger
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -305,3 +306,26 @@ class SeparatedSubmission(models.Model):
             else:
                 logger.warning(f"Model {model} does not have a 'submission' field link.")
                 return None, False
+
+
+class SubmissionFile(models.Model):
+    submission = models.UUIDField()
+    file = models.FileField(upload_to="submission_files")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    comment = models.TextField()
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+    deleted = models.BooleanField(default=False)
+
+    class Meta:
+        triggers = [pgtrigger.SoftDelete(name="soft_delete", field="deleted", value=True)]
+
+
+class SeparatedSubmissionImport(models.Model):
+    """
+    Record a success / fail message for a submission import
+    """
+
+    submission = models.ForeignKey(SeparatedSubmission, on_delete=models.CASCADE)
+    created = models.DateTimeField(auto_now_add=True)
+    success = models.BooleanField()
+    message = models.TextField()
