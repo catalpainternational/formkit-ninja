@@ -37,6 +37,7 @@ ALLOWED_HOSTS: list[str] = []
 # Application definition
 
 INSTALLED_APPS = [
+    "pghistory.admin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     "ninja",
     "pgtrigger",
     "pghistory",
+    "testproject.sample_app",
 ]
 
 MIDDLEWARE = [
@@ -177,3 +179,8 @@ LOGGING = {
         "formkit_ninja": {"handlers": ["console"], "level": "DEBUG", "propagate": True},
     },
 }
+
+
+
+INSTALLED_APPS.append('testproject.complex_app')
+INSTALLED_APPS.append('testproject.partisipa')
