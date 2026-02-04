@@ -2,57 +2,69 @@
 Tests for form_submission signals.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
-from formkit_ninja.form_submission.signals import (
-    separated_submission_created,
+from formkit_ninja.form_submission.models import (
+    SeparatedSubmission,
+    SeparatedSubmissionImport,
+    Submission,
 )
+from formkit_ninja.form_submission.signals import import_error, import_success
 
 
 @pytest.mark.django_db
 class TestSignals:
-    def test_separated_submission_created_signal_emitted(self):
-        """Verify signal is emitted when from_submission is called."""
-        handler = MagicMock()
-        separated_submission_created.connect(handler)
+    def test_separated_submission_creation(self):
+        """Verify SeparatedSubmission objects are created from a Submission."""
+        sub = Submission.objects.create(form_type="testform", fields={"field1": "value1"})
+        SeparatedSubmission.objects.from_submission(sub)
 
-        try:
-            sub = Submission.objects.create(form_type="testform", fields={"field1": "value1"})
-            SeparatedSubmission.objects.from_submission(sub)
+        assert SeparatedSubmission.objects.filter(submission=sub).exists()
 
-            assert handler.called
-            assert handler.call_count >= 1
+    def test_import_success_signal_creates_record(self):
+        """Verify that import_success signal creates a SeparatedSubmissionImport record."""
+        # Create a Submission and SeparatedSubmission
+        sub = Submission.objects.create(form_type="testform", fields={"field1": "value1"})
+        separated = SeparatedSubmission.objects.from_submission(sub)[0][0]
 
-            # Check first call args
-            call_kwargs = handler.call_args[1]
-            assert "instance" in call_kwargs
-            assert "created" in call_kwargs
-            assert isinstance(call_kwargs["instance"], SeparatedSubmission)
-        finally:
-            separated_submission_created.disconnect(handler)
+        # Create a mock model instance
+        mock_model = MagicMock()
+        mock_model._meta.label = "testapp.TestModel"
+        was_created = True
 
-    def test_auto_populate_logic(self):
-        """Verify the auto-population logic itself works when the handler is connected."""
-        with patch("formkit_ninja.form_submission.handlers.settings") as mock_settings:
-            mock_settings.FORMKIT_AUTO_POPULATE = True
+        # Send the signal
+        import_success.send(
+            sender=SeparatedSubmission,
+            instance=separated,
+            model_instance=mock_model,
+            was_created=was_created,
+        )
 
-            # Import the handler
-            from formkit_ninja.form_submission import handlers
+        # Verify SeparatedSubmissionImport record was created
+        import_record = SeparatedSubmissionImport.objects.get(submission=separated)
+        assert import_record.success is True
+        assert "testapp.TestModel" in import_record.message
+        assert "Created: True" in import_record.message
 
-            # Manually connect for this test (simulating a user app)
-            separated_submission_created.connect(handlers.auto_populate_model)
+    def test_import_error_signal_creates_record(self):
+        """Verify that import_error signal creates a SeparatedSubmissionImport record."""
+        # Create a Submission and SeparatedSubmission
+        sub = Submission.objects.create(form_type="testform", fields={"field1": "value1"})
+        separated = SeparatedSubmission.objects.from_submission(sub)[0][0]
 
-            try:
-                sub = Submission.objects.create(form_type="testform", fields={"field1": "value1"})
+        # Create a test error
+        test_error = ValueError("Test error message")
 
-                # We need to mock to_model on the instance that will be created
-                # because we don't have a real matching model for 'testform'
-                with patch.object(SeparatedSubmission, "to_model", return_value=(MagicMock(), True)) as mock_to_model:
-                    SeparatedSubmission.objects.from_submission(sub)
-                    assert mock_to_model.called
-            finally:
-                # Cleanup connection
-                separated_submission_created.disconnect(handlers.auto_populate_model)
+        # Send the signal
+        import_error.send(
+            sender=SeparatedSubmission,
+            instance=separated,
+            error=test_error,
+        )
+
+        # Verify SeparatedSubmissionImport record was created
+        import_record = SeparatedSubmissionImport.objects.get(submission=separated)
+        assert import_record.success is False
+        assert "Test error message" in import_record.message
