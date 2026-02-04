@@ -146,7 +146,19 @@ class SeparatedSubmissionManager(models.Manager):
         # Construct a logical form type string for the repeater
         # We capitalize each segment and each part within it (separated by underscores)
         # to match the NodePath.suggest_class_name() PascalCase logic.
-        form_type_str = "".join("".join(part.capitalize() for part in ft.split("_") if part) for ft in form_type_path)
+        # This matches NodePath._to_pascal() which preserves underscores before numeric parts.
+        def _to_pascal(s: str) -> str:
+            """Convert string to PascalCase, preserving underscores before numeric parts."""
+            parts = s.split("_")
+            result = []
+            for i, part in enumerate(parts):
+                if part.isdigit() and i > 0:
+                    result.append("_" + part)
+                else:
+                    result.append(part.capitalize())
+            return "".join(result)
+
+        form_type_str = "".join(_to_pascal(ft) for ft in form_type_path)
 
         submission_key = form_fields.pop("uuid", None)
         if not submission_key:

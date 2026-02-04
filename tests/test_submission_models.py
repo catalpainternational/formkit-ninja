@@ -64,3 +64,32 @@ class TestSubmissionLifecycle:
         child1 = level2_qs.filter(fields__name="child1").first()
         assert child1
         assert child1.repeater_parent == level1
+
+    def test_form_type_preserves_underscores_in_numeric_parts(self):
+        """
+        Verify that form_type generation preserves underscores before numeric parts.
+        This matches NodePath._to_pascal() behavior.
+        Example: "Sf_1_2" should become "Sf_1_2" not "Sf12"
+        """
+        import uuid
+
+        # Create a submission with a form_type that has underscores and numbers
+        data = {
+            "repeatercontribution": [
+                {"uuid": str(uuid.uuid4()), "amount": 100},
+                {"uuid": str(uuid.uuid4()), "amount": 200},
+            ]
+        }
+        sub = Submission.objects.create(fields=data, form_type="Sf_1_2")
+
+        # Get the main SeparatedSubmission
+        main = SeparatedSubmission.objects.get(submission=sub, repeater_key__isnull=True)
+        assert main.form_type == "Sf_1_2"
+
+        # Get repeater SeparatedSubmissions
+        repeaters = SeparatedSubmission.objects.filter(submission=sub, repeater_key="repeatercontribution")
+        assert repeaters.count() == 2
+
+        # The form_type for repeaters should preserve underscores: "Sf_1_2Repeatercontribution"
+        for repeater in repeaters:
+            assert repeater.form_type == "Sf_1_2Repeatercontribution", f"Expected 'Sf_1_2Repeatercontribution', got '{repeater.form_type}'"

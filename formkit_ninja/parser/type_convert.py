@@ -588,9 +588,7 @@ class NodePath:
         pos_args = getattr(self.node, "django_field_positional_args", [])
         if args or pos_args:
             # We need to convert the dict/list back to a string for the template
-            from formkit_ninja.parser.database_node_path import DatabaseNodePath
-
-            return DatabaseNodePath._django_args_dict_to_str(args, pos_args)
+            return self._django_args_dict_to_str(args, pos_args)
 
         # 2. Use args dict from _get_django_args_dict which combines converter logic
         # and subclass extension point (get_django_args_extra)
@@ -603,6 +601,44 @@ class NodePath:
                 result_parts.append(f"{key}={value}")
 
         return ", ".join(result_parts)
+
+    @staticmethod
+    def _django_args_dict_to_str(args_dict: dict, positional_args: list | None = None) -> str:
+        """
+        Convert django_args dict and positional_args list to string format.
+
+        Args:
+            args_dict: Dict of keyword field arguments
+            positional_args: List of positional field arguments
+
+        Returns:
+            Comma-separated string of arguments
+        """
+        parts = []
+
+        # Handle positional arguments first
+        if positional_args:
+            for value in positional_args:
+                parts.append(str(value))
+
+        # Handle keyword arguments
+        for key, value in args_dict.items():
+            if isinstance(value, bool):
+                parts.append(f"{key}={str(value)}")
+            elif isinstance(value, (int, float)):
+                parts.append(f"{key}={value}")
+            elif isinstance(value, str):
+                # Handle model references (e.g., "app.Model" or models.CASCADE)
+                if value in {"True", "False", "None"}:
+                    parts.append(f"{key}={value}")
+                elif value.startswith("models.") or ("." in value and not value.startswith('"')):
+                    parts.append(f"{key}={value}")
+                else:
+                    parts.append(f'{key}="{value}"')
+            else:
+                parts.append(f"{key}={value}")
+
+        return ", ".join(parts)
 
     @property
     def django_args(self):
