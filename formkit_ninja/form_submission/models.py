@@ -9,7 +9,6 @@ import pghistory
 import pgtrigger
 from django.apps import apps
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
@@ -21,8 +20,6 @@ from formkit_ninja.form_submission.utils import (
 )
 
 logger = logging.getLogger(__name__)
-
-User = get_user_model()
 
 
 @contextmanager
