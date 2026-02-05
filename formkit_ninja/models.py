@@ -21,13 +21,13 @@ from rich.console import Console
 from formkit_ninja import formkit_schema, triggers
 
 # Re export "form_submission" models
-from formkit_ninja.form_submission import models as form_submission_models
-
-SeparatedSubmission = form_submission_models.SeparatedSubmission
-Submission = form_submission_models.Submission
-SubmissionField = form_submission_models.SubmissionField
-SubmissionFile = form_submission_models.SubmissionFile
-
+from formkit_ninja.code_generation_config import CodeGenerationConfig  # noqa: F401
+from formkit_ninja.form_submission.models import (
+    SeparatedSubmission,  # noqa: F401
+    Submission,  # noqa: F401
+    SubmissionField,  # noqa: F401
+    SubmissionFile,  # noqa: F401
+)
 
 console = Console()
 log = console.log
