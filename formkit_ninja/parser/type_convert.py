@@ -90,16 +90,6 @@ class NodePath:
         model_name = "".join(map(self.safe_node_name, self.nodes))
         return model_name
 
-    def _to_pascal(self, s: str) -> str:
-        parts = s.split("_")
-        result = []
-        for i, part in enumerate(parts):
-            if part.isdigit() and i > 0:
-                result.append("_" + part)
-            else:
-                result.append(part.capitalize())
-        return "".join(result)
-
     def suggest_class_name(self):
         # If this is a repeater, skip wrapping group nodes in the classname
         # Example: TF_6_1_1 > projectoutput > repeaterProjectOutput
@@ -123,10 +113,10 @@ class NodePath:
                         # Not a group, include it
                         filtered_nodes.append(node)
                     # If it is a group, skip it
-            model_name = "".join(map(self._to_pascal, map(self.safe_node_name, filtered_nodes)))
         else:
+            filtered_nodes = self.nodes
             # For non-repeaters, use all nodes as before
-            model_name = "".join(map(self._to_pascal, map(self.safe_node_name, self.nodes)))
+        model_name = "".join(self.safe_node_name(node).capitalize() for node in filtered_nodes)
         return model_name
 
     def suggest_field_name(self):
