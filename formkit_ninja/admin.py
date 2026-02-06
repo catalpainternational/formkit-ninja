@@ -13,22 +13,17 @@ from django.http import HttpRequest
 
 # Import admin modules to register them
 from formkit_ninja import (
-    admin_code_generation,  # noqa: F401
     formkit_schema,
     models,
 )
 from formkit_ninja.form_submission.models import (
     SeparatedSubmission,
+    SeparatedSubmissionImport,
     Submission,
+    SubmissionFile,
 )
 
 logger = logging.getLogger(__name__)
-
-# Use PrettyJSONWidget from admin_code_generation if possible
-try:
-    from formkit_ninja.admin_code_generation import PrettyJSONWidget
-except ImportError:
-    PrettyJSONWidget = forms.Textarea  # type: ignore[assignment, misc]
 
 
 # Define fields in JSON with a tuple of fields
@@ -181,11 +176,11 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
 
     # Code Generation Overrides
     django_field_type = forms.CharField(required=False)
-    django_field_args = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
-    django_field_positional_args = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
+    django_field_args = forms.JSONField(required=False, widget=forms.Textarea(attrs={"rows": 4}))
+    django_field_positional_args = forms.JSONField(required=False, widget=forms.Textarea(attrs={"rows": 4}))
     pydantic_field_type = forms.CharField(required=False)
-    extra_imports = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
-    validators = forms.JSONField(required=False, widget=PrettyJSONWidget(attrs={"rows": 4}))
+    extra_imports = forms.JSONField(required=False, widget=forms.Textarea(attrs={"rows": 4}))
+    validators = forms.JSONField(required=False, widget=forms.Textarea(attrs={"rows": 4}))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -464,12 +459,15 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         "formkit_or_el_type",
         "key_is_valid",
         "track_change",
-        "django_code_preview",
-        "pydantic_code_preview",
-        "formkit_node_preview",
+        "protected",
+        "created",
     )
-    readonly_fields = ("django_code_preview", "pydantic_code_preview", "formkit_node_preview")
-    search_fields = ["label", "description", "node", "node__el"]
+    readonly_fields = ("django_code_preview", "pydantic_code_preview", "formkit_node_preview", "created", "updated")
+    search_fields = ["label", "description", "id"]
+    list_filter = ("is_active", "node_type", "protected", "option_group", "created", "updated")
+    list_select_related = ("option_group",)
+    list_per_page = 50
+    date_hierarchy = "created"
     inlines = [NodeChildrenInline, NodeParentsInline]
 
     def get_readonly_fields(self, request, obj=None):
@@ -711,15 +709,30 @@ class OptionAdmin(admin.ModelAdmin):
         "value",
         "order",
         "group",
+        "last_updated",
     )
     inlines = [OptionLabelInline]
     list_select_related = ("group",)
+    list_filter = ("group", "last_updated")
+    search_fields = ("value", "object_id", "group__group")
+    list_per_page = 50
+    date_hierarchy = "last_updated"
     readonly_fields = ("group", "object_id", "value", "created_by", "updated_by")
 
 
 @admin.register(models.OptionGroup)
 class OptionGroupAdmin(admin.ModelAdmin):
+    list_display = ("group", "content_type", "option_count")
+    search_fields = ("group",)
+    list_filter = ("content_type",)
     inlines = [OptionInline, NodeInline]
+
+    @admin.display(description="Options Count")
+    def option_count(self, obj):
+        """Display the number of options in this group."""
+        if obj.pk:
+            return obj.option_set.count()
+        return 0
 
 
 @admin.register(models.OptionLabel)
@@ -727,9 +740,13 @@ class OptionLabelAdmin(admin.ModelAdmin):
     list_display = (
         "label",
         "lang",
+        "option",
     )
     readonly_fields = ("option",)
-    search_fields = ("label",)
+    search_fields = ("label", "option__value", "option__group__group")
+    list_filter = ("lang", "option__group")
+    list_select_related = ("option", "option__group")
+    list_per_page = 50
 
 
 # NOTE: SeparatedSubmission and Submission are imported at the top of the file
@@ -778,7 +795,10 @@ class SubmissionAdmin(admin.ModelAdmin):
     """Admin for Submission model."""
 
     list_display = ("key", "user", "created", "status", "form_type", "is_verified", "is_active")
-    list_filter = ("is_active", "user", "status", "form_type")
+    list_filter = ("is_active", "user", "status", "form_type", "created")
+    search_fields = ("key", "form_type", "user__username", "user__email")
+    list_select_related = ("user",)
+    list_per_page = 50
     readonly_fields = ("key", "created", "updated")
     inlines = [SeparatedSubmissionInline]
     date_hierarchy = "created"
@@ -794,12 +814,48 @@ class SeparatedSubmissionAdmin(admin.ModelAdmin):
     """Admin for SeparatedSubmission model."""
 
     list_display = ("id", "user", "created", "status", "form_type", "is_verified", "repeater_key", "repeater_order")
-    list_filter = ("user", "status", "form_type")
+    list_filter = ("user", "status", "form_type", "repeater_key", "created")
+    search_fields = ("id", "form_type", "user__username", "user__email", "repeater_key")
     readonly_fields = [f.name for f in SeparatedSubmission._meta.fields]
     list_select_related = ("submission", "user", "repeater_parent")
+    list_per_page = 50
     date_hierarchy = "created"
 
     @admin.display(boolean=True)
     def is_verified(self, obj: SeparatedSubmission) -> bool:
         """Returns whether the parent submission is verified."""
         return obj.submission.status == Submission.Status.VERIFIED
+
+
+@admin.register(SubmissionFile)
+class SubmissionFileAdmin(admin.ModelAdmin):
+    list_display = ["submission", "file", "user", "date_uploaded", "deleted"]
+    list_filter = ("deleted", "date_uploaded", "user")
+    search_fields = ("submission", "file", "user__username", "user__email", "comment")
+    list_select_related = ("user",)
+    list_per_page = 50
+    date_hierarchy = "date_uploaded"
+    readonly_fields = ("submission", "file", "user", "date_uploaded", "comment", "deleted")
+
+
+@admin.register(SeparatedSubmissionImport)
+class SeparatedSubmissionImportAdmin(admin.ModelAdmin):
+    """Admin for SeparatedSubmissionImport model."""
+
+    list_display = ("id", "submission", "created", "success", "message_preview")
+    list_filter = ("success", "created")
+    readonly_fields = ("submission", "created", "success", "message")
+    list_select_related = ("submission", "submission__user")
+    list_per_page = 50
+    date_hierarchy = "created"
+    search_fields = ("message", "submission__form_type", "submission__id")
+
+    @admin.display(description="Message")
+    def message_preview(self, obj):
+        """Show truncated message preview."""
+        if obj.message:
+            max_length = 100
+            if len(obj.message) > max_length:
+                return f"{obj.message[:max_length]}..."
+            return obj.message
+        return "-"

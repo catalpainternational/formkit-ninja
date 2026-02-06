@@ -13,6 +13,7 @@ With formkit-ninja, you can:
 ## Prerequisites
 
 - Python 3.10+
+- `uv` (recommended)
 - Django project with formkit-ninja installed
 - PostgreSQL database (recommended)
 
@@ -25,7 +26,7 @@ You have two options for creating a schema:
 #### Option A: Interactive Creation
 
 ```bash
-./manage.py create_schema --label "Contact Form"
+uv run python manage.py create_schema --label "Contact Form"
 ```
 
 This will guide you through an interactive wizard:
@@ -137,7 +138,7 @@ Create a JSON file (`contact_form.json`):
 Then import it:
 
 ```bash
-./manage.py create_schema --label "Contact Form" --from-json contact_form.json
+uv run python manage.py create_schema --label "Contact Form" --from-json contact_form.json
 ```
 
 ### Step 2: Bootstrap Your Django App
@@ -145,7 +146,7 @@ Then import it:
 Now create a complete Django app from your schema:
 
 ```bash
-./manage.py bootstrap_app --schema-label "Contact Form" --app-name contacts
+uv run python manage.py bootstrap_app --schema-label "Contact Form" --app-name contacts
 ```
 
 This command will:
@@ -181,7 +182,7 @@ Schema: Contact Form
 
 Next steps:
 1. Add 'contacts' to INSTALLED_APPS in settings.py
-2. Run migrations: ./manage.py makemigrations && ./manage.py migrate
+2. Run migrations: uv run python manage.py makemigrations && uv run python manage.py migrate
 3. Test the API endpoints and admin interface
 4. Submit form data to see signals in action
 ```
@@ -202,8 +203,8 @@ INSTALLED_APPS = [
 ### Step 4: Run Migrations
 
 ```bash
-./manage.py makemigrations
-./manage.py migrate
+uv run python manage.py makemigrations
+uv run python manage.py migrate
 ```
 
 ### Step 5: Test Your Application
@@ -211,14 +212,14 @@ INSTALLED_APPS = [
 #### Start the Development Server
 
 ```bash
-./manage.py runserver
+uv run python manage.py runserver
 ```
 
 #### Access the Django Admin
 
 1. Create a superuser if you haven't:
    ```bash
-   ./manage.py createsuperuser
+   uv run python manage.py createsuperuser
    ```
 
 2. Visit http://localhost:8000/admin/
@@ -283,7 +284,7 @@ Here's how data flows through your application:
 As your requirements evolve, you can easily add new fields:
 
 ```bash
-./manage.py add_schema_field \
+uv run python manage.py add_schema_field \
   --schema-label "Contact Form" \
   --parent-node "contact_info" \
   --field-type "date" \
@@ -301,8 +302,8 @@ This will:
 Then run migrations:
 
 ```bash
-./manage.py makemigrations
-./manage.py migrate
+uv run python manage.py makemigrations
+uv run python manage.py migrate
 ```
 
 ## Example: Complete Workflow
@@ -356,21 +357,21 @@ cat > survey.json << 'EOF'
 ]
 EOF
 
-./manage.py create_schema --label "Customer Survey" --from-json survey.json
+uv run python manage.py create_schema --label "Customer Survey" --from-json survey.json
 
 # 2. Bootstrap the app
-./manage.py bootstrap_app --schema-label "Customer Survey" --app-name surveys
+uv run python manage.py bootstrap_app --schema-label "Customer Survey" --app-name surveys
 
 # 3. Add to INSTALLED_APPS (edit settings.py manually)
 # INSTALLED_APPS = [..., 'surveys']
 
 # 4. Run migrations
-./manage.py makemigrations
-./manage.py migrate
+uv run python manage.py makemigrations
+uv run python manage.py migrate
 
 # 5. Create superuser and test
-./manage.py createsuperuser
-./manage.py runserver
+uv run python manage.py createsuperuser
+uv run python manage.py runserver
 ```
 
 ## Advanced: Customizing Generated Code
@@ -414,7 +415,7 @@ config = GeneratorConfig(
 
 ### Issue: Migrations fail with "relation already exists"
 
-**Solution:** Drop and recreate the database, or use `./manage.py migrate --fake` if you're in development.
+**Solution:** Drop and recreate the database, or use `uv run python manage.py migrate --fake` if you're in development.
 
 ### Issue: Signal handlers not firing
 
@@ -431,7 +432,7 @@ def ready(self):
 **Solution:** Regenerate code after schema changes:
 
 ```bash
-./manage.py generate_code --app-name your_app --output-dir ./your_app --schema-label "Your Schema"
+uv run python manage.py generate_code --app-name your_app --output-dir ./your_app --schema-label "Your Schema"
 ```
 
 ## Next Steps

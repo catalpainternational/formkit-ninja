@@ -114,8 +114,8 @@ All signals are available in `formkit_ninja.form_submission.signals`.
 |r---|---|---|
 | `submission_received` | A raw `Submission` is created/updated. | `instance`, `created` |
 | `separated_submission_created` | A `SeparatedSubmission` row (including repeaters) is saved. | `instance`, `created` |
-| `model_population_success` | `to_model()` completes successfully. | `instance`, `model_instance`, `was_created` |
-| `model_population_failed` | `to_model()` raises an exception. | `instance`, `error` |
+| `import_success` | Model import completes successfully. | `instance`, `model_instance`, `was_created` |
+| `import_error` | Model import raises an exception. | `instance`, `error` |
 
 ### `SeparatedSubmission.to_model()`
 

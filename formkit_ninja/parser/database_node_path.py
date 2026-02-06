@@ -67,7 +67,7 @@ class DatabaseNodePath(NodePath):
         # Priority 1: Try node_name match (highest priority)
         if hasattr(self.node, "name") and self.node.name:
             config = (
-                CodeGenerationConfig.objects.filter(
+                CodeGenerationConfig.objects.filter(  # type: ignore[attr-defined]
                     is_active=True,
                     node_name=self.node.name,
                 )
@@ -90,7 +90,7 @@ class DatabaseNodePath(NodePath):
             if hasattr(self.node, "formkit"):
                 filter_kwargs["formkit_type"] = self.node.formkit
 
-            configs = CodeGenerationConfig.objects.filter(**filter_kwargs).order_by("-priority")
+            configs = CodeGenerationConfig.objects.filter(**filter_kwargs).order_by("-priority")  # type: ignore[attr-defined]
 
             for cfg in configs:
                 if cfg.options_pattern and options_str.startswith(cfg.options_pattern):
@@ -100,7 +100,7 @@ class DatabaseNodePath(NodePath):
         # Priority 3: Try formkit_type match (no node_name/options_pattern)
         if hasattr(self.node, "formkit"):
             config = (
-                CodeGenerationConfig.objects.filter(
+                CodeGenerationConfig.objects.filter(  # type: ignore[attr-defined]
                     is_active=True,
                     formkit_type=self.node.formkit,
                     node_name__isnull=True,

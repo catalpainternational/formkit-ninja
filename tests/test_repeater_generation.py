@@ -7,12 +7,12 @@ def test_repeater_generation_root_empty():
     Test that a root repeater with no children generates a class with pass
     and links to SeparatedSubmission.
     """
-    repeater = RepeaterNode(name="my_repeater", label="My Repeater", children=[])
+    repeater = RepeaterNode(name="myrepeater", label="MyRepeater", children=[])
     path = NodePath(repeater)
 
     code = path.django_model_code
 
-    assert "class MyRepeater(models.Model):" in code
+    assert "class Myrepeater(models.Model):" in code
     assert 'submission = models.ForeignKey("SeparatedSubmission"' in code
     assert "ordinality = models.IntegerField()" in code
     # Root repeater has no parent FK
@@ -24,12 +24,12 @@ def test_repeater_generation_with_children():
     Test that a repeater with children generates fields and no pass statement.
     """
     child = TextNode(name="child_field", label="Child Field")
-    repeater = RepeaterNode(name="my_repeater", label="My Repeater", children=[child])
+    repeater = RepeaterNode(name="myrepeater", label="MyRepeater", children=[child])
     path = NodePath(repeater)
 
     code = path.django_model_code
 
-    assert "class MyRepeater(models.Model):" in code
+    assert "class Myrepeater(models.Model):" in code
     assert "child_field = models.TextField" in code
     assert "pass" not in code
 
@@ -57,12 +57,12 @@ def test_pydantic_repeater_generation():
     Test Pydantic model generation for repeaters.
     """
     child = TextNode(name="child_field", label="Child Field")
-    repeater = RepeaterNode(name="my_repeater", label="My Repeater", children=[child])
+    repeater = RepeaterNode(name="myrepeater", label="MyRepeater", children=[child])
     path = NodePath(repeater)
 
     code = path.pydantic_model_code
 
-    assert "class MyRepeaterSchema(BaseModel):" in code
+    assert "class MyrepeaterSchema(BaseModel):" in code
     assert "child_field: str | None = None" in code
     assert "ordinality: int | None = None" in code
 
@@ -102,12 +102,12 @@ def test_root_group_generates_concrete():
     """
     Test that a root group generates a concrete class.
     """
-    group = GroupNode(name="my_group", label="My Group", children=[])
+    group = GroupNode(name="MyGroup", label="MyGroup", children=[])
     path = NodePath(group)
 
     code = path.django_model_code
 
-    assert "class MyGroup(models.Model):" in code
+    assert "class Mygroup(models.Model):" in code
     assert "Abstract" not in code
     assert "abstract = True" not in code
 

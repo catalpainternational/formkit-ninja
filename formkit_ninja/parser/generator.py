@@ -535,6 +535,28 @@ class CodeGenerator:
         self._validate_code(formatted_models_code, "models.py")
         self._write_file("models.py", formatted_models_code)
 
+    def _generate_signals_with_root(self, nodepaths: List[NodePath], root_classname: str) -> None:
+        """Generate signals.py when there is a root class."""
+        # For simplicity, we currently generate a single signals.py in the root app dir
+        # regardless of whether we are splitting other files.
+        # Ideally, this might be split, but signals usually need to be app-wide.
+        self._generate_signals_without_root(nodepaths)
+
+    def _generate_signals_without_root(self, nodepaths: List[NodePath]) -> None:
+        """Generate signals.py."""
+        signals_code = self._generate_file(
+            "signals.py.jinja2",
+            "signals.py",
+            nodepaths,
+            root_classname=None,
+        )
+        try:
+            formatted_code = self.formatter.format(signals_code)
+        except FormattingError:
+            formatted_code = signals_code
+        self._validate_code(formatted_code, "signals.py")
+        self._write_file("signals.py", formatted_code)
+
     def _generate_subdir_files_with_root(self, nodepaths: List[NodePath], root_classname: str) -> None:
         file_mappings = [
             ("schemas.py.jinja2", "schemas", "schemas"),
@@ -641,6 +663,14 @@ class CodeGenerator:
             else:
                 self._generate_models_without_root(nodepaths)
 
+        def generate_signals_step(ctx: GenerationContext) -> None:
+            root_nodepath = ctx.data["root_nodepath"]
+            nodepaths = ctx.data["nodepaths"]
+            if root_nodepath:
+                self._generate_signals_with_root(nodepaths, ctx.data["root_classname"])
+            else:
+                self._generate_signals_without_root(nodepaths)
+
         def generate_subdirs_step(ctx: GenerationContext) -> None:
             root_nodepath = ctx.data["root_nodepath"]
             nodepaths = ctx.data["nodepaths"]
@@ -655,6 +685,7 @@ class CodeGenerator:
                 CallableStep(select_root_step),
                 CallableStep(generate_models_step),
                 CallableStep(generate_subdirs_step),
+                CallableStep(generate_signals_step),
             ]
         )
         pipeline.run(context)

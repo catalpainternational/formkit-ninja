@@ -151,7 +151,8 @@ class TestBootstrapAppCommand:
 
             # Verify signals.py content
             signals_content = (app_dir / "signals.py").read_text()
-            assert "separated_submission_created" in signals_content
+            assert "post_save" in signals_content
+            assert "SeparatedSubmission" in signals_content
             assert "handle_separated_submission" in signals_content
 
             # Verify apps.py imports signals

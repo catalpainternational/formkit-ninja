@@ -4,12 +4,11 @@ import logging
 import uuid
 import warnings
 from contextlib import contextmanager
-from copy import deepcopy
 
 import pghistory
+import pgtrigger
 from django.apps import apps
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
@@ -18,12 +17,9 @@ from formkit_ninja.form_submission.utils import (
     ensure_repeater_uuid,
     flatten,
     pre_validation,
-    update_foreign_keys,
 )
 
 logger = logging.getLogger(__name__)
-
-User = get_user_model()
 
 
 @contextmanager
@@ -133,16 +129,6 @@ class SeparatedSubmissionManager(models.Manager):
 
         results.append((main, main_created))  # type: ignore[arg-type]
 
-        # Emit signals for each created/updated SeparatedSubmission
-        from .signals import separated_submission_created
-
-        for item, created in reversed(results):
-            separated_submission_created.send(
-                sender=self.model,
-                instance=item,
-                created=created,
-            )
-
         return results
 
     def _save_repeater_chunk(self, main: SeparatedSubmission, data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int]) -> tuple[SeparatedSubmission, bool] | None:
@@ -153,12 +139,7 @@ class SeparatedSubmissionManager(models.Manager):
 
         # The repeater name is the last element in the form_type list
         repeater_name = form_type_path[-1]
-
-        # Construct a logical form type string for the repeater
-        # We capitalize each segment and each part within it (separated by underscores)
-        # to match the NodePath.suggest_class_name() PascalCase logic.
-        form_type_str = "".join("".join(part.capitalize() for part in ft.split("_") if part) for ft in form_type_path)
-
+        form_type_str = "".join(ft.capitalize() for ft in form_type_path)
         submission_key = form_fields.pop("uuid", None)
         if not submission_key:
             warnings.warn(f"No Submission key (UUID) present in {form_fields} of {main}")
@@ -253,55 +234,27 @@ class SeparatedSubmission(models.Model):
         # TODO: Implement fuzzy matching?
         return None
 
-    def to_model(self, models_module=None) -> tuple[models.Model | None, bool]:
-        """
-        Create/Update this submission as a concrete model instance.
-        """
-        model = None
-        if models_module:
-            # Try to get from module first (case sensitive usually, but self.form_type should match class name)
-            model = getattr(models_module, self.form_type, None)
+    # to_model removed in favor of generated signals
 
-        if not model:
-            model = self.model_type
 
-        if not model:
-            logger.warning(f"No matching model found for form_type: {self.form_type}")
-            return None, False
+class SubmissionFile(models.Model):
+    submission = models.UUIDField()
+    file = models.FileField(upload_to="submission_files")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    comment = models.TextField()
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+    deleted = models.BooleanField(default=False)
 
-        data = deepcopy(self.fields)
-        update_foreign_keys(model, data)  # type: ignore[arg-type]
+    class Meta:
+        triggers = [pgtrigger.SoftDelete(name="soft_delete", field="deleted", value=True)]
 
-        # If this is a 'repeater' it will also have the ID of its parent submission
-        if self.repeater_parent:
-            # We assume the parent field is named 'parent' or derived from class name
-            # But specific models might use 'parent_id' directly if defined as FK
 
-            # Basic Convention: field 'parent'
-            data["parent_id"] = self.repeater_parent.id
+class SeparatedSubmissionImport(models.Model):
+    """
+    Record a success / fail message for a submission import
+    """
 
-            # Repeater Order
-            if any(f.name == "ordinality" for f in model._meta.fields):
-                data["ordinality"] = self.repeater_order or 0
-
-        # Create/Update
-        with immediate_constraints():
-            # We assume the model has a PK that matches the SeparatedSubmission ID (UUID)
-            # OR a OneToOneField to 'submission' that acts as PK.
-
-            # In our 'PartisipaNodePath' architecture, we have:
-            # submission = OneToOneField(SeparatedSubmission, primary_key=True)
-
-            # So if we map submission_id=self.pk, that handles the PK.
-
-            defaults = data
-
-            # Check if model has 'submission' field
-            has_submission_link = any(f.name == "submission" for f in model._meta.fields)
-
-            if has_submission_link:
-                instance, created = model.objects.update_or_create(submission_id=self.pk, defaults=defaults)  # type: ignore[attr-defined, union-attr]
-                return instance, created
-            else:
-                logger.warning(f"Model {model} does not have a 'submission' field link.")
-                return None, False
+    submission = models.ForeignKey(SeparatedSubmission, on_delete=models.CASCADE)
+    created = models.DateTimeField(auto_now_add=True)
+    success = models.BooleanField()
+    message = models.TextField()
