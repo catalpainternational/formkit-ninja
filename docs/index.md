@@ -1,6 +1,37 @@
 # FormKit-Ninja Documentation
 
-Welcome to the formkit-ninja documentation! FormKit-Ninja is a Django library that provides a backend for FormKit schemas, including automatic code generation for Django models, Pydantic schemas, and admin interfaces.
+Welcome to the formkit-ninja documentation!
+
+**FormKit-Ninja** bridges the gap between [FormKit](https://formkit.com) frontend schemas and [Django](https://www.djangoproject.com/) backends. It provides a complete "Form-as-Code" workflow where your form definitions drive your database schema, API validation, and admin interfaces.
+
+### System Context
+
+```mermaid
+graph LR
+    User[Developer] -->|Defines| Schema[FormKit Schema]
+    Schema -->|Configures| Ninja[FormKit-Ninja]
+    
+    subgraph "Django Backend"
+        Ninja -->|Generates| Models[Django Models]
+        Ninja -->|Generates| API[API Endpoints]
+        Ninja -->|Generates| Admin[Admin UI]
+        
+        API -->|Validates| Input[User Submissions]
+        Input -->|Populates| Models
+    end
+    
+    Frontend[FormKit Frontend] -->|Fetches| Schema
+    Frontend -->|Submits| Input
+```
+
+### Why FormKit-Ninja?
+
+- **Single Source of Truth**: Your FormKit schema defines both your frontend UI and your backend storage.
+- **Type Safety**: Automatic generation of Pydantic schemas ensures API payloads match your forms.
+- **Rapid Development**: Skip writing boilerplate models, serializers, and admin classes.
+- **Data Integrity**: Submissions are captured as raw JSON first, then normalized into structured tables.
+
+
 
 ## What's New
 

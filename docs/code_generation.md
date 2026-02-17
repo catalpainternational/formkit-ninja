@@ -51,6 +51,29 @@ The code generator creates the following files in the output directory:
 4. **admin.py** - Django admin classes
 5. **api.py** - Django Ninja API endpoints
 
+### Code Generation Flow
+
+```mermaid
+graph TD
+    Schema[FormKit Schema JSON/DB] --> Generator[CodeGenerator]
+    Config[GeneratorConfig] --> Generator
+    Templates[Jinja2 Templates] --> Generator
+    
+    subgraph "CodeGenerator Process"
+        Generator --> Parser{Node Parser}
+        Parser --> NodePath[NodePath Objects]
+        NodePath --> Models[models.py]
+        NodePath --> Schemas[schemas.py] 
+        NodePath --> Admin[admin.py]
+        NodePath --> API[api.py]
+    end
+    
+    Models --> OutputDir[Output Directory]
+    Schemas --> OutputDir
+    Admin --> OutputDir
+    API --> OutputDir
+```
+
 ## Programmatic Usage
 
 You can also use the code generator programmatically:
@@ -128,6 +151,44 @@ Key topics covered:
 ## Extensibility
 
 formkit-ninja provides multiple extension points for customizing code generation to fit your project's needs.
+
+### Architecture Overview
+
+```mermaid
+classDiagram
+    class CodeGenerator {
+        +generate()
+    }
+    
+    class NodePath {
+        +to_django_type()
+        +to_pydantic_type()
+        +get_validators()
+        +extra_attribs
+    }
+    
+    class TypeConverter {
+        +can_convert(node)
+        +to_pydantic_type(node)
+    }
+    
+    class GeneratorPlugin {
+        +register_converters()
+        +extend_node_path()
+        +get_template_packages()
+    }
+    
+    CodeGenerator --> NodePath : Uses
+    NodePath ..> TypeConverter : Uses
+    CodeGenerator ..> GeneratorPlugin : Loads
+    
+    class CustomNodePath {
+        +to_django_type()
+        +get_django_args_extra()
+    }
+    
+    NodePath <|-- CustomNodePath : Inherits
+```
 
 ### Custom Type Converters
 
