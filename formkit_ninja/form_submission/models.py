@@ -14,6 +14,7 @@ from django.db import models, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from formkit_ninja.form_submission.querysets import SeparatedSubmissionQuerySet, SubmissionQuerySet
 from formkit_ninja.form_submission.utils import (
     ensure_repeater_uuid,
     flatten,
@@ -82,6 +83,8 @@ class Submission(models.Model):
     )
     is_active = models.BooleanField(default=True)
 
+    objects = SubmissionQuerySet.as_manager()
+
     def save(self, *args, **kwargs):
         # Note: was_created logic removed as SeparatedSubmission handles this
 
@@ -94,7 +97,9 @@ class Submission(models.Model):
         SeparatedSubmission.objects.from_submission(self)
 
 
-class SeparatedSubmissionManager(models.Manager):
+class _SeparatedSubmissionManagerBase(models.Manager):
+    """Base manager with custom creation methods for SeparatedSubmission."""
+
     @transaction.atomic()
     def from_submission(self, sub: Submission) -> list[tuple[SeparatedSubmission, bool]]:
         """
@@ -174,6 +179,10 @@ class SeparatedSubmissionManager(models.Manager):
             ),
         )
         return subnode, created
+
+
+# Combine custom manager methods with queryset annotation methods
+SeparatedSubmissionManager = _SeparatedSubmissionManagerBase.from_queryset(SeparatedSubmissionQuerySet)
 
 
 @pghistory.track()
