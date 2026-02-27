@@ -11,6 +11,7 @@ from django.apps import apps
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models, transaction
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from formkit_ninja.form_submission.utils import (
@@ -68,8 +69,8 @@ class Submission(models.Model):
 
     key = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField(default=timezone.now)
+    updated = models.DateTimeField(default=timezone.now)
     status = models.IntegerField(
         choices=Status.choices,
         default=Status.NEW,
@@ -184,7 +185,7 @@ class SeparatedSubmission(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
     status = models.IntegerField(choices=Submission.Status.choices, default=Submission.Status.NEW)
     fields = models.JSONField(encoder=DjangoJSONEncoder)
     form_type = models.CharField(
@@ -242,7 +243,7 @@ class SubmissionFile(models.Model):
     file = models.FileField(upload_to="submission_files")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     comment = models.TextField()
-    date_uploaded = models.DateTimeField(auto_now_add=True)
+    date_uploaded = models.DateTimeField(default=timezone.now)
     deleted = models.BooleanField(default=False)
 
     class Meta:
@@ -255,6 +256,60 @@ class SeparatedSubmissionImport(models.Model):
     """
 
     submission = models.ForeignKey(SeparatedSubmission, on_delete=models.CASCADE)
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
     success = models.BooleanField()
     message = models.TextField()
+
+
+class Flag(models.Model):
+    """
+    Quality-assurance flag on a separated submission, visible to users and
+    administrators. Used to surface data-quality issues (e.g. mismatched worker
+    data between forms). One separated submission can have multiple flags
+    (different rule types).
+    """
+
+    SEVERITY_CHOICES = [
+        ("info", "Info"),
+        ("warning", "Warning"),
+        ("error", "Error"),
+    ]
+
+    separated_submission = models.ForeignKey(
+        SeparatedSubmission,
+        on_delete=models.CASCADE,
+        related_name="quality_flags",
+    )
+    flag_type = models.CharField(
+        max_length=64,
+        db_index=True,
+        help_text="Code identifying the rule that created this flag (e.g. workers_project_mismatch)",
+    )
+    message = models.TextField(help_text="User-facing message for this flag")
+    severity = models.CharField(
+        max_length=16,
+        choices=SEVERITY_CHOICES,
+        default="warning",
+    )
+    created = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["-created"]
+
+    def __str__(self) -> str:
+        return f"{self.flag_type} on separated submission {self.separated_submission_id}"

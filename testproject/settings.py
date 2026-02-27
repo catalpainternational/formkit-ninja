@@ -96,7 +96,7 @@ DATABASES = {
         "USER": environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": environ.get("POSTGRES_PASSWORD", "postgres"),
         "HOST": environ.get("POSTGRES_HOST", "localhost"),
-        "PORT": environ.get("POSTGRES_PORT", "5433"),
+        "PORT": environ.get("POSTGRES_PORT", "5434"),
     }
 }
 

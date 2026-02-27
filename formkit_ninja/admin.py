@@ -17,6 +17,7 @@ from formkit_ninja import (
     models,
 )
 from formkit_ninja.form_submission.models import (
+    Flag,
     SeparatedSubmission,
     SeparatedSubmissionImport,
     Submission,
@@ -859,3 +860,13 @@ class SeparatedSubmissionImportAdmin(admin.ModelAdmin):
                 return f"{obj.message[:max_length]}..."
             return obj.message
         return "-"
+
+
+@admin.register(Flag)
+class FlagAdmin(admin.ModelAdmin):
+    list_display = ("separated_submission", "flag_type", "severity", "created", "resolved_at")
+    list_filter = ("flag_type", "severity", "resolved_at")
+    search_fields = ("flag_type", "message", "separated_submission_id")
+    readonly_fields = ("created",)
+    date_hierarchy = "created"
+    raw_id_fields = ("separated_submission",)

@@ -199,10 +199,10 @@ Tests require PostgreSQL due to the `pgtrigger` dependency. Start a PostgreSQL c
 
 ```bash
 # Using Podman (recommended)
-podman run -d --name formkit-postgres -p 5433:5432 -e POSTGRES_HOST_AUTH_METHOD=trust docker.io/library/postgres:14-alpine
+podman run --replace -d --name formkit-postgres -p 5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust docker.io/library/postgres:14-alpine
 
 # OR using Docker
-docker run -d --name formkit-postgres -p 5433:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:14-alpine
+docker run -d --name formkit-postgres -p 5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:14-alpine
 ```
 
 Then run tests:

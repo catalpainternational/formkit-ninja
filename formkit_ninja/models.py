@@ -16,6 +16,7 @@ from django.db import models, transaction
 from django.db.models import Q
 from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
+from django.utils import timezone
 from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
@@ -61,7 +62,7 @@ class UuidIdModel(models.Model):
         abstract = True
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
-    created = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    created = models.DateTimeField(default=timezone.now, blank=True, null=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", blank=True, null=True)

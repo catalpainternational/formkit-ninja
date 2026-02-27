@@ -41,6 +41,15 @@ schemas = Schemas()
 
 
 @pytest.fixture
+def separated_submission(db):
+    """Create a Submission and return the main (root) SeparatedSubmission."""
+    from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
+
+    sub = Submission.objects.create(form_type="TestForm", fields={"test": "data"})
+    return SeparatedSubmission.objects.get(submission=sub, repeater_key__isnull=True)
+
+
+@pytest.fixture
 def CFM_12_FF_12():
     return schemas.as_json("CFM_12_FF_12")
 
