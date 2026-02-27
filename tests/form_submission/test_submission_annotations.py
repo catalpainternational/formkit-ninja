@@ -180,6 +180,59 @@ class TestWithUnresolvedFlags:
         assert len(result.unresolved_flags_json) == 1
         assert result.unresolved_flags_json[0]["flag_type"] == "open_rule"
 
+    def test_unresolved_flags_ordering_newest_first(self, separated_submission: SeparatedSubmission) -> None:
+        """unresolved_flags_json is ordered by flag created descending (newest first)."""
+        Flag.objects.create(
+            separated_submission=separated_submission,
+            flag_type="older",
+            message="Older flag",
+            severity="info",
+        )
+        Flag.objects.create(
+            separated_submission=separated_submission,
+            flag_type="newer",
+            message="Newer flag",
+            severity="warning",
+        )
+        sub = separated_submission.submission
+        result = Submission.objects.with_unresolved_flags().get(pk=sub.pk)
+        assert len(result.unresolved_flags_json) == 2
+        assert result.unresolved_flags_json[0]["flag_type"] == "newer"
+        assert result.unresolved_flags_json[1]["flag_type"] == "older"
+
+    def test_multiple_separated_submissions_flags_aggregated(self) -> None:
+        """One Submission with multiple SeparatedSubmissions: unresolved_flags_json aggregates all."""
+        sub = Submission.objects.create(
+            form_type="TestForm",
+            fields={"test": "data"},
+        )
+        root = SeparatedSubmission.objects.get(submission=sub, repeater_key__isnull=True)
+        child = SeparatedSubmission.objects.create(
+            submission=sub,
+            fields={"child": "data"},
+            form_type="TestFormChild",
+            repeater_key="child_repeater",
+            repeater_parent=root,
+            repeater_order=0,
+        )
+        Flag.objects.create(
+            separated_submission=root,
+            flag_type="root_flag",
+            message="Root issue",
+            severity="error",
+        )
+        Flag.objects.create(
+            separated_submission=child,
+            flag_type="child_flag",
+            message="Child issue",
+            severity="warning",
+        )
+        result = Submission.objects.with_unresolved_flags().get(pk=sub.pk)
+        assert result.has_unresolved_flags is True
+        assert len(result.unresolved_flags_json) == 2
+        types = {e["flag_type"] for e in result.unresolved_flags_json}
+        assert types == {"root_flag", "child_flag"}
+
 
 @pytest.mark.django_db
 class TestCombinedAnnotations:

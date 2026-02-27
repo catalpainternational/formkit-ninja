@@ -195,7 +195,7 @@ uv sync
 
 ### Database Setup
 
-Tests require PostgreSQL due to the `pgtrigger` dependency. Start a PostgreSQL container before running tests:
+Tests and submission queryset annotations (e.g. `with_unresolved_flags()`, `with_import_failure()`) require PostgreSQL (pgtrigger, and `JSONBAgg`/`JSONObject` for annotations). Start a PostgreSQL container before running tests:
 
 ```bash
 # Using Podman (recommended)

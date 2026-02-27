@@ -4,14 +4,20 @@ Custom querysets for Submission annotations.
 Provides efficient annotations for:
 - Import failure detection (latest SeparatedSubmissionImport per SeparatedSubmission)
 - Unresolved flag detection and JSON aggregation
+
+Requires PostgreSQL: uses JSONBAgg and JSONObject (django.contrib.postgres).
 """
 
 from __future__ import annotations
 
+from typing import TypeVar
+
 from django.contrib.postgres.aggregates import JSONBAgg
 from django.db import models
-from django.db.models import Exists, OuterRef, Subquery
+from django.db.models import Case, Exists, OuterRef, Subquery, Value, When
 from django.db.models.functions import JSONObject
+
+_QS = TypeVar("_QS", bound=models.QuerySet)
 
 
 class SubmissionQuerySet(models.QuerySet):
@@ -24,7 +30,7 @@ class SubmissionQuerySet(models.QuerySet):
         Submission.objects.with_import_failure().with_unresolved_flags()
     """
 
-    def with_import_failure(self):
+    def with_import_failure(self: _QS) -> _QS:
         """
         Annotate each Submission with ``has_import_failure`` (bool).
 
@@ -44,12 +50,14 @@ class SubmissionQuerySet(models.QuerySet):
 
         return self.annotate(has_import_failure=Exists(failed_subs))
 
-    def with_unresolved_flags(self):
+    def with_unresolved_flags(self: _QS) -> _QS:
         """
         Annotate each Submission with:
 
         - ``has_unresolved_flags`` (bool) — True if any unresolved Flag exists
         - ``unresolved_flags_json`` (JSON array) — ``[{"flag_type", "message", "severity"}, ...]``
+          Ordered by flag ``created`` descending (newest first). When there are no
+          unresolved flags, ``unresolved_flags_json`` is ``None`` (not ``[]``).
         """
         from formkit_ninja.form_submission.models import Flag
 
@@ -94,31 +102,46 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
         SeparatedSubmission.objects.with_import_failure().with_unresolved_flags()
     """
 
-    def with_import_failure(self):
+    def with_import_failure(self: _QS) -> _QS:
         """
         Annotate each SeparatedSubmission with ``has_import_failure`` (bool).
 
         ``True`` when its latest ``SeparatedSubmissionImport`` has ``success=False``.
+        Also annotates ``latest_import_success`` (bool | None) for the latest
+        import; ``None`` when there are no imports.
         """
+        from django.db.models import BooleanField
+
         from formkit_ninja.form_submission.models import SeparatedSubmissionImport
 
-        # Subquery: pk of the latest import for this SeparatedSubmission
-        latest_import_pk = SeparatedSubmissionImport.objects.filter(submission=OuterRef("pk")).order_by("-created").values("pk")[:1]
-
-        # Exists: is there a failed import whose pk matches the latest?
-        has_failed_latest = SeparatedSubmissionImport.objects.filter(
-            pk__in=Subquery(latest_import_pk),
-            success=False,
+        # Subquery: success of the latest import for this SeparatedSubmission (no nesting,
+        # so OuterRef("pk") correctly refers to SeparatedSubmission.id / UUID).
+        latest_success = (
+            SeparatedSubmissionImport.objects.filter(
+                submission=OuterRef("pk"),
+            )
+            .order_by("-created")
+            .values("success")[:1]
         )
 
-        return self.annotate(has_import_failure=Exists(has_failed_latest))
+        return self.annotate(
+            latest_import_success=Subquery(latest_success),
+        ).annotate(
+            has_import_failure=Case(
+                When(latest_import_success=False, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            ),
+        )
 
-    def with_unresolved_flags(self):
+    def with_unresolved_flags(self: _QS) -> _QS:
         """
         Annotate each SeparatedSubmission with:
 
         - ``has_unresolved_flags`` (bool) — True if any unresolved Flag exists
         - ``unresolved_flags_json`` (JSON array) — ``[{"flag_type", "message", "severity"}, ...]``
+          Ordered by flag ``created`` descending (newest first). When there are no
+          unresolved flags, ``unresolved_flags_json`` is ``None`` (not ``[]``).
         """
         from formkit_ninja.form_submission.models import Flag
 

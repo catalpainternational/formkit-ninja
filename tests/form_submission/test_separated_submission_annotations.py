@@ -125,6 +125,25 @@ class TestSepSubWithUnresolvedFlags:
         assert entry["message"] == "Workers do not match"
         assert entry["severity"] == "error"
 
+    def test_unresolved_flags_ordering_newest_first(self, separated_submission: SeparatedSubmission) -> None:
+        """unresolved_flags_json is ordered by flag created descending (newest first)."""
+        Flag.objects.create(
+            separated_submission=separated_submission,
+            flag_type="older",
+            message="Older flag",
+            severity="info",
+        )
+        Flag.objects.create(
+            separated_submission=separated_submission,
+            flag_type="newer",
+            message="Newer flag",
+            severity="warning",
+        )
+        result = SeparatedSubmission.objects.with_unresolved_flags().get(pk=separated_submission.pk)
+        assert len(result.unresolved_flags_json) == 2
+        assert result.unresolved_flags_json[0]["flag_type"] == "newer"
+        assert result.unresolved_flags_json[1]["flag_type"] == "older"
+
 
 @pytest.mark.django_db
 class TestSepSubCombinedAnnotations:
