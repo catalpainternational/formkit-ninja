@@ -186,11 +186,11 @@ class Option(UuidIdModel):
 
         yield from SchemaImportService.import_options(options, group=group)
 
-    def __str__(self):
-        if self.group:
-            return f"{self.group.group}::{self.value}"
-        else:
-            return f"No group: {self.value}"
+    def __str__(self) -> str:
+        # Use group_id (stored on row; OptionGroup.pk is the group name) to avoid N+1.
+        if self.group_id:
+            return f"{self.group_id}::{self.value}"
+        return f"No group: {self.value}"
 
 
 class OptionLabel(models.Model):
@@ -209,6 +209,10 @@ class OptionLabel(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["option", "lang"], name="unique_option_label")]
 
+    def __str__(self) -> str:
+        # Use only local fields to avoid N+1 when listing (e.g. in admin).
+        return f"{self.label} ({self.lang})" if self.label else f"option={self.option_id} lang={self.lang}"
+
 
 class FormComponents(UuidIdModel):
     """
@@ -226,8 +230,9 @@ class FormComponents(UuidIdModel):
         triggers = triggers.update_or_insert_group_trigger("schema_id")
         ordering = ("schema", "order")
 
-    def __str__(self):
-        return f"{self.node}[{self.order}]: {self.schema}"
+    def __str__(self) -> str:
+        # Use node_id/schema_id (stored on row) to avoid N+1 when listing FormComponents.
+        return f"node={self.node_id}[{self.order}]: schema={self.schema_id}"
 
 
 class NodeChildrenManager(models.Manager):
@@ -278,6 +283,10 @@ class NodeChildren(models.Model):
         )
 
     objects = NodeChildrenManager()
+
+    def __str__(self) -> str:
+        # Use parent_id/child_id (stored on row) to avoid N+1.
+        return f"parent={self.parent_id} → child={self.child_id} order={self.order}"
 
 
 class NodeQS(models.QuerySet):
@@ -879,8 +888,8 @@ class FormKitSchema(UuidIdModel):
         values = list(self.get_schema_values())
         return formkit_schema.FormKitSchema.parse_obj(values)
 
-    def __str__(self):
-        return f"{self.label}" or f"{str(self.id)[:8]}"
+    def __str__(self) -> str:
+        return self.label or str(self.id)[:8]
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -915,6 +924,9 @@ class SchemaLabel(models.Model):
     label = models.CharField(max_length=1024)
     lang = models.CharField(max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")))
 
+    def __str__(self) -> str:
+        return f"{self.label} ({self.lang})" if self.label else f"schema={self.schema_id} lang={self.lang}"
+
 
 class SchemaDescription(models.Model):
     """
@@ -925,6 +937,9 @@ class SchemaDescription(models.Model):
     schema = models.ForeignKey("FormKitSchema", on_delete=models.CASCADE)
     label = models.CharField(max_length=1024)
     lang = models.CharField(max_length=4, default="en", choices=(("en", "English"), ("tet", "Tetum"), ("pt", "Portugese")))
+
+    def __str__(self) -> str:
+        return f"{self.label} ({self.lang})" if self.label else f"schema={self.schema_id} lang={self.lang}"
 
 
 # Import submission models to register them with the app

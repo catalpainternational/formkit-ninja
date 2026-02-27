@@ -96,6 +96,10 @@ class Submission(models.Model):
         # Create SeparatedSubmission instances
         SeparatedSubmission.objects.from_submission(self)
 
+    def __str__(self) -> str:
+        # Use only local fields to avoid N+1 (e.g. admin list).
+        return f"{self.form_type} {self.key} ({self.get_status_display()})"
+
 
 class _SeparatedSubmissionManagerBase(models.Manager):
     """Base manager with custom creation methods for SeparatedSubmission."""
@@ -246,6 +250,10 @@ class SeparatedSubmission(models.Model):
 
     # to_model removed in favor of generated signals
 
+    def __str__(self) -> str:
+        # Use only local fields to avoid N+1 (submission_id would also be local).
+        return f"{self.form_type} {self.id} ({self.get_status_display()})"
+
 
 class SubmissionFile(models.Model):
     submission = models.UUIDField()
@@ -258,6 +266,9 @@ class SubmissionFile(models.Model):
     class Meta:
         triggers = [pgtrigger.SoftDelete(name="soft_delete", field="deleted", value=True)]
 
+    def __str__(self) -> str:
+        return f"File for submission {self.submission}" if self.pk else "SubmissionFile (unsaved)"
+
 
 class SeparatedSubmissionImport(models.Model):
     """
@@ -268,6 +279,11 @@ class SeparatedSubmissionImport(models.Model):
     created = models.DateTimeField(default=timezone.now)
     success = models.BooleanField()
     message = models.TextField()
+
+    def __str__(self) -> str:
+        status = "ok" if self.success else "fail"
+        msg = self.message or ""
+        return f"{status} @ {self.created}: {msg[:50]}..." if len(msg) > 50 else f"{status} @ {self.created}: {msg or '-'}"
 
 
 class Flag(models.Model):
