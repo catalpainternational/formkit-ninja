@@ -29,6 +29,7 @@ from formkit_ninja.form_submission.models import (
     SubmissionField,  # noqa: F401
     SubmissionFile,  # noqa: F401
 )
+from formkit_ninja.utils import short_uuid
 
 console = Console()
 log = console.log
@@ -889,7 +890,7 @@ class FormKitSchema(UuidIdModel):
         return formkit_schema.FormKitSchema.parse_obj(values)
 
     def __str__(self) -> str:
-        return self.label or str(self.id)[:8]
+        return self.label or short_uuid(self.id)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

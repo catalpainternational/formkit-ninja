@@ -23,6 +23,7 @@ from formkit_ninja.form_submission.models import (
     Submission,
     SubmissionFile,
 )
+from formkit_ninja.utils import short_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -454,7 +455,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     list_display = (
         "label",
         "is_active",
-        "id",
+        "short_id",
         "node_type",
         "option_group",
         "formkit_or_el_type",
@@ -474,6 +475,10 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         ro = super().get_readonly_fields(request, obj)
         return list(ro) + ["django_code_preview", "pydantic_code_preview", "formkit_node_preview"]
+
+    @admin.display(description="ID", ordering="id")
+    def short_id(self, obj: models.FormKitSchemaNode | None) -> str:
+        return short_uuid(obj.id) if obj else ""
 
     @admin.display(boolean=True)
     def key_is_valid(self, obj) -> bool:
@@ -795,7 +800,7 @@ class SeparatedSubmissionInline(admin.TabularInline):
 class SubmissionAdmin(admin.ModelAdmin):
     """Admin for Submission model."""
 
-    list_display = ("key", "user", "created", "status", "form_type", "is_verified", "is_active")
+    list_display = ("short_key", "user", "created", "status", "form_type", "is_verified", "is_active")
     list_filter = ("is_active", "user", "status", "form_type", "created")
     search_fields = ("key", "form_type", "user__username", "user__email")
     list_select_related = ("user",)
@@ -803,6 +808,10 @@ class SubmissionAdmin(admin.ModelAdmin):
     readonly_fields = ("key", "created", "updated")
     inlines = [SeparatedSubmissionInline]
     date_hierarchy = "created"
+
+    @admin.display(description="Key", ordering="key")
+    def short_key(self, obj: Submission | None) -> str:
+        return short_uuid(obj.key) if obj else ""
 
     @admin.display(boolean=True)
     def is_verified(self, obj: Submission) -> bool:
@@ -814,13 +823,17 @@ class SubmissionAdmin(admin.ModelAdmin):
 class SeparatedSubmissionAdmin(admin.ModelAdmin):
     """Admin for SeparatedSubmission model."""
 
-    list_display = ("id", "user", "created", "status", "form_type", "is_verified", "repeater_key", "repeater_order")
+    list_display = ("short_id", "user", "created", "status", "form_type", "is_verified", "repeater_key", "repeater_order")
     list_filter = ("user", "status", "form_type", "repeater_key", "created")
     search_fields = ("id", "form_type", "user__username", "user__email", "repeater_key")
     readonly_fields = [f.name for f in SeparatedSubmission._meta.fields]
     list_select_related = ("submission", "user", "repeater_parent")
     list_per_page = 50
     date_hierarchy = "created"
+
+    @admin.display(description="ID", ordering="id")
+    def short_id(self, obj: SeparatedSubmission | None) -> str:
+        return short_uuid(obj.id) if obj else ""
 
     @admin.display(boolean=True)
     def is_verified(self, obj: SeparatedSubmission) -> bool:
