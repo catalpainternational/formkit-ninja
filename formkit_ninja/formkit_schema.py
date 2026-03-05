@@ -127,6 +127,7 @@ class FormKitSchemaProps(BaseModel):
     pydantic_field_type: str | None = Field(None, exclude=True)
     extra_imports: list[str] = Field(default_factory=list, exclude=True)
     validators: list[str] = Field(default_factory=list, exclude=True)
+    list_filter: bool | None = Field(None, exclude=True)
 
     # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure

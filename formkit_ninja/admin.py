@@ -174,6 +174,7 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
             "pydantic_field_type",
             "extra_imports",
             "validators",
+            "list_filter",
         )
 
     # Code Generation Overrides
@@ -183,6 +184,7 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
     pydantic_field_type = forms.CharField(required=False)
     extra_imports = forms.JSONField(required=False, widget=forms.Textarea(attrs={"rows": 4}))
     validators = forms.JSONField(required=False, widget=forms.Textarea(attrs={"rows": 4}))
+    list_filter = forms.BooleanField(required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -241,6 +243,7 @@ class FormKitNodeGroupForm(FormKitBaseForm):
             "pydantic_field_type",
             "extra_imports",
             "validators",
+            "list_filter",
         )
 
     _json_fields = {
@@ -268,6 +271,7 @@ class FormKitNodeForm(FormKitBaseForm):
             "pydantic_field_type",
             "extra_imports",
             "validators",
+            "list_filter",
         )
 
     _json_fields = {
@@ -522,6 +526,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             "pydantic_field_type",
             "extra_imports",
             "validators",
+            "list_filter",
             "django_code_preview",
             "pydantic_code_preview",
             "formkit_node_preview",
@@ -541,6 +546,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                         "pydantic_field_type",
                         "extra_imports",
                         "validators",
+                        "list_filter",
                         "django_code_preview",
                         "pydantic_code_preview",
                         "formkit_node_preview",

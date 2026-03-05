@@ -224,6 +224,27 @@ class NodePath:
         return tuple(_get())
 
     @property
+    def formkits_for_list_filter(self) -> tuple["NodePath", ...]:
+        """
+        FormKit nodes that should appear in ModelAdmin.list_filter.
+        Same inclusion rules as list_display, but only nodes with list_filter=True.
+        """
+        result: list["NodePath"] = []
+        for attrib in self.formkits_not_repeaters:
+            if attrib.is_abstract_base:
+                continue
+            if attrib.django_type == "OneToOneField" and len(self.parent_abstract_bases) > 0:
+                continue
+            if getattr(attrib.node, "list_filter", False):
+                result.append(attrib)
+        for group in self.groups:
+            if group.is_abstract_base:
+                for attrib in group.formkits_not_repeaters:
+                    if getattr(attrib.node, "list_filter", False):
+                        result.append(attrib)
+        return tuple(result)
+
+    @property
     def flat_pydantic_fields(self) -> Iterable["NodePath"]:
         """
         Recursively collect all fields that should be part of this Pydantic model's flat structure.

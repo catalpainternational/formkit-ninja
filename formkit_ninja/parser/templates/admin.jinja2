@@ -45,6 +45,13 @@ class {{this.classname}}Admin(admin.ModelAdmin):
     {% endfor %}
     {% endif %}
     ]
+    {% if this.formkits_for_list_filter %}
+    list_filter = [
+    {% for attrib in this.formkits_for_list_filter %}
+        "{{attrib.django_attrib_name}}",
+    {% endfor %}
+    ]
+    {% endif %}
     {% else %}
     pass
     {% endif %}

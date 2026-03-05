@@ -47,6 +47,24 @@ def group_node():
 
 
 @pytest.fixture()
+def group_node_with_list_filter():
+    """Group with a child that has list_filter=True for admin sidebar filtering."""
+    return NodePath.from_obj(
+        {
+            "$formkit": "group",
+            "name": "foo",
+            "children": [
+                {
+                    "$formkit": "number",
+                    "name": "foonum",
+                    "list_filter": True,
+                }
+            ],
+        }
+    )
+
+
+@pytest.fixture()
 def nested_group_node():
     return NodePath.from_obj(
         {
@@ -205,6 +223,29 @@ def test_admin_group_node_field(admin_template: Template, group_node: NodePath):
             ]
     """
     assert text.strip() == dedent(expect).strip()
+
+
+def test_admin_list_filter_generated(admin_template: Template, group_node_with_list_filter: NodePath):
+    """When a schema node has list_filter=True, generated admin includes list_filter."""
+    text = admin_template.render(this=group_node_with_list_filter)
+    assert "list_filter" in text
+    assert '"foonum"' in text
+    # Check the list_filter block is present and contains the field
+    assert "list_filter = [" in text
+    assert "foonum" in text
+
+
+def test_formkits_for_list_filter_includes_only_marked_nodes(group_node_with_list_filter: NodePath):
+    """formkits_for_list_filter returns only nodes with list_filter=True."""
+    for attrib in group_node_with_list_filter.formkits_for_list_filter:
+        assert getattr(attrib.node, "list_filter", False) is True
+        assert attrib.django_attrib_name == "foonum"
+    assert len(group_node_with_list_filter.formkits_for_list_filter) == 1
+
+
+def test_formkits_for_list_filter_empty_when_not_marked(group_node: NodePath):
+    """When no node has list_filter=True, formkits_for_list_filter is empty."""
+    assert len(group_node.formkits_for_list_filter) == 0
 
 
 def test_admin_py_group_node_field(admin_py_template: Template, group_node: NodePath):

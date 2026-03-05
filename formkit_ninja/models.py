@@ -423,6 +423,10 @@ class FormKitSchemaNode(UuidIdModel):
         blank=True,
         help_text="A list of Django/Pydantic validator strings to be applied to this field. Example: ['MinValueValidator(0)', 'validate_v_date'].",
     )
+    list_filter = models.BooleanField(
+        default=False,
+        help_text="Include this field in generated ModelAdmin.list_filter.",
+    )
 
     text_content = models.TextField(null=True, blank=True, help_text="Content for a text element, for children of an $el type component")
     track_change = models.BigIntegerField(null=True, blank=True)
@@ -628,6 +632,8 @@ class FormKitSchemaNode(UuidIdModel):
             values["extra_imports"] = self.extra_imports
         if self.validators:
             values["validators"] = self.validators
+        if self.list_filter:
+            values["list_filter"] = self.list_filter
 
         # Merge additional_props into the top level and ensure it's removed as a separate key
         values.pop("additional_props", None)
@@ -752,6 +758,8 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.extra_imports = extra_imports
             if (validators := getattr(input_model, "validators", None)) is not None:
                 instance.validators = validators
+            if (list_filter := getattr(input_model, "list_filter", None)) is not None:
+                instance.list_filter = list_filter
 
             # Fields that are valid Pydantic fields but not promoted to columns must be saved in additional_props
             # otherwise they are lost.
@@ -807,6 +815,7 @@ class FormKitSchemaNode(UuidIdModel):
                     "children",
                     "additional_props",
                     "node_type",
+                    "list_filter",
                 },
                 exclude_none=True,
                 exclude_unset=True,
