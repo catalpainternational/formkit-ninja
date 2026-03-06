@@ -489,6 +489,36 @@ class FormKitSchemaNode(UuidIdModel):
                         val = str(val)
                     setattr(self, target_field, val)
 
+        # Sync promoted columns back into node so stored JSON stays in sync when
+        # admin edits model fields (e.g. add_label, up_control) rather than node.
+        # Only write non-default values (or when key already in node) to avoid
+        # adding keys that weren't in the original schema (round-trip fidelity).
+        if isinstance(self.node, dict):
+            _promoted_to_node = (
+                ("icon", "icon", None),
+                ("title", "title", None),
+                ("readonly", "readonly", False),
+                ("sections_schema", "sectionsSchema", None),
+                ("min", "min", None),
+                ("max", "max", None),
+                ("step", "step", None),
+                ("add_label", "addLabel", None),
+                ("up_control", "upControl", True),
+                ("down_control", "downControl", True),
+            )
+            for attr, key, default in _promoted_to_node:
+                val = getattr(self, attr, None)
+                already_in_node = key in self.node
+                if isinstance(val, bool):
+                    if already_in_node or val != default:
+                        self.node[key] = val
+                    elif key in self.node:
+                        self.node.pop(key, None)
+                elif val not in (None, ""):
+                    self.node[key] = val
+                elif already_in_node:
+                    self.node.pop(key, None)
+
         # Resolve code generation defaults if not set
         self.resolve_code_generation_defaults()
 
