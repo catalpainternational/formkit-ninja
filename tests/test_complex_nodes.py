@@ -53,8 +53,8 @@ def repeater_node(admin_page: Page, live_server: live_server_helper.LiveServer):
     admin_page.get_by_label("Name:").fill("e2e_repeater")
     admin_page.get_by_role("button", name="Save and continue editing").click()
 
-    # Fill repeater-specific fields
-    admin_page.locator("#id_addLabel").fill("Add new item")
+    # Fill repeater-specific fields (model fields: add_label, up_control, down_control)
+    admin_page.locator("#id_add_label").fill("Add new item")
     admin_page.locator("#id_min").fill("1")
     admin_page.locator("#id_max").fill("10")
     admin_page.get_by_role("button", name="Save", exact=True).click()

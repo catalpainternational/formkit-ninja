@@ -2,7 +2,12 @@ from django.contrib import admin
 from django.test import RequestFactory
 
 from formkit_ninja import models
-from formkit_ninja.admin import FormKitElementForm, FormKitNodeForm, FormKitSchemaNodeAdmin
+from formkit_ninja.admin import (
+    COMMON_NODE_FIELDS,
+    FormKitElementForm,
+    FormKitNodeForm,
+    FormKitSchemaNodeAdmin,
+)
 
 
 def test_admin_initial_values_populate_nested():
@@ -133,3 +138,16 @@ def test_admin_preserve_unmanaged_json_keys():
     # Unmanaged fields preserved
     assert saved.node.get("validationRules") == "fnKey"
     assert saved.node.get("meta") == {"x": 1}
+
+
+def test_admin_promoted_fields_in_form_meta():
+    """
+    Consistency check: promoted props (model columns synced to/from node) must be
+    in the admin form Meta.fields so they are editable. See ADMIN_DESIGN_EVALUATION.md.
+    """
+    promoted_common = {"icon", "title", "readonly", "sections_schema"}
+    promoted_formkit_extra = {"add_label", "up_control", "down_control"}
+    common_set = set(COMMON_NODE_FIELDS)
+    formkit_set = set(FormKitNodeForm.Meta.fields)
+    assert promoted_common <= common_set, f"COMMON_NODE_FIELDS must include promoted props: {promoted_common - common_set}"
+    assert promoted_formkit_extra <= formkit_set, f"FormKitNodeForm.Meta.fields must include repeater/promoted props: {promoted_formkit_extra - formkit_set}"
