@@ -32,6 +32,40 @@ logger = logging.getLogger(__name__)
 # The key of the dict provided is a JSON field on the model
 JsonFieldDefn = dict[str, tuple[str | tuple[str, str], ...]]
 
+# Composable field sets for FormKitSchemaNode admin forms.
+# Rule: promoted props (icon, title, readonly, etc.) are model fields only in forms;
+# _json_fields is for node-only keys (e.g. name, $formkit, placeholder). The model
+# syncs promoted columns to/from node on save and in get_node_values().
+COMMON_NODE_FIELDS = (
+    "label",
+    "description",
+    "icon",
+    "title",
+    "readonly",
+    "sections_schema",
+    "is_active",
+    "protected",
+)
+CODE_GEN_FIELDS = (
+    "django_field_type",
+    "django_field_args",
+    "django_field_positional_args",
+    "pydantic_field_type",
+    "extra_imports",
+    "validators",
+    "list_filter",
+)
+AUDIT_FIELDS = ("created_by", "updated_by")
+
+# Code generation fieldset shown at bottom of change form; also used to exclude from default fieldset
+CODE_GEN_FIELDSET_TITLE = "Code Generation (Source of Truth)"
+CODE_GEN_FIELDSET_FIELDS = CODE_GEN_FIELDS + (
+    "django_code_preview",
+    "pydantic_code_preview",
+    "formkit_node_preview",
+)
+CODE_GEN_GROUPED_FIELDS = frozenset(CODE_GEN_FIELDSET_FIELDS)
+
 
 class ItemAdmin(admin.ModelAdmin):
     list_display = ("name",)
@@ -163,19 +197,7 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
 
     class Meta:
         model = models.FormKitSchemaNode
-        fields = (
-            "label",
-            "description",
-            "is_active",
-            "protected",
-            "django_field_type",
-            "django_field_args",
-            "django_field_positional_args",
-            "pydantic_field_type",
-            "extra_imports",
-            "validators",
-            "list_filter",
-        )
+        fields = COMMON_NODE_FIELDS + CODE_GEN_FIELDS + AUDIT_FIELDS
 
     # Code Generation Overrides
     django_field_type = forms.CharField(required=False)
@@ -231,20 +253,7 @@ class FormKitSchemaComponentInline(admin.TabularInline):
 class FormKitNodeGroupForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = (
-            "label",
-            "description",
-            "additional_props",
-            "is_active",
-            "protected",
-            "django_field_type",
-            "django_field_args",
-            "django_field_positional_args",
-            "pydantic_field_type",
-            "extra_imports",
-            "validators",
-            "list_filter",
-        )
+        fields = COMMON_NODE_FIELDS + ("additional_props", "option_group") + CODE_GEN_FIELDS + AUDIT_FIELDS
 
     _json_fields = {
         "node": ("name", ("formkit", "$formkit"), "if_condition", ("html_id", "id")),
@@ -258,21 +267,7 @@ class FormKitNodeGroupForm(FormKitBaseForm):
 class FormKitNodeForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
-        fields = (
-            "label",
-            "description",
-            "additional_props",
-            "option_group",
-            "is_active",
-            "protected",
-            "django_field_type",
-            "django_field_args",
-            "django_field_positional_args",
-            "pydantic_field_type",
-            "extra_imports",
-            "validators",
-            "list_filter",
-        )
+        fields = COMMON_NODE_FIELDS + ("additional_props", "option_group", "add_label", "up_control", "down_control") + CODE_GEN_FIELDS + AUDIT_FIELDS
 
     _json_fields = {
         "node": (
@@ -325,21 +320,18 @@ class FormKitNodeForm(FormKitBaseForm):
 
 
 class FormKitNodeRepeaterForm(FormKitNodeForm):
+    """Repeater node form. add_label, up_control, down_control are model fields (parent);
+    itemsClass/itemClass are node-only and mapped here."""
+
     def get_json_fields(self) -> JsonFieldDefn:
         return {
             "node": (
-                *(super()._json_fields["node"]),
-                "addLabel",
-                "upControl",
-                "downControl",
+                *(super().get_json_fields()["node"]),
                 "itemsClass",
                 "itemClass",
             )
         }
 
-    addLabel = forms.CharField(required=False)
-    upControl = forms.BooleanField(required=False)
-    downControl = forms.BooleanField(required=False)
     itemsClass = forms.CharField(required=False)
     itemClass = forms.CharField(required=False)
     max = forms.IntegerField(required=False)
@@ -441,14 +433,22 @@ NODE_CONFIG: dict[type | str, dict[str, Any]] = {
         "fieldsets": [
             (
                 "Repeater field properties",
-                {"fields": ("addLabel", "upControl", "downControl", "itemsClass", "itemClass")},
+                {"fields": ("add_label", "up_control", "down_control", "itemsClass", "itemClass")},
             )
         ],
     },
     formkit_schema.FormKitSchemaDOMNode: {"form": FormKitElementForm},
     formkit_schema.FormKitSchemaComponent: {"form": FormKitComponentForm},
     formkit_schema.FormKitSchemaCondition: {"form": FormKitConditionForm},
-    formkit_schema.FormKitSchemaProps: {"form": FormKitNodeForm},
+    formkit_schema.FormKitSchemaProps: {
+        "form": FormKitNodeForm,
+        "fieldsets": [
+            (
+                "Display & behaviour",
+                {"fields": ("icon", "title", "readonly", "sections_schema")},
+            ),
+        ],
+    },
 }
 
 # Admin site registration continues below...
@@ -458,6 +458,7 @@ NODE_CONFIG: dict[type | str, dict[str, Any]] = {
 class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     list_display = (
         "label",
+        "title",
         "is_active",
         "short_id",
         "node_type",
@@ -468,7 +469,15 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         "protected",
         "created",
     )
-    readonly_fields = ("django_code_preview", "pydantic_code_preview", "formkit_node_preview", "created", "updated")
+    readonly_fields = (
+        "django_code_preview",
+        "pydantic_code_preview",
+        "formkit_node_preview",
+        "created",
+        "updated",
+        "created_by",
+        "updated_by",
+    )
     search_fields = ["label", "description", "id"]
     list_filter = ("is_active", "node_type", "protected", "option_group", "created", "updated")
     list_select_related = ("option_group",)
@@ -518,40 +527,15 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
                 break
 
         grouped_fields: set[str] = reduce(operator.or_, (set(opts["fields"]) for _, opts in fieldsets), set())
-        # Also include code generation fields to avoid them being duplicated in the default fieldset
-        code_gen_fields = {
-            "django_field_type",
-            "django_field_args",
-            "django_field_positional_args",
-            "pydantic_field_type",
-            "extra_imports",
-            "validators",
-            "list_filter",
-            "django_code_preview",
-            "pydantic_code_preview",
-            "formkit_node_preview",
-        }
-        grouped_fields.update(code_gen_fields)
+        grouped_fields.update(CODE_GEN_GROUPED_FIELDS)
         fieldsets.insert(0, (None, {"fields": [f for f in self.get_fields(request, obj) if f not in grouped_fields]}))
 
-        # Add Code Generation Source of Truth fieldset
         fieldsets.append(
             (
-                "Code Generation (Source of Truth)",
+                CODE_GEN_FIELDSET_TITLE,
                 {
-                    "fields": (
-                        "django_field_type",
-                        "django_field_args",
-                        "django_field_positional_args",
-                        "pydantic_field_type",
-                        "extra_imports",
-                        "validators",
-                        "list_filter",
-                        "django_code_preview",
-                        "pydantic_code_preview",
-                        "formkit_node_preview",
-                    ),
-                    "description": ("These values are the source of truth for code generation. If empty, they are auto-resolved on save from global configs."),
+                    "fields": CODE_GEN_FIELDSET_FIELDS,
+                    "description": "These values are the source of truth for code generation. If empty, they are auto-resolved on save from global configs.",
                 },
             )
         )
