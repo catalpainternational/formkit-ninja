@@ -1,6 +1,6 @@
 [project]
 name = "formkit-ninja"
-version = "2.2"
+version = "2.3"
 description = "A Django-Ninja backend to specify FormKit schemas"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
