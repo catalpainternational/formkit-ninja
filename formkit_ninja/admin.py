@@ -41,6 +41,7 @@ COMMON_NODE_FIELDS = (
     "description",
     "icon",
     "title",
+    "code_scheme",
     "readonly",
     "sections_schema",
     "is_active",
@@ -479,7 +480,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
         "updated_by",
     )
     search_fields = ["label", "description", "id"]
-    list_filter = ("is_active", "node_type", "protected", "option_group", "created", "updated")
+    list_filter = ("is_active", "node_type", "protected", "code_scheme", "option_group", "created", "updated")
     list_select_related = ("option_group",)
     list_per_page = 50
     date_hierarchy = "created"

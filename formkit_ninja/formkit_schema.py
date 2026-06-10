@@ -116,6 +116,10 @@ class FormKitSchemaProps(BaseModel):
     prefixIcon: str | None = Field(None)
     icon: str | None = Field(None)
     title: str | None = Field(None)
+    # Metadata tag for the geographic pcode scheme an input emits
+    # (e.g. "estrada" legacy ints vs "intl2024" string pcodes). Carried through
+    # to the node JSON so downstream consumers (partisipa-import) can route by it.
+    code_scheme: str | None = Field(None)
     classes: str | dict[str, str] | None = Field(None)
     readonly: bool | None = Field(None)
     sectionsSchema: dict[str, Any] | None = Field(None)
