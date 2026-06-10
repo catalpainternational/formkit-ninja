@@ -118,8 +118,8 @@ def test_repeater_node_fields(admin_page: Page):
     # Save and continue to load repeater fields
     admin_page.get_by_role("button", name="Save and continue editing").click()
 
-    # Use ID selector for addLabel
-    admin_page.locator("#id_addLabel").fill("Add row")
+    # Use ID selector for add_label (model field -> Django id `id_add_label`)
+    admin_page.locator("#id_add_label").fill("Add row")
     admin_page.get_by_role("button", name="Save", exact=True).click()
 
     node = models.FormKitSchemaNode.objects.get(label="Test Repeater")
