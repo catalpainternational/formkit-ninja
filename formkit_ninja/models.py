@@ -312,6 +312,25 @@ class NodeQS(models.QuerySet):
                 warnings.warn(f"{E}")
 
 
+def _coerce_node_numeric(attr: str, val):
+    """Coerce a promoted CharField value (min/max/step) to the numeric form the
+    node JSON should carry, matching get_node_values(). min/max -> int when
+    integer-valued; step -> int when integer-valued, else the original string.
+    Non-numeric attrs and unparseable values are returned unchanged."""
+    if attr in ("min", "max"):
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return val
+    if attr == "step":
+        try:
+            f = float(val)
+            return int(f) if f.is_integer() else val
+        except (TypeError, ValueError):
+            return val
+    return val
+
+
 @pghistory.track()
 @pgtrigger.register(
     pgtrigger.Protect(
@@ -515,7 +534,7 @@ class FormKitSchemaNode(UuidIdModel):
                     elif key in self.node:
                         self.node.pop(key, None)
                 elif val not in (None, ""):
-                    self.node[key] = val
+                    self.node[key] = _coerce_node_numeric(attr, val)
                 elif already_in_node:
                     self.node.pop(key, None)
 

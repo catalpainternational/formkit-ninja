@@ -91,7 +91,8 @@ class TestPartisipaNodePathRewritten:
         # Debug: Print generated models for inspection
         models_dir = output_dir / "models"
         if models_dir.exists():
-            model_files = list(models_dir.glob("*.py"))
+            # Exclude the package __init__.py; glob order is filesystem-dependent.
+            model_files = [f for f in models_dir.glob("*.py") if f.name != "__init__.py"]
             if model_files:
                 models_content_debug = model_files[0].read_text()
                 # Check for syntax errors manually
@@ -106,16 +107,16 @@ class TestPartisipaNodePathRewritten:
                         print(f"{marker}{i:3}: {line}")
                     raise
 
-        # Verify generated models.py has Partisipa customizations (only if files exist)
+        # Verify generated models.py has Partisipa customizations (only if files exist).
+        # Read all generated model files (excluding the package __init__.py) and
+        # concatenate, so the assertions don't depend on filesystem glob order.
         models_dir = output_dir / "models"
-        model_files = list(models_dir.glob("*.py")) if models_dir.exists() else []
+        model_files = [f for f in models_dir.glob("*.py") if f.name != "__init__.py"] if models_dir.exists() else []
 
-        if len(model_files) > 0:
-            models_file = model_files[0]  # Get the first model file
-        else:
+        if not model_files:
             # Skip test if no files generated
             pytest.skip("No model files generated")
-        models_content = models_file.read_text()
+        models_content = "\n".join(f.read_text() for f in model_files)
 
         # Verify submission field for root model (depth=1)
         assert "submission = models.OneToOneField" in models_content
