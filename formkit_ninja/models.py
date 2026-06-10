@@ -331,6 +331,17 @@ def _coerce_node_numeric(attr: str, val):
     return val
 
 
+# Identifier schemes a geographic input's values may speak. `pnds` is what
+# current submissions actually contain (PNDS zTable IDs, e.g. a zSuco PK).
+# `estrada` is the timor-locations pre-INTL pcode space, used mainly as the
+# crosswalk pivot. `intl2024` is the new timor-gis string-pcode scheme.
+CODE_SCHEME_CHOICES = (
+    ("pnds", "PNDS (zTable IDs — current)"),
+    ("estrada", "Estrada (timor-locations pre-INTL pcodes)"),
+    ("intl2024", "intl2024 (INTL string pcodes)"),
+)
+
+
 @pghistory.track()
 @pgtrigger.register(
     pgtrigger.Protect(
@@ -381,6 +392,18 @@ class FormKitSchemaNode(UuidIdModel):
     )
     label = models.CharField(max_length=1024, help_text="Used as a human-readable label", null=True, blank=True)
     option_group = models.ForeignKey(OptionGroup, null=True, blank=True, on_delete=models.PROTECT)
+    code_scheme = models.CharField(
+        max_length=32,
+        null=True,
+        blank=True,
+        choices=CODE_SCHEME_CHOICES,
+        help_text=(
+            "Metadata tag for the geographic pcode scheme this input emits "
+            "(e.g. Suco/Postu/Munisipiu values). Read by downstream consumers "
+            "such as partisipa-import; formkit-ninja does not validate or "
+            "translate the values themselves."
+        ),
+    )
     children = models.ManyToManyField("self", through=NodeChildren, symmetrical=False, blank=True)
     is_active = models.BooleanField(default=True)
     protected = models.BooleanField(default=False)
@@ -482,6 +505,7 @@ class FormKitSchemaNode(UuidIdModel):
             for field in (
                 "icon",
                 "title",
+                "code_scheme",
                 "readonly",
                 "sectionsSchema",
                 "min",
@@ -637,6 +661,8 @@ class FormKitSchemaNode(UuidIdModel):
             values["icon"] = self.icon
         if self.title:
             values["title"] = self.title
+        if self.code_scheme:
+            values["code_scheme"] = self.code_scheme
         if self.readonly:
             values["readonly"] = self.readonly
         if self.sections_schema:
@@ -777,6 +803,8 @@ class FormKitSchemaNode(UuidIdModel):
                 instance.icon = icon
             if (title := getattr(input_model, "title", None)) is not None:
                 instance.title = title
+            if (code_scheme := getattr(input_model, "code_scheme", None)) is not None:
+                instance.code_scheme = code_scheme
             if (readonly := getattr(input_model, "readonly", None)) is not None:
                 instance.readonly = readonly
             if (sections_schema := getattr(input_model, "sectionsSchema", None)) is not None:

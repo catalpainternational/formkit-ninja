@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4] - 2026-06-10
+
+### Added
+
+- **`code_scheme` tag for geographic inputs** — a metadata field on `FormKitSchemaNode`
+  recording which administrative-code scheme a Suco / Postu Admin / Munisipiu input's
+  values use, so legacy and new identifier schemes can coexist on the same forms without
+  ambiguity.
+  - Choices: `pnds` (current PNDS zTable IDs), `estrada` (timor-locations pre-INTL pcodes),
+    `intl2024` (new INTL string pcodes); nullable for non-geographic nodes.
+  - Carried through the full JSON ↔ Pydantic ↔ database round-trip, covering both
+    `option_group`-backed options and JS-backed `$getLocations()` inputs.
+  - Surfaced in the node payload for downstream consumers (e.g. partisipa-import); added
+    to the schema-node admin filter and change form.
+  - formkit-ninja only records the tag — it does not validate or translate option values.
+
+### Migrations
+
+- `0043` — adds the `code_scheme` column to `FormKitSchemaNode` (and its history model).
+- `0044` — backfills existing geographic nodes (matched by field name, `$getLocations()`,
+  or a geographic `$ida()` group) to `pnds`.
+
 ## [0.8.1] - 2026-02-02
 
 ### Added
