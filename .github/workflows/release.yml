@@ -1,0 +1,111 @@
+name: Release
+
+# Automatic PyPI release on a version tag.
+#
+# To cut a release:
+#   1. Bump `version` in pyproject.toml on main, commit, merge.
+#   2. Tag the merged commit with the SAME version (no "v" prefix), e.g.:
+#        git tag 2.5 && git push origin 2.5
+#   3. This workflow verifies the tag, builds, publishes to PyPI, and creates
+#      a GitHub Release with auto-generated notes.
+#
+# Publishing uses PyPI Trusted Publishing (OIDC) — no API token secret.
+# ONE-TIME SETUP (maintainer, on PyPI):
+#   pypi.org -> project formkit-ninja -> Settings -> Publishing ->
+#   "Add a new trusted publisher" (GitHub Actions):
+#     Owner:        catalpainternational
+#     Repository:   formkit-ninja
+#     Workflow:     release.yml
+#     Environment:  pypi
+#   (For the very first publish on a brand-new project name, add it as a
+#    "pending publisher" instead.)
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tag must equal pyproject version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          ver="$(grep -m1 '^version' pyproject.toml | sed -E 's/^version *= *"([^"]+)".*/\1/')"
+          echo "tag=$tag  pyproject=$ver"
+          if [ "$tag" != "$ver" ]; then
+            echo "::error::Tag '$tag' does not match pyproject version '$ver'. Bump pyproject.toml to match the tag."
+            exit 1
+          fi
+      - name: Tagged commit must be on main
+        run: |
+          git fetch --no-tags --depth=100 origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tagged commit $GITHUB_SHA is not on main. Release only from merged, CI-green main."
+            exit 1
+          fi
+
+  build:
+    name: Build distributions
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Build sdist + wheel
+        run: uv build
+      - name: Check metadata
+        run: uv run --with twine twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/formkit-ninja/
+    permissions:
+      id-token: write # OIDC for Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
