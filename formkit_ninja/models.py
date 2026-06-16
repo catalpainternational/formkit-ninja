@@ -20,7 +20,6 @@ from django.utils import timezone
 from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
-from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
 
 # Re export "form_submission" models
 from formkit_ninja.code_generation_config import CodeGenerationConfig  # noqa: F401
@@ -30,6 +29,7 @@ from formkit_ninja.form_submission.models import (
     SubmissionField,  # noqa: F401
     SubmissionFile,  # noqa: F401
 )
+from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
 from formkit_ninja.utils import short_uuid
 
 console = Console()

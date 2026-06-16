@@ -16,8 +16,8 @@ from ninja import Field, ModelSchema, Router, Schema
 from pydantic import BaseModel, validator
 
 from formkit_ninja import formkit_schema, models
-from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
 from formkit_ninja.notifications import get_default_notifier
+from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
 
 notifier = get_default_notifier()
 
