@@ -668,15 +668,31 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
         error_response.errors.append("You do not have permission to reorder FormKit schema nodes.")
         return HTTPStatus.FORBIDDEN, error_response
 
-    # validate the value of latest_change
-    chnge = models.NodeChildren.objects.latest_change()
-    if payload.latest_change != chnge:
-        error_response.errors = ["change conflict"]
-        return HTTPStatus.CONFLICT, error_response
+    # Reject a missing token — otherwise None == None silently bypasses the check
+    if payload.latest_change is None:
+        error_response.errors.append("latest_change is required.")
+        return HTTPStatus.BAD_REQUEST, error_response
 
     try:
         with transaction.atomic():
+            # Lock this parent's child rows so concurrent reorders of the same
+            # parent serialize; the second waiter re-reads a fresh token below.
+            list(models.NodeChildren.objects.filter(parent=payload.parent_id).select_for_update())
+
+            # Per-parent token, read INSIDE the lock — matches what the client holds
+            # (from list-related-nodes), not a global maximum across every parent.
+            current = models.NodeChildren.objects.latest_change(payload.parent_id)
+            if payload.latest_change != current:
+                error_response.errors = ["change conflict"]
+                return HTTPStatus.CONFLICT, error_response
+
             reorder_children(payload)
+
+            # Build the response from the *database*, not the request payload, so the
+            # client sees what was actually persisted (the pg ordering triggers may
+            # move rows behind our back).
+            payload.children = list(models.NodeChildren.objects.filter(parent=payload.parent_id).order_by("order").values_list("child_id", flat=True))
+            payload.latest_change = models.NodeChildren.objects.latest_change(payload.parent_id)
     except ValueError as E:
         # The payload's children don't match the parent's children
         error_response.errors.append(f"{E}")
@@ -687,11 +703,6 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
         error_response.errors.append("An unexpected error occurred while reordering.")
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
-    # Build the response from the *database*, not the request payload, so the
-    # client sees what was actually persisted (the pg ordering triggers may move
-    # rows behind our back).
-    payload.children = list(models.NodeChildren.objects.filter(parent=payload.parent_id).order_by("order").values_list("child_id", flat=True))
-    payload.latest_change = models.NodeChildren.objects.latest_change()
     return payload
 
 

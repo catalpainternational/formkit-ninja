@@ -253,12 +253,21 @@ class NodeChildrenManager(models.Manager):
             .annotate(latest_change=Greatest("child__track_change__max", "parent__track_change"))
         )
         if latest_change:
-            values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__latest_change__gt=latest_change))
+            values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__track_change__gt=latest_change))
         return values.values_list("parent_id", "latest_change", "children", named=True)
 
-    def latest_change(self):
-        aggregated = self.aggregate_changes_table().aggregate(Max("track_change"))
-        return aggregated["track_change__max"]
+    def latest_change(self, parent_id=None):
+        """
+        The optimistic-concurrency token: the max ``NodeChildren.track_change`` (the
+        per-row version bumped by the pg trigger on every insert/update, including a
+        reorder). With ``parent_id`` it is scoped to a single parent so a reorder of
+        one node does not conflict with a reorder of another; without it, the global
+        maximum (kept for backwards compatibility).
+        """
+        qs = self.get_queryset()
+        if parent_id is not None:
+            qs = qs.filter(parent_id=parent_id)
+        return qs.aggregate(_max=Max("track_change"))["_max"]
 
 
 class NodeChildren(models.Model):
