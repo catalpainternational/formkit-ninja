@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from functools import cached_property
 from http import HTTPStatus
@@ -17,6 +18,8 @@ from pydantic import BaseModel, validator
 
 from formkit_ninja import formkit_schema, models
 from formkit_ninja.notifications import get_default_notifier
+
+logger = logging.getLogger(__name__)
 
 notifier = get_default_notifier()
 
@@ -630,11 +633,13 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     response={
         HTTPStatus.OK: NodeChildrenOut,
         HTTPStatus.BAD_REQUEST: FormKitErrors,
+        HTTPStatus.FORBIDDEN: FormKitErrors,
         HTTPStatus.CONFLICT: FormKitErrors,
         HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors,
     },
     exclude_none=True,
     by_alias=True,
+    auth=formkit_auth,
 )
 def reorder_node_children(request, response: HttpResponse, payload: NodeChildrenIn):
     """
@@ -650,11 +655,18 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
         200: NodeChildrenOut: The children *as actually stored*, read back from
             the database after the reorder (not an echo of the request).
         400: FormKitErrors: The requested children do not match the parent's children.
+        403: FormKitErrors: The user lacks permission to change FormKit schema nodes.
         409: FormKitErrors: The latest_change token is stale (a concurrent edit happened).
         500: FormKitErrors: An unexpected error occurred.
     """
 
     error_response = FormKitErrors()
+
+    # Authentication is enforced by formkit_auth; check the change permission here
+    # to mirror delete_node / create_or_update_node (both mutate schema nodes).
+    if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
+        error_response.errors.append("You do not have permission to reorder FormKit schema nodes.")
+        return HTTPStatus.FORBIDDEN, error_response
 
     # validate the value of latest_change
     chnge = models.NodeChildren.objects.latest_change()
@@ -669,8 +681,10 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
         # The payload's children don't match the parent's children
         error_response.errors.append(f"{E}")
         return HTTPStatus.BAD_REQUEST, error_response
-    except Exception as E:
-        error_response.errors.append(f"{E}")
+    except Exception:
+        # Don't leak internal SQL / trigger detail to the client
+        logger.exception("reorder_node_children failed for parent_id=%s", payload.parent_id)
+        error_response.errors.append("An unexpected error occurred while reordering.")
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
     # Build the response from the *database*, not the request payload, so the
@@ -689,9 +703,8 @@ def reorder_children(payload: NodeChildrenIn):
         raise ValueError("Children do not match")
     if set(existing_children.values_list("child_id", flat=True)) != set(payload.children):
         raise ValueError("Children do not match")
-    for id in payload.children:
-        new_index = payload.children.index(id) + 1
-        child = existing_children.get(child_id=id)
+    for new_index, child_id in enumerate(payload.children, start=1):
+        child = existing_children.get(child_id=child_id)
         if child.order != new_index:
             child.order = new_index
             child.save()

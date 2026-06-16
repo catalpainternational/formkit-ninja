@@ -185,6 +185,43 @@ def test_reorder_rejects_mismatched_children(admin_client: Client):
 
 
 @pytest.mark.django_db
+def test_reorder_requires_authentication(client: Client):
+    """An anonymous (not logged-in) user must not be able to reorder children."""
+    parent, children = _make_parent_with_children(2)
+    latest_change = NodeChildren.objects.latest_change()
+    data = NodeChildrenIn(children=[children[1].id, children[0].id], parent_id=parent.id, latest_change=latest_change)
+
+    response = client.post(
+        reverse("api-1.0.0:reorder_node_children"),
+        data=data.dict(),
+        content_type="application/json",
+    )
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert _db_order(parent) == [child.id for child in children]
+
+
+@pytest.mark.django_db
+def test_reorder_requires_change_permission(client: Client, django_user_model):
+    """An authenticated user without change_formkitschemanode must get 403, not reorder."""
+    user = django_user_model.objects.create_user(username="noperm", password="x")
+    client.force_login(user)
+
+    parent, children = _make_parent_with_children(2)
+    latest_change = NodeChildren.objects.latest_change()
+    data = NodeChildrenIn(children=[children[1].id, children[0].id], parent_id=parent.id, latest_change=latest_change)
+
+    response = client.post(
+        reverse("api-1.0.0:reorder_node_children"),
+        data=data.dict(),
+        content_type="application/json",
+    )
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert _db_order(parent) == [child.id for child in children]
+
+
+@pytest.mark.django_db
 def test_reorder_trigger_does_not_corrupt_order():
     """Property test: the ordering pg trigger must not corrupt a reorder.
 
