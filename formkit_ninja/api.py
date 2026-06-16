@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from functools import cached_property
 from http import HTTPStatus
@@ -18,6 +19,8 @@ from pydantic import BaseModel, validator
 from formkit_ninja import formkit_schema, models
 from formkit_ninja.notifications import get_default_notifier
 from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
+
+logger = logging.getLogger(__name__)
 
 notifier = get_default_notifier()
 
@@ -83,6 +86,15 @@ class NodeChildrenOut(ModelSchema):
     class Config:
         model = models.NodeChildren
         model_fields = ("parent",)
+
+
+class NodeChildrenIn(Schema):
+    # UUIDS of the children in the new order
+    children: list[UUID] = []
+    # latest_change is used to validate that the client is working with the most up to date version of the children
+    latest_change: int | None = None
+    # The parent_id is used to identify which node's children are being reordered
+    parent_id: UUID
 
 
 class NodeReturnType(BaseModel):
@@ -616,3 +628,96 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
     return node_queryset_response(models.FormKitSchemaNode.objects.filter(pk__in=[child.pk]))[0]
+
+
+@router.post(
+    "reorder_node_children",
+    response={
+        HTTPStatus.OK: NodeChildrenOut,
+        HTTPStatus.BAD_REQUEST: FormKitErrors,
+        HTTPStatus.FORBIDDEN: FormKitErrors,
+        HTTPStatus.CONFLICT: FormKitErrors,
+        HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors,
+    },
+    exclude_none=True,
+    by_alias=True,
+    auth=formkit_auth,
+)
+def reorder_node_children(request, response: HttpResponse, payload: NodeChildrenIn):
+    """
+    Reorder the children of a node.
+
+    Args:
+        request: The request object.
+        response (HttpResponse): The HttpResponse object.
+        payload (NodeChildrenIn): The parent id, the latest_change token and the
+            child UUIDs in their desired order.
+
+    Returns:
+        200: NodeChildrenOut: The children *as actually stored*, read back from
+            the database after the reorder (not an echo of the request).
+        400: FormKitErrors: The requested children do not match the parent's children.
+        403: FormKitErrors: The user lacks permission to change FormKit schema nodes.
+        409: FormKitErrors: The latest_change token is stale (a concurrent edit happened).
+        500: FormKitErrors: An unexpected error occurred.
+    """
+
+    error_response = FormKitErrors()
+
+    # Authentication is enforced by formkit_auth; check the change permission here
+    # to mirror delete_node / create_or_update_node (both mutate schema nodes).
+    if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
+        error_response.errors.append("You do not have permission to reorder FormKit schema nodes.")
+        return HTTPStatus.FORBIDDEN, error_response
+
+    # Reject a missing token — otherwise None == None silently bypasses the check
+    if payload.latest_change is None:
+        error_response.errors.append("latest_change is required.")
+        return HTTPStatus.BAD_REQUEST, error_response
+
+    try:
+        with transaction.atomic():
+            # Lock this parent's child rows so concurrent reorders of the same
+            # parent serialize; the second waiter re-reads a fresh token below.
+            list(models.NodeChildren.objects.filter(parent=payload.parent_id).select_for_update())
+
+            # Per-parent token, read INSIDE the lock — matches what the client holds
+            # (from list-related-nodes), not a global maximum across every parent.
+            current = models.NodeChildren.objects.latest_change(payload.parent_id)
+            if payload.latest_change != current:
+                error_response.errors = ["change conflict"]
+                return HTTPStatus.CONFLICT, error_response
+
+            reorder_children(payload)
+
+            # Build the response from the *database*, not the request payload, so the
+            # client sees what was actually persisted (the pg ordering triggers may
+            # move rows behind our back).
+            payload.children = list(models.NodeChildren.objects.filter(parent=payload.parent_id).order_by("order").values_list("child_id", flat=True))
+            payload.latest_change = models.NodeChildren.objects.latest_change(payload.parent_id)
+    except ValueError as E:
+        # The payload's children don't match the parent's children
+        error_response.errors.append(f"{E}")
+        return HTTPStatus.BAD_REQUEST, error_response
+    except Exception:
+        # Don't leak internal SQL / trigger detail to the client
+        logger.exception("reorder_node_children failed for parent_id=%s", payload.parent_id)
+        error_response.errors.append("An unexpected error occurred while reordering.")
+        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+
+    return payload
+
+
+def reorder_children(payload: NodeChildrenIn):
+    # Logic to reorder children based on the payload
+    existing_children = models.NodeChildren.objects.filter(parent=payload.parent_id)
+    # validate the children are the same in number and id
+    if existing_children.count() != len(payload.children):
+        raise ValueError("Children do not match")
+    if set(existing_children.values_list("child_id", flat=True)) != set(payload.children):
+        raise ValueError("Children do not match")
+    for new_index, child_id in enumerate(payload.children, start=1):
+        child = existing_children.get(child_id=child_id)
+        if child.order != new_index:
+            child.order = new_index
+            child.save()
