@@ -4,7 +4,9 @@ Helpers for reconciling recognised FormKit node props vs additional_props storag
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Type
+
+from pydantic import BaseModel
 
 from formkit_ninja import formkit_schema
 
@@ -52,7 +54,7 @@ PROMOTED_NODE_KEYS = frozenset(
 _RECOGNISED_KEYS_CACHE: frozenset[str] | None = None
 
 
-def _collect_pydantic_field_keys(model_class: type) -> set[str]:
+def _collect_pydantic_field_keys(model_class: Type[BaseModel]) -> set[str]:
     keys: set[str] = set()
     for name, field in model_class.__fields__.items():
         keys.add(name)
@@ -61,8 +63,8 @@ def _collect_pydantic_field_keys(model_class: type) -> set[str]:
     return keys
 
 
-def _all_schema_props_classes() -> set[type]:
-    classes: set[type] = {formkit_schema.FormKitSchemaProps}
+def _all_schema_props_classes() -> set[Type[BaseModel]]:
+    classes: set[Type[BaseModel]] = {formkit_schema.FormKitSchemaProps}
     pending = [formkit_schema.FormKitSchemaProps]
     while pending:
         cls = pending.pop()
@@ -134,8 +136,4 @@ def strip_stale_recognised_props(
         return dict(flat_props)
 
     recognised = recognised_node_prop_keys()
-    return {
-        key: val
-        for key, val in flat_props.items()
-        if key not in recognised or key not in authoritative
-    }
+    return {key: val for key, val in flat_props.items() if key not in recognised or key not in authoritative}
