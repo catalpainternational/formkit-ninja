@@ -488,7 +488,9 @@ def test_api_preserves_additional_props_in_database(admin_client):
     assert retrieved_node.additional_props is not None, "additional_props should be stored in database"
     assert "onClick" in retrieved_node.additional_props, "onClick should be preserved in additional_props in database"
     assert retrieved_node.additional_props["onClick"] == "$attrs.removeAction", f"onClick value should match. Expected: $attrs.removeAction, Got: {retrieved_node.additional_props.get('onClick')}"
-    assert "format" in retrieved_node.additional_props, "format should be preserved in additional_props in database"
+    # Recognised schema props (e.g. format) are promoted to node, not duplicated in additional_props
+    assert retrieved_node.node.get("format") == "DD/MM/YYYY"
+    assert "format" not in retrieved_node.additional_props
     assert "customField" in retrieved_node.additional_props, "customField should be preserved in additional_props in database"
 
 

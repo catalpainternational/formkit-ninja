@@ -20,6 +20,7 @@ from django.utils import timezone
 from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
+from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
 
 # Re export "form_submission" models
 from formkit_ninja.code_generation_config import CodeGenerationConfig  # noqa: F401
@@ -562,6 +563,9 @@ class FormKitSchemaNode(UuidIdModel):
                 elif already_in_node:
                     self.node.pop(key, None)
 
+        if isinstance(self.additional_props, dict) and isinstance(self.node, dict):
+            self.additional_props = strip_stale_recognised_props(self.additional_props, self.node)
+
         # Resolve code generation defaults if not set
         self.resolve_code_generation_defaults()
 
@@ -710,16 +714,10 @@ class FormKitSchemaNode(UuidIdModel):
         if self.list_filter:
             values["list_filter"] = self.list_filter
 
-        # Merge additional_props into the top level and ensure it's removed as a separate key
+        # Merge additional_props under recognised node keys (do not override node/columns)
         values.pop("additional_props", None)
         if self.additional_props and len(self.additional_props) > 0:
-            # Handle nested additional_props structure
-            props_to_merge = self.additional_props
-            if "additional_props" in props_to_merge:
-                props_to_merge = props_to_merge["additional_props"]
-            # Filter out None values to prevent Pydantic validation errors
-            clean_props = {k: v for k, v in props_to_merge.items() if v is not None}
-            values.update(clean_props)
+            values = merge_additional_props_under(values, self.additional_props)
 
         if self.node_type == "$el" and not values.get("$el"):
             values["$el"] = "span"
