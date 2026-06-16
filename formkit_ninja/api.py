@@ -629,6 +629,7 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     "reorder_node_children",
     response={
         HTTPStatus.OK: NodeChildrenOut,
+        HTTPStatus.BAD_REQUEST: FormKitErrors,
         HTTPStatus.CONFLICT: FormKitErrors,
         HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors,
     },
@@ -637,17 +638,20 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
 )
 def reorder_node_children(request, response: HttpResponse, payload: NodeChildrenIn):
     """
-    Creates or updates a NodeChildern  model.
-
+    Reorder the children of a node.
 
     Args:
         request: The request object.
         response (HttpResponse): The HttpResponse object.
-        payload (NodeChildrenIn): The payload containing the data for the node to be created or updated.
+        payload (NodeChildrenIn): The parent id, the latest_change token and the
+            child UUIDs in their desired order.
 
     Returns:
-        200: NodeChildrenIn: The new nodechildren object
-        500: FormKitErrors: The errors encountered during the process, if any.
+        200: NodeChildrenOut: The children *as actually stored*, read back from
+            the database after the reorder (not an echo of the request).
+        400: FormKitErrors: The requested children do not match the parent's children.
+        409: FormKitErrors: The latest_change token is stale (a concurrent edit happened).
+        500: FormKitErrors: An unexpected error occurred.
     """
 
     error_response = FormKitErrors()
@@ -659,15 +663,21 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
         return HTTPStatus.CONFLICT, error_response
 
     try:
-        reorder_children(payload)
+        with transaction.atomic():
+            reorder_children(payload)
+    except ValueError as E:
+        # The payload's children don't match the parent's children
+        error_response.errors.append(f"{E}")
+        return HTTPStatus.BAD_REQUEST, error_response
     except Exception as E:
         error_response.errors.append(f"{E}")
-
-    if error_response.errors or error_response.field_errors:
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
-    updated_change = models.NodeChildren.objects.latest_change()
-    payload.latest_change = updated_change
+    # Build the response from the *database*, not the request payload, so the
+    # client sees what was actually persisted (the pg ordering triggers may move
+    # rows behind our back).
+    payload.children = list(models.NodeChildren.objects.filter(parent=payload.parent_id).order_by("order").values_list("child_id", flat=True))
+    payload.latest_change = models.NodeChildren.objects.latest_change()
     return payload
 
 
@@ -676,9 +686,9 @@ def reorder_children(payload: NodeChildrenIn):
     existing_children = models.NodeChildren.objects.filter(parent=payload.parent_id)
     # validate the children are the same in number and id
     if existing_children.count() != len(payload.children):
-        return None, "Children do not match"
+        raise ValueError("Children do not match")
     if set(existing_children.values_list("child_id", flat=True)) != set(payload.children):
-        return None, "Children do not match"
+        raise ValueError("Children do not match")
     for id in payload.children:
         new_index = payload.children.index(id) + 1
         child = existing_children.get(child_id=id)
