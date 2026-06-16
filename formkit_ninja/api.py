@@ -17,6 +17,7 @@ from pydantic import BaseModel, validator
 
 from formkit_ninja import formkit_schema, models
 from formkit_ninja.notifications import get_default_notifier
+from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
 
 notifier = get_default_notifier()
 
@@ -462,11 +463,12 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
         values["name"] = payload.preferred_name
     child.node.update(values)
     if payload.additional_props is not None:
-        child.node.update(payload.additional_props)
-        # Also store additional_props in the model field
+        filtered_props = strip_stale_recognised_props(payload.additional_props, values)
+        merge_additional_props_under(child.node, filtered_props)
         if child.additional_props is None:
             child.additional_props = {}
-        child.additional_props.update(payload.additional_props)
+        child.additional_props.update(filtered_props)
+        child.additional_props = strip_stale_recognised_props(child.additional_props, values)
 
     # Extract and preserve unrecognized fields from raw payload
     if raw_payload_dict is not None:
