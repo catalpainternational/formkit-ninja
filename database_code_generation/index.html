@@ -1,0 +1,2053 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../code_generation/">
+      
+      
+        <link rel="next" href="../feature_matrix/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Database Config - Formkit-Ninja</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#database-driven-code-generation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Formkit-Ninja" class="md-header__button md-logo" aria-label="Formkit-Ninja" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Formkit-Ninja
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Database Config
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="lime"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../submission_architecture/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../feature_matrix/" class="md-tabs__link">
+          
+  
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../classes/" class="md-tabs__link">
+          
+  
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Formkit-Ninja" class="md-nav__button md-logo" aria-label="Formkit-Ninja" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Formkit-Ninja
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../submission_architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Submission Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code_generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Config
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Benefits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#priority-cascade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Priority Cascade
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#component-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Diagram
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifecycle-of-a-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle of a Node
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lifecycle of a Node">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-the-source-formkitschema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The Source: FormKitSchema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-the-bridge-databasenodepath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The Bridge: DatabaseNodePath
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-the-instruction-codegenerationconfig-the-db-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The Instruction: CodeGenerationConfig (The DB "Node")
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-the-blueprint-jinja2-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. The Blueprint: Jinja2 Templates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-the-output-generated-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. The Output: Generated Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-enable-database-driven-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Enable Database-Driven Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-create-configurations-via-admin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Create Configurations via Admin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Create Configurations via Admin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-override-a-specific-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Override a Specific Field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-override-by-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Override by Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-type-level-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Type-Level Override
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#codegenerationconfig-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CodeGenerationConfig Model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#django-settings-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Django Settings Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Use Cases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Use Cases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#use-case-1-foreign-key-relationships" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Case 1: Foreign Key Relationships
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-case-2-decimal-fields-for-currency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Case 2: Decimal Fields for Currency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-case-3-integer-enumerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Case 3: Integer Enumerations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-case-4-custom-validators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Case 4: Custom Validators
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#priority-system-deep-dive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Priority System Deep Dive
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Priority System Deep Dive">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#understanding-priority-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Understanding Priority Values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#matching-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Matching Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inactive-configurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inactive Configurations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#admin-interface-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Admin Interface Guide
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Admin Interface Guide">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#list-view-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List View Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filtering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#searching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Searching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#organizing-fieldsets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organizing Fieldsets
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Guide
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migration Guide">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from-custom-nodepath-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Custom NodePath Classes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-settings-only-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Settings-Only Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#issue-config-not-being-applied" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue: Config Not Being Applied
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#issue-generated-code-not-using-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue: Generated Code Not Using Override
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#issue-json-validation-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue: JSON Validation Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#databasenodepath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DatabaseNodePath
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Caching
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-use-specific-priorities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Use Specific Priorities
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-document-complex-configurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Document Complex Configurations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-test-configuration-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Test Configuration Changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-version-control-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Version Control Fixtures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-start-with-settings-graduate-to-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Start with Settings, Graduate to Database
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../feature_matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inputs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inputs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../classes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Classes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="database-driven-code-generation">Database-Driven Code Generation</h1>
+<p><strong>New in v0.8.1</strong> - Configure code generation through the Django admin instead of writing Python code!</p>
+<h2 id="overview">Overview</h2>
+<p>FormKit-Ninja now supports <strong>database-driven code generation configuration</strong>, allowing you to override type mappings, field arguments, and other code generation rules through the Django admin interface or settings, without needing to create custom Python classes.</p>
+<h3 id="key-benefits">Key Benefits</h3>
+<p>✅ <strong>No Code Required</strong> - Configure through Django admin<br />
+✅ <strong>Dynamic Updates</strong> - Change configs without redeploying<br />
+✅ <strong>Priority System</strong> - Fine-grained control over which rules apply<br />
+✅ <strong>Settings Fallback</strong> - Support for Django settings configuration<br />
+✅ <strong>Backward Compatible</strong> - Existing custom NodePath classes still work  </p>
+<h2 id="architecture">Architecture</h2>
+<h3 id="priority-cascade">Priority Cascade</h3>
+<p>Code generation configuration follows this priority cascade (highest to lowest):</p>
+<pre class="mermaid"><code>graph TD
+    A[FormKit Node] --&gt; B{Match node_name?}
+    B --&gt;|Yes| C[Use CodeGenerationConfig&lt;br/&gt;with matching node_name]
+    B --&gt;|No| D{Match options_pattern?}
+    D --&gt;|Yes| E[Use CodeGenerationConfig&lt;br/&gt;with matching options_pattern]
+    D --&gt;|No| F{Match formkit_type?}
+    F --&gt;|Yes| G[Use CodeGenerationConfig&lt;br/&gt;with matching formkit_type]
+    F --&gt;|No| H{Django Settings?}
+    H --&gt;|Yes| I[Use FORMKIT_NINJA settings]
+    H --&gt;|No| J[Use Default Converters]
+
+    C --&gt; K[Generate Code]
+    E --&gt; K
+    G --&gt; K
+    I --&gt; K
+    J --&gt; K</code></pre>
+<h3 id="component-diagram">Component Diagram</h3>
+<pre class="mermaid"><code>graph LR
+    A[FormKit Schema] --&gt; B[CodeGenerator]
+    B --&gt; C[DatabaseNodePath]
+    C --&gt; D{Config Lookup}
+    D --&gt; E[(CodeGenerationConfig&lt;br/&gt;Database)]
+    D --&gt; F[Django Settings&lt;br/&gt;FORMKIT_NINJA]
+    D --&gt; G[Default&lt;br/&gt;Type Converters]
+
+    C --&gt; H[Generate Models]
+    C --&gt; I[Generate Schemas]
+    C --&gt; J[Generate Admin]
+
+    style E fill:#90EE90
+    style F fill:#FFD700
+    style G fill:#87CEEB</code></pre>
+<hr />
+<h2 id="lifecycle-of-a-node">Lifecycle of a Node</h2>
+<p>How does a single field in your FormKit JSON become a line of code in <code>models.py</code>? </p>
+<h3 id="1-the-source-formkitschema">1. The Source: <code>FormKitSchema</code></h3>
+<p>A <code>FormKitSchema</code> record in your database contains a JSON array. For example:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;$formkit&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;text&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;district_name&quot;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="2-the-bridge-databasenodepath">2. The Bridge: <code>DatabaseNodePath</code></h3>
+<p>The <code>CodeGenerator</code> walks through this JSON. For the "district_name" node, it creates a <code>DatabaseNodePath</code> instance. This instance is responsible for answering questions like <em>"What is your Django type?"</em>.</p>
+<h3 id="3-the-instruction-codegenerationconfig-the-db-node">3. The Instruction: <code>CodeGenerationConfig</code> (The DB "Node")</h3>
+<p>The <code>DatabaseNodePath</code> queries the database for a <code>CodeGenerationConfig</code> that matches:
+- <code>formkit_type="text"</code>
+- <code>node_name="district_name"</code> (Highest priority)</p>
+<p>If it finds an entry, it "loads" the instructions:
+- <strong>Django Type</strong>: <code>ForeignKey</code>
+- <strong>Django Args</strong>: <code>{"to": "pnds.District", "null": true}</code></p>
+<h3 id="4-the-blueprint-jinja2-templates">4. The Blueprint: Jinja2 Templates</h3>
+<p>The <code>CodeGenerator</code> passes the <code>DatabaseNodePath</code> to the <code>models.py.jinja2</code> template. The template contains code like this:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>{{ nodepath.name }} = models.{{ nodepath.to_django_type }}({{ nodepath.to_django_args }})
+</code></pre></div>
+<h3 id="5-the-output-generated-python">5. The Output: Generated Python</h3>
+<p>The final result written to your disk is:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">district_name</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span><span class="s2">&quot;pnds.District&quot;</span><span class="p">,</span> <span class="n">null</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div></p>
+<p>By changing the <code>CodeGenerationConfig</code> <strong>in the database</strong>, you change the behavior of the <code>DatabaseNodePath</code>, which in turn changes the rendered output of the template without ever touching the generator's source code.</p>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="1-enable-database-driven-generation">1. Enable Database-Driven Generation</h3>
+<p>Database-driven generation is <strong>enabled by default</strong> in v0.8.1+. The <code>GeneratorConfig</code> automatically uses <code>DatabaseNodePath</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">formkit_ninja.parser.generator_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeneratorConfig</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">GeneratorConfig</span><span class="p">(</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">app_name</span><span class="o">=</span><span class="s2">&quot;myapp&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./generated&quot;</span><span class="p">),</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="c1"># DatabaseNodePath is now the default!</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="2-create-configurations-via-admin">2. Create Configurations via Admin</h3>
+<p>Navigate to <strong>Django Admin → Code generation configs → Add code generation config</strong></p>
+<h4 id="example-override-a-specific-field">Example: Override a Specific Field</h4>
+<p><strong>Use Case</strong>: Make the <code>district</code> field a ForeignKey instead of TextField</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Matching Criteria:
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>- FormKit type: text
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>- Node name: district  ← Matches the field name
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>- Priority: 10
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>Type Overrides:
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>- Django type: ForeignKey
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>Field Configuration:
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>- Django args:
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>  {
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    &quot;to&quot;: &quot;pnds_data.zDistrict&quot;,
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    &quot;on_delete&quot;: &quot;models.CASCADE&quot;,
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    &quot;null&quot;: true
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>  }
+</code></pre></div>
+<h4 id="example-override-by-pattern">Example: Override by Pattern</h4>
+<p><strong>Use Case</strong>: All fields with IDA lookup options should be integers</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Matching Criteria:
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>- FormKit type: select
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>- Options pattern: $ida(  ← Matches options starting with &quot;$ida(&quot;
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>- Priority: 5
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>Type Overrides:
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>- Pydantic type: int
+</code></pre></div>
+<h4 id="example-type-level-override">Example: Type-Level Override</h4>
+<p><strong>Use Case</strong>: All datepicker fields should use DateField</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Matching Criteria:
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>- FormKit type: datepicker
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>- Priority: 0
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>Type Overrides:
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>- Django type: DateField
+</code></pre></div>
+<h2 id="configuration-reference">Configuration Reference</h2>
+<h3 id="codegenerationconfig-model">CodeGenerationConfig Model</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>formkit_type</code></td>
+<td>CharField</td>
+<td>FormKit type to match</td>
+<td><code>"text"</code>, <code>"select"</code>, <code>"datepicker"</code></td>
+</tr>
+<tr>
+<td><code>node_name</code></td>
+<td>CharField</td>
+<td>Specific field name (highest priority)</td>
+<td><code>"district"</code>, <code>"start_date"</code></td>
+</tr>
+<tr>
+<td><code>options_pattern</code></td>
+<td>CharField</td>
+<td>Pattern in options field</td>
+<td><code>"$ida("</code>, <code>"$enum("</code></td>
+</tr>
+<tr>
+<td><code>pydantic_type</code></td>
+<td>CharField</td>
+<td>Override Pydantic type</td>
+<td><code>"int"</code>, <code>"Decimal"</code>, <code>"date"</code></td>
+</tr>
+<tr>
+<td><code>django_type</code></td>
+<td>CharField</td>
+<td>Override Django field type</td>
+<td><code>"ForeignKey"</code>, <code>"IntegerField"</code></td>
+</tr>
+<tr>
+<td><code>django_args</code></td>
+<td>JSONField</td>
+<td>Django field arguments</td>
+<td><code>{"null": true, "max_length": 100}</code></td>
+</tr>
+<tr>
+<td><code>extra_imports</code></td>
+<td>JSONField</td>
+<td>Additional imports</td>
+<td><code>["from decimal import Decimal"]</code></td>
+</tr>
+<tr>
+<td><code>validators</code></td>
+<td>JSONField</td>
+<td>Field validators</td>
+<td><code>["MinValueValidator(0)"]</code></td>
+</tr>
+<tr>
+<td><code>priority</code></td>
+<td>IntegerField</td>
+<td>Matching priority (higher = first)</td>
+<td><code>0</code>, <code>10</code>, <code>100</code></td>
+</tr>
+<tr>
+<td><code>is_active</code></td>
+<td>BooleanField</td>
+<td>Enable/disable without deleting</td>
+<td><code>true</code>, <code>false</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="django-settings-configuration">Django Settings Configuration</h3>
+<p>You can also configure overrides in <code>settings.py</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">FORMKIT_NINJA</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="c1"># Type-level mappings</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="s2">&quot;TYPE_MAPPINGS&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>        <span class="s2">&quot;datepicker&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>            <span class="s2">&quot;django_type&quot;</span><span class="p">:</span> <span class="s2">&quot;DateField&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>            <span class="s2">&quot;pydantic_type&quot;</span><span class="p">:</span> <span class="s2">&quot;date&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="p">},</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="s2">&quot;currency&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>            <span class="s2">&quot;pydantic_type&quot;</span><span class="p">:</span> <span class="s2">&quot;Decimal&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>            <span class="s2">&quot;extra_imports&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;from decimal import Decimal&quot;</span><span class="p">],</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>        <span class="p">},</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="p">},</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="c1"># Field name mappings (higher priority than TYPE_MAPPINGS)</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="s2">&quot;NAME_MAPPINGS&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>        <span class="s2">&quot;district&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>            <span class="s2">&quot;django_type&quot;</span><span class="p">:</span> <span class="s2">&quot;ForeignKey&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>            <span class="s2">&quot;django_args&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>                <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="s2">&quot;pnds_data.zDistrict&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>                <span class="s2">&quot;on_delete&quot;</span><span class="p">:</span> <span class="s2">&quot;models.CASCADE&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>                <span class="s2">&quot;null&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>            <span class="p">},</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>        <span class="p">},</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>    <span class="p">},</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>    <span class="c1"># Options pattern mappings</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>    <span class="s2">&quot;OPTIONS_MAPPINGS&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>        <span class="s2">&quot;$ida(&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>            <span class="s2">&quot;pydantic_type&quot;</span><span class="p">:</span> <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>        <span class="p">},</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>    <span class="p">},</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="p">}</span>
+</code></pre></div>
+<h2 id="common-use-cases">Common Use Cases</h2>
+<h3 id="use-case-1-foreign-key-relationships">Use Case 1: Foreign Key Relationships</h3>
+<p><strong>Problem</strong>: Need to reference another model instead of storing text</p>
+<p><strong>Solution</strong>: Create a node-specific config</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Via Admin:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">formkit_type</span> <span class="o">=</span> <span class="s2">&quot;text&quot;</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">node_name</span> <span class="o">=</span> <span class="s2">&quot;health_zone&quot;</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">django_type</span> <span class="o">=</span> <span class="s2">&quot;ForeignKey&quot;</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">django_args</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="s2">&quot;pnds_data.zHealthZone&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="s2">&quot;on_delete&quot;</span><span class="p">:</span> <span class="s2">&quot;models.PROTECT&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="s2">&quot;related_name&quot;</span><span class="p">:</span> <span class="s2">&quot;submissions&quot;</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Generated Code</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># models/myform.py</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">health_zone</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="s2">&quot;pnds_data.zHealthZone&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">on_delete</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">PROTECT</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">related_name</span><span class="o">=</span><span class="s2">&quot;submissions&quot;</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">)</span>
+</code></pre></div></p>
+<h3 id="use-case-2-decimal-fields-for-currency">Use Case 2: Decimal Fields for Currency</h3>
+<p><strong>Problem</strong>: Currency values need decimal precision</p>
+<p><strong>Solution</strong>: Type-level config with custom imports</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Via Admin:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">formkit_type</span> <span class="o">=</span> <span class="s2">&quot;text&quot;</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">node_name</span> <span class="o">=</span> <span class="s2">&quot;amount&quot;</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">pydantic_type</span> <span class="o">=</span> <span class="s2">&quot;Decimal&quot;</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">extra_imports</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;from decimal import Decimal&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p><strong>Generated Code</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># schemas/myform.py</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">decimal</span><span class="w"> </span><span class="kn">import</span> <span class="n">Decimal</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyFormSchema</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">amount</span><span class="p">:</span> <span class="n">Decimal</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</code></pre></div></p>
+<h3 id="use-case-3-integer-enumerations">Use Case 3: Integer Enumerations</h3>
+<p><strong>Problem</strong>: IDA lookups return integers, not strings</p>
+<p><strong>Solution</strong>: Pattern-based config</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Via Admin:</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">formkit_type</span> <span class="o">=</span> <span class="s2">&quot;select&quot;</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">options_pattern</span> <span class="o">=</span> <span class="s2">&quot;$ida(&quot;</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">pydantic_type</span> <span class="o">=</span> <span class="s2">&quot;int&quot;</span>
+</code></pre></div>
+<p><strong>Matches</strong>:
+- <code>&lt;FormKit type="select" name="status" options="$ida(yesno)" /&gt;</code>
+- <code>&lt;FormKit type="select" name="category" options="$ida(categories)" /&gt;</code></p>
+<h3 id="use-case-4-custom-validators">Use Case 4: Custom Validators</h3>
+<p><strong>Problem</strong>: Need to add validation constraints</p>
+<p><strong>Solution</strong>: Add validators in config</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Via Admin:</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">formkit_type</span> <span class="o">=</span> <span class="s2">&quot;number&quot;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">node_name</span> <span class="o">=</span> <span class="s2">&quot;age&quot;</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">validators</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="s2">&quot;MinValueValidator(0)&quot;</span><span class="p">,</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="s2">&quot;MaxValueValidator(150)&quot;</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="p">]</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="n">extra_imports</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="s2">&quot;from django.core.validators import MinValueValidator, MaxValueValidator&quot;</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="p">]</span>
+</code></pre></div>
+<h2 id="priority-system-deep-dive">Priority System Deep Dive</h2>
+<h3 id="understanding-priority-values">Understanding Priority Values</h3>
+<p>The <code>priority</code> field determines which config wins when multiple configs could match a node:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Priority 100: Most specific - this field only</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">CodeGenerationConfig</span><span class="p">(</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="n">formkit_type</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="n">node_name</span><span class="o">=</span><span class="s2">&quot;special_field&quot;</span><span class="p">,</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">priority</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="p">)</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="c1"># Priority 50: Medium - pattern-based matching</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="n">CodeGenerationConfig</span><span class="p">(</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>    <span class="n">formkit_type</span><span class="o">=</span><span class="s2">&quot;select&quot;</span><span class="p">,</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>    <span class="n">options_pattern</span><span class="o">=</span><span class="s2">&quot;$ida(&quot;</span><span class="p">,</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>    <span class="n">priority</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="p">)</span>
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="c1"># Priority 0: Lowest - type-level default</span>
+<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="n">CodeGenerationConfig</span><span class="p">(</span>
+<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>    <span class="n">formkit_type</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span>
+<a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>    <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="matching-examples">Matching Examples</h3>
+<p><strong>Example Node</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">&lt;FormKit</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;select&quot;</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;status&quot;</span><span class="w"> </span><span class="na">options=</span><span class="s">&quot;$ida(yesno)&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+</code></pre></div></p>
+<p><strong>Potential Matches</strong> (checked in order):</p>
+<ol>
+<li>✅ <strong>Priority 100</strong>: <code>formkit_type="select"</code> AND <code>node_name="status"</code> (most specific)</li>
+<li>✅ <strong>Priority 50</strong>: <code>formkit_type="select"</code> AND <code>options_pattern="$ida("</code> (pattern match)</li>
+<li>✅ <strong>Priority 0</strong>: <code>formkit_type="select"</code> (type-level)</li>
+</ol>
+<p>The <strong>highest priority</strong> match wins!</p>
+<h3 id="inactive-configurations">Inactive Configurations</h3>
+<p>Set <code>is_active=False</code> to temporarily disable a configuration without deleting it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Disabled - will be skipped during generation</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">CodeGenerationConfig</span><span class="p">(</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="n">formkit_type</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="n">node_name</span><span class="o">=</span><span class="s2">&quot;legacy_field&quot;</span><span class="p">,</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="n">is_active</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># ← Ignored</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="p">)</span>
+</code></pre></div>
+<h2 id="admin-interface-guide">Admin Interface Guide</h2>
+<h3 id="list-view-features">List View Features</h3>
+<p>The admin list view shows:</p>
+<ul>
+<li><strong>Summary</strong>: Human-readable config description</li>
+<li><strong>FormKit Type</strong>: The type being configured</li>
+<li><strong>Node Name</strong>: Specific field name (if any)</li>
+<li><strong>Priority</strong>: Matching priority</li>
+<li><strong>Active</strong>: Whether config is enabled</li>
+<li><strong>Pydantic</strong>: ✓ if Pydantic type is overridden</li>
+<li><strong>Django</strong>: ✓ if Django type/args are overridden</li>
+<li><strong>Created</strong>: When config was created</li>
+</ul>
+<h3 id="filtering">Filtering</h3>
+<p>Filter by:
+- Active status (active/inactive)
+- FormKit type (text, select, etc.)
+- Has node name (yes/no)
+- Has options pattern (yes/no)
+- Creation date</p>
+<h3 id="searching">Searching</h3>
+<p>Search across:
+- FormKit type
+- Node name
+- Options pattern
+- Pydantic type
+- Django type</p>
+<h3 id="organizing-fieldsets">Organizing Fieldsets</h3>
+<p>Fields are organized into logical groups:</p>
+<ol>
+<li><strong>Matching Criteria</strong> - Define what nodes this applies to</li>
+<li><strong>Type Overrides</strong> - Override Pydantic/Django types</li>
+<li><strong>Field Configuration</strong> - Django field arguments</li>
+<li><strong>Advanced</strong> (collapsed) - Extra imports and validators</li>
+<li><strong>Metadata</strong> (collapsed) - Creation/update timestamps</li>
+</ol>
+<h2 id="migration-guide">Migration Guide</h2>
+<h3 id="from-custom-nodepath-classes">From Custom NodePath Classes</h3>
+<p><strong>Before (Custom NodePath)</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">formkit_ninja.parser.type_convert</span><span class="w"> </span><span class="kn">import</span> <span class="n">NodePath</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">CustomNodePath</span><span class="p">(</span><span class="n">NodePath</span><span class="p">):</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_django_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;district&#39;</span><span class="p">:</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>            <span class="k">return</span> <span class="s1">&#39;ForeignKey&#39;</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_django_type</span><span class="p">()</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_django_args</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;district&#39;</span><span class="p">:</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>            <span class="k">return</span> <span class="s1">&#39;to=&quot;pnds_data.zDistrict&quot;, on_delete=models.CASCADE&#39;</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_django_args</span><span class="p">()</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="n">config</span> <span class="o">=</span> <span class="n">GeneratorConfig</span><span class="p">(</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>    <span class="n">app_name</span><span class="o">=</span><span class="s2">&quot;myapp&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./generated&quot;</span><span class="p">),</span>
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>    <span class="n">node_path_class</span><span class="o">=</span><span class="n">CustomNodePath</span><span class="p">,</span>  <span class="c1"># Custom class</span>
+<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="p">)</span>
+</code></pre></div>
+<p><strong>After (Database Config)</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># 1. Create config via Django admin (one-time):</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">CodeGenerationConfig</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="n">formkit_type</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="n">node_name</span><span class="o">=</span><span class="s2">&quot;district&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="n">django_type</span><span class="o">=</span><span class="s2">&quot;ForeignKey&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="n">django_args</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>        <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="s2">&quot;pnds_data.zDistrict&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>        <span class="s2">&quot;on_delete&quot;</span><span class="p">:</span> <span class="s2">&quot;models.CASCADE&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>    <span class="p">},</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="p">)</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="c1"># 2. Use default DatabaseNodePath (no custom code needed!):</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="n">config</span> <span class="o">=</span> <span class="n">GeneratorConfig</span><span class="p">(</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>    <span class="n">app_name</span><span class="o">=</span><span class="s2">&quot;myapp&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./generated&quot;</span><span class="p">),</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>    <span class="c1"># DatabaseNodePath is automatic!</span>
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="from-settings-only-configuration">From Settings-Only Configuration</h3>
+<p>Settings still work! Database configs take priority over settings:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># settings.py</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">FORMKIT_NINJA</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="s2">&quot;TYPE_MAPPINGS&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>        <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;django_type&quot;</span><span class="p">:</span> <span class="s2">&quot;TextField&quot;</span><span class="p">},</span>  <span class="c1"># Default</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="p">}</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="p">}</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="c1"># Database config overrides settings:</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="n">CodeGenerationConfig</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>    <span class="n">formkit_type</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>    <span class="n">node_name</span><span class="o">=</span><span class="s2">&quot;description&quot;</span><span class="p">,</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    <span class="n">django_type</span><span class="o">=</span><span class="s2">&quot;CharField&quot;</span><span class="p">,</span>  <span class="c1"># ← Overrides settings for this field</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>    <span class="n">django_args</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_length&quot;</span><span class="p">:</span> <span class="mi">500</span><span class="p">},</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="p">)</span>
+</code></pre></div>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="issue-config-not-being-applied">Issue: Config Not Being Applied</h3>
+<p><strong>Check</strong>:
+1. ✓ Is <code>is_active=True</code>?
+2. ✓ Does <code>formkit_type</code> match exactly? (case-sensitive)
+3. ✓ For node_name matches, does the name match exactly?
+4. ✓ Is there a higher-priority config overriding it?</p>
+<p><strong>Debug</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">formkit_ninja.code_generation_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">CodeGenerationConfig</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="c1"># Check what configs exist</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="n">configs</span> <span class="o">=</span> <span class="n">CodeGenerationConfig</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    <span class="n">is_active</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="n">formkit_type</span><span class="o">=</span><span class="s2">&quot;text&quot;</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="p">)</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s2">&quot;-priority&quot;</span><span class="p">)</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="k">for</span> <span class="n">cfg</span> <span class="ow">in</span> <span class="n">configs</span><span class="p">:</span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Priority </span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">priority</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">cfg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div></p>
+<h3 id="issue-generated-code-not-using-override">Issue: Generated Code Not Using Override</h3>
+<p><strong>Verify <code>DatabaseNodePath</code> is being used</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">formkit_ninja.parser.generator_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeneratorConfig</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">formkit_ninja.parser.database_node_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">DatabaseNodePath</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">GeneratorConfig</span><span class="p">(</span><span class="n">app_name</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./out&quot;</span><span class="p">))</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="k">assert</span> <span class="n">config</span><span class="o">.</span><span class="n">node_path_class</span> <span class="o">==</span> <span class="n">DatabaseNodePath</span>  <span class="c1"># Should be True</span>
+</code></pre></div>
+<h3 id="issue-json-validation-errors">Issue: JSON Validation Errors</h3>
+<p><strong>Valid JSON format</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">&quot;null&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span><span class="nt">&quot;blank&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">  </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;app.Model&quot;</span><span class="p">,</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">  </span><span class="nt">&quot;on_delete&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;models.CASCADE&quot;</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Invalid</strong> (common mistakes):
+- ❌ Single quotes: <code>{'null': True}</code> (use double quotes)
+- ❌ Python booleans: <code>{"null": True}</code> (use lowercase: <code>true</code>)
+- ❌ Trailing commas: <code>{"null": true,}</code> (remove trailing comma)</p>
+<h2 id="api-reference">API Reference</h2>
+<h3 id="databasenodepath">DatabaseNodePath</h3>
+<p>The <code>DatabaseNodePath</code> class implements the priority cascade:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">formkit_ninja.parser.database_node_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">DatabaseNodePath</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">formkit_ninja.formkit_schema</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextNode</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Create a node</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="n">node</span> <span class="o">=</span> <span class="n">TextNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;district&quot;</span><span class="p">)</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="c1"># Create nodepath (automatically queries database)</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="n">nodepath</span> <span class="o">=</span> <span class="n">DatabaseNodePath</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="c1"># Get type information (uses database config if available)</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="n">pydantic_type</span> <span class="o">=</span> <span class="n">nodepath</span><span class="o">.</span><span class="n">to_pydantic_type</span><span class="p">()</span>  <span class="c1"># e.g., &quot;str&quot;</span>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="n">django_type</span> <span class="o">=</span> <span class="n">nodepath</span><span class="o">.</span><span class="n">to_django_type</span><span class="p">()</span>       <span class="c1"># e.g., &quot;ForeignKey&quot;</span>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="n">django_args</span> <span class="o">=</span> <span class="n">nodepath</span><span class="o">.</span><span class="n">to_django_args</span><span class="p">()</span>       <span class="c1"># e.g., &quot;to=...&quot;</span>
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a><span class="n">validators</span> <span class="o">=</span> <span class="n">nodepath</span><span class="o">.</span><span class="n">get_validators</span><span class="p">()</span>         <span class="c1"># e.g., [&quot;MinValueValidator(0)&quot;]</span>
+<a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a><span class="n">imports</span> <span class="o">=</span> <span class="n">nodepath</span><span class="o">.</span><span class="n">get_extra_imports</span><span class="p">()</span>         <span class="c1"># e.g., [&quot;from decimal import Decimal&quot;]</span>
+</code></pre></div>
+<h3 id="configuration-caching">Configuration Caching</h3>
+<p><code>DatabaseNodePath</code> caches configuration lookups for performance:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># First lookup: queries database</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="n">nodepath1</span> <span class="o">=</span> <span class="n">DatabaseNodePath</span><span class="p">(</span><span class="n">TextNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;field1&quot;</span><span class="p">))</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="n">type1</span> <span class="o">=</span> <span class="n">nodepath1</span><span class="o">.</span><span class="n">to_pydantic_type</span><span class="p">()</span>  <span class="c1"># DB query</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="c1"># Subsequent lookups: uses cache</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="n">type2</span> <span class="o">=</span> <span class="n">nodepath1</span><span class="o">.</span><span class="n">to_pydantic_type</span><span class="p">()</span>  <span class="c1"># Cached!</span>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="c1"># Different node: new query</span>
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a><span class="n">nodepath2</span> <span class="o">=</span> <span class="n">DatabaseNodePath</span><span class="p">(</span><span class="n">TextNode</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;field2&quot;</span><span class="p">))</span>
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a><span class="n">type3</span> <span class="o">=</span> <span class="n">nodepath2</span><span class="o">.</span><span class="n">to_pydantic_type</span><span class="p">()</span>  <span class="c1"># DB query</span>
+</code></pre></div>
+<p>Cache is per-instance and includes <code>formkit_type</code>, <code>node_name</code>, and <code>options</code>.</p>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-use-specific-priorities">1. Use Specific Priorities</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># ✅ Good: Clear priority levels</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="o">-</span> <span class="n">Field</span><span class="o">-</span><span class="n">specific</span> <span class="n">overrides</span><span class="p">:</span> <span class="n">priority</span><span class="o">=</span><span class="mi">100</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="o">-</span> <span class="n">Pattern</span><span class="o">-</span><span class="n">based</span> <span class="n">rules</span><span class="p">:</span> <span class="n">priority</span><span class="o">=</span><span class="mi">50</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="o">-</span> <span class="n">Type</span><span class="o">-</span><span class="n">level</span> <span class="n">defaults</span><span class="p">:</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="c1"># ❌ Avoid: All same priority</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="o">-</span> <span class="n">Multiple</span> <span class="n">configs</span> <span class="k">with</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span> <span class="p">(</span><span class="n">unpredictable</span> <span class="n">which</span> <span class="n">wins</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="2-document-complex-configurations">2. Document Complex Configurations</h3>
+<p>Use clear, descriptive summaries in the admin that explain WHY a config exists:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>Summary: District field → FK to zDistrict table (PNDS data)
+</code></pre></div>
+<h3 id="3-test-configuration-changes">3. Test Configuration Changes</h3>
+<p>After updating configs, regenerate a test schema to verify:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>generate_code<span class="w"> </span>--schema-id<span class="o">=</span><span class="m">123</span><span class="w"> </span>--output<span class="o">=</span>/tmp/test
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="c1"># Check /tmp/test/models/*.py to verify changes</span>
+</code></pre></div>
+<h3 id="4-version-control-fixtures">4. Version Control Fixtures</h3>
+<p>Export configs for version control:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>dumpdata<span class="w"> </span>formkit_ninja.CodeGenerationConfig<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span>--indent<span class="o">=</span><span class="m">2</span><span class="w"> </span>&gt;<span class="w"> </span>fixtures/code_gen_configs.json
+</code></pre></div>
+<p>Load on other environments:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>loaddata<span class="w"> </span>fixtures/code_gen_configs.json
+</code></pre></div>
+<h3 id="5-start-with-settings-graduate-to-database">5. Start with Settings, Graduate to Database</h3>
+<p>For project-wide defaults, use settings. For specific overrides or frequently changing rules, use database configs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="c1"># settings.py - Project defaults</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="n">FORMKIT_NINJA</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>    <span class="s2">&quot;TYPE_MAPPINGS&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>        <span class="s2">&quot;datepicker&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;django_type&quot;</span><span class="p">:</span> <span class="s2">&quot;DateField&quot;</span><span class="p">},</span>
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>    <span class="p">}</span>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a><span class="p">}</span>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="c1"># Database - Specific overrides that may change</span>
+<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a><span class="n">CodeGenerationConfig</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>    <span class="n">formkit_type</span><span class="o">=</span><span class="s2">&quot;datepicker&quot;</span><span class="p">,</span>
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>    <span class="n">node_name</span><span class="o">=</span><span class="s2">&quot;end_date&quot;</span><span class="p">,</span>
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>    <span class="n">django_args</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;null&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>  <span class="c1"># This field is optional</span>
+<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a><span class="p">)</span>
+</code></pre></div>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="../code_generation/">Code Generation Guide</a> - General code generation documentation</li>
+<li><a href="../options/">Options Documentation</a> - FormKit options patterns</li>
+<li><a href="../admin/">Admin Guide</a> - Django admin interfaces</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2023 <a href="https://catalpa.io"  target="_blank" rel="noopener">Catalpa International</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/orgs/catalpainternational" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
