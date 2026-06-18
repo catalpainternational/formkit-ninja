@@ -65,6 +65,81 @@ class TestSubmissionLifecycle:
         assert child1
         assert child1.repeater_parent == level1
 
+    def test_changed_repeater_uuid_deletes_orphan(self):
+        """
+        #2252: when a repeater row's uuid changes on re-save, the old derived
+        SeparatedSubmission row must be reconciled away — not left orphaned.
+
+        Orphans are invisible in canonical Submission.fields but ARE served by
+        the derived-model endpoints, so a stale row double-counts in aggregates.
+        """
+        import uuid
+
+        old_uuid = uuid.uuid4()
+        sub = Submission.objects.create(
+            fields={"repeater": [{"uuid": str(old_uuid), "amount": 100}]},
+            form_type="TestForm",
+        )
+        assert SeparatedSubmission.objects.filter(pk=old_uuid).exists()
+
+        # Web-form round-trip / retype: same row, fresh uuid.
+        new_uuid = uuid.uuid4()
+        sub.fields = {"repeater": [{"uuid": str(new_uuid), "amount": 100}]}
+        sub.save()
+
+        assert SeparatedSubmission.objects.filter(pk=new_uuid).exists()
+        assert not SeparatedSubmission.objects.filter(pk=old_uuid).exists()
+        assert SeparatedSubmission.objects.filter(submission=sub, repeater_key="repeater").count() == 1
+
+    def test_removed_repeater_row_deletes_orphan(self):
+        """#2252: removing a repeater row on re-save deletes its derived row."""
+        import uuid
+
+        keep_uuid = uuid.uuid4()
+        drop_uuid = uuid.uuid4()
+        sub = Submission.objects.create(
+            fields={"repeater": [{"uuid": str(keep_uuid), "amount": 1}, {"uuid": str(drop_uuid), "amount": 2}]},
+            form_type="TestForm",
+        )
+        assert SeparatedSubmission.objects.filter(submission=sub, repeater_key="repeater").count() == 2
+
+        sub.fields = {"repeater": [{"uuid": str(keep_uuid), "amount": 1}]}
+        sub.save()
+
+        assert SeparatedSubmission.objects.filter(submission=sub, repeater_key="repeater").count() == 1
+        assert SeparatedSubmission.objects.filter(pk=keep_uuid).exists()
+        assert not SeparatedSubmission.objects.filter(pk=drop_uuid).exists()
+
+    def test_nested_repeater_rows_not_wrongly_deleted(self):
+        """
+        #2252: reconcile must not delete legitimately-nested rows at any depth.
+
+        Re-saving an unchanged nested structure must leave every derived row
+        (root + level1 + level2) intact.
+        """
+        import uuid
+
+        l2a, l2b = uuid.uuid4(), uuid.uuid4()
+        l1 = uuid.uuid4()
+        data = {
+            "level1": [
+                {
+                    "uuid": str(l1),
+                    "name": "parent1",
+                    "level2": [{"uuid": str(l2a), "name": "child1"}, {"uuid": str(l2b), "name": "child2"}],
+                }
+            ]
+        }
+        sub = Submission.objects.create(fields=data, form_type="NestedForm")
+
+        # Re-save the identical structure.
+        sub.fields = data
+        sub.save()
+
+        assert SeparatedSubmission.objects.filter(submission=sub).count() == 4  # root + l1 + 2x l2
+        for pk in (l1, l2a, l2b):
+            assert SeparatedSubmission.objects.filter(pk=pk).exists()
+
     def test_form_type_preserves_underscores_in_numeric_parts(self):
         """
         Verify that form_type generation preserves underscores before numeric parts.

@@ -10,7 +10,10 @@ def test_short_uuid_from_uuid():
     u = uuid4()
     result = short_uuid(u)
     assert len(result) == 8
-    assert result.isupper()
+    # `str.isupper()` is False when the string has no cased characters, so an
+    # all-digit hex prefix (~2% of random uuids) would flake. Check that the
+    # value is already uppercased instead — robust for digit-only prefixes.
+    assert result == result.upper()
     assert result == str(u).replace("-", "")[:8].upper()
 
 
