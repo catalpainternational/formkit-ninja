@@ -418,7 +418,7 @@ wheels = [
 
 [[package]]
 name = "formkit-ninja"
-version = "2.5"
+version = "2.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
