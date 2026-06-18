@@ -35,27 +35,73 @@ class Command(BaseCommand):
             action="store_true",
             help="Report what would be deleted without persisting any changes.",
         )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help=(
+                "Proceed even when a submission's canonical fields declare NO repeaters "
+                "but derived repeater rows exist (the blast-radius guard). Without this, "
+                "such submissions are skipped and reported — they are usually a blanked / "
+                "oddly-shaped Submission.fields rather than a genuine full removal."
+            ),
+        )
 
     def handle(self, *args, **options):
         dry_run: bool = options["dry_run"]
+        force: bool = options["force"]
 
         scanned = 0
         submissions_with_orphans = 0
         orphan_rows = 0
+        reparented_rows = 0
+        guarded = 0
+        failed = 0
 
         for sub in Submission.objects.iterator(chunk_size=200):
             scanned += 1
-            valid_uuids = {sub.pk} | all_repeater_uuids(sub.fields or {})
+
+            # One malformed document must not abort the whole sweep.
+            try:
+                repeater_uuids = all_repeater_uuids(sub.fields or {})
+            except (ValueError, TypeError) as exc:
+                failed += 1
+                self.stderr.write(self.style.ERROR(f"Submission {sub.pk}: could not parse fields ({exc}); skipping"))
+                continue
+
+            valid_uuids = {sub.pk} | repeater_uuids
             orphans = SeparatedSubmission.objects.filter(submission_id=sub.pk).exclude(pk__in=valid_uuids)
             count = orphans.count()
             if not count:
                 continue
+
+            # Blast-radius guard: canonical fields declare zero repeaters yet derived
+            # repeater rows exist. This is the catastrophic case — a blanked or
+            # oddly-shaped Submission.fields would otherwise delete every derived row.
+            # It is also how a genuine "all repeaters removed" save looks, so we skip
+            # and report rather than delete, and let an operator opt in with --force.
+            if not repeater_uuids and not force:
+                guarded += 1
+                self.stdout.write(self.style.WARNING(f"Submission {sub.pk}: {count} orphan(s) but fields declare no repeaters — skipped (use --force to delete)"))
+                continue
+
             submissions_with_orphans += 1
             orphan_rows += count
             self.stdout.write(self.style.WARNING(f"Submission {sub.pk}: {count} orphaned SeparatedSubmission row(s)" + (" (dry-run)" if dry_run else "")))
             if not dry_run:
-                # CASCADE removes child rows and their dependent Import/Flag rows.
+                # Cascade-safe: a valid (kept) row can still point its repeater_parent
+                # at an orphan whose uuid changed via an ungoverned mutation. Detach
+                # those first so the orphan delete's CASCADE does not take a live row;
+                # the next real save re-derives the correct parent via from_submission.
+                reparented = SeparatedSubmission.objects.filter(submission_id=sub.pk, repeater_parent__in=orphans, pk__in=valid_uuids).update(repeater_parent=None)
+                reparented_rows += reparented
+                # CASCADE removes orphan child rows and their dependent Import/Flag rows.
                 orphans.delete()
 
         summary = f"Scanned {scanned} submission(s); {submissions_with_orphans} with orphans; {orphan_rows} orphan row(s) " + ("would be deleted (dry-run)." if dry_run else "deleted.")
+        if reparented_rows:
+            summary += f" Re-pointed {reparented_rows} live row(s) off orphan parents."
+        if guarded:
+            summary += f" {guarded} submission(s) skipped by blast-radius guard (use --force)."
+        if failed:
+            summary += f" {failed} submission(s) skipped due to unparseable fields."
         self.stdout.write(self.style.SUCCESS(summary))

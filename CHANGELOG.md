@@ -25,9 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`reconcile_separated_submissions` management command** — idempotent one-time sweep that
-  deletes pre-existing orphaned `SeparatedSubmission` rows across all submissions (supports
-  `--dry-run`). Run on deploy and on every fresh staging/prod restore to clean historical
-  orphans the on-save reconcile cannot reach retroactively.
+  deletes pre-existing orphaned `SeparatedSubmission` rows across all submissions. Run on
+  deploy and on every fresh staging/prod restore to clean historical orphans the on-save
+  reconcile cannot reach retroactively. Safety: `--dry-run` previews; a per-submission guard
+  skips (and reports) any submission whose canonical fields declare no repeaters yet still
+  has derived rows — the blanked/odd-shaped-`fields` case that would otherwise mass-delete —
+  unless `--force` is given; unparseable documents are skipped without aborting the sweep;
+  and a valid row pointing its `repeater_parent` at an orphan is detached before the delete
+  so a stale FK can't cascade away live data.
 - **`all_repeater_uuids` helper** (`form_submission/utils.py`) — recursively collects every
   repeater-row `uuid` at all nesting depths, complementing the one-level `get_repeaters_uuids`.
 
