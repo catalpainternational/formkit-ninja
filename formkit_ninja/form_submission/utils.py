@@ -178,6 +178,30 @@ def get_repeaters_uuids(obj: dict[str, dict[str, list]]) -> Iterable[uuid.UUID]:
                     yield uuid.UUID(object["uuid"])
 
 
+def all_repeater_uuids(obj: dict[str, Any]) -> set[uuid.UUID]:
+    """
+    Every repeater-row ``uuid`` in ``obj``, at every nesting depth.
+
+    ``get_repeaters_uuids`` only looks one level deep. SeparatedSubmission rows
+    are keyed by these uuids (plus the root submission pk), and nested repeaters
+    produce their own rows, so any reconcile that deletes rows whose uuid is
+    absent from the canonical fields must see *all* depths — otherwise it would
+    wrongly delete legitimately-nested rows on forms with nested repeaters (#2252).
+    """
+    found: set[uuid.UUID] = set()
+    if not isinstance(obj, dict):
+        return found
+    for field in get_repeaters(obj):
+        for row in obj[field]:
+            if not isinstance(row, dict):
+                continue
+            raw = row.get("uuid")
+            if raw is not None:
+                found.add(raw if isinstance(raw, uuid.UUID) else uuid.UUID(str(raw)))
+            found |= all_repeater_uuids(row)
+    return found
+
+
 def flatten(
     obj: dict[str, Any],
     parent_key: list[str] | None = None,

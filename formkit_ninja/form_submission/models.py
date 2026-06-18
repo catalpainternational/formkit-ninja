@@ -128,6 +128,9 @@ class _SeparatedSubmissionManagerBase(models.Manager):
 
         results: list[tuple[SeparatedSubmission, bool]] = []
 
+        # Track every row we (re)write so we can reconcile away orphans below.
+        written_pks: set = {main.pk}
+
         # Process repeaters. 'fields[:-1]' are the children.
         # We reverse to process top-level children before deeper children (Top-Down)
         repeater_data = reversed(fields[:-1])
@@ -136,8 +139,25 @@ class _SeparatedSubmissionManagerBase(models.Manager):
             res = self._save_repeater_chunk(main, item_data)  # type: ignore[arg-type]
             if res:
                 results.append(res)
+                written_pks.add(res[0].pk)
 
         results.append((main, main_created))  # type: ignore[arg-type]
+
+        # Reconcile away orphaned derived rows (#2252).
+        #
+        # ``from_submission`` upserts one SeparatedSubmission per repeater-row
+        # uuid. When a row's uuid changes or disappears from canonical
+        # ``Submission.fields`` (web-form round-trip dropping/regenerating uuid,
+        # flat<->repeater migrations, string->Decimal retypes, imports bypassing
+        # save), the old derived row was historically left behind forever. Those
+        # phantom rows are invisible in canonical fields but ARE served by the
+        # derived-model endpoints, so they double-count in cumulative aggregates.
+        #
+        # The valid set is exactly the rows we just wrote (root + every repeater
+        # row at every nesting depth, since ``flatten`` recurses). Deleting the
+        # rest is stateless and self-healing — a no-op once consistent — and
+        # cascades to child rows and their dependent Import/Flag rows.
+        self.filter(submission=sub).exclude(pk__in=written_pks).delete()
 
         return results
 

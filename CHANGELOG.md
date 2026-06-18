@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Orphaned `SeparatedSubmission` rows are now reconciled away** — `from_submission`
+  upserts one derived row per repeater-row `uuid` but previously never deleted rows
+  whose `uuid` had disappeared from canonical `Submission.fields` (web-form round-trips
+  that drop/regenerate `uuid`, flat↔repeater migrations, string→Decimal retypes, imports
+  bypassing `save`). Those phantom rows are invisible in canonical fields but ARE served
+  by the derived-model endpoints, so they double-counted in cumulative aggregates
+  (e.g. partisipa-import's FF 11 infrastructure carryforward). `from_submission` now
+  deletes, on every save, any `SeparatedSubmission` for the submission that is not part
+  of the rows it just wrote (root + every repeater row at every nesting depth) — stateless
+  and self-healing. **Behavioral change:** a derived row absent from canonical fields is
+  removed and its CASCADE-linked children and dependent `SeparatedSubmissionImport` /
+  `Flag` rows go with it.
+
+### Added
+
+- **`reconcile_separated_submissions` management command** — idempotent one-time sweep that
+  deletes pre-existing orphaned `SeparatedSubmission` rows across all submissions (supports
+  `--dry-run`). Run on deploy and on every fresh staging/prod restore to clean historical
+  orphans the on-save reconcile cannot reach retroactively.
+- **`all_repeater_uuids` helper** (`form_submission/utils.py`) — recursively collects every
+  repeater-row `uuid` at all nesting depths, complementing the one-level `get_repeaters_uuids`.
+
 ## [2.4] - 2026-06-10
 
 ### Added
