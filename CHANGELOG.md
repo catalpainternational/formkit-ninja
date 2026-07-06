@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.2] - 2026-07-06
+
+### Fixed
+
+- **Wheel no longer contains duplicate ZIP entries.** Two schema stubs
+  (`formkit_ninja/schemas/ff1_2_3.json` and `fs_4_3.json`) collided on
+  case-insensitive filesystems with the real `FF1_2_3.json` / `FS_4_3.json`
+  and produced two entries with the same lowercase path in the built wheel.
+  Modern uv refuses to extract such wheels ("ZIP file contains multiple
+  entries with different contents"), which broke `formkit-ninja==2.5.1` on
+  macOS. The lowercase filenames now hold the real schema content and the
+  uppercase duplicates have been removed.
+
 ## [2.5.1] - 2026-06-18
 
 ### Fixed
@@ -35,7 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so a stale FK can't cascade away live data.
 - **`all_repeater_uuids` helper** (`form_submission/utils.py`) — recursively collects every
   repeater-row `uuid` at all nesting depths, complementing the one-level `get_repeaters_uuids`.
-
 ## [2.4] - 2026-06-10
 
 ### Added
