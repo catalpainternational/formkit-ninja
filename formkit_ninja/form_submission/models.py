@@ -85,6 +85,32 @@ class Submission(models.Model):
 
     objects = SubmissionQuerySet.as_manager()
 
+    class Meta:
+        triggers = [
+            # ``SeparatedSubmission.status`` is a denormalised mirror of this root
+            # status. ``from_submission()`` (below, on ``save()``) keeps it current on
+            # the ORM path, but status changes that bypass ``save()`` — bulk
+            # ``.update(status=…)``, restores, raw SQL — would otherwise leave the
+            # mirror stale. This trigger enforces the invariant for every write path,
+            # so any consumer reading ``SeparatedSubmission.status`` can trust it.
+            # It writes a *different* table, so there is no recursion.
+            pgtrigger.Trigger(
+                name="sync_separated_submission_status",
+                when=pgtrigger.After,
+                operation=pgtrigger.Update,
+                condition=pgtrigger.Q(old__status__df=pgtrigger.F("new__status")),
+                func=pgtrigger.Func(
+                    """
+                    UPDATE formkit_ninja_separatedsubmission
+                    SET status = NEW.status
+                    WHERE submission_id = NEW.key
+                      AND status IS DISTINCT FROM NEW.status;
+                    RETURN NEW;
+                    """
+                ),
+            ),
+        ]
+
     def save(self, *args, **kwargs):
         # Note: was_created logic removed as SeparatedSubmission handles this
 

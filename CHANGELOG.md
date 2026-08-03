@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`SeparatedSubmission.status` no longer drifts from the root `Submission.status`.**
+  It is a denormalised mirror that `from_submission()` keeps current on `save()`,
+  but status changes that bypass `save()` — bulk `.update(status=…)`, restores, raw
+  SQL — left it stale, so consumers reading `SeparatedSubmission.status` (or joining
+  derived tables to it) could see a wrong status. A `pgtrigger` `AFTER UPDATE`
+  trigger on `Submission` now propagates status changes to all its
+  `SeparatedSubmission` rows for every write path, and a one-time backfill reconciles
+  any pre-existing drift.
+
 ## [2.5.2] - 2026-07-06
 
 ### Fixed

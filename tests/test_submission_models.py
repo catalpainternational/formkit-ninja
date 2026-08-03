@@ -192,3 +192,29 @@ class TestSubmissionLifecycle:
         # The form_type should lowercase after digits: "Cfm_12_ff_12Repeaterinfrastructurefund"
         repeater = repeaters.first()
         assert repeater.form_type == "Cfm_12_ff_12Repeaterinfrastructurefund", f"Expected 'Cfm_12_ff_12Repeaterinfrastructurefund', got '{repeater.form_type}'"
+
+
+@pytest.mark.django_db
+class TestStatusSyncTrigger:
+    """``SeparatedSubmission.status`` mirrors the root ``Submission.status``; the DB
+    trigger (migration 0046) keeps it in sync even for writes that bypass ``save()``."""
+
+    def test_bulk_status_update_syncs_separated_submission(self):
+        data = {"group": {"field": "value"}, "repeater": [{"child": "a"}, {"child": "b"}]}
+        sub = Submission.objects.create(fields=data, form_type="TestForm", status=Submission.Status.NEW)
+        # save() -> from_submission() materialised the root + repeater rows as NEW.
+        assert set(SeparatedSubmission.objects.filter(submission=sub).values_list("status", flat=True)) == {Submission.Status.NEW}
+
+        # A bulk .update() bypasses save()/from_submission entirely — the trigger must
+        # still propagate the new status to every SeparatedSubmission row (root + repeaters).
+        Submission.objects.filter(pk=sub.pk).update(status=Submission.Status.VERIFIED)
+        assert set(SeparatedSubmission.objects.filter(submission=sub).values_list("status", flat=True)) == {Submission.Status.VERIFIED}, (
+            "trigger must sync SeparatedSubmission.status on a bulk Submission status update"
+        )
+
+    def test_trigger_noop_when_status_unchanged(self):
+        """The trigger only fires on an actual status change (condition guard)."""
+        sub = Submission.objects.create(fields={"a": 1}, form_type="TestForm", status=Submission.Status.VERIFIED)
+        # A bulk update that does not change status must leave the (already-correct) mirror alone.
+        Submission.objects.filter(pk=sub.pk).update(form_type="TestForm2")
+        assert set(SeparatedSubmission.objects.filter(submission=sub).values_list("status", flat=True)) == {Submission.Status.VERIFIED}
