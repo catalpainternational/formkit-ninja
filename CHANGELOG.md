@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-08-04
+
+### Changed
+
+- **`SeparatedSubmission.objects.from_submission` is now change-aware.** It
+  previously re-saved *every* derived row on *every* parent `Submission.save()`
+  via `update_or_create` (which always calls `.save()`), firing `post_save` — and
+  the downstream projection cascade — for the full row set even when a row's
+  `fields`/`status`/structural columns were byte-identical to what was stored.
+  Each row's computed values are now compared against the stored row (with a
+  `DjangoJSONEncoder` + sorted-key normalisation of `fields`, so
+  Decimal/UUID/datetime and key-order differences do not read as changes) and the
+  `.save()` is skipped when nothing moved. Re-saving an unchanged submission fires
+  zero `post_save` on unchanged rows; a partial edit re-touches only the row(s)
+  that actually changed. Orphan reconciliation is unchanged — skipped rows still
+  count as written and survive the sweep.
+- **`from_submission` gained a `force=` keyword (default `False`).** Pass
+  `force=True` to restore the old unconditional re-touch — useful for consumers
+  that relied on every save self-healing stale derived rows.
+- **`from_submission` return widened to `(instance, created, changed)`.** The
+  third element reports whether the row's content actually changed. Callers that
+  only index the instance (`result[i][0]`) are unaffected.
+
 ## [2.5.3] - 2026-08-03
 
 ### Fixed
