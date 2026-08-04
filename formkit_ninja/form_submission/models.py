@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 import warnings
 from contextlib import contextmanager
+from typing import cast
 
 import pghistory
 import pgtrigger
@@ -127,22 +129,89 @@ class Submission(models.Model):
         return f"{self.form_type} {self.key} ({self.get_status_display()})"
 
 
+def _normalize_json(value) -> str:
+    """
+    Canonical string form of a JSON value for change detection.
+
+    The stored ``SeparatedSubmission.fields`` is JSON round-tripped through
+    ``DjangoJSONEncoder`` (Decimals/UUIDs/datetimes become strings, key order is
+    arbitrary), while a freshly-computed ``defaults["fields"]`` is a raw Python
+    dict that can still hold ``UUID``/``Decimal``/``datetime`` objects (e.g.
+    ``ensure_object_has_uuid`` injects ``uuid.uuid4()`` objects). Dumping both
+    through the same encoder with sorted keys reproduces the exact stored
+    representation, so equal content compares equal and there are no false
+    "changed"/"unchanged" verdicts.
+    """
+    return json.dumps(value, sort_keys=True, cls=DjangoJSONEncoder)
+
+
 class _SeparatedSubmissionManagerBase(models.Manager):
     """Base manager with custom creation methods for SeparatedSubmission."""
 
-    @transaction.atomic()
-    def from_submission(self, sub: Submission) -> list[tuple[SeparatedSubmission, bool]]:
+    def _apply_defaults(self, pk, defaults: dict, *, force: bool) -> tuple[SeparatedSubmission, bool, bool]:
         """
-        Create SeparatedSubmission(s) from one Submission
+        Change-aware upsert of one ``SeparatedSubmission`` row.
+
+        Like ``update_or_create(pk=pk, defaults=defaults)`` but only calls
+        ``.save()`` when the computed ``defaults`` actually differ from the
+        stored row (or when ``force`` is set), so an unchanged row fires no
+        ``post_save`` and no downstream projection cascade.
+
+        Returns ``(instance, created, changed)`` where ``changed`` reflects the
+        real content diff, independent of ``force``.
+        """
+        try:
+            obj = SeparatedSubmission.objects.get(pk=pk)
+        except SeparatedSubmission.DoesNotExist:
+            return SeparatedSubmission.objects.create(pk=pk, **defaults), True, True
+
+        changed = False
+        for name, value in defaults.items():
+            field = cast(models.Field, SeparatedSubmission._meta.get_field(name))
+            if field.is_relation:
+                stored = getattr(obj, field.attname)
+                new = value.pk if value is not None else None
+                differs = stored != new
+            elif name == "fields":
+                differs = _normalize_json(getattr(obj, name)) != _normalize_json(value)
+            else:
+                differs = getattr(obj, name) != value
+            if differs:
+                setattr(obj, name, value)
+                changed = True
+
+        if force and not changed:
+            # Forced re-touch: re-apply every default so the write matches the
+            # old unconditional-upsert semantics (self-heals stale rows).
+            for name, value in defaults.items():
+                setattr(obj, name, value)
+
+        if changed or force:
+            obj.save()
+
+        return obj, False, changed
+
+    @transaction.atomic()
+    def from_submission(self, sub: Submission, *, force: bool = False) -> list[tuple[SeparatedSubmission, bool, bool]]:
+        """
+        Create SeparatedSubmission(s) from one Submission.
+
+        Change-aware by default: rows whose computed values are byte-identical
+        to what is already stored are not re-saved, so no ``post_save`` (and no
+        downstream projection cascade) fires for them. Pass ``force=True`` to
+        restore the old unconditional re-touch (self-healing for consumers that
+        rely on every save repairing stale derived rows).
+
+        Returns a list of ``(instance, created, changed)`` tuples.
         """
         fields = list(flatten(sub.fields, [sub.form_type], parent_uuid=sub.pk))
 
         # Save the top level first (last in flattening list)
         root_data = fields[-1]
 
-        main, main_created = self.update_or_create(
-            pk=sub.pk,
-            defaults=dict(
+        main, main_created, main_changed = self._apply_defaults(
+            sub.pk,
+            dict(
                 submission=sub,
                 user=sub.user,
                 created=sub.created,
@@ -150,11 +219,14 @@ class _SeparatedSubmissionManagerBase(models.Manager):
                 fields=root_data[2],  # The dict is the 3rd element
                 form_type=sub.form_type,
             ),
+            force=force,
         )
 
-        results: list[tuple[SeparatedSubmission, bool]] = []
+        results: list[tuple[SeparatedSubmission, bool, bool]] = []
 
         # Track every row we (re)write so we can reconcile away orphans below.
+        # A skipped (unchanged) row still returns a result, so it stays in
+        # ``written_pks`` and survives the orphan sweep.
         written_pks: set = {main.pk}
 
         # Process repeaters. 'fields[:-1]' are the children.
@@ -162,12 +234,12 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         repeater_data = reversed(fields[:-1])
 
         for item_data in repeater_data:
-            res = self._save_repeater_chunk(main, item_data)  # type: ignore[arg-type]
+            res = self._save_repeater_chunk(main, item_data, force=force)  # type: ignore[arg-type]
             if res:
                 results.append(res)
                 written_pks.add(res[0].pk)
 
-        results.append((main, main_created))  # type: ignore[arg-type]
+        results.append((main, main_created, main_changed))  # type: ignore[arg-type]
 
         # Reconcile away orphaned derived rows (#2252).
         #
@@ -187,7 +259,7 @@ class _SeparatedSubmissionManagerBase(models.Manager):
 
         return results
 
-    def _save_repeater_chunk(self, main: SeparatedSubmission, data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int]) -> tuple[SeparatedSubmission, bool] | None:
+    def _save_repeater_chunk(self, main: SeparatedSubmission, data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int], *, force: bool = False) -> tuple[SeparatedSubmission, bool, bool] | None:
         """
         Helper to save a single repeater item.
         """
@@ -215,9 +287,9 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         else:
             parent_obj = main
 
-        subnode, created = SeparatedSubmission.objects.update_or_create(
-            pk=submission_key,
-            defaults=dict(
+        subnode, created, changed = self._apply_defaults(
+            submission_key,
+            dict(
                 status=main.status,
                 submission=main.submission,
                 form_type=form_type_str,
@@ -227,8 +299,9 @@ class _SeparatedSubmissionManagerBase(models.Manager):
                 repeater_key=repeater_name,
                 repeater_order=index,
             ),
+            force=force,
         )
-        return subnode, created
+        return subnode, created, changed
 
 
 # Combine custom manager methods with queryset annotation methods
