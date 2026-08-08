@@ -777,6 +777,26 @@ class SeparatedSubmissionForm(forms.ModelForm):
         }
 
 
+def _apply_flag_bookkeeping(flag: Flag, user, *, assignment_changed: bool) -> None:
+    """
+    Populate the audit fields the flag forms leave readonly.
+
+    Shared by FlagAdmin.save_model and the FlagInline path through
+    SeparatedSubmissionAdmin.save_formset, so both write paths record the
+    same created_by/resolved_by/assigned_at bookkeeping.
+    """
+    if flag.pk is None and flag.created_by_id is None:
+        flag.created_by = user
+    if flag.resolved_at is None:
+        # Re-opened (or never resolved): a stale resolved_by would attribute
+        # any later resolution to the wrong user.
+        flag.resolved_by = None
+    elif flag.resolved_by_id is None:
+        flag.resolved_by = user
+    if assignment_changed:
+        flag.assigned_at = timezone.now() if flag.assigned_to_id else None
+
+
 class FlagInline(admin.TabularInline):
     """Inline for managing quality flags from a SeparatedSubmission change page."""
 
@@ -845,6 +865,22 @@ class SeparatedSubmissionAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).with_unresolved_flags()
+
+    def save_formset(self, request, form, formset, change):
+        """Apply the same flag bookkeeping as FlagAdmin.save_model to inline saves."""
+        if formset.model is not Flag:
+            return super().save_formset(request, form, formset, change)
+        instances = formset.save(commit=False)
+        for obj in formset.deleted_objects:
+            obj.delete()
+        to_save = {id(obj) for obj in instances}
+        for inline_form in formset.forms:
+            obj = inline_form.instance
+            if id(obj) not in to_save:
+                continue
+            _apply_flag_bookkeeping(obj, request.user, assignment_changed="assigned_to" in inline_form.changed_data)
+            obj.save()
+        formset.save_m2m()
 
     @admin.display(description="ID", ordering="id")
     def short_id(self, obj: SeparatedSubmission | None) -> str:
@@ -942,7 +978,7 @@ class FlagAdmin(admin.ModelAdmin):
         "message_preview",
     )
     list_filter = ("severity", "flag_type", ResolvedFlagFilter, AssignedToMeFilter, "assigned_to")
-    search_fields = ("flag_type", "message", "separated_submission_id")
+    search_fields = ("flag_type", "message", "separated_submission__id")
     readonly_fields = ("created", "resolved_by", "created_by", "assigned_at")
     date_hierarchy = "created"
     raw_id_fields = ("separated_submission", "assigned_to")
@@ -964,18 +1000,17 @@ class FlagAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         """Auto-populate audit/assignment fields from the admin context."""
-        if not change and obj.created_by_id is None:
-            obj.created_by = request.user
-        if obj.resolved_at and obj.resolved_by_id is None:
-            obj.resolved_by = request.user
-        if obj.assigned_to_id and obj.assigned_at is None:
-            obj.assigned_at = timezone.now()
+        _apply_flag_bookkeeping(obj, request.user, assignment_changed="assigned_to" in form.changed_data)
         super().save_model(request, obj, form, change)
 
     @admin.action(description="Assign selected flags to me")
     def assign_to_me(self, request, queryset):
-        updated = queryset.update(assigned_to=request.user, assigned_at=timezone.now())
-        self.message_user(request, f"{updated} flag(s) assigned to you.")
+        updated = queryset.filter(assigned_to__isnull=True).update(assigned_to=request.user, assigned_at=timezone.now())
+        skipped = queryset.count() - updated
+        message = f"{updated} flag(s) assigned to you."
+        if skipped:
+            message += f" {skipped} already-assigned flag(s) were left unchanged."
+        self.message_user(request, message)
 
     @admin.action(description="Mark selected flags resolved")
     def mark_resolved(self, request, queryset):

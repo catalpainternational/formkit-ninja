@@ -1,10 +1,18 @@
+from types import SimpleNamespace
+
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
+from django.utils import timezone
 
-from formkit_ninja.admin import FlagAdmin
+from formkit_ninja.admin import FlagAdmin, FlagInline, SeparatedSubmissionAdmin
 from formkit_ninja.form_submission.models import Flag, SeparatedSubmission
+
+
+def _form(*changed: str) -> SimpleNamespace:
+    """Minimal stand-in for the ModelForm save_model receives from the admin."""
+    return SimpleNamespace(changed_data=list(changed))
 
 
 @pytest.mark.django_db
@@ -86,20 +94,57 @@ class TestFlagAdmin:
         request = RequestFactory().post("/")
         request.user = user
         flag = Flag(separated_submission=separated_submission, flag_type="r", message="m")
-        self._admin().save_model(request, flag, form=None, change=False)
+        self._admin().save_model(request, flag, form=_form(), change=False)
         assert flag.created_by == user
 
     def test_save_model_sets_resolved_by(self, separated_submission: SeparatedSubmission) -> None:
         """Setting resolved_at in the admin auto-fills resolved_by."""
-        from django.utils import timezone
-
         user = get_user_model().objects.create(username="resolver")
         request = RequestFactory().post("/")
         request.user = user
         flag = Flag.objects.create(separated_submission=separated_submission, flag_type="r", message="m")
         flag.resolved_at = timezone.now()
-        self._admin().save_model(request, flag, form=None, change=True)
+        self._admin().save_model(request, flag, form=_form("resolved_at"), change=True)
         assert flag.resolved_by == user
+
+    def test_save_model_clears_resolved_by_on_reopen(self, separated_submission: SeparatedSubmission) -> None:
+        """Clearing resolved_at (re-opening) also clears resolved_by, so a later resolution is attributed correctly."""
+        resolver = get_user_model().objects.create(username="resolver")
+        admin_user = get_user_model().objects.create(username="reopener")
+        request = RequestFactory().post("/")
+        request.user = admin_user
+        flag = Flag.objects.create(
+            separated_submission=separated_submission,
+            flag_type="r",
+            message="m",
+            resolved_at=timezone.now(),
+            resolved_by=resolver,
+        )
+        flag.resolved_at = None
+        self._admin().save_model(request, flag, form=_form("resolved_at"), change=True)
+        assert flag.resolved_by is None
+
+    def test_save_model_reassignment_refreshes_assigned_at(self, separated_submission: SeparatedSubmission) -> None:
+        """Changing assigned_to updates assigned_at; clearing it clears assigned_at."""
+        first = get_user_model().objects.create(username="first")
+        second = get_user_model().objects.create(username="second")
+        request = RequestFactory().post("/")
+        request.user = first
+        old_time = timezone.now() - timezone.timedelta(days=4)
+        flag = Flag.objects.create(
+            separated_submission=separated_submission,
+            flag_type="r",
+            message="m",
+            assigned_to=first,
+            assigned_at=old_time,
+        )
+        flag.assigned_to = second
+        self._admin().save_model(request, flag, form=_form("assigned_to"), change=True)
+        assert flag.assigned_at is not None and flag.assigned_at > old_time
+
+        flag.assigned_to = None
+        self._admin().save_model(request, flag, form=_form("assigned_to"), change=True)
+        assert flag.assigned_at is None
 
     def test_assign_to_me_action(self, separated_submission: SeparatedSubmission) -> None:
         """The assign_to_me action assigns selected flags to the request user."""
@@ -110,6 +155,65 @@ class TestFlagAdmin:
         flag = Flag.objects.create(separated_submission=separated_submission, flag_type="r", message="m")
         self._admin().assign_to_me(request, Flag.objects.filter(pk=flag.pk))
         flag.refresh_from_db()
+        assert flag.assigned_to == user
+        assert flag.assigned_at is not None
+
+    def test_assign_to_me_does_not_steal_assigned_flags(self, separated_submission: SeparatedSubmission) -> None:
+        """assign_to_me only claims unassigned flags — it never overwrites another user's assignment."""
+        me = get_user_model().objects.create(username="me")
+        other = get_user_model().objects.create(username="other")
+        request = RequestFactory().post("/")
+        request.user = me
+        request._messages = type("M", (), {"add": lambda *a, **k: None})()
+        theirs_time = timezone.now() - timezone.timedelta(days=1)
+        theirs = Flag.objects.create(
+            separated_submission=separated_submission,
+            flag_type="theirs",
+            message="m",
+            assigned_to=other,
+            assigned_at=theirs_time,
+        )
+        unassigned = Flag.objects.create(separated_submission=separated_submission, flag_type="free", message="m")
+        self._admin().assign_to_me(request, Flag.objects.all())
+        theirs.refresh_from_db()
+        unassigned.refresh_from_db()
+        assert theirs.assigned_to == other
+        assert theirs.assigned_at == theirs_time
+        assert unassigned.assigned_to == me
+
+    def test_changelist_search_does_not_crash(self, separated_submission: SeparatedSubmission) -> None:
+        """Searching the Flag changelist must not raise (separated_submission__id needs the __id join, not the FK attname)."""
+        Flag.objects.create(separated_submission=separated_submission, flag_type="r", message="m")
+        request = RequestFactory().get("/")
+        queryset, _ = self._admin().get_search_results(request, Flag.objects.all(), "abc")
+        list(queryset)  # force SQL execution — the uuid::text cast must be valid on Postgres
+
+    def test_inline_save_applies_bookkeeping(self, separated_submission: SeparatedSubmission) -> None:
+        """Flags saved via the SeparatedSubmission FlagInline get created_by/assigned_at set, same as FlagAdmin."""
+        # Must have add/change permission: the admin's inline form wrapper makes
+        # has_changed() return False (dropping the row) for unpermitted users.
+        user = get_user_model().objects.create(username="inline_triager", is_staff=True, is_superuser=True)
+        request = RequestFactory().post("/")
+        request.user = user
+        model_admin = SeparatedSubmissionAdmin(SeparatedSubmission, AdminSite())
+        inline = FlagInline(SeparatedSubmission, AdminSite())
+        FormSet = inline.get_formset(request, separated_submission)
+        prefix = FormSet.get_default_prefix()
+        data = {
+            f"{prefix}-TOTAL_FORMS": "1",
+            f"{prefix}-INITIAL_FORMS": "0",
+            f"{prefix}-MIN_NUM_FORMS": "0",
+            f"{prefix}-MAX_NUM_FORMS": "1000",
+            f"{prefix}-0-flag_type": "inline_rule",
+            f"{prefix}-0-severity": "warning",
+            f"{prefix}-0-message": "added via inline",
+            f"{prefix}-0-assigned_to": str(user.pk),
+        }
+        formset = FormSet(data, instance=separated_submission)
+        assert formset.is_valid(), formset.errors
+        model_admin.save_formset(request, form=None, formset=formset, change=True)
+        flag = Flag.objects.get(flag_type="inline_rule")
+        assert flag.created_by == user
         assert flag.assigned_to == user
         assert flag.assigned_at is not None
 
