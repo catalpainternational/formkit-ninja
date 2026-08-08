@@ -10,6 +10,7 @@ import pghistory.admin
 from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
+from django.utils import timezone
 
 # Import admin modules to register them
 from formkit_ninja import (
@@ -776,6 +777,17 @@ class SeparatedSubmissionForm(forms.ModelForm):
         }
 
 
+class FlagInline(admin.TabularInline):
+    """Inline for managing quality flags from a SeparatedSubmission change page."""
+
+    model = Flag
+    fk_name = "separated_submission"
+    extra = 0
+    fields = ("flag_type", "severity", "message", "assigned_to", "resolved_at", "resolved_by", "created")
+    readonly_fields = ("created", "resolved_by")
+    raw_id_fields = ("assigned_to",)
+
+
 class SeparatedSubmissionInline(admin.TabularInline):
     """Inline for showing separated submissions within a Submission."""
 
@@ -791,7 +803,7 @@ class SeparatedSubmissionInline(admin.TabularInline):
 class SubmissionAdmin(admin.ModelAdmin):
     """Admin for Submission model."""
 
-    list_display = ("short_key", "user", "created", "status", "form_type", "is_verified", "is_active")
+    list_display = ("short_key", "user", "created", "status", "form_type", "is_verified", "flagged", "is_active")
     list_filter = ("is_active", "user", "status", "form_type", "created")
     search_fields = ("key", "form_type", "user__username", "user__email")
     list_select_related = ("user",)
@@ -799,6 +811,9 @@ class SubmissionAdmin(admin.ModelAdmin):
     readonly_fields = ("key", "created", "updated")
     inlines = [SeparatedSubmissionInline]
     date_hierarchy = "created"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).with_unresolved_flags()
 
     @admin.display(description="Key", ordering="key")
     def short_key(self, obj: Submission | None) -> str:
@@ -809,18 +824,27 @@ class SubmissionAdmin(admin.ModelAdmin):
         """Returns whether this submission is verified."""
         return obj.status == Submission.Status.VERIFIED
 
+    @admin.display(boolean=True, description="Flagged", ordering="has_unresolved_flags")
+    def flagged(self, obj: Submission) -> bool:
+        """Whether this submission has unresolved quality flags."""
+        return bool(getattr(obj, "has_unresolved_flags", False))
+
 
 @admin.register(SeparatedSubmission)
 class SeparatedSubmissionAdmin(admin.ModelAdmin):
     """Admin for SeparatedSubmission model."""
 
-    list_display = ("short_id", "user", "created", "status", "form_type", "is_verified", "repeater_key", "repeater_order")
+    list_display = ("short_id", "user", "created", "status", "form_type", "is_verified", "flagged", "repeater_key", "repeater_order")
     list_filter = ("user", "status", "form_type", "repeater_key", "created")
     search_fields = ("id", "form_type", "user__username", "user__email", "repeater_key")
     readonly_fields = [f.name for f in SeparatedSubmission._meta.fields]
     list_select_related = ("submission", "user", "repeater_parent")
     list_per_page = 50
     date_hierarchy = "created"
+    inlines = [FlagInline]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).with_unresolved_flags()
 
     @admin.display(description="ID", ordering="id")
     def short_id(self, obj: SeparatedSubmission | None) -> str:
@@ -830,6 +854,11 @@ class SeparatedSubmissionAdmin(admin.ModelAdmin):
     def is_verified(self, obj: SeparatedSubmission) -> bool:
         """Returns whether the parent submission is verified."""
         return obj.submission.status == Submission.Status.VERIFIED
+
+    @admin.display(boolean=True, description="Flagged", ordering="has_unresolved_flags")
+    def flagged(self, obj: SeparatedSubmission) -> bool:
+        """Whether this separated submission has unresolved quality flags."""
+        return bool(getattr(obj, "has_unresolved_flags", False))
 
 
 @admin.register(SubmissionFile)
@@ -866,11 +895,89 @@ class SeparatedSubmissionImportAdmin(admin.ModelAdmin):
         return "-"
 
 
+class ResolvedFlagFilter(admin.SimpleListFilter):
+    """Filter flags by whether they have been resolved."""
+
+    title = "resolution status"
+    parameter_name = "resolved"
+
+    def lookups(self, request, model_admin):
+        return (("unresolved", "Unresolved"), ("resolved", "Resolved"))
+
+    def queryset(self, request, queryset):
+        if self.value() == "unresolved":
+            return queryset.filter(resolved_at__isnull=True)
+        if self.value() == "resolved":
+            return queryset.filter(resolved_at__isnull=False)
+        return queryset
+
+
+class AssignedToMeFilter(admin.SimpleListFilter):
+    """Filter flags assigned to the current user."""
+
+    title = "assignment"
+    parameter_name = "mine"
+
+    def lookups(self, request, model_admin):
+        return (("me", "Assigned to me"), ("unassigned", "Unassigned"))
+
+    def queryset(self, request, queryset):
+        if self.value() == "me":
+            return queryset.filter(assigned_to=request.user)
+        if self.value() == "unassigned":
+            return queryset.filter(assigned_to__isnull=True)
+        return queryset
+
+
 @admin.register(Flag)
 class FlagAdmin(admin.ModelAdmin):
-    list_display = ("separated_submission", "flag_type", "severity", "created", "resolved_at")
-    list_filter = ("flag_type", "severity", "resolved_at")
+    list_display = (
+        "separated_submission",
+        "flag_type",
+        "severity",
+        "is_resolved",
+        "assigned_to",
+        "created_by",
+        "created",
+        "message_preview",
+    )
+    list_filter = ("severity", "flag_type", ResolvedFlagFilter, AssignedToMeFilter, "assigned_to")
     search_fields = ("flag_type", "message", "separated_submission_id")
-    readonly_fields = ("created",)
+    readonly_fields = ("created", "resolved_by", "created_by", "assigned_at")
     date_hierarchy = "created"
-    raw_id_fields = ("separated_submission",)
+    raw_id_fields = ("separated_submission", "assigned_to")
+    list_select_related = ("separated_submission", "assigned_to", "created_by")
+    actions = ("assign_to_me", "mark_resolved")
+
+    @admin.display(boolean=True, description="Resolved", ordering="resolved_at")
+    def is_resolved(self, obj: Flag) -> bool:
+        return obj.resolved_at is not None
+
+    @admin.display(description="Message")
+    def message_preview(self, obj: Flag) -> str:
+        if obj.message:
+            max_length = 80
+            if len(obj.message) > max_length:
+                return f"{obj.message[:max_length]}..."
+            return obj.message
+        return "-"
+
+    def save_model(self, request, obj, form, change):
+        """Auto-populate audit/assignment fields from the admin context."""
+        if not change and obj.created_by_id is None:
+            obj.created_by = request.user
+        if obj.resolved_at and obj.resolved_by_id is None:
+            obj.resolved_by = request.user
+        if obj.assigned_to_id and obj.assigned_at is None:
+            obj.assigned_at = timezone.now()
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description="Assign selected flags to me")
+    def assign_to_me(self, request, queryset):
+        updated = queryset.update(assigned_to=request.user, assigned_at=timezone.now())
+        self.message_user(request, f"{updated} flag(s) assigned to you.")
+
+    @admin.action(description="Mark selected flags resolved")
+    def mark_resolved(self, request, queryset):
+        updated = queryset.filter(resolved_at__isnull=True).update(resolved_at=timezone.now(), resolved_by=request.user)
+        self.message_user(request, f"{updated} flag(s) marked resolved.")

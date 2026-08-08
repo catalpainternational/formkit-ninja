@@ -454,9 +454,22 @@ class Flag(models.Model):
         blank=True,
         related_name="+",
     )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_flags",
+        help_text="User responsible for triaging/resolving this flag",
+    )
+    assigned_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created"]
 
     def __str__(self) -> str:
         return f"{self.flag_type} on separated submission {self.separated_submission_id}"
+
+    @property
+    def is_resolved(self) -> bool:
+        return self.resolved_at is not None
