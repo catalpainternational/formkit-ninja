@@ -39,3 +39,19 @@ def test_short_uuid_accepts_uuid_object():
     """short_uuid accepts uuid.UUID and returns 8-char uppercase hex."""
     u = UUID("550e8400-e29b-41d4-a716-446655440000")
     assert short_uuid(u) == "550E8400"
+
+
+def test_short_uuid_strips_hyphens_before_truncating():
+    """Hyphens are removed *before* the 8-char slice, not after.
+
+    No canonical UUID can show this: its first hyphen sits at index 8, exactly
+    where the slice ends, so `.replace("-", "")` is unobservable for every
+    well-formed value. Only a hyphen *inside* the first 8 characters
+    distinguishes the two orderings.
+    """
+    assert short_uuid("ab-cd-ef-12-34") == "ABCDEF12"
+
+
+def test_short_uuid_does_not_pad_values_shorter_than_eight():
+    """Values under 8 characters come back whole, not padded out to 8."""
+    assert short_uuid("abc") == "ABC"
