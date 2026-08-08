@@ -13,12 +13,20 @@ dependencies = [
     "pydantic<2",
     "django-pgtrigger==4.*",
     "rich",
+    "rakaia[django]",
+    # Dormant: no models are tracked anymore (rakaia is the audit log), but the
+    # package is still imported by historical migrations 0023/0038. Drop once
+    # those migrations are squashed.
     "django-pghistory==3.*",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# rakaia is consumed from a local checkout for now; switch to a PyPI pin later.
+[tool.uv.sources]
+rakaia = { path = "../../joshbrooks/rakaia", editable = true }
 
 [dependency-groups]
 dev = [

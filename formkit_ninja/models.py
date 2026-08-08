@@ -6,7 +6,6 @@ import warnings
 from keyword import iskeyword, issoftkeyword
 from typing import Any, Iterable, TypedDict, get_args
 
-import pghistory
 import pgtrigger
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -17,6 +16,7 @@ from django.db.models import Q
 from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
 from django.utils import timezone
+from django_rakaia.decorators import stream_model
 from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
@@ -30,6 +30,7 @@ from formkit_ninja.form_submission.models import (
     SubmissionFile,  # noqa: F401
 )
 from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
+from formkit_ninja.streams import formkit_schema_node_to_data
 from formkit_ninja.utils import short_uuid
 
 console = Console()
@@ -356,7 +357,10 @@ CODE_SCHEME_CHOICES = (
 )
 
 
-@pghistory.track()
+@stream_model(
+    stream_paths=lambda obj: f"formkitschemanode:{obj.id}",
+    to_dataclass=formkit_schema_node_to_data,  # type: ignore[arg-type]
+)
 @pgtrigger.register(
     pgtrigger.Protect(
         # If the node is protected, delete is not allowed

@@ -8,7 +8,7 @@ values match what is stored is not re-saved.
 
 These tests pin, at row granularity:
 
-* no ``post_save`` (and no new pghistory audit event) for unchanged rows;
+* no ``post_save`` (and no new audit event) for unchanged rows;
 * only the rows that actually moved are re-touched — for scalar edits, repeater
   edits, nested-repeater edits, status changes, and re-ordering;
 * the JSON normalisation that prevents false "changed" verdicts (key order,
@@ -50,8 +50,12 @@ def capture_post_save():
 
 
 def _event_count() -> int:
-    """Number of pghistory audit rows for SeparatedSubmission."""
-    return SeparatedSubmission.pgh_event_model.objects.count()  # type: ignore[attr-defined]
+    """Number of rakaia audit events for SeparatedSubmission."""
+    from django_rakaia.models import StreamEvent
+
+    from formkit_ninja.streams import MODEL_SEPARATED
+
+    return StreamEvent.objects.filter(data__model=MODEL_SEPARATED).count()
 
 
 def _changed(results) -> dict:
@@ -117,7 +121,7 @@ class TestUnchangedResave:
             results = SeparatedSubmission.objects.from_submission(sub)
 
         assert seen == [], "no SeparatedSubmission should be re-saved for an unchanged submission"
-        assert _event_count() == events_before, "no pghistory audit event for a no-op save"
+        assert _event_count() == events_before, "no audit event for a no-op save"
         assert all(c is False for c in _changed(results).values())
         assert all(cr is False for cr in _created(results).values())
 

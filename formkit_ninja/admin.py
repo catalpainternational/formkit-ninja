@@ -6,7 +6,6 @@ from functools import reduce
 from typing import Any
 
 import django.core.exceptions
-import pghistory.admin
 from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
@@ -748,24 +747,6 @@ class OptionLabelAdmin(admin.ModelAdmin):
 
 
 # NOTE: SeparatedSubmission and Submission are imported at the top of the file
-
-
-@admin.register(Submission.pgh_event_model)  # type: ignore[attr-defined]
-class SubmissionEventAdmin(pghistory.admin.EventModelAdmin):
-    """
-    Admin for Submission events.
-    """
-
-    pass
-
-
-@admin.register(SeparatedSubmission.pgh_event_model)  # type: ignore[attr-defined]
-class SeparatedSubmissionEventAdmin(pghistory.admin.EventModelAdmin):
-    """
-    Admin for SeparatedSubmission events.
-    """
-
-    pass
 
 
 class SeparatedSubmissionForm(forms.ModelForm):

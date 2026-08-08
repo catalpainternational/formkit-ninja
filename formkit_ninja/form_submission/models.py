@@ -7,7 +7,6 @@ import warnings
 from contextlib import contextmanager
 from typing import cast
 
-import pghistory
 import pgtrigger
 from django.apps import apps
 from django.conf import settings
@@ -15,12 +14,17 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django_rakaia.decorators import stream_model
 
 from formkit_ninja.form_submission.querysets import SeparatedSubmissionQuerySet, SubmissionQuerySet
 from formkit_ninja.form_submission.utils import (
     ensure_repeater_uuid,
     flatten,
     pre_validation,
+)
+from formkit_ninja.streams import (
+    separated_submission_to_data,
+    submission_to_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,7 +66,10 @@ class SubmissionField(models.JSONField):
         return validated
 
 
-@pghistory.track()
+@stream_model(
+    stream_paths=lambda obj: f"submission:{obj.key}",
+    to_dataclass=submission_to_data,  # type: ignore[arg-type]
+)
 class Submission(models.Model):
     class Status(models.IntegerChoices):
         NEW = 1, _("New Submission")
@@ -308,7 +315,13 @@ class _SeparatedSubmissionManagerBase(models.Manager):
 SeparatedSubmissionManager = _SeparatedSubmissionManagerBase.from_queryset(SeparatedSubmissionQuerySet)
 
 
-@pghistory.track()
+@stream_model(
+    # One physical per-object stream. Aggregate views (by user, form_type, or
+    # parent submission) are derived as *virtual* streams over StreamEvent.data
+    # — see formkit_ninja.streams (events_for_user / events_for_form_type / ...).
+    stream_paths=lambda obj: f"separatedsubmission:{obj.id}",
+    to_dataclass=separated_submission_to_data,  # type: ignore[arg-type]
+)
 class SeparatedSubmission(models.Model):
     """
     This represents a Submission broken down into the main

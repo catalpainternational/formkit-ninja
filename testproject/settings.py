@@ -37,16 +37,20 @@ ALLOWED_HOSTS: list[str] = []
 # Application definition
 
 INSTALLED_APPS = [
-    "pghistory.admin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_rakaia",
     "formkit_ninja",
     "ninja",
     "pgtrigger",
+    # Dormant: kept only so historical migrations 0023/0038 (which reference
+    # pghistory.context + the pghistory migration graph) remain loadable. No
+    # models are tracked anymore — rakaia (@stream_model) is the audit log now.
+    # Fully removing django-pghistory requires squashing those migrations.
     "pghistory",
     "testproject.sample_app",
 ]
