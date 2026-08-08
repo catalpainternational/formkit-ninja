@@ -24,9 +24,10 @@ dependencies = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# rakaia is consumed from a local checkout for now; switch to a PyPI pin later.
+# rakaia is not on PyPI yet; pinned to a specific upstream commit. Switch to a
+# PyPI pin once released.
 [tool.uv.sources]
-rakaia = { path = "../../joshbrooks/rakaia", editable = true }
+rakaia = { git = "https://github.com/joshbrooks/rakaia", rev = "a7f08648b027a2af8d36aac3be8d965de29827ad" }
 
 [dependency-groups]
 dev = [

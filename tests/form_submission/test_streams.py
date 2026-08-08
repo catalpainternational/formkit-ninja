@@ -4,6 +4,15 @@ import pytest
 from django_rakaia.models import Stream, StreamEntry
 
 from formkit_ninja.form_submission.models import SeparatedSubmission
+from formkit_ninja.models import FormKitSchemaNode
+from formkit_ninja.streams import (
+    MODEL_SEPARATED,
+    MODEL_SUBMISSION,
+    events_for_form_type,
+    events_for_user,
+    events_for_user_and_form_type,
+    formkit_schema_node_stream_key,
+)
 
 
 def _entries(stream_id: str):
@@ -57,15 +66,31 @@ class TestSubmissionStreams:
 
 
 @pytest.mark.django_db
+class TestNodeStreams:
+    def test_soft_delete_emits_update_not_delete(self) -> None:
+        """node.delete() is a SoftDelete (row kept, is_active=False): the stream
+        must record the update that actually happened, not a fabricated hard delete."""
+        node = FormKitSchemaNode.objects.create(node={"$formkit": "text", "name": "sd_test"})
+        stream = formkit_schema_node_stream_key(node)
+        pk = node.pk  # delete() nulls instance.pk even though SoftDelete keeps the row
+        node.delete()
+
+        # The row survives with is_active=False …
+        stored = FormKitSchemaNode.objects.get(pk=pk)
+        assert stored.is_active is False
+
+        # … and the stream says exactly that.
+        last = _entries(stream).last()
+        assert last is not None
+        assert last.event.event_type == "update"
+        assert last.event.data["is_active"] is False
+        assert not _entries(stream).filter(event__event_type="delete").exists()
+
+
+@pytest.mark.django_db
 class TestVirtualStreams:
     def test_user_and_form_type_virtual_streams(self, separated_submission: SeparatedSubmission) -> None:
         """A SeparatedSubmission's event is discoverable via the user/form_type virtual streams."""
-        from formkit_ninja.streams import (
-            events_for_form_type,
-            events_for_user,
-            events_for_user_and_form_type,
-        )
-
         uid = separated_submission.user_id
         ftype = separated_submission.form_type
 
@@ -76,12 +101,6 @@ class TestVirtualStreams:
 
     def test_model_discriminator_separates_streams(self, separated_submission: SeparatedSubmission) -> None:
         """Both entity types are present, but readable as SEPARATE per-model streams."""
-        from formkit_ninja.streams import (
-            MODEL_SEPARATED,
-            MODEL_SUBMISSION,
-            events_for_form_type,
-        )
-
         sep_ftype = separated_submission.form_type
         parent = separated_submission.submission
 
@@ -99,8 +118,6 @@ class TestVirtualStreams:
 
     def test_combined_spans_both_models(self, separated_submission: SeparatedSubmission) -> None:
         """With model=None the form_type virtual stream spans both entity types."""
-        from formkit_ninja.streams import MODEL_SEPARATED, MODEL_SUBMISSION, events_for_form_type
-
         # The default fixture gives parent + child the same form_type, so both appear.
         ftype = separated_submission.form_type
         if separated_submission.submission.form_type == ftype:
@@ -108,37 +125,6 @@ class TestVirtualStreams:
             assert {MODEL_SUBMISSION, MODEL_SEPARATED} <= models_seen
 
 
-class TestBackfillPayloads:
-    """The backfill migration must emit payloads identical to the live transformers."""
-
-    def _module(self):
-        import importlib
-
-        return importlib.import_module("formkit_ninja.migrations.0048_backfill_pghistory_to_streams")
-
-    def test_label_mapping(self) -> None:
-        mod = self._module()
-        assert mod._label_to_type("insert") == "create"
-        assert mod._label_to_type("update") == "update"
-        assert mod._label_to_type("delete") == "delete"
-
-    def test_submission_payload_matches_live_transformer(self) -> None:
-        import dataclasses
-        from datetime import datetime, timezone
-        from types import SimpleNamespace
-        from uuid import uuid4
-
-        from formkit_ninja.streams import submission_to_data
-
-        mod = self._module()
-        row = SimpleNamespace(
-            key=uuid4(),
-            user_id=7,
-            status=1,
-            form_type="SF_1_1",
-            is_active=True,
-            created=datetime(2026, 1, 1, tzinfo=timezone.utc),
-            updated=datetime(2026, 1, 2, tzinfo=timezone.utc),
-            fields={"a": 1},
-        )
-        assert mod._submission_payload(row) == dataclasses.asdict(submission_to_data(row))
+# NOTE: the 0048 backfill migration now builds payloads by importing the live
+# transformers directly (see its module docstring), so the old parity tests
+# that pinned migration-local copies to the live code are gone with the copies.

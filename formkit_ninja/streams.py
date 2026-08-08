@@ -57,6 +57,25 @@ MODEL_SEPARATED = "separatedsubmission"
 MODEL_NODE = "formkitschemanode"
 
 
+# Physical per-object stream keys. These are the single source for the
+# "{model}:{pk}" format: the @stream_model decorators, the 0048 backfill
+# migration and any future consumer must all build keys through these so the
+# stream prefix can never drift from the payload's ``data["model"]``
+# discriminator.
+
+
+def submission_stream_key(obj: Submission) -> str:
+    return f"{MODEL_SUBMISSION}:{obj.key}"
+
+
+def separated_submission_stream_key(obj: SeparatedSubmission) -> str:
+    return f"{MODEL_SEPARATED}:{obj.id}"
+
+
+def formkit_schema_node_stream_key(obj: FormKitSchemaNode) -> str:
+    return f"{MODEL_NODE}:{obj.id}"
+
+
 @dataclass
 class SubmissionData:
     model: str
@@ -157,16 +176,21 @@ def formkit_schema_node_to_data(obj: FormKitSchemaNode) -> FormKitSchemaNodeData
 #
 # Trade-off vs a physical stream: a virtual stream has no per-stream monotonic
 # ``offset`` and no ``StreamEntry`` rows, so the rakaia SSE/long-poll protocol
-# cannot serve it. It is a read/replay view, ordered by global insertion
-# (StreamEvent.id ≈ chronological).
+# cannot serve it. It is a read/replay view, ordered by event time.
+# ``created_at`` (not ``id``) is the ordering key: the 0048 backfill preserves
+# original pghistory timestamps but inserts long after (and out of step with)
+# live events, so insertion id is NOT chronological. ``id`` only breaks ties.
 # ---------------------------------------------------------------------------
 
-# Display key used for events whose submitting user is null.
-UNASSIGNED_USER = "unassigned"
 
+def _events(*, model: str | None = None, **data_filters):
+    """Shared virtual-stream query: filter StreamEvent payload keys, order by event time."""
+    from django_rakaia.models import StreamEvent
 
-def _by_model(qs, model: str | None):
-    return qs if model is None else qs.filter(data__model=model)
+    qs = StreamEvent.objects.filter(**{f"data__{key}": value for key, value in data_filters.items()})
+    if model is not None:
+        qs = qs.filter(data__model=model)
+    return qs.order_by("created_at", "id")
 
 
 def events_for_user(user_id: int | None, *, model: str | None = None):
@@ -176,30 +200,14 @@ def events_for_user(user_id: int | None, *, model: str | None = None):
     payload ``user_id`` is JSON null). Pass ``model`` (MODEL_SUBMISSION /
     MODEL_SEPARATED) to restrict to one entity type.
     """
-    from django_rakaia.models import StreamEvent
-
-    qs = StreamEvent.objects.filter(data__user_id=user_id)
-    return _by_model(qs, model).order_by("id")
+    return _events(model=model, user_id=user_id)
 
 
 def events_for_form_type(form_type: str, *, model: str | None = None):
     """Virtual stream of StreamEvents for a given form_type (optionally one model)."""
-    from django_rakaia.models import StreamEvent
-
-    qs = StreamEvent.objects.filter(data__form_type=form_type)
-    return _by_model(qs, model).order_by("id")
+    return _events(model=model, form_type=form_type)
 
 
 def events_for_user_and_form_type(user_id: int | None, form_type: str, *, model: str | None = None):
     """Virtual stream keyed on BOTH user and form_type (optionally one model)."""
-    from django_rakaia.models import StreamEvent
-
-    qs = StreamEvent.objects.filter(data__user_id=user_id, data__form_type=form_type)
-    return _by_model(qs, model).order_by("id")
-
-
-def virtual_stream_key(user_id: int | None, form_type: str, model: str | None = None) -> str:
-    """Human-readable identifier for a user+form_type virtual stream."""
-    user_part = UNASSIGNED_USER if user_id is None else user_id
-    prefix = f"{model}:" if model else ""
-    return f"{prefix}user:{user_part}:formtype:{form_type}"
+    return _events(model=model, user_id=user_id, form_type=form_type)

@@ -92,8 +92,12 @@ class Command(BaseCommand):
                 # at an orphan whose uuid changed via an ungoverned mutation. Detach
                 # those first so the orphan delete's CASCADE does not take a live row;
                 # the next real save re-derives the correct parent via from_submission.
-                reparented = SeparatedSubmission.objects.filter(submission_id=sub.pk, repeater_parent__in=orphans, pk__in=valid_uuids).update(repeater_parent=None)
-                reparented_rows += reparented
+                # Per-row save (not queryset .update()) so each detachment emits its
+                # rakaia stream event — the audit stream must not drift from the table.
+                for row in SeparatedSubmission.objects.filter(submission_id=sub.pk, repeater_parent__in=orphans, pk__in=valid_uuids):
+                    row.repeater_parent = None
+                    row.save(update_fields=["repeater_parent"])
+                    reparented_rows += 1
                 # CASCADE removes orphan child rows and their dependent Import/Flag rows.
                 orphans.delete()
 

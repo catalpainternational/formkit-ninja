@@ -23,7 +23,9 @@ from formkit_ninja.form_submission.utils import (
     pre_validation,
 )
 from formkit_ninja.streams import (
+    separated_submission_stream_key,
     separated_submission_to_data,
+    submission_stream_key,
     submission_to_data,
 )
 
@@ -67,7 +69,7 @@ class SubmissionField(models.JSONField):
 
 
 @stream_model(
-    stream_paths=lambda obj: f"submission:{obj.key}",
+    stream_paths=submission_stream_key,  # type: ignore[arg-type]
     to_dataclass=submission_to_data,  # type: ignore[arg-type]
 )
 class Submission(models.Model):
@@ -121,15 +123,14 @@ class Submission(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        # Note: was_created logic removed as SeparatedSubmission handles this
-
-        # Determine changed UUIDs to clean up SeparatedSubmission
-        # (Simplified logic from reference)
-
-        super().save(*args, **kwargs)
-
-        # Create SeparatedSubmission instances
-        SeparatedSubmission.objects.from_submission(self)
+        # Atomic across the row write, its post_save stream event and the
+        # derived-row projection: under autocommit, a failure in the stream
+        # write (or in from_submission) must not leave a committed Submission
+        # with no audit event / no SeparatedSubmission rows.
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            # Create SeparatedSubmission instances
+            SeparatedSubmission.objects.from_submission(self)
 
     def __str__(self) -> str:
         # Use only local fields to avoid N+1 (e.g. admin list).
@@ -319,7 +320,7 @@ SeparatedSubmissionManager = _SeparatedSubmissionManagerBase.from_queryset(Separ
     # One physical per-object stream. Aggregate views (by user, form_type, or
     # parent submission) are derived as *virtual* streams over StreamEvent.data
     # — see formkit_ninja.streams (events_for_user / events_for_form_type / ...).
-    stream_paths=lambda obj: f"separatedsubmission:{obj.id}",
+    stream_paths=separated_submission_stream_key,  # type: ignore[arg-type]
     to_dataclass=separated_submission_to_data,  # type: ignore[arg-type]
 )
 class SeparatedSubmission(models.Model):

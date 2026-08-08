@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 import uuid
 import warnings
@@ -15,8 +16,10 @@ from django.db import models, transaction
 from django.db.models import Q
 from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 from django.utils import timezone
-from django_rakaia.decorators import stream_model
+from django_rakaia.decorators import create_stream_event
 from rich.console import Console
 
 from formkit_ninja import formkit_schema, triggers
@@ -30,7 +33,7 @@ from formkit_ninja.form_submission.models import (
     SubmissionFile,  # noqa: F401
 )
 from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
-from formkit_ninja.streams import formkit_schema_node_to_data
+from formkit_ninja.streams import formkit_schema_node_stream_key, formkit_schema_node_to_data
 from formkit_ninja.utils import short_uuid
 
 console = Console()
@@ -357,10 +360,6 @@ CODE_SCHEME_CHOICES = (
 )
 
 
-@stream_model(
-    stream_paths=lambda obj: f"formkitschemanode:{obj.id}",
-    to_dataclass=formkit_schema_node_to_data,  # type: ignore[arg-type]
-)
 @pgtrigger.register(
     pgtrigger.Protect(
         # If the node is protected, delete is not allowed
@@ -950,6 +949,34 @@ class FormKitSchemaNode(UuidIdModel):
         if self.text_content:
             return self.text_content
         return formkit_schema.FormKitNode.parse_obj(self.get_node_values(recursive=recursive, options=options, **kwargs))
+
+
+# Stream (audit) wiring for FormKitSchemaNode. Not @stream_model: that decorator
+# would emit a fabricated hard-"delete" event on node.delete(), but the
+# SoftDelete trigger above converts the DELETE into ``UPDATE is_active = false``
+# and keeps the row — so the event that actually happened is an update.
+
+
+@receiver(post_save, sender=FormKitSchemaNode, weak=False)
+def _node_stream_post_save(sender, instance: FormKitSchemaNode, created: bool, **kwargs):
+    create_stream_event(
+        formkit_schema_node_stream_key,  # type: ignore[arg-type]
+        formkit_schema_node_to_data,  # type: ignore[arg-type]
+        instance,
+        "create" if created else "update",
+    )
+
+
+@receiver(post_delete, sender=FormKitSchemaNode, weak=False)
+def _node_stream_post_delete(sender, instance: FormKitSchemaNode, **kwargs):
+    # post_delete fires with the pre-delete in-memory state (is_active=True);
+    # the row in the database now has is_active=False courtesy of SoftDelete.
+    create_stream_event(
+        formkit_schema_node_stream_key,  # type: ignore[arg-type]
+        lambda obj: dataclasses.replace(formkit_schema_node_to_data(obj), is_active=False),  # type: ignore[arg-type]
+        instance,
+        "update",
+    )
 
 
 class SchemaManager(models.Manager):

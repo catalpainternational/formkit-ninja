@@ -759,7 +759,7 @@ requires-dist = [
     { name = "django-pghistory", specifier = "==3.*" },
     { name = "django-pgtrigger", specifier = "==4.*" },
     { name = "pydantic", specifier = "<2" },
-    { name = "rakaia", extras = ["django"], editable = "../../joshbrooks/rakaia" },
+    { name = "rakaia", extras = ["django"], git = "https://github.com/joshbrooks/rakaia?rev=a7f08648b027a2af8d36aac3be8d965de29827ad" },
     { name = "rich" },
 ]
 
@@ -1790,7 +1790,7 @@ wheels = [
 [[package]]
 name = "rakaia"
 version = "0.1.0"
-source = { editable = "../../joshbrooks/rakaia" }
+source = { git = "https://github.com/joshbrooks/rakaia?rev=a7f08648b027a2af8d36aac3be8d965de29827ad#a7f08648b027a2af8d36aac3be8d965de29827ad" }
 
 [package.optional-dependencies]
 django = [
@@ -1798,31 +1798,6 @@ django = [
     { name = "daphne" },
     { name = "django" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "channels", marker = "extra == 'django'", specifier = ">=4.0" },
-    { name = "channels-redis", marker = "extra == 'prod'", specifier = ">=4.1.0" },
-    { name = "daphne", marker = "extra == 'django'", specifier = ">=4.2.1" },
-    { name = "django", marker = "extra == 'dev'", specifier = ">=4.2" },
-    { name = "django", marker = "extra == 'django'", specifier = ">=4.2.0" },
-    { name = "django-types", marker = "extra == 'dev'", specifier = ">=0.23.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27.0" },
-    { name = "hypercorn", marker = "extra == 'prod'", specifier = ">=0.17.0" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.400" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "pytest-django", marker = "extra == 'dev'", specifier = ">=4.9.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
-    { name = "uvicorn", marker = "extra == 'dev'", specifier = ">=0.30.0" },
-    { name = "whitenoise", marker = "extra == 'prod'", specifier = ">=6.0" },
-    { name = "zensical", marker = "extra == 'docs'", specifier = ">=0.0.32" },
-]
-provides-extras = ["django", "prod", "dev", "docs"]
-
-[package.metadata.requires-dev]
-dev = [{ name = "django-extensions", specifier = ">=4.1" }]
 
 [[package]]
 name = "requests"
