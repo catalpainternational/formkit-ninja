@@ -1,9 +1,12 @@
 import uuid
 import warnings
 from copy import deepcopy
-from typing import Any, Iterable, TypeVar
+from typing import TYPE_CHECKING, Any, Iterable, TypeVar
 
 from django.db import models
+
+if TYPE_CHECKING:
+    from formkit_ninja.form_submission.models import SeparatedSubmission
 
 
 def one_to_many(model: models.Model):
@@ -222,6 +225,53 @@ def flatten(
         for idx, rep_item in enumerate(klone.pop(rep_k)):
             yield from flatten(rep_item, parent_key=[*parent_key, rep_k], parent_uuid=current_uuid, index=idx)
     yield parent_key, parent_uuid, klone, index
+
+
+def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
+    """Inverse of flatten(): rebuild the nested document from a row tree.
+
+    ``rows`` is the full ``SeparatedSubmission`` row set of one submission
+    (root + every repeater row). Children are bucketed by ``repeater_parent``,
+    emitted under their ``repeater_key`` sorted by ``(repeater_order, pk)``
+    with their pk re-injected as ``uuid``, recursively.
+
+    Invariant (#48 — ``pre_validation`` must be applied to BOTH sides, since
+    the row fields were pre-validated on save):
+
+        pre_validation(compose(rows_of(s))) == pre_validation(s.fields)
+
+    Known losses (asserted in tests/test_compose.py): uuid-less document rows
+    were never stored, and rows whose parent could not be resolved were
+    re-parented to the root — both are unrecoverable here by design.
+    """
+    root = None
+    by_parent: dict[Any, list[Any]] = {}
+    for row in rows:
+        if row.repeater_parent_id is None:
+            root = row
+        else:
+            by_parent.setdefault(row.repeater_parent_id, []).append(row)
+    if root is None:
+        raise ValueError("compose() requires exactly one root row (repeater_parent is NULL)")
+
+    def build(row, *, is_root: bool) -> dict:
+        doc = deepcopy(row.fields)
+        if not is_root:
+            # _save_repeater_chunk pops "uuid" from a child to use as the pk;
+            # the root's own "uuid" (if any) is never stripped, so only
+            # children get theirs re-injected.
+            doc["uuid"] = str(row.pk)
+        # repeater_order is nullable and unconstrained, so the sort must be made
+        # total and deterministic: NULLs last, ties broken on pk.
+        children = sorted(
+            by_parent.get(row.pk, []),
+            key=lambda c: (c.repeater_key, c.repeater_order is None, c.repeater_order or 0, str(c.pk)),
+        )
+        for child in children:
+            doc.setdefault(child.repeater_key, []).append(build(child, is_root=False))
+        return doc
+
+    return build(root, is_root=True)
 
 
 def igetattr(thing: Any, prop: str):
