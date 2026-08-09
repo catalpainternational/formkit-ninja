@@ -814,7 +814,10 @@ class SubmissionAdmin(admin.ModelAdmin):
     date_hierarchy = "created"
 
     def get_queryset(self, request):
-        return super().get_queryset(request).with_unresolved_flags()
+        # Only the boolean is rendered (see ``flagged`` below); the full
+        # ``with_unresolved_flags`` also builds a per-row JSONBAgg this page
+        # never displays.
+        return super().get_queryset(request).with_has_unresolved_flags()
 
     @admin.display(description="Key", ordering="key")
     def short_key(self, obj: Submission | None) -> str:
@@ -845,7 +848,10 @@ class SeparatedSubmissionAdmin(admin.ModelAdmin):
     inlines = [FlagInline]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).with_unresolved_flags()
+        # Only the boolean is rendered (see ``flagged`` below); the full
+        # ``with_unresolved_flags`` also builds a per-row JSONBAgg this page
+        # never displays.
+        return super().get_queryset(request).with_has_unresolved_flags()
 
     def save_formset(self, request, form, formset, change):
         """Apply the same flag bookkeeping as FlagAdmin.save_model to inline saves."""
@@ -984,7 +990,12 @@ class FlagAdmin(admin.ModelAdmin):
         _apply_flag_bookkeeping(obj, request.user, assignment_changed="assigned_to" in form.changed_data)
         super().save_model(request, obj, form, change)
 
-    @admin.action(description="Assign selected flags to me")
+    # ``permissions`` is required, not optional: Django's
+    # ``_filter_actions_by_permissions`` offers any action *without* an
+    # ``allowed_permissions`` attribute unconditionally, and the changelist
+    # itself only requires view-or-change. Without this a staff user holding
+    # only ``view_flag`` could claim and mass-resolve the whole triage queue.
+    @admin.action(description="Assign selected flags to me", permissions=["change"])
     def assign_to_me(self, request, queryset):
         updated = queryset.filter(assigned_to__isnull=True).update(assigned_to=request.user, assigned_at=timezone.now())
         skipped = queryset.count() - updated
@@ -993,7 +1004,7 @@ class FlagAdmin(admin.ModelAdmin):
             message += f" {skipped} already-assigned flag(s) were left unchanged."
         self.message_user(request, message)
 
-    @admin.action(description="Mark selected flags resolved")
+    @admin.action(description="Mark selected flags resolved", permissions=["change"])
     def mark_resolved(self, request, queryset):
         updated = queryset.filter(resolved_at__isnull=True).update(resolved_at=timezone.now(), resolved_by=request.user)
         self.message_user(request, f"{updated} flag(s) marked resolved.")
