@@ -46,6 +46,12 @@ def update_group_trigger(order_by_field: str, id_field: str = "id"):
 
     A write that leaves ``order`` NULL on an already-NULL row has no destination
     to aim at, so it is appended to the end of the (possibly new) group.
+
+    Every comparison against the group column uses ``IS NOT DISTINCT FROM``
+    rather than ``=``. ``Option.group`` is nullable, and ``= NULL`` is never
+    true: the shifts silently matched no rows, so the ungrouped rows were not
+    treated as a cohort and collected duplicate orders. NULL is a group here
+    like any other.
     """
     return pgtrigger.Trigger(
         name="order_on_update_option",
@@ -64,7 +70,7 @@ def update_group_trigger(order_by_field: str, id_field: str = "id"):
                     NEW."order" = (
                         SELECT coalesce(max("order"), 0) + 1
                         FROM {{meta.db_table}}
-                        WHERE "{order_by_field}" = NEW."{order_by_field}"
+                        WHERE "{order_by_field}" IS NOT DISTINCT FROM NEW."{order_by_field}"
                         AND "{id_field}" <> NEW."{id_field}"
                     );
                 end if;
@@ -74,7 +80,7 @@ def update_group_trigger(order_by_field: str, id_field: str = "id"):
                     update {{meta.db_table}}
                     set "order" = "order"+ 1
                     where "order" >= NEW."order"
-                    and "{order_by_field}" = NEW."{order_by_field}"
+                    and "{order_by_field}" IS NOT DISTINCT FROM NEW."{order_by_field}"
                     and "{id_field}" <> NEW."{id_field}";
                     -- A departure, but only if the row held a slot in a group
                     -- it has now left.
@@ -83,7 +89,7 @@ def update_group_trigger(order_by_field: str, id_field: str = "id"):
                         update {{meta.db_table}}
                         set "order" = "order"- 1
                         where "order" > OLD."order"
-                        and "{order_by_field}" = OLD."{order_by_field}"
+                        and "{order_by_field}" IS NOT DISTINCT FROM OLD."{order_by_field}"
                         and "{id_field}" <> NEW."{id_field}";
                     end if;
                 elsif NEW."order" > OLD."order" then
@@ -91,14 +97,14 @@ def update_group_trigger(order_by_field: str, id_field: str = "id"):
                     set "order" = "order"- 1
                     where "order" <= NEW."order"
                     and "order" > OLD."order"
-                    and "{order_by_field}" = NEW."{order_by_field}"
+                    and "{order_by_field}" IS NOT DISTINCT FROM NEW."{order_by_field}"
                     and "{id_field}" <> NEW."{id_field}";
                 else
                     update {{meta.db_table}}
                     set "order" = "order"+ 1
                     where "order" >= NEW."order"
                     and "order" < OLD."order"
-                    and "{order_by_field}" = NEW."{order_by_field}"
+                    and "{order_by_field}" IS NOT DISTINCT FROM NEW."{order_by_field}"
                     and "{id_field}" <> NEW."{id_field}";
                 end if;
                 RETURN NEW;
@@ -113,7 +119,9 @@ def insert_group_trigger(order_by_field: str):
         name="order_on_insert_option",
         when=pgtrigger.Before,
         operation=pgtrigger.Insert,
-        func=pgtrigger.Func(f'NEW."order" = (SELECT coalesce(max("order"), 0) + 1 FROM {{meta.db_table}} WHERE {{meta.db_table}}."{order_by_field}" = NEW."{order_by_field}"); RETURN NEW;'),
+        func=pgtrigger.Func(
+            f'NEW."order" = (SELECT coalesce(max("order"), 0) + 1 FROM {{meta.db_table}} WHERE {{meta.db_table}}."{order_by_field}" IS NOT DISTINCT FROM NEW."{order_by_field}"); RETURN NEW;'
+        ),
     )
 
 

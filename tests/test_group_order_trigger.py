@@ -20,6 +20,12 @@ Two further cases (#55) the "shift the span between OLD and NEW" arithmetic
 cannot express are pinned below: a row whose *stored* order is already NULL
 (what the pre-#53 trigger left behind), and a row moved to a different group.
 Both are handled as an insert into the destination group.
+
+``Option.group`` is nullable, so "the ungrouped rows" is itself a group the
+triggers have to number. The comparisons use ``IS NOT DISTINCT FROM`` for that
+reason; ``TestUngroupedOptions`` pins it. ``FormComponents`` (keyed on
+``schema_id``) is deliberately not exercised here — it is structurally identical
+to the ``NodeChildren`` shape and its group column is not nullable.
 """
 
 import pgtrigger
@@ -453,3 +459,75 @@ class TestOptionNullAndCrossGroup:
         assert self._orders(group_a) == [1, 2, 3]
         assert self._orders(group_b) == [1, 2, 3, 4, 5]
         assert models.Option.objects.get(pk=option.pk).order == 2
+
+
+# --------------------------------------------------------------------------- #
+# ``Option.group`` is nullable: the ungrouped rows are a group too (#55)
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestUngroupedOptions:
+    """
+    Every shift keyed on ``"group_id" = NEW."group_id"``, and ``= NULL`` is
+    never true, so for a row with no group the shifts matched nothing: the
+    ungrouped rows were never renumbered and collected duplicate orders.
+    ``IS NOT DISTINCT FROM`` makes NULL a group like any other.
+    """
+
+    @staticmethod
+    def _ungrouped() -> list[int | None]:
+        return list(models.Option.objects.filter(group__isnull=True).order_by("order").values_list("order", flat=True))
+
+    def test_inserts_number_sequentially(self):
+        for i in range(3):
+            models.Option.objects.create(group=None, object_id=i, order=0)
+
+        assert self._ungrouped() == [1, 2, 3]
+
+    def test_a_move_within_the_ungrouped_rows_shifts_its_siblings(self):
+        for i in range(3):
+            models.Option.objects.create(group=None, object_id=i, order=0)
+        last = models.Option.objects.get(group__isnull=True, order=3)
+
+        models.Option.objects.filter(pk=last.pk).update(order=1)
+
+        assert self._ungrouped() == [1, 2, 3]
+        assert models.Option.objects.get(pk=last.pk).order == 1
+
+    def test_a_null_ordered_ungrouped_row_is_appended_not_duplicated(self):
+        for i in range(2):
+            models.Option.objects.create(group=None, object_id=i, order=0)
+        option = models.Option.objects.get(group__isnull=True, order=2)
+        _corrupt_order_to_null(models.Option, option.pk)
+
+        models.Option.objects.filter(pk=option.pk).update(order=None)
+
+        assert models.Option.objects.get(pk=option.pk).order == 2
+        assert self._ungrouped() == [1, 2]
+
+    def test_moving_a_row_into_the_ungrouped_rows_makes_room(self):
+        group = models.OptionGroup.objects.create(group="a")
+        for i in range(3):
+            models.Option.objects.create(group=group, object_id=i, order=0)
+        for i in range(2):
+            models.Option.objects.create(group=None, object_id=100 + i, order=0)
+        option = models.Option.objects.get(group=group, order=2)
+
+        models.Option.objects.filter(pk=option.pk).update(group=None)
+
+        # The source closes its gap; the ungrouped rows make room at order 2.
+        assert list(models.Option.objects.filter(group=group).order_by("order").values_list("order", flat=True)) == [1, 2]
+        assert self._ungrouped() == [1, 2, 3]
+        assert models.Option.objects.get(pk=option.pk).order == 2
+
+    def test_moving_a_row_out_of_the_ungrouped_rows_closes_the_gap(self):
+        group = models.OptionGroup.objects.create(group="a")
+        for i in range(2):
+            models.Option.objects.create(group=group, object_id=i, order=0)
+        for i in range(3):
+            models.Option.objects.create(group=None, object_id=100 + i, order=0)
+        option = models.Option.objects.get(group__isnull=True, order=1)
+
+        models.Option.objects.filter(pk=option.pk).update(group=group)
+
+        assert self._ungrouped() == [1, 2]
+        assert list(models.Option.objects.filter(group=group).order_by("order").values_list("order", flat=True)) == [1, 2, 3]
