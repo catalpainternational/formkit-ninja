@@ -12,7 +12,10 @@ every Submission and deletes the orphans directly (no re-save, so it neither
 churns uuids nor re-fires the split). It is idempotent — a no-op once consistent —
 and is meant to run on deploy and on every fresh staging/prod restore. Going
 forward, the reconcile inside ``SeparatedSubmission.objects.from_submission``
-keeps new orphans from accumulating on every save.
+keeps new orphans from accumulating — but only for saves where something
+actually calls it. ``Submission.save()`` does not split (see its docstring), so
+that guarantee is exactly as good as the consumer's wiring: if no ``post_save``
+receiver runs the split, nothing reconciles and this command is the only sweep.
 
 Submission is canonical — this only deletes derived rows with no counterpart in
 canonical fields; it never writes SeparatedSubmission models.
@@ -91,7 +94,9 @@ class Command(BaseCommand):
                 # Cascade-safe: a valid (kept) row can still point its repeater_parent
                 # at an orphan whose uuid changed via an ungoverned mutation. Detach
                 # those first so the orphan delete's CASCADE does not take a live row;
-                # the next real save re-derives the correct parent via from_submission.
+                # the next from_submission() re-derives the correct parent. Note that
+                # is the consumer's split, not Submission.save() — a detached row stays
+                # detached until something actually runs one.
                 reparented = SeparatedSubmission.objects.filter(submission_id=sub.pk, repeater_parent__in=orphans, pk__in=valid_uuids).update(repeater_parent=None)
                 reparented_rows += reparented
                 # CASCADE removes orphan child rows and their dependent Import/Flag rows.

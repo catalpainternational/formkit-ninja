@@ -90,8 +90,8 @@ class Submission(models.Model):
     class Meta:
         triggers = [
             # ``SeparatedSubmission.status`` is a denormalised mirror of this root
-            # status. ``from_submission()`` (below, on ``save()``) keeps it current on
-            # the ORM path, but status changes that bypass ``save()`` — bulk
+            # status. ``from_submission()`` keeps it current whenever the consumer
+            # runs a split, but status changes that never trigger one — bulk
             # ``.update(status=…)``, restores, raw SQL — would otherwise leave the
             # mirror stale. This trigger enforces the invariant for every write path,
             # so any consumer reading ``SeparatedSubmission.status`` can trust it.
@@ -114,15 +114,18 @@ class Submission(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        # Note: was_created logic removed as SeparatedSubmission handles this
+        """
+        Persist the submission. **This does not split it.**
 
-        # Determine changed UUIDs to clean up SeparatedSubmission
-        # (Simplified logic from reference)
+        Deriving the flattened ``SeparatedSubmission`` rows is the consumer's
+        responsibility — call ``SeparatedSubmission.objects.from_submission(sub)``
+        yourself, typically from a ``post_save`` receiver on this model.
 
+        Nothing is derived until something calls it — see "Wiring the split" in
+        docs/submission_architecture.md. Removed in 2.5.4 / 2.6.x; CHANGELOG.md
+        has the rationale.
+        """
         super().save(*args, **kwargs)
-
-        # Create SeparatedSubmission instances
-        SeparatedSubmission.objects.from_submission(self)
 
     def __str__(self) -> str:
         # Use only local fields to avoid N+1 (e.g. admin list).

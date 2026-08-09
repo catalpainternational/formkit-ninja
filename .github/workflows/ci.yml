@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - develop
+      - "maint/**"
   push:
     branches:
       - main
       - develop
+      - "maint/**"
 
 jobs:
   pre-commit:

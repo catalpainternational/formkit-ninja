@@ -261,7 +261,8 @@ Here's how data flows through your application:
    ↓
 3. Saved as Submission model (JSON storage)
    ↓
-4. Automatically split into SeparatedSubmission instances
+4. Your post_save receiver splits it into SeparatedSubmission instances
+   (see "Wiring the split" in docs/submission_architecture.md)
    ↓
 5. Signal handler (signals.py) triggered
    ↓
