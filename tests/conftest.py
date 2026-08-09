@@ -33,8 +33,12 @@ def split_submissions_on_save(request):
 
     A test that needs the bare library behaviour — no split at all — opts out
     with ``@pytest.mark.no_split_on_save``.
+
+    Gated on ``django_db`` so it stays off for the parser/Playwright tests that
+    never touch the ORM: connecting a receiver there would be inert, but it
+    would also be a claim about scope that isn't true.
     """
-    if request.node.get_closest_marker("no_split_on_save"):
+    if request.node.get_closest_marker("no_split_on_save") or "django_db" not in request.keywords:
         yield
         return
     post_save.connect(_split_on_post_save, sender=Submission, dispatch_uid="tests-split-on-save")

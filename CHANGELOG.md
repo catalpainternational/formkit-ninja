@@ -31,6 +31,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Consumers that already split from their own `post_save` receiver need no
   change — they simply stop doing the work twice. See issue #57.
 
+  **If you do not wire a receiver, nothing splits.** There is no exception and no
+  warning: `Submission` rows are stored correctly, but no `SeparatedSubmission`
+  rows are derived, so the derived-model endpoints and anything downstream of
+  them go quietly empty. This is the failure mode to check for first after
+  upgrading.
+
+  **On semver:** this is a breaking change in a patch release. It is published
+  that way on the understanding that partisipa is the only consumer of the
+  2.5.x line, and it exists at all so partisipa's deliberate
+  `>=2.5.3,<2.6` pin can take the fix. If you are on 2.5.x and are *not*
+  partisipa, wire the receiver before upgrading, or stay on 2.5.3.
+
 ## [2.5.3] - 2026-08-03
 
 ### Fixed
