@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("formkit_ninja", "0047_fix_group_order_trigger_before_update"),
+        ("formkit_ninja", "0048_fix_group_order_trigger_null_and_cross_group"),
     ]
 
     operations = [
@@ -27,6 +27,17 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.SET_NULL,
                 related_name="assigned_flags",
                 to=settings.AUTH_USER_MODEL,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="flag",
+            constraint=models.CheckConstraint(
+                check=models.Q(
+                    models.Q(("assigned_at__isnull", True), ("assigned_to__isnull", True)),
+                    models.Q(("assigned_at__isnull", False), ("assigned_to__isnull", False)),
+                    _connector="OR",
+                ),
+                name="flag_assigned_to_and_at_together",
             ),
         ),
     ]

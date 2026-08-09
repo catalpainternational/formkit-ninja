@@ -4,6 +4,7 @@ import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
+from django.db.utils import IntegrityError
 from django.test import RequestFactory
 from django.utils import timezone
 
@@ -79,6 +80,7 @@ class TestFlag:
             flag_type="needs_review",
             message="Please review",
             assigned_to=user,
+            assigned_at=timezone.now(),
         )
         assert flag.is_resolved is False
         assert list(user.assigned_flags.all()) == [flag]
@@ -261,6 +263,134 @@ class TestFlagAdmin:
         request.user = editor
 
         assert set(self._admin().get_actions(request)) == {"assign_to_me", "mark_resolved"}
+
+
+@pytest.mark.django_db
+class TestFlagAdminFilters:
+    """The sidebar filters, exercised through a real ChangeList.
+
+    ``AssignedToMeFilter`` closes over ``request.user``, so it has to be driven
+    by an actual request rather than called directly.
+    """
+
+    def _changelist_queryset(self, query: str, user):
+        request = RequestFactory().get(f"/{query}")
+        request.user = user
+        admin_instance = FlagAdmin(Flag, AdminSite())
+        return admin_instance.get_changelist_instance(request).get_queryset(request)
+
+    @pytest.fixture
+    def triage_user(self):
+        return get_user_model().objects.create(username="triager", is_staff=True, is_superuser=True)
+
+    @pytest.fixture
+    def flags(self, separated_submission: SeparatedSubmission, triage_user):
+        other = get_user_model().objects.create(username="somebody_else")
+        return SimpleNamespace(
+            unresolved=Flag.objects.create(separated_submission=separated_submission, flag_type="open", message="m"),
+            resolved=Flag.objects.create(
+                separated_submission=separated_submission,
+                flag_type="closed",
+                message="m",
+                resolved_at=timezone.now(),
+                resolved_by=triage_user,
+            ),
+            mine=Flag.objects.create(
+                separated_submission=separated_submission,
+                flag_type="mine",
+                message="m",
+                assigned_to=triage_user,
+                assigned_at=timezone.now(),
+            ),
+            theirs=Flag.objects.create(
+                separated_submission=separated_submission,
+                flag_type="theirs",
+                message="m",
+                assigned_to=other,
+                assigned_at=timezone.now(),
+            ),
+        )
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [("unresolved", {"open", "mine", "theirs"}), ("resolved", {"closed"}), (None, {"open", "closed", "mine", "theirs"})],
+    )
+    def test_resolved_filter(self, flags, triage_user, value, expected) -> None:
+        """``?resolved=`` partitions the queue by resolution status; no value leaves it untouched."""
+        query = f"?resolved={value}" if value else ""
+        assert set(self._changelist_queryset(query, triage_user).values_list("flag_type", flat=True)) == expected
+
+    def test_assigned_to_me_filter(self, flags, triage_user) -> None:
+        """``?mine=me`` shows only the request user's own flags — not another user's."""
+        result = set(self._changelist_queryset("?mine=me", triage_user).values_list("flag_type", flat=True))
+        assert result == {"mine"}
+
+    def test_unassigned_filter(self, flags, triage_user) -> None:
+        """``?mine=unassigned`` shows the unclaimed queue."""
+        result = set(self._changelist_queryset("?mine=unassigned", triage_user).values_list("flag_type", flat=True))
+        assert result == {"open", "closed"}
+
+
+@pytest.mark.django_db
+class TestFlaggedColumnOrdering:
+    """``ordering="has_unresolved_flags"`` makes the Flagged column click-to-sort."""
+
+    @pytest.mark.parametrize(
+        ("admin_class", "model"),
+        [(SubmissionAdmin, Submission), (SeparatedSubmissionAdmin, SeparatedSubmission)],
+    )
+    def test_flagged_column_sorts(self, admin_class, model, separated_submission: SeparatedSubmission) -> None:
+        """Sorting on the Flagged column orders by the annotation, flagged rows last then first."""
+        # A second, unflagged submission to sort against.
+        Submission.objects.create(form_type="TestForm", fields={"test": "other"})
+        Flag.objects.create(separated_submission=separated_submission, flag_type="r", message="m")
+
+        admin_instance = admin_class(model, AdminSite())
+        flagged_pks = {separated_submission.pk if model is SeparatedSubmission else separated_submission.submission_id}
+
+        def changelist(query: str = "", suffix: str = ""):
+            request = RequestFactory().get(f"/{query}")
+            request.user = get_user_model().objects.create(username=f"su{suffix}", is_staff=True, is_superuser=True)
+            return admin_instance.get_changelist_instance(request), request
+
+        # ``?o=`` indexes into the ChangeList's list_display, which has
+        # ``action_checkbox`` prepended — not the ModelAdmin's own tuple.
+        column = changelist(suffix="probe")[0].list_display.index("flagged")
+
+        def ordered(order: str) -> list:
+            cl, request = changelist(f"?o={order}", suffix=order)
+            return list(cl.get_queryset(request).values_list("pk", flat=True))
+
+        ascending = ordered(str(column))
+        descending = ordered(f"-{column}")
+        assert ascending[-1] in flagged_pks, "flagged rows should sort last ascending"
+        assert descending[0] in flagged_pks, "flagged rows should sort first descending"
+
+
+@pytest.mark.django_db
+class TestFlagAssignmentConstraint:
+    """``assigned_to`` and ``assigned_at`` must move together, whoever writes them."""
+
+    def test_assigned_to_without_assigned_at_is_rejected(self, separated_submission: SeparatedSubmission) -> None:
+        """A writer outside the admin cannot leave assigned_at NULL and silently age-less."""
+        user = get_user_model().objects.create(username="rule_engine")
+        with pytest.raises(IntegrityError):
+            Flag.objects.create(
+                separated_submission=separated_submission,
+                flag_type="r",
+                message="m",
+                assigned_to=user,
+            )
+
+    def test_assigned_at_without_assigned_to_is_rejected(self, separated_submission: SeparatedSubmission) -> None:
+        """The converse — a timestamp with nobody holding the flag — is equally meaningless."""
+        with pytest.raises(IntegrityError):
+            Flag.objects.create(
+                separated_submission=separated_submission,
+                flag_type="r",
+                message="m",
+                assigned_at=timezone.now(),
+            )
 
 
 @pytest.mark.django_db

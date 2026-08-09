@@ -466,6 +466,17 @@ class Flag(models.Model):
 
     class Meta:
         ordering = ["-created"]
+        constraints = [
+            # ``assigned_at`` is how long a flag has sat with someone, so an
+            # assignment without it silently under-reports the triage queue's
+            # age. The admin keeps the pair in step; this makes every other
+            # writer (data migrations, rule engines, bulk ``.update()``) do the
+            # same instead of failing quietly.
+            models.CheckConstraint(
+                check=models.Q(assigned_to__isnull=True, assigned_at__isnull=True) | models.Q(assigned_to__isnull=False, assigned_at__isnull=False),
+                name="flag_assigned_to_and_at_together",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.flag_type} on separated submission {self.separated_submission_id}"

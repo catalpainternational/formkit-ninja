@@ -9,6 +9,7 @@ import django.core.exceptions
 import pghistory.admin
 from django import forms
 from django.contrib import admin
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.http import HttpRequest
 from django.utils import timezone
 
@@ -777,22 +778,25 @@ class SeparatedSubmissionForm(forms.ModelForm):
         }
 
 
-def _apply_flag_bookkeeping(flag: Flag, user, *, assignment_changed: bool) -> None:
+def _apply_flag_bookkeeping(flag: Flag, user: AbstractBaseUser, *, assignment_changed: bool) -> None:
     """
     Populate the audit fields the flag forms leave readonly.
 
     Shared by FlagAdmin.save_model and the FlagInline path through
     SeparatedSubmissionAdmin.save_formset, so both write paths record the
     same created_by/resolved_by/assigned_at bookkeeping.
+
+    The user FKs are written by ``_id`` so the annotation can stay at
+    ``AbstractBaseUser`` rather than the concrete swappable user model.
     """
     if flag.pk is None and flag.created_by_id is None:
-        flag.created_by = user
+        flag.created_by_id = user.pk
     if flag.resolved_at is None:
         # Re-opened (or never resolved): a stale resolved_by would attribute
         # any later resolution to the wrong user.
-        flag.resolved_by = None
+        flag.resolved_by_id = None
     elif flag.resolved_by_id is None:
-        flag.resolved_by = user
+        flag.resolved_by_id = user.pk
     if assignment_changed:
         flag.assigned_at = timezone.now() if flag.assigned_to_id else None
 
@@ -803,8 +807,8 @@ class FlagInline(admin.TabularInline):
     model = Flag
     fk_name = "separated_submission"
     extra = 0
-    fields = ("flag_type", "severity", "message", "assigned_to", "resolved_at", "resolved_by", "created")
-    readonly_fields = ("created", "resolved_by")
+    fields = ("flag_type", "severity", "message", "assigned_to", "assigned_at", "resolved_at", "resolved_by", "created")
+    readonly_fields = ("created", "resolved_by", "assigned_at")
     raw_id_fields = ("assigned_to",)
 
 
@@ -879,10 +883,9 @@ class SeparatedSubmissionAdmin(admin.ModelAdmin):
         instances = formset.save(commit=False)
         for obj in formset.deleted_objects:
             obj.delete()
-        to_save = {id(obj) for obj in instances}
         for inline_form in formset.forms:
             obj = inline_form.instance
-            if id(obj) not in to_save:
+            if not any(obj is instance for instance in instances):
                 continue
             _apply_flag_bookkeeping(obj, request.user, assignment_changed="assigned_to" in inline_form.changed_data)
             obj.save()
@@ -983,7 +986,16 @@ class FlagAdmin(admin.ModelAdmin):
         "created",
         "message_preview",
     )
-    list_filter = ("severity", "flag_type", ResolvedFlagFilter, AssignedToMeFilter, "assigned_to")
+    # ``assigned_to`` uses RelatedOnlyFieldListFilter: the default
+    # RelatedFieldListFilter renders every row of the user table, which on a
+    # real deployment is a multi-thousand-option <select> on every page load.
+    list_filter = (
+        "severity",
+        "flag_type",
+        ResolvedFlagFilter,
+        AssignedToMeFilter,
+        ("assigned_to", admin.RelatedOnlyFieldListFilter),
+    )
     search_fields = ("flag_type", "message", "separated_submission__id")
     readonly_fields = ("created", "resolved_by", "created_by", "assigned_at")
     date_hierarchy = "created"
@@ -993,7 +1005,9 @@ class FlagAdmin(admin.ModelAdmin):
 
     @admin.display(boolean=True, description="Resolved", ordering="resolved_at")
     def is_resolved(self, obj: Flag) -> bool:
-        return obj.resolved_at is not None
+        # The method exists for boolean=True/ordering; the rule itself lives on
+        # the model.
+        return obj.is_resolved
 
     @admin.display(description="Message")
     def message_preview(self, obj: Flag) -> str:
