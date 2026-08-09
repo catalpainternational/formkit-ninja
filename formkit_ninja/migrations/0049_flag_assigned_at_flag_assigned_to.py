@@ -40,4 +40,12 @@ class Migration(migrations.Migration):
                 name="flag_assigned_to_and_at_together",
             ),
         ),
+        migrations.AddIndex(
+            model_name="flag",
+            index=models.Index(
+                condition=models.Q(("resolved_at__isnull", True)),
+                fields=["separated_submission"],
+                name="flag_unresolved_by_sepsub_idx",
+            ),
+        ),
     ]

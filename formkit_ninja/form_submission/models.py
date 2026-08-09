@@ -477,6 +477,17 @@ class Flag(models.Model):
                 name="flag_assigned_to_and_at_together",
             ),
         ]
+        indexes = [
+            # Every submission changelist page now runs the
+            # ``with_has_unresolved_flags`` correlated EXISTS. A partial index
+            # keeps that flat as the flag table grows: it covers only the
+            # unresolved rows, which is the only half the subquery looks at.
+            models.Index(
+                fields=["separated_submission"],
+                condition=models.Q(resolved_at__isnull=True),
+                name="flag_unresolved_by_sepsub_idx",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.flag_type} on separated submission {self.separated_submission_id}"
