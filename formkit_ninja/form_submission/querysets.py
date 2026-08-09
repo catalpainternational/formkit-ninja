@@ -20,6 +20,19 @@ from django.db.models.functions import JSONObject
 _QS = TypeVar("_QS", bound=models.QuerySet)
 
 
+def _unresolved_flags(outer_ref_path: str) -> Exists:
+    """
+    ``Exists`` over the unresolved flags of the row being annotated.
+
+    ``outer_ref_path`` is the lookup from Flag to that row —
+    ``separated_submission__submission`` from a Submission,
+    ``separated_submission`` from a SeparatedSubmission.
+    """
+    from formkit_ninja.form_submission.models import Flag
+
+    return Exists(Flag.objects.filter(**{outer_ref_path: OuterRef("pk")}, resolved_at__isnull=True))
+
+
 class SubmissionQuerySet(models.QuerySet):
     """
     Custom queryset for Submission with annotation helpers.
@@ -50,6 +63,17 @@ class SubmissionQuerySet(models.QuerySet):
 
         return self.annotate(has_import_failure=Exists(failed_subs))
 
+    def with_has_unresolved_flags(self: _QS) -> _QS:
+        """
+        Annotate each Submission with ``has_unresolved_flags`` (bool) only.
+
+        The cheap half of :meth:`with_unresolved_flags`. Callers that just need
+        the boolean — a list column, a filter, an ordering — should use this:
+        the JSON aggregate is a correlated per-row subquery, and paying for it
+        to render a yes/no tick is pure waste.
+        """
+        return self.annotate(has_unresolved_flags=_unresolved_flags("separated_submission__submission"))
+
     def with_unresolved_flags(self: _QS) -> _QS:
         """
         Annotate each Submission with:
@@ -58,13 +82,10 @@ class SubmissionQuerySet(models.QuerySet):
         - ``unresolved_flags_json`` (JSON array) — ``[{"flag_type", "message", "severity"}, ...]``
           Ordered by flag ``created`` descending (newest first). When there are no
           unresolved flags, ``unresolved_flags_json`` is ``None`` (not ``[]``).
+
+        Need only the boolean? Use :meth:`with_has_unresolved_flags`.
         """
         from formkit_ninja.form_submission.models import Flag
-
-        unresolved = Flag.objects.filter(
-            separated_submission__submission=OuterRef("pk"),
-            resolved_at__isnull=True,
-        )
 
         flags_json = (
             Flag.objects.filter(
@@ -87,7 +108,7 @@ class SubmissionQuerySet(models.QuerySet):
         )
 
         return self.annotate(
-            has_unresolved_flags=Exists(unresolved),
+            has_unresolved_flags=_unresolved_flags("separated_submission__submission"),
             unresolved_flags_json=Subquery(flags_json),
         )
 
@@ -134,6 +155,17 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
             ),
         )
 
+    def with_has_unresolved_flags(self: _QS) -> _QS:
+        """
+        Annotate each SeparatedSubmission with ``has_unresolved_flags`` (bool) only.
+
+        The cheap half of :meth:`with_unresolved_flags`. Callers that just need
+        the boolean — a list column, a filter, an ordering — should use this:
+        the JSON aggregate is a correlated per-row subquery, and paying for it
+        to render a yes/no tick is pure waste.
+        """
+        return self.annotate(has_unresolved_flags=_unresolved_flags("separated_submission"))
+
     def with_unresolved_flags(self: _QS) -> _QS:
         """
         Annotate each SeparatedSubmission with:
@@ -142,13 +174,10 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
         - ``unresolved_flags_json`` (JSON array) — ``[{"flag_type", "message", "severity"}, ...]``
           Ordered by flag ``created`` descending (newest first). When there are no
           unresolved flags, ``unresolved_flags_json`` is ``None`` (not ``[]``).
+
+        Need only the boolean? Use :meth:`with_has_unresolved_flags`.
         """
         from formkit_ninja.form_submission.models import Flag
-
-        unresolved = Flag.objects.filter(
-            separated_submission=OuterRef("pk"),
-            resolved_at__isnull=True,
-        )
 
         flags_json = (
             Flag.objects.filter(
@@ -171,6 +200,6 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
         )
 
         return self.annotate(
-            has_unresolved_flags=Exists(unresolved),
+            has_unresolved_flags=_unresolved_flags("separated_submission"),
             unresolved_flags_json=Subquery(flags_json),
         )

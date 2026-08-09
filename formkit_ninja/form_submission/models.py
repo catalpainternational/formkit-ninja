@@ -454,9 +454,52 @@ class Flag(models.Model):
         blank=True,
         related_name="+",
     )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_flags",
+        help_text="User responsible for triaging/resolving this flag",
+    )
+    assigned_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created"]
+        constraints = [
+            # ``assigned_at`` is how long a flag has sat with someone, so an
+            # assignment without it silently under-reports the triage queue's
+            # age. The admin keeps the pair in step; this makes every other
+            # writer (data migrations, rule engines, bulk ``.update()``) do the
+            # same instead of failing quietly.
+            #
+            # One-directional on purpose. The biconditional ("both set or both
+            # NULL") is unenforceable alongside ``assigned_to``'s SET_NULL:
+            # deleting a user issues a bare ``UPDATE ... SET assigned_to_id =
+            # NULL``, leaving ``assigned_at`` behind, so it would make every
+            # user who has ever held a flag undeletable — and fail deep inside
+            # the delete cascade. A stranded ``assigned_at`` is harmless
+            # residue; an assignment with no age is the state worth rejecting.
+            models.CheckConstraint(
+                check=models.Q(assigned_to__isnull=True) | models.Q(assigned_at__isnull=False),
+                name="flag_assigned_to_has_assigned_at",
+            ),
+        ]
+        indexes = [
+            # Every submission changelist page now runs the
+            # ``with_has_unresolved_flags`` correlated EXISTS. A partial index
+            # keeps that flat as the flag table grows: it covers only the
+            # unresolved rows, which is the only half the subquery looks at.
+            models.Index(
+                fields=["separated_submission"],
+                condition=models.Q(resolved_at__isnull=True),
+                name="flag_unresolved_by_sepsub_idx",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.flag_type} on separated submission {self.separated_submission_id}"
+
+    @property
+    def is_resolved(self) -> bool:
+        return self.resolved_at is not None

@@ -9,7 +9,9 @@ import django.core.exceptions
 import pghistory.admin
 from django import forms
 from django.contrib import admin
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.http import HttpRequest
+from django.utils import timezone
 
 # Import admin modules to register them
 from formkit_ninja import (
@@ -776,6 +778,40 @@ class SeparatedSubmissionForm(forms.ModelForm):
         }
 
 
+def _apply_flag_bookkeeping(flag: Flag, user: AbstractBaseUser, *, assignment_changed: bool) -> None:
+    """
+    Populate the audit fields the flag forms leave readonly.
+
+    Shared by FlagAdmin.save_model and the FlagInline path through
+    SeparatedSubmissionAdmin.save_formset, so both write paths record the
+    same created_by/resolved_by/assigned_at bookkeeping.
+
+    The user FKs are written by ``_id`` so the annotation can stay at
+    ``AbstractBaseUser`` rather than the concrete swappable user model.
+    """
+    if flag.pk is None and flag.created_by_id is None:
+        flag.created_by_id = user.pk
+    if flag.resolved_at is None:
+        # Re-opened (or never resolved): a stale resolved_by would attribute
+        # any later resolution to the wrong user.
+        flag.resolved_by_id = None
+    elif flag.resolved_by_id is None:
+        flag.resolved_by_id = user.pk
+    if assignment_changed:
+        flag.assigned_at = timezone.now() if flag.assigned_to_id else None
+
+
+class FlagInline(admin.TabularInline):
+    """Inline for managing quality flags from a SeparatedSubmission change page."""
+
+    model = Flag
+    fk_name = "separated_submission"
+    extra = 0
+    fields = ("flag_type", "severity", "message", "assigned_to", "assigned_at", "resolved_at", "resolved_by", "created")
+    readonly_fields = ("created", "resolved_by", "assigned_at")
+    raw_id_fields = ("assigned_to",)
+
+
 class SeparatedSubmissionInline(admin.TabularInline):
     """Inline for showing separated submissions within a Submission."""
 
@@ -791,7 +827,7 @@ class SeparatedSubmissionInline(admin.TabularInline):
 class SubmissionAdmin(admin.ModelAdmin):
     """Admin for Submission model."""
 
-    list_display = ("short_key", "user", "created", "status", "form_type", "is_verified", "is_active")
+    list_display = ("short_key", "user", "created", "status", "form_type", "is_verified", "flagged", "is_active")
     list_filter = ("is_active", "user", "status", "form_type", "created")
     search_fields = ("key", "form_type", "user__username", "user__email")
     list_select_related = ("user",)
@@ -799,6 +835,12 @@ class SubmissionAdmin(admin.ModelAdmin):
     readonly_fields = ("key", "created", "updated")
     inlines = [SeparatedSubmissionInline]
     date_hierarchy = "created"
+
+    def get_queryset(self, request):
+        # Only the boolean is rendered (see ``flagged`` below); the full
+        # ``with_unresolved_flags`` also builds a per-row JSONBAgg this page
+        # never displays.
+        return super().get_queryset(request).with_has_unresolved_flags()
 
     @admin.display(description="Key", ordering="key")
     def short_key(self, obj: Submission | None) -> str:
@@ -809,18 +851,45 @@ class SubmissionAdmin(admin.ModelAdmin):
         """Returns whether this submission is verified."""
         return obj.status == Submission.Status.VERIFIED
 
+    @admin.display(boolean=True, description="Flagged", ordering="has_unresolved_flags")
+    def flagged(self, obj: Submission) -> bool:
+        """Whether this submission has unresolved quality flags."""
+        return bool(getattr(obj, "has_unresolved_flags", False))
+
 
 @admin.register(SeparatedSubmission)
 class SeparatedSubmissionAdmin(admin.ModelAdmin):
     """Admin for SeparatedSubmission model."""
 
-    list_display = ("short_id", "user", "created", "status", "form_type", "is_verified", "repeater_key", "repeater_order")
+    list_display = ("short_id", "user", "created", "status", "form_type", "is_verified", "flagged", "repeater_key", "repeater_order")
     list_filter = ("user", "status", "form_type", "repeater_key", "created")
     search_fields = ("id", "form_type", "user__username", "user__email", "repeater_key")
     readonly_fields = [f.name for f in SeparatedSubmission._meta.fields]
     list_select_related = ("submission", "user", "repeater_parent")
     list_per_page = 50
     date_hierarchy = "created"
+    inlines = [FlagInline]
+
+    def get_queryset(self, request):
+        # Only the boolean is rendered (see ``flagged`` below); the full
+        # ``with_unresolved_flags`` also builds a per-row JSONBAgg this page
+        # never displays.
+        return super().get_queryset(request).with_has_unresolved_flags()
+
+    def save_formset(self, request, form, formset, change):
+        """Apply the same flag bookkeeping as FlagAdmin.save_model to inline saves."""
+        if formset.model is not Flag:
+            return super().save_formset(request, form, formset, change)
+        instances = formset.save(commit=False)
+        for obj in formset.deleted_objects:
+            obj.delete()
+        for inline_form in formset.forms:
+            obj = inline_form.instance
+            if not any(obj is instance for instance in instances):
+                continue
+            _apply_flag_bookkeeping(obj, request.user, assignment_changed="assigned_to" in inline_form.changed_data)
+            obj.save()
+        formset.save_m2m()
 
     @admin.display(description="ID", ordering="id")
     def short_id(self, obj: SeparatedSubmission | None) -> str:
@@ -830,6 +899,11 @@ class SeparatedSubmissionAdmin(admin.ModelAdmin):
     def is_verified(self, obj: SeparatedSubmission) -> bool:
         """Returns whether the parent submission is verified."""
         return obj.submission.status == Submission.Status.VERIFIED
+
+    @admin.display(boolean=True, description="Flagged", ordering="has_unresolved_flags")
+    def flagged(self, obj: SeparatedSubmission) -> bool:
+        """Whether this separated submission has unresolved quality flags."""
+        return bool(getattr(obj, "has_unresolved_flags", False))
 
 
 @admin.register(SubmissionFile)
@@ -866,11 +940,104 @@ class SeparatedSubmissionImportAdmin(admin.ModelAdmin):
         return "-"
 
 
+class ResolvedFlagFilter(admin.SimpleListFilter):
+    """Filter flags by whether they have been resolved."""
+
+    title = "resolution status"
+    parameter_name = "resolved"
+
+    def lookups(self, request, model_admin):
+        return (("unresolved", "Unresolved"), ("resolved", "Resolved"))
+
+    def queryset(self, request, queryset):
+        if self.value() == "unresolved":
+            return queryset.filter(resolved_at__isnull=True)
+        if self.value() == "resolved":
+            return queryset.filter(resolved_at__isnull=False)
+        return queryset
+
+
+class AssignedToMeFilter(admin.SimpleListFilter):
+    """Filter flags assigned to the current user."""
+
+    title = "assignment"
+    parameter_name = "mine"
+
+    def lookups(self, request, model_admin):
+        return (("me", "Assigned to me"), ("unassigned", "Unassigned"))
+
+    def queryset(self, request, queryset):
+        if self.value() == "me":
+            return queryset.filter(assigned_to=request.user)
+        if self.value() == "unassigned":
+            return queryset.filter(assigned_to__isnull=True)
+        return queryset
+
+
 @admin.register(Flag)
 class FlagAdmin(admin.ModelAdmin):
-    list_display = ("separated_submission", "flag_type", "severity", "created", "resolved_at")
-    list_filter = ("flag_type", "severity", "resolved_at")
-    search_fields = ("flag_type", "message", "separated_submission_id")
-    readonly_fields = ("created",)
+    list_display = (
+        "separated_submission",
+        "flag_type",
+        "severity",
+        "is_resolved",
+        "assigned_to",
+        "created_by",
+        "created",
+        "message_preview",
+    )
+    # ``assigned_to`` uses RelatedOnlyFieldListFilter: the default
+    # RelatedFieldListFilter renders every row of the user table, which on a
+    # real deployment is a multi-thousand-option <select> on every page load.
+    list_filter = (
+        "severity",
+        "flag_type",
+        ResolvedFlagFilter,
+        AssignedToMeFilter,
+        ("assigned_to", admin.RelatedOnlyFieldListFilter),
+    )
+    search_fields = ("flag_type", "message", "separated_submission__id")
+    readonly_fields = ("created", "resolved_by", "created_by", "assigned_at")
     date_hierarchy = "created"
-    raw_id_fields = ("separated_submission",)
+    raw_id_fields = ("separated_submission", "assigned_to")
+    list_select_related = ("separated_submission", "assigned_to", "created_by")
+    actions = ("assign_to_me", "mark_resolved")
+
+    @admin.display(boolean=True, description="Resolved", ordering="resolved_at")
+    def is_resolved(self, obj: Flag) -> bool:
+        # The method exists for boolean=True/ordering; the rule itself lives on
+        # the model.
+        return obj.is_resolved
+
+    @admin.display(description="Message")
+    def message_preview(self, obj: Flag) -> str:
+        if obj.message:
+            max_length = 80
+            if len(obj.message) > max_length:
+                return f"{obj.message[:max_length]}..."
+            return obj.message
+        return "-"
+
+    def save_model(self, request, obj, form, change):
+        """Auto-populate audit/assignment fields from the admin context."""
+        _apply_flag_bookkeeping(obj, request.user, assignment_changed="assigned_to" in form.changed_data)
+        super().save_model(request, obj, form, change)
+
+    # ``permissions`` is required, not optional: Django's
+    # ``_filter_actions_by_permissions`` offers any action *without* an
+    # ``allowed_permissions`` attribute unconditionally, and the changelist
+    # itself only requires view-or-change. Without this a staff user holding
+    # only ``view_flag`` could claim and mass-resolve the whole triage queue.
+    @admin.action(description="Assign selected flags to me", permissions=["change"])
+    def assign_to_me(self, request, queryset):
+        updated = queryset.filter(assigned_to__isnull=True).update(assigned_to=request.user, assigned_at=timezone.now())
+        skipped = queryset.count() - updated
+        message = f"{updated} flag(s) assigned to you."
+        if skipped:
+            message += f" {skipped} already-assigned flag(s) were left unchanged."
+        self.message_user(request, message)
+
+    @admin.action(description="Mark selected flags resolved", permissions=["change"])
+    def mark_resolved(self, request, queryset):
+        updated = queryset.filter(resolved_at__isnull=True).update(resolved_at=timezone.now(), resolved_by=request.user)
+        self.message_user(request, f"{updated} flag(s) marked resolved.")
