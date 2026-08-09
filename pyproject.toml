@@ -75,6 +75,9 @@ django_settings_module = "testproject.settings"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "testproject.settings"
 addopts = "--reuse-db --cov=formkit_ninja --cov-report=term-missing --cov-report=html --cov-branch"
+markers = [
+    "no_split_on_save: opt out of the autouse fixture that splits Submissions on post_save",
+]
 
 # Playwright: uncomment for "headed", interactive tests
 #addopts = "--reuse-db --cov=formkit_ninja --cov-report=term-missing --cov-report=html --cov-branch --headed"
