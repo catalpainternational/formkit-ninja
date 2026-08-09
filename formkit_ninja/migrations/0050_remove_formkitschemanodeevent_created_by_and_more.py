@@ -6,7 +6,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("formkit_ninja", "0048_backfill_pghistory_to_streams"),
+        ("formkit_ninja", "0049_backfill_pghistory_to_streams"),
     ]
 
     operations = [

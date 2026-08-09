@@ -126,7 +126,7 @@ def backfill(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("formkit_ninja", "0047_flag_assigned_at_flag_assigned_to"),
+        ("formkit_ninja", "0048_flag_assigned_at_flag_assigned_to"),
         ("django_rakaia", "0001_initial"),
     ]
 

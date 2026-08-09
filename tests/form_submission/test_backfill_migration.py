@@ -1,8 +1,8 @@
-"""End-to-end test of the pghistory->rakaia backfill (migration 0048).
+"""End-to-end test of the pghistory->rakaia backfill (migration 0049).
 
 Uses Django's MigrationExecutor to rewind to the state where the pghistory
-``*Event`` tables still exist (0047), insert event rows, then run the backfill
-(0048) and assert the rows landed in rakaia streams. Finally fast-forwards back
+``*Event`` tables still exist (0048), insert event rows, then run the backfill
+(0049) and assert the rows landed in rakaia streams. Finally fast-forwards back
 to the latest migration so the shared test DB is left consistent.
 """
 
@@ -13,8 +13,8 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
 APP = "formkit_ninja"
-BEFORE = "0047_flag_assigned_at_flag_assigned_to"
-BACKFILL = "0048_backfill_pghistory_to_streams"
+BEFORE = "0048_flag_assigned_at_flag_assigned_to"
+BACKFILL = "0049_backfill_pghistory_to_streams"
 
 
 def _migrate(target):
