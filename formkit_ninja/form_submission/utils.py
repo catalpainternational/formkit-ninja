@@ -1,9 +1,12 @@
 import uuid
 import warnings
 from copy import deepcopy
-from typing import Any, Iterable, TypeVar
+from typing import TYPE_CHECKING, Any, Iterable, TypeVar
 
 from django.db import models
+
+if TYPE_CHECKING:
+    from formkit_ninja.form_submission.models import SeparatedSubmission
 
 
 def one_to_many(model: models.Model):
@@ -222,6 +225,98 @@ def flatten(
         for idx, rep_item in enumerate(klone.pop(rep_k)):
             yield from flatten(rep_item, parent_key=[*parent_key, rep_k], parent_uuid=current_uuid, index=idx)
     yield parent_key, parent_uuid, klone, index
+
+
+def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
+    """Inverse of flatten(): rebuild the nested document from a row tree.
+
+    ``rows`` is the full ``SeparatedSubmission`` row set of one submission
+    (root + every repeater row). Children are bucketed by ``repeater_parent``,
+    emitted under their ``repeater_key`` sorted by ``(repeater_order, pk)``
+    with their pk re-injected as ``uuid``, recursively.
+
+    Invariant (#48 — ``pre_validation`` must be applied to BOTH sides, since
+    the row fields were pre-validated on save):
+
+        pre_validation(compose(rows_of(s))) == pre_validation(s.fields)
+
+    Known losses (asserted in tests/test_compose.py): uuid-less document rows
+    were never stored, and rows whose parent could not be resolved were
+    re-parented to the root — both are unrecoverable here by design.
+
+    Raises ``ValueError`` rather than returning a plausible-looking document
+    when the row set is not exactly one intact tree: no/several roots, a row
+    handed in more than once, rows unreachable from the root, a row whose
+    ``fields`` is not a JSON object, or a ``repeater_key`` colliding with a
+    non-repeater value already in the parent's fields.
+    """
+    roots: list["SeparatedSubmission"] = []
+    by_parent: dict[uuid.UUID, list["SeparatedSubmission"]] = {}
+    seen: set = set()
+    total = 0
+    for row in rows:
+        # ``rows`` is any iterable, so the same row can arrive twice: a queryset
+        # with a join fan-out, two querysets concatenated. Bucketing it twice
+        # emits it twice while visited==total keeps the reachability check quiet
+        # — a document with a phantom repeater row and no complaint.
+        if row.pk in seen:
+            raise ValueError(f"compose() received duplicate rows for {row.pk}; the row set must be a tree, not a multiset")
+        seen.add(row.pk)
+        total += 1
+        if row.repeater_parent_id is None:
+            roots.append(row)
+        else:
+            by_parent.setdefault(row.repeater_parent_id, []).append(row)
+    # Both halves matter. Zero roots means the caller passed a partial row set.
+    # Two or more means they passed rows spanning several submissions — silently
+    # keeping one and discarding the rest would return a plausible-looking
+    # document while losing whole submissions.
+    if len(roots) != 1:
+        raise ValueError(f"compose() requires exactly one root row (repeater_parent is NULL), got {len(roots)}")
+    root = roots[0]
+    visited = 0
+
+    def build(row: "SeparatedSubmission", *, is_root: bool) -> dict:
+        nonlocal visited
+        visited += 1
+        # ``fields`` is a plain JSONField over jsonb, which holds scalars and
+        # arrays as readily as objects, and writers that bypass
+        # SubmissionField.pre_save (.update(), imports) can put one there. A
+        # child would raise a bare TypeError below; a childless root would sail
+        # through both guards and out of this dict-returning function as a list.
+        if not isinstance(row.fields, dict):
+            raise ValueError(f"compose() cannot use row {row.pk}: fields is a {type(row.fields).__name__}, not a JSON object ({row.fields!r})")
+        doc = deepcopy(row.fields)
+        if not is_root:
+            # _save_repeater_chunk pops "uuid" from a child to use as the pk;
+            # the root's own "uuid" (if any) is never stripped, so only
+            # children get theirs re-injected.
+            doc["uuid"] = str(row.pk)
+        # repeater_order is nullable and unconstrained, so the sort must be made
+        # total and deterministic: NULLs last, ties broken on pk.
+        children = sorted(
+            by_parent.get(row.pk, []),
+            key=lambda c: (c.repeater_key, c.repeater_order is None, c.repeater_order or 0, str(c.pk)),
+        )
+        for child in children:
+            bucket = doc.get(child.repeater_key)
+            if bucket is None:
+                bucket = doc[child.repeater_key] = []
+            # flatten() only pops keys whose values are all dicts, so anything
+            # still sitting under a repeater_key is a non-repeater value the
+            # child would corrupt (a list of scalars) or crash on (a string).
+            elif not isinstance(bucket, list) or not all(isinstance(item, dict) for item in bucket):
+                raise ValueError(f"compose() cannot place row {child.pk} under repeater_key {child.repeater_key!r} of its parent {row.pk}: that key already holds a non-repeater value ({bucket!r})")
+            bucket.append(build(child, is_root=False))
+        return doc
+
+    composed = build(root, is_root=True)
+    # A row whose repeater_parent_id is absent from `rows` (partial queryset,
+    # parent/child cycle) is never visited. Dropping it silently is the same
+    # failure the root-count check exists to prevent, one level down.
+    if visited != total:
+        raise ValueError(f"compose() left {total - visited} of {total} rows unreachable from the root")
+    return composed
 
 
 def igetattr(thing: Any, prop: str):
