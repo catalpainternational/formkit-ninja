@@ -3,11 +3,12 @@ from types import SimpleNamespace
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import RequestFactory
 from django.utils import timezone
 
-from formkit_ninja.admin import FlagAdmin, FlagInline, SeparatedSubmissionAdmin
-from formkit_ninja.form_submission.models import Flag, SeparatedSubmission
+from formkit_ninja.admin import FlagAdmin, FlagInline, SeparatedSubmissionAdmin, SubmissionAdmin
+from formkit_ninja.form_submission.models import Flag, SeparatedSubmission, Submission
 
 
 def _form(*changed: str) -> SimpleNamespace:
@@ -228,3 +229,81 @@ class TestFlagAdmin:
         flag.refresh_from_db()
         assert flag.resolved_at is not None
         assert flag.resolved_by == user
+
+    def test_actions_require_change_permission(self) -> None:
+        """A view-only staff user is offered no mutating actions.
+
+        Django's ``_filter_actions_by_permissions`` offers any action lacking an
+        ``allowed_permissions`` attribute unconditionally, and the changelist
+        only requires view-or-change — so without ``permissions=["change"]`` a
+        read-only auditor could claim and mass-resolve the whole triage queue.
+        """
+        viewer = get_user_model().objects.create(username="viewer", is_staff=True)
+        viewer.user_permissions.add(Permission.objects.get(codename="view_flag"))
+        viewer = get_user_model().objects.get(pk=viewer.pk)  # drop the permission cache
+        request = RequestFactory().get("/")
+        request.user = viewer
+
+        admin_instance = self._admin()
+        assert admin_instance.has_view_permission(request) is True
+        assert admin_instance.has_change_permission(request) is False
+        assert list(admin_instance.get_actions(request)) == []
+
+    def test_actions_offered_with_change_permission(self) -> None:
+        """A user who *can* change flags still gets both triage actions."""
+        editor = get_user_model().objects.create(username="editor", is_staff=True)
+        editor.user_permissions.add(
+            Permission.objects.get(codename="view_flag"),
+            Permission.objects.get(codename="change_flag"),
+        )
+        editor = get_user_model().objects.get(pk=editor.pk)
+        request = RequestFactory().get("/")
+        request.user = editor
+
+        assert set(self._admin().get_actions(request)) == {"assign_to_me", "mark_resolved"}
+
+
+@pytest.mark.django_db
+class TestFlaggedChangelistQuery:
+    """The ``flagged`` column must not drag the JSON aggregate along with it."""
+
+    def _request(self):
+        request = RequestFactory().get("/")
+        request.user = get_user_model().objects.create(username="su", is_staff=True, is_superuser=True)
+        return request
+
+    @pytest.mark.parametrize(
+        ("admin_class", "model"),
+        [(SubmissionAdmin, Submission), (SeparatedSubmissionAdmin, SeparatedSubmission)],
+    )
+    def test_changelist_skips_the_json_aggregate(self, admin_class, model) -> None:
+        """Only ``has_unresolved_flags`` is rendered, so no JSONBAgg subquery should be emitted."""
+        sql = str(admin_class(model, AdminSite()).get_queryset(self._request()).query).upper()
+        assert "JSONB_AGG" not in sql, "changelist is computing a JSON aggregate it never displays"
+        assert "EXISTS" in sql, "the has_unresolved_flags annotation went missing"
+
+    def test_flagged_column_still_works(self, separated_submission: SeparatedSubmission) -> None:
+        """The lighter annotation still drives the boolean column on both admins."""
+        request = self._request()
+        sep_admin = SeparatedSubmissionAdmin(SeparatedSubmission, AdminSite())
+        sub_admin = SubmissionAdmin(Submission, AdminSite())
+
+        assert sep_admin.flagged(sep_admin.get_queryset(request).get(pk=separated_submission.pk)) is False
+        assert sub_admin.flagged(sub_admin.get_queryset(request).get(pk=separated_submission.submission_id)) is False
+
+        Flag.objects.create(separated_submission=separated_submission, flag_type="r", message="m")
+
+        assert sep_admin.flagged(sep_admin.get_queryset(request).get(pk=separated_submission.pk)) is True
+        assert sub_admin.flagged(sub_admin.get_queryset(request).get(pk=separated_submission.submission_id)) is True
+
+    def test_full_annotation_still_returns_json(self, separated_submission: SeparatedSubmission) -> None:
+        """with_unresolved_flags() keeps both halves for the API consumers that need the payload."""
+        Flag.objects.create(separated_submission=separated_submission, flag_type="r", message="m", severity="error")
+
+        row = SeparatedSubmission.objects.with_unresolved_flags().get(pk=separated_submission.pk)
+        assert row.has_unresolved_flags is True
+        assert row.unresolved_flags_json == [{"flag_type": "r", "message": "m", "severity": "error"}]
+
+        parent = Submission.objects.with_unresolved_flags().get(pk=separated_submission.submission_id)
+        assert parent.has_unresolved_flags is True
+        assert parent.unresolved_flags_json == [{"flag_type": "r", "message": "m", "severity": "error"}]
