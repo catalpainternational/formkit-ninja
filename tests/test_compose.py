@@ -444,3 +444,91 @@ class TestKeyCollision:
         self._child(sub, root, "k")
         with pytest.raises(ValueError, match="repeater_key 'k'"):
             compose(_rows_of(sub))
+
+    def test_error_names_the_offending_child_row(self):
+        """The pk you have to go and look at is the child's, not the parent's."""
+        sub = Submission.objects.create(form_type="TestForm", fields={"k": "x"})
+        root = SeparatedSubmission.objects.get(pk=sub.pk)
+        child = self._child(sub, root, "k")
+        with pytest.raises(ValueError) as exc:
+            compose(_rows_of(sub))
+        assert str(child.pk) in str(exc.value)
+
+
+# --------------------------------------------------------------------------- #
+# The row set is a tree, not a multiset
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestDuplicateRows:
+    """``rows`` is an arbitrary iterable, so the same row can arrive twice — a
+    queryset with a join fan-out, two querysets concatenated. It would then be
+    bucketed twice and emitted twice, while ``visited == total`` keeps the
+    reachability check quiet: a document with a phantom repeater row and no
+    complaint, which is the silent-loss failure the other guards exist to
+    prevent, running in the opposite direction.
+    """
+
+    def _sub_with_one_repeater_row(self):
+        return Submission.objects.create(
+            form_type="TestForm",
+            fields={"repeater": [{"uuid": str(uuid.uuid4()), "amount": 1}]},
+        )
+
+    def test_duplicated_child_raises_instead_of_duplicating_the_entry(self):
+        sub = self._sub_with_one_repeater_row()
+        rows = list(_rows_of(sub))
+        duplicated = rows + [r for r in rows if r.repeater_parent_id is not None]
+        with pytest.raises(ValueError, match="duplicate rows"):
+            compose(duplicated)
+
+    def test_the_whole_set_twice_is_caught_too(self):
+        """Duplicating everything trips the pk check before the root count."""
+        sub = self._sub_with_one_repeater_row()
+        rows = list(_rows_of(sub))
+        with pytest.raises(ValueError, match="duplicate rows"):
+            compose(rows + rows)
+
+    def test_distinct_rows_still_compose(self):
+        """Negative control: the check must not fire on a plain row set."""
+        sub = self._sub_with_one_repeater_row()
+        composed, stored = _roundtrip(sub)
+        assert composed == stored
+
+
+# --------------------------------------------------------------------------- #
+# fields is a plain JSONField: jsonb holds scalars and arrays too
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestNonDictFields:
+    """``.update()`` and imports bypass ``SubmissionField.pre_save``, so a row's
+    ``fields`` can be a scalar or an array. A child then raised a bare
+    ``TypeError`` from ``doc["uuid"] = ...``; a childless root sailed through
+    both guards and returned a *list* out of this dict-returning function.
+    """
+
+    def _child(self, sub, root):
+        return SeparatedSubmission.objects.create(
+            pk=uuid.uuid4(),
+            submission=sub,
+            status=sub.status,
+            fields={"n": 1},
+            form_type="TestFormX",
+            repeater_key="repeater",
+            repeater_order=0,
+            repeater_parent=root,
+        )
+
+    @pytest.mark.parametrize("damaged", ["not-a-dict", [1, 2], 3])
+    def test_child_with_non_object_fields_is_reported_as_damaged(self, damaged):
+        sub = Submission.objects.create(form_type="TestForm", fields={"field": "value"})
+        root = SeparatedSubmission.objects.get(pk=sub.pk)
+        child = self._child(sub, root)
+        SeparatedSubmission.objects.filter(pk=child.pk).update(fields=damaged)
+        with pytest.raises(ValueError, match="not a JSON object"):
+            compose(_rows_of(sub))
+
+    def test_non_object_root_does_not_return_a_non_dict(self):
+        sub = Submission.objects.create(form_type="TestForm", fields={"field": "value"})
+        SeparatedSubmission.objects.filter(pk=sub.pk).update(fields=[1, 2])
+        with pytest.raises(ValueError, match="not a JSON object"):
+            compose(_rows_of(sub))

@@ -245,14 +245,23 @@ def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
     re-parented to the root — both are unrecoverable here by design.
 
     Raises ``ValueError`` rather than returning a plausible-looking document
-    when the row set is not exactly one intact tree: no/several roots, rows
-    unreachable from the root, or a ``repeater_key`` colliding with a
+    when the row set is not exactly one intact tree: no/several roots, a row
+    handed in more than once, rows unreachable from the root, a row whose
+    ``fields`` is not a JSON object, or a ``repeater_key`` colliding with a
     non-repeater value already in the parent's fields.
     """
     roots: list["SeparatedSubmission"] = []
     by_parent: dict[uuid.UUID, list["SeparatedSubmission"]] = {}
+    seen: set = set()
     total = 0
     for row in rows:
+        # ``rows`` is any iterable, so the same row can arrive twice: a queryset
+        # with a join fan-out, two querysets concatenated. Bucketing it twice
+        # emits it twice while visited==total keeps the reachability check quiet
+        # — a document with a phantom repeater row and no complaint.
+        if row.pk in seen:
+            raise ValueError(f"compose() received duplicate rows for {row.pk}; the row set must be a tree, not a multiset")
+        seen.add(row.pk)
         total += 1
         if row.repeater_parent_id is None:
             roots.append(row)
@@ -270,6 +279,13 @@ def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
     def build(row: "SeparatedSubmission", *, is_root: bool) -> dict:
         nonlocal visited
         visited += 1
+        # ``fields`` is a plain JSONField over jsonb, which holds scalars and
+        # arrays as readily as objects, and writers that bypass
+        # SubmissionField.pre_save (.update(), imports) can put one there. A
+        # child would raise a bare TypeError below; a childless root would sail
+        # through both guards and out of this dict-returning function as a list.
+        if not isinstance(row.fields, dict):
+            raise ValueError(f"compose() cannot use row {row.pk}: fields is a {type(row.fields).__name__}, not a JSON object ({row.fields!r})")
         doc = deepcopy(row.fields)
         if not is_root:
             # _save_repeater_chunk pops "uuid" from a child to use as the pk;
@@ -290,7 +306,7 @@ def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
             # still sitting under a repeater_key is a non-repeater value the
             # child would corrupt (a list of scalars) or crash on (a string).
             elif not isinstance(bucket, list) or not all(isinstance(item, dict) for item in bucket):
-                raise ValueError(f"compose() cannot place row {row.pk}'s child under repeater_key {child.repeater_key!r}: that key already holds a non-repeater value ({bucket!r})")
+                raise ValueError(f"compose() cannot place row {child.pk} under repeater_key {child.repeater_key!r} of its parent {row.pk}: that key already holds a non-repeater value ({bucket!r})")
             bucket.append(build(child, is_root=False))
         return doc
 
