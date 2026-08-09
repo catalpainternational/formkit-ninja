@@ -243,10 +243,17 @@ def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
     Known losses (asserted in tests/test_compose.py): uuid-less document rows
     were never stored, and rows whose parent could not be resolved were
     re-parented to the root — both are unrecoverable here by design.
+
+    Raises ``ValueError`` rather than returning a plausible-looking document
+    when the row set is not exactly one intact tree: no/several roots, rows
+    unreachable from the root, or a ``repeater_key`` colliding with a
+    non-repeater value already in the parent's fields.
     """
-    roots: list[Any] = []
-    by_parent: dict[Any, list[Any]] = {}
+    roots: list["SeparatedSubmission"] = []
+    by_parent: dict[uuid.UUID, list["SeparatedSubmission"]] = {}
+    total = 0
     for row in rows:
+        total += 1
         if row.repeater_parent_id is None:
             roots.append(row)
         else:
@@ -258,8 +265,11 @@ def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
     if len(roots) != 1:
         raise ValueError(f"compose() requires exactly one root row (repeater_parent is NULL), got {len(roots)}")
     root = roots[0]
+    visited = 0
 
-    def build(row, *, is_root: bool) -> dict:
+    def build(row: "SeparatedSubmission", *, is_root: bool) -> dict:
+        nonlocal visited
+        visited += 1
         doc = deepcopy(row.fields)
         if not is_root:
             # _save_repeater_chunk pops "uuid" from a child to use as the pk;
@@ -273,10 +283,24 @@ def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
             key=lambda c: (c.repeater_key, c.repeater_order is None, c.repeater_order or 0, str(c.pk)),
         )
         for child in children:
-            doc.setdefault(child.repeater_key, []).append(build(child, is_root=False))
+            bucket = doc.get(child.repeater_key)
+            if bucket is None:
+                bucket = doc[child.repeater_key] = []
+            # flatten() only pops keys whose values are all dicts, so anything
+            # still sitting under a repeater_key is a non-repeater value the
+            # child would corrupt (a list of scalars) or crash on (a string).
+            elif not isinstance(bucket, list) or not all(isinstance(item, dict) for item in bucket):
+                raise ValueError(f"compose() cannot place row {row.pk}'s child under repeater_key {child.repeater_key!r}: that key already holds a non-repeater value ({bucket!r})")
+            bucket.append(build(child, is_root=False))
         return doc
 
-    return build(root, is_root=True)
+    composed = build(root, is_root=True)
+    # A row whose repeater_parent_id is absent from `rows` (partial queryset,
+    # parent/child cycle) is never visited. Dropping it silently is the same
+    # failure the root-count check exists to prevent, one level down.
+    if visited != total:
+        raise ValueError(f"compose() left {total - visited} of {total} rows unreachable from the root")
+    return composed
 
 
 def igetattr(thing: Any, prop: str):

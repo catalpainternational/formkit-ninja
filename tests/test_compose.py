@@ -338,3 +338,109 @@ class TestRootCount:
         sub = Submission.objects.create(form_type="Form", fields={"name": "A", "rep": [{"b": 2}]})
         composed, expected = _roundtrip(sub)
         assert _normalize_json(composed) == _normalize_json(expected)
+
+
+# --------------------------------------------------------------------------- #
+# Reachability contract
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestReachability:
+    """Every row handed in must land in the document, or compose() must say so.
+
+    The root-count check catches a caller passing too few or too many *roots*;
+    it says nothing about children. A row whose parent is absent from ``rows``
+    is simply never visited — the same silent-loss failure the root check
+    exists to prevent, one level down.
+    """
+
+    def test_child_of_missing_parent_raises(self):
+        """A row set with a hole in the middle is a partial set, not a document."""
+        sub = Submission.objects.create(
+            form_type="NestedForm",
+            fields={"level1": [{"uuid": str(uuid.uuid4()), "level2": [{"uuid": str(uuid.uuid4()), "n": 1}]}]},
+        )
+        rows = list(_rows_of(sub))
+        middle = next(r for r in rows if r.repeater_key == "level1")
+        with pytest.raises(ValueError, match="unreachable"):
+            compose([r for r in rows if r.pk != middle.pk])
+
+    def test_parent_child_cycle_raises_rather_than_dropping_rows(self):
+        """Two rows pointing at each other are reachable from neither root nor loop."""
+        sub = Submission.objects.create(form_type="TestForm", fields={"field": "value"})
+        root = SeparatedSubmission.objects.get(pk=sub.pk)
+        a_pk, b_pk = uuid.uuid4(), uuid.uuid4()
+        a = SeparatedSubmission.objects.create(
+            pk=a_pk,
+            submission=sub,
+            status=sub.status,
+            fields={"n": "a"},
+            form_type="TestFormRepeater",
+            repeater_key="repeater",
+            repeater_order=0,
+            repeater_parent=root,
+        )
+        b = SeparatedSubmission.objects.create(
+            pk=b_pk,
+            submission=sub,
+            status=sub.status,
+            fields={"n": "b"},
+            form_type="TestFormRepeater",
+            repeater_key="repeater",
+            repeater_order=0,
+            repeater_parent=a,
+        )
+        # Close the loop: a's parent becomes b, so neither is reachable from the root.
+        SeparatedSubmission.objects.filter(pk=a_pk).update(repeater_parent=b)
+
+        with pytest.raises(ValueError, match="unreachable"):
+            compose(_rows_of(sub))
+
+    def test_complete_row_set_does_not_raise(self):
+        """Negative control: the reachability check must not fire on good data."""
+        sub = Submission.objects.create(
+            form_type="NestedForm",
+            fields={"level1": [{"uuid": str(uuid.uuid4()), "level2": [{"uuid": str(uuid.uuid4()), "n": 1}]}]},
+        )
+        composed, stored = _roundtrip(sub)
+        assert composed == stored
+
+
+# --------------------------------------------------------------------------- #
+# repeater_key colliding with a non-repeater value
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestKeyCollision:
+    """``get_repeaters`` only pops keys whose values are *all dicts*.
+
+    ``{"k": "x"}`` or ``{"k": [1, 2]}`` therefore survives into a parent row's
+    ``fields``. A child row carrying ``repeater_key="k"`` then collides with it:
+    the scalar case used to raise a bare ``AttributeError`` ('str' has no
+    attribute 'append') and the int-list case silently appended a dict into a
+    list of ints. Both are damaged data and must be reported as such.
+    """
+
+    def _child(self, sub, root, key):
+        return SeparatedSubmission.objects.create(
+            pk=uuid.uuid4(),
+            submission=sub,
+            status=sub.status,
+            fields={"n": 1},
+            form_type="TestFormX",
+            repeater_key=key,
+            repeater_order=0,
+            repeater_parent=root,
+        )
+
+    def test_scalar_collision_raises_a_useful_error(self):
+        sub = Submission.objects.create(form_type="TestForm", fields={"k": "x"})
+        root = SeparatedSubmission.objects.get(pk=sub.pk)
+        self._child(sub, root, "k")
+        with pytest.raises(ValueError, match="repeater_key 'k'"):
+            compose(_rows_of(sub))
+
+    def test_non_dict_list_collision_raises_instead_of_corrupting(self):
+        sub = Submission.objects.create(form_type="TestForm", fields={"k": [1, 2]})
+        root = SeparatedSubmission.objects.get(pk=sub.pk)
+        self._child(sub, root, "k")
+        with pytest.raises(ValueError, match="repeater_key 'k'"):
+            compose(_rows_of(sub))
