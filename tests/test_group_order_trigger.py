@@ -15,8 +15,20 @@ rows: the group was left with a hole and a ``NULL``-ordered row sorting last.
 These tests pin both halves — the guard *and* the move arithmetic it feeds —
 across the two grouping shapes the helper is used with (``NodeChildren``, keyed
 on ``parent_id``; ``Option``, keyed on ``group_id``).
+
+Two further cases (#55) the "shift the span between OLD and NEW" arithmetic
+cannot express are pinned below: a row whose *stored* order is already NULL
+(what the pre-#53 trigger left behind), and a row moved to a different group.
+Both are handled as an insert into the destination group.
+
+``Option.group`` is nullable, so "the ungrouped rows" is itself a group the
+triggers have to number. The comparisons use ``IS NOT DISTINCT FROM`` for that
+reason; ``TestUngroupedOptions`` pins it. ``FormComponents`` (keyed on
+``schema_id``) is deliberately not exercised here — it is structurally identical
+to the ``NodeChildren`` shape and its group column is not nullable.
 """
 
+import pgtrigger
 import pytest
 
 from formkit_ninja import models
@@ -55,6 +67,19 @@ def _pk_at(parent, order: int) -> int:
 def _move(pk: int, order: int | None) -> None:
     """Move via ``.update()`` — the queryset path Django admin and the API use."""
     models.NodeChildren.objects.filter(pk=pk).update(order=order)
+
+
+def _corrupt_order_to_null(model, pk: int) -> None:
+    """Store ``order = NULL`` on an existing row, bypassing the guard.
+
+    This is what the pre-#53 ``AFTER`` trigger left in the database: rows the
+    guard could not protect because the assignment to ``NEW`` was discarded.
+    ``pgtrigger.ignore`` disables just the update trigger for the write, so the
+    fixture reproduces the stored state rather than the (now fixed) path that
+    produced it.
+    """
+    with pgtrigger.ignore(f"formkit_ninja.{model.__name__}:order_on_update_option"):
+        model.objects.filter(pk=pk).update(order=None)
 
 
 # --------------------------------------------------------------------------- #
@@ -227,3 +252,282 @@ class TestOptionGroupOrdering:
 
         assert self._orders(group) == [1, 2, 3, 4]
         assert models.Option.objects.get(pk=option.pk).order == 4
+
+
+# --------------------------------------------------------------------------- #
+# A row whose *stored* order is already NULL (#55)
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestStoredNullOrder:
+    """
+    #54 stopped new NULLs being written; it did nothing for the rows the old
+    ``AFTER`` trigger had already NULLed. Moving one of those compared
+    ``NEW."order" > NULL`` — itself NULL — so the ``else`` branch ran with
+    ``"order" < NULL``, matched nothing, and the mover landed on top of a
+    sibling. Such a row holds no slot, so the move is an insert: make room at
+    the destination, close no gap behind it.
+    """
+
+    def test_moving_a_null_ordered_row_makes_room_for_itself(self):
+        parent = _make_group(4)
+        pk = _pk_at(parent, 2)
+        others = [p for p, _ in _rows(parent) if p != pk]
+        _corrupt_order_to_null(models.NodeChildren, pk)
+
+        _move(pk, 1)
+
+        assert models.NodeChildren.objects.get(pk=pk).order == 1
+        # The siblings each shifted up by one and kept their relative order.
+        assert _rows(parent) == [(pk, 1), (others[0], 2), (others[1], 4), (others[2], 5)]
+
+    def test_moving_a_null_ordered_row_creates_no_duplicate(self):
+        parent = _make_group(4)
+        pk = _pk_at(parent, 2)
+        _corrupt_order_to_null(models.NodeChildren, pk)
+
+        _move(pk, 1)
+
+        orders = _orders(parent)
+        assert len(orders) == len(set(orders))
+
+    def test_moving_a_null_ordered_row_to_the_end(self):
+        parent = _make_group(4)
+        pk = _pk_at(parent, 2)
+        _corrupt_order_to_null(models.NodeChildren, pk)
+
+        _move(pk, 4)
+
+        assert models.NodeChildren.objects.get(pk=pk).order == 4
+        assert _orders(parent) == [1, 3, 4, 5]
+
+    def test_a_null_write_on_a_null_ordered_row_appends_it(self):
+        """
+        Both sides NULL: the guard has nothing to restore and there is no
+        destination to aim at, so the row goes to the end of the group — never
+        back to NULL.
+        """
+        parent = _make_group(4)
+        pk = _pk_at(parent, 2)
+        _corrupt_order_to_null(models.NodeChildren, pk)
+
+        _move(pk, None)
+
+        assert models.NodeChildren.objects.get(pk=pk).order == 5
+        assert None not in _orders(parent)
+
+    def test_a_null_ordered_row_does_not_touch_another_group(self):
+        parent_a = _make_group(4)
+        parent_b = _make_group(4)
+        before_b = _rows(parent_b)
+        pk = _pk_at(parent_a, 2)
+        _corrupt_order_to_null(models.NodeChildren, pk)
+
+        _move(pk, 1)
+
+        assert _rows(parent_b) == before_b
+
+
+# --------------------------------------------------------------------------- #
+# Moving a row to a different group (#55)
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestCrossGroupMove:
+    """
+    Both shift branches keyed off ``NEW``'s group and neither noticed the row
+    had arrived from another one: the source kept a hole and the target gained
+    a duplicate. The move is an insert into the target *plus* a gap close in
+    the source.
+    """
+
+    @staticmethod
+    def _reparent(pk: int, parent, **extra) -> None:
+        models.NodeChildren.objects.filter(pk=pk).update(parent=parent, **extra)
+
+    def test_the_source_group_closes_its_gap(self):
+        parent_a = _make_group(4)
+        parent_b = _make_group(4)
+
+        self._reparent(_pk_at(parent_a, 2), parent_b)
+
+        assert _orders(parent_a) == [1, 2, 3]
+
+    def test_the_target_group_makes_room(self):
+        parent_a = _make_group(4)
+        parent_b = _make_group(4)
+        pk = _pk_at(parent_a, 2)
+
+        self._reparent(pk, parent_b)
+
+        # The row keeps order 2 and the target's 2..4 shift up to 3..5.
+        assert _orders(parent_b) == [1, 2, 3, 4, 5]
+        assert models.NodeChildren.objects.get(pk=pk).order == 2
+
+    def test_a_cross_group_move_with_an_explicit_order(self):
+        parent_a = _make_group(4)
+        parent_b = _make_group(4)
+        pk = _pk_at(parent_a, 3)
+        b_before = [p for p, _ in _rows(parent_b)]
+
+        self._reparent(pk, parent_b, order=1)
+
+        assert _orders(parent_a) == [1, 2, 3]
+        assert [p for p, _ in _rows(parent_b)] == [pk, *b_before]
+        assert _orders(parent_b) == [1, 2, 3, 4, 5]
+
+    def test_a_cross_group_move_to_the_end_of_the_target(self):
+        parent_a = _make_group(4)
+        parent_b = _make_group(3)
+        pk = _pk_at(parent_a, 1)
+
+        self._reparent(pk, parent_b, order=4)
+
+        assert _orders(parent_a) == [1, 2, 3]
+        assert _orders(parent_b) == [1, 2, 3, 4]
+        assert models.NodeChildren.objects.get(pk=pk).order == 4
+
+    def test_a_null_ordered_row_moved_to_another_group_is_appended(self):
+        """No slot in the source to close, and no destination — append."""
+        parent_a = _make_group(4)
+        parent_b = _make_group(3)
+        pk = _pk_at(parent_a, 2)
+        _corrupt_order_to_null(models.NodeChildren, pk)
+        a_before = [p for p, _ in _rows(parent_a) if p != pk]
+
+        self._reparent(pk, parent_b)
+
+        assert [p for p, _ in _rows(parent_a)] == a_before
+        assert _orders(parent_a) == [1, 3, 4]  # the pre-existing hole is not the trigger's to fix
+        assert _orders(parent_b) == [1, 2, 3, 4]
+        assert models.NodeChildren.objects.get(pk=pk).order == 4
+
+    def test_moving_back_and_forth_stays_gapless(self):
+        parent_a = _make_group(3)
+        parent_b = _make_group(3)
+        pk = _pk_at(parent_a, 2)
+
+        self._reparent(pk, parent_b, order=1)
+        self._reparent(pk, parent_a, order=3)
+
+        assert _orders(parent_a) == [1, 2, 3]
+        assert _orders(parent_b) == [1, 2, 3]
+
+
+# --------------------------------------------------------------------------- #
+# The same two cases on the other grouping shape (``Option``, ``group_id``)
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestOptionNullAndCrossGroup:
+    @staticmethod
+    def _make_options(name: str, n: int, first_object_id: int = 0):
+        """``object_id`` is unique per group, so cross-group moves need distinct ids."""
+        group = models.OptionGroup.objects.create(group=name)
+        for i in range(n):
+            models.Option.objects.create(group=group, object_id=first_object_id + i, order=i)
+        return group
+
+    @staticmethod
+    def _orders(group) -> list[int | None]:
+        return list(models.Option.objects.filter(group=group).order_by("order").values_list("order", flat=True))
+
+    def test_moving_a_null_ordered_option_creates_no_duplicate(self):
+        group = self._make_options("g", 4)
+        option = models.Option.objects.get(group=group, order=2)
+        _corrupt_order_to_null(models.Option, option.pk)
+
+        models.Option.objects.filter(pk=option.pk).update(order=1)
+
+        assert models.Option.objects.get(pk=option.pk).order == 1
+        assert self._orders(group) == [1, 2, 4, 5]
+
+    def test_a_null_write_on_a_null_ordered_option_appends_it(self):
+        group = self._make_options("g", 4)
+        option = models.Option.objects.get(group=group, order=2)
+        _corrupt_order_to_null(models.Option, option.pk)
+
+        models.Option.objects.filter(pk=option.pk).update(order=None)
+
+        assert models.Option.objects.get(pk=option.pk).order == 5
+        assert None not in self._orders(group)
+
+    def test_a_cross_group_move_closes_the_source_and_opens_the_target(self):
+        group_a = self._make_options("a", 4)
+        group_b = self._make_options("b", 4, first_object_id=100)
+        option = models.Option.objects.get(group=group_a, order=2)
+
+        models.Option.objects.filter(pk=option.pk).update(group=group_b)
+
+        assert self._orders(group_a) == [1, 2, 3]
+        assert self._orders(group_b) == [1, 2, 3, 4, 5]
+        assert models.Option.objects.get(pk=option.pk).order == 2
+
+
+# --------------------------------------------------------------------------- #
+# ``Option.group`` is nullable: the ungrouped rows are a group too (#55)
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestUngroupedOptions:
+    """
+    Every shift keyed on ``"group_id" = NEW."group_id"``, and ``= NULL`` is
+    never true, so for a row with no group the shifts matched nothing: the
+    ungrouped rows were never renumbered and collected duplicate orders.
+    ``IS NOT DISTINCT FROM`` makes NULL a group like any other.
+    """
+
+    @staticmethod
+    def _ungrouped() -> list[int | None]:
+        return list(models.Option.objects.filter(group__isnull=True).order_by("order").values_list("order", flat=True))
+
+    def test_inserts_number_sequentially(self):
+        for i in range(3):
+            models.Option.objects.create(group=None, object_id=i, order=0)
+
+        assert self._ungrouped() == [1, 2, 3]
+
+    def test_a_move_within_the_ungrouped_rows_shifts_its_siblings(self):
+        for i in range(3):
+            models.Option.objects.create(group=None, object_id=i, order=0)
+        last = models.Option.objects.get(group__isnull=True, order=3)
+
+        models.Option.objects.filter(pk=last.pk).update(order=1)
+
+        assert self._ungrouped() == [1, 2, 3]
+        assert models.Option.objects.get(pk=last.pk).order == 1
+
+    def test_a_null_ordered_ungrouped_row_is_appended_not_duplicated(self):
+        for i in range(2):
+            models.Option.objects.create(group=None, object_id=i, order=0)
+        option = models.Option.objects.get(group__isnull=True, order=2)
+        _corrupt_order_to_null(models.Option, option.pk)
+
+        models.Option.objects.filter(pk=option.pk).update(order=None)
+
+        assert models.Option.objects.get(pk=option.pk).order == 2
+        assert self._ungrouped() == [1, 2]
+
+    def test_moving_a_row_into_the_ungrouped_rows_makes_room(self):
+        group = models.OptionGroup.objects.create(group="a")
+        for i in range(3):
+            models.Option.objects.create(group=group, object_id=i, order=0)
+        for i in range(2):
+            models.Option.objects.create(group=None, object_id=100 + i, order=0)
+        option = models.Option.objects.get(group=group, order=2)
+
+        models.Option.objects.filter(pk=option.pk).update(group=None)
+
+        # The source closes its gap; the ungrouped rows make room at order 2.
+        assert list(models.Option.objects.filter(group=group).order_by("order").values_list("order", flat=True)) == [1, 2]
+        assert self._ungrouped() == [1, 2, 3]
+        assert models.Option.objects.get(pk=option.pk).order == 2
+
+    def test_moving_a_row_out_of_the_ungrouped_rows_closes_the_gap(self):
+        group = models.OptionGroup.objects.create(group="a")
+        for i in range(2):
+            models.Option.objects.create(group=group, object_id=i, order=0)
+        for i in range(3):
+            models.Option.objects.create(group=None, object_id=100 + i, order=0)
+        option = models.Option.objects.get(group__isnull=True, order=1)
+
+        models.Option.objects.filter(pk=option.pk).update(group=group)
+
+        assert self._ungrouped() == [1, 2]
+        assert list(models.Option.objects.filter(group=group).order_by("order").values_list("order", flat=True)) == [1, 2, 3]
