@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("formkit_ninja", "0046_submission_sync_separated_submission_status"),
+        ("formkit_ninja", "0047_fix_group_order_trigger_before_update"),
     ]
 
     operations = [
