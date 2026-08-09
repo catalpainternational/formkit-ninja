@@ -22,10 +22,17 @@ def update_group_trigger(order_by_field: str, id_field: str = "id"):
     a "group" field and adds a trigger to
     keep the ordering correct
     This assumes a pk field named "id" too
+
+    Must be ``BEFORE`` (#53). The null guard below assigns to ``NEW``, which is
+    only honoured in a ``BEFORE`` trigger — in an ``AFTER`` trigger the row is
+    already written and the assignment is discarded. That left ``order`` NULL in
+    storage, and the shift arithmetic then compared ``NULL > OLD."order"``,
+    which is NULL, so the ``else`` branch ran with ``"order" >= NULL`` and
+    matched nothing: the group kept a hole where the moved row had been.
     """
     return pgtrigger.Trigger(
         name="order_on_update_option",
-        when=pgtrigger.After,
+        when=pgtrigger.Before,
         operation=pgtrigger.Update,
         func=pgtrigger.Func(
             f"""
