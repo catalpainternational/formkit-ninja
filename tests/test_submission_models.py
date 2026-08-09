@@ -218,3 +218,41 @@ class TestStatusSyncTrigger:
         # A bulk update that does not change status must leave the (already-correct) mirror alone.
         Submission.objects.filter(pk=sub.pk).update(form_type="TestForm2")
         assert set(SeparatedSubmission.objects.filter(submission=sub).values_list("status", flat=True)) == {Submission.Status.VERIFIED}
+
+
+@pytest.mark.django_db
+@pytest.mark.no_split_on_save
+class TestSaveDoesNotSplit:
+    """
+    ``Submission.save()`` must not derive ``SeparatedSubmission`` rows (issue #57).
+
+    Splitting is the consumer's job — a consumer that wires it from its own
+    ``post_save`` receiver used to get two full splits per save, throwing away
+    ~40–50% of the write path. These tests run with the suite's autouse
+    consumer-emulating receiver disconnected, so what they observe is the
+    library's own behaviour.
+    """
+
+    def test_save_performs_no_split(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            type(SeparatedSubmission.objects),
+            "from_submission",
+            lambda self, submission, **kwargs: calls.append(submission),
+        )
+
+        sub = Submission.objects.create(fields={"group": {"field": "value"}}, form_type="TestForm")
+        sub.form_type = "TestForm2"
+        sub.save()
+
+        assert calls == [], "Submission.save() must not call from_submission(); the consumer owns the split"
+
+    def test_no_separated_rows_are_written(self):
+        data = {"group": {"field": "value"}, "repeater": [{"child": "a"}, {"child": "b"}]}
+        sub = Submission.objects.create(fields=data, form_type="TestForm")
+
+        assert not SeparatedSubmission.objects.filter(submission=sub).exists()
+
+        # ...and the consumer's explicit call is what materialises them.
+        SeparatedSubmission.objects.from_submission(sub)
+        assert SeparatedSubmission.objects.filter(submission=sub).count() == 3

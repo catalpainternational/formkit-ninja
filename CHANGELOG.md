@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **BREAKING: `Submission.save()` no longer splits the submission.** It called
+  `SeparatedSubmission.objects.from_submission(self)` *after* `super().save()`
+  had already emitted `post_save`, so a consumer that runs its own split from a
+  `post_save` receiver split every submission twice — two full flatten + per-row
+  walks, two orphan sweeps, and the consumer's whole downstream pipeline run
+  twice. Measured on a production restore that was 39–48% of the queries and
+  wall time per save. It was also an ordering hazard: any work the consumer did
+  after its own split ran *before* the library's second pass, which could undo
+  it.
+
+  **Deriving `SeparatedSubmission` rows is now the consumer's responsibility.**
+  If you relied on the implicit split, wire it explicitly:
+
+  ```python
+  @receiver(post_save, sender=Submission)
+  def split_submission(sender, instance, **kwargs):
+      SeparatedSubmission.objects.from_submission(instance)
+  ```
+
+  Consumers that already split from their own `post_save` receiver need no
+  change — they simply stop doing the work twice. See issue #57.
+
 ## [2.6.0] - 2026-08-04
 
 ### Changed

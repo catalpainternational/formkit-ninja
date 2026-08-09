@@ -90,8 +90,8 @@ class Submission(models.Model):
     class Meta:
         triggers = [
             # ``SeparatedSubmission.status`` is a denormalised mirror of this root
-            # status. ``from_submission()`` (below, on ``save()``) keeps it current on
-            # the ORM path, but status changes that bypass ``save()`` — bulk
+            # status. ``from_submission()`` keeps it current whenever the consumer
+            # runs a split, but status changes that never trigger one — bulk
             # ``.update(status=…)``, restores, raw SQL — would otherwise leave the
             # mirror stale. This trigger enforces the invariant for every write path,
             # so any consumer reading ``SeparatedSubmission.status`` can trust it.
@@ -114,15 +114,21 @@ class Submission(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        # Note: was_created logic removed as SeparatedSubmission handles this
+        """
+        Persist the submission. **This does not split it.**
 
-        # Determine changed UUIDs to clean up SeparatedSubmission
-        # (Simplified logic from reference)
+        Deriving the flattened ``SeparatedSubmission`` rows is the consumer's
+        responsibility — call ``SeparatedSubmission.objects.from_submission(sub)``
+        yourself, typically from a ``post_save`` receiver on this model.
 
+        ``save()`` used to call ``from_submission()`` itself, *after*
+        ``super().save()`` had already emitted ``post_save``. A consumer that
+        splits from its own ``post_save`` receiver therefore split every
+        submission twice, discarding roughly 40–50% of the write path, and any
+        post-split work the consumer did could be undone by the library's second
+        pass. See issue #57.
+        """
         super().save(*args, **kwargs)
-
-        # Create SeparatedSubmission instances
-        SeparatedSubmission.objects.from_submission(self)
 
     def __str__(self) -> str:
         # Use only local fields to avoid N+1 (e.g. admin list).
