@@ -303,3 +303,38 @@ class TestNormalisation:
         reordered = {"a": 2, "z": 1, "repeater": [{"b": 2, "a": 1, "uuid": str(r)}]}
         assert _normalize_json(composed) == _normalize_json(reordered)
         assert composed == stored
+
+
+# --------------------------------------------------------------------------- #
+# Root-count contract
+# --------------------------------------------------------------------------- #
+@pytest.mark.django_db
+class TestRootCount:
+    """``compose()`` documents "exactly one root" — it must enforce both halves."""
+
+    def test_no_root_raises(self):
+        """A partial row set (children only) cannot be composed."""
+        sub = Submission.objects.create(form_type="Form", fields={"a": 1, "rep": [{"b": 2}]})
+        children = SeparatedSubmission.objects.filter(submission=sub, repeater_parent__isnull=False)
+        assert children.exists()
+        with pytest.raises(ValueError, match="exactly one root row"):
+            compose(children)
+
+    def test_two_roots_raise_instead_of_silently_dropping_one(self):
+        """Rows spanning two submissions must fail loudly, not return one document.
+
+        The loop used to overwrite ``root`` on each parentless row, so the last
+        one won and the other submission vanished without a word.
+        """
+        a = Submission.objects.create(form_type="Form", fields={"name": "A"})
+        b = Submission.objects.create(form_type="Form", fields={"name": "B"})
+        rows = list(SeparatedSubmission.objects.filter(submission__in=[a, b]))
+        assert len([r for r in rows if r.repeater_parent_id is None]) == 2
+        with pytest.raises(ValueError, match="got 2"):
+            compose(rows)
+
+    def test_single_root_still_composes(self):
+        """The valid case is untouched."""
+        sub = Submission.objects.create(form_type="Form", fields={"name": "A", "rep": [{"b": 2}]})
+        composed, expected = _roundtrip(sub)
+        assert _normalize_json(composed) == _normalize_json(expected)

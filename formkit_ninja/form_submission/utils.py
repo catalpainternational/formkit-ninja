@@ -244,15 +244,20 @@ def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
     were never stored, and rows whose parent could not be resolved were
     re-parented to the root — both are unrecoverable here by design.
     """
-    root = None
+    roots: list[Any] = []
     by_parent: dict[Any, list[Any]] = {}
     for row in rows:
         if row.repeater_parent_id is None:
-            root = row
+            roots.append(row)
         else:
             by_parent.setdefault(row.repeater_parent_id, []).append(row)
-    if root is None:
-        raise ValueError("compose() requires exactly one root row (repeater_parent is NULL)")
+    # Both halves matter. Zero roots means the caller passed a partial row set.
+    # Two or more means they passed rows spanning several submissions — silently
+    # keeping one and discarding the rest would return a plausible-looking
+    # document while losing whole submissions.
+    if len(roots) != 1:
+        raise ValueError(f"compose() requires exactly one root row (repeater_parent is NULL), got {len(roots)}")
+    root = roots[0]
 
     def build(row, *, is_root: bool) -> dict:
         doc = deepcopy(row.fields)
