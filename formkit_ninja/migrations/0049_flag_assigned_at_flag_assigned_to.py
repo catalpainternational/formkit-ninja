@@ -32,12 +32,8 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="flag",
             constraint=models.CheckConstraint(
-                check=models.Q(
-                    models.Q(("assigned_at__isnull", True), ("assigned_to__isnull", True)),
-                    models.Q(("assigned_at__isnull", False), ("assigned_to__isnull", False)),
-                    _connector="OR",
-                ),
-                name="flag_assigned_to_and_at_together",
+                check=models.Q(("assigned_to__isnull", True), ("assigned_at__isnull", False), _connector="OR"),
+                name="flag_assigned_to_has_assigned_at",
             ),
         ),
         migrations.AddIndex(

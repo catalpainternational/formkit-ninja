@@ -44,6 +44,32 @@ equals the `pyproject.toml` version) — it is on whoever cuts the release.
   the only consumer of the 2.5.x line. If you are on 2.5.x and are *not*
   partisipa, wire the receiver before upgrading to 2.5.4, or stay on 2.5.3.
 
+### Added
+
+- **Flag assignment and triage workflow in the admin.** `Flag` gains
+  `assigned_to` / `assigned_at` and an `is_resolved` property, with an
+  `assigned_flags` reverse relation on the user model (migration `0049`). The
+  `Flag` changelist gets resolution and assignment filters and two bulk actions
+  — *Assign selected flags to me* and *Mark selected flags resolved* — both
+  gated on change permission, plus auto-fill of `created_by` / `resolved_by` /
+  `assigned_at` from the request user on every admin write path. Both submission
+  changelists gain a boolean **Flagged** column, and `SeparatedSubmission` gains
+  an inline for managing flags from its change page. See issue #35.
+
+  A `CheckConstraint` enforces that an assigned flag always has an
+  `assigned_at`, so writers outside the admin (data migrations, management
+  commands, a consumer's rule engine, bulk `.update()`) cannot leave the triage
+  queue silently age-less. It is one-directional: `assigned_to` is `SET_NULL`,
+  so deleting an assignee strands `assigned_at`, and that residue is tolerated
+  rather than made undeletable.
+
+- `SubmissionQuerySet.with_has_unresolved_flags()` and the matching
+  `SeparatedSubmissionQuerySet` method — the boolean-only half of
+  `with_unresolved_flags()`, for callers that need a column, filter or ordering
+  without paying for the per-row JSON aggregate. A partial index on
+  `Flag(separated_submission_id) WHERE resolved_at IS NULL` keeps the
+  correlated `EXISTS` flat as the flag table grows.
+
 ## [2.6.0] - 2026-08-04
 
 ### Changed

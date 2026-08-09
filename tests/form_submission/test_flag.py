@@ -369,7 +369,12 @@ class TestFlaggedColumnOrdering:
 
 @pytest.mark.django_db
 class TestFlagAssignmentConstraint:
-    """``assigned_to`` and ``assigned_at`` must move together, whoever writes them."""
+    """An assignment always has an age — whoever writes it.
+
+    One-directional: a stranded ``assigned_at`` (left behind when SET_NULL
+    clears the assignee) is tolerated. See the constraint's comment in
+    ``Flag.Meta`` for why the biconditional cannot work here.
+    """
 
     def test_assigned_to_without_assigned_at_is_rejected(self, separated_submission: SeparatedSubmission) -> None:
         """A writer outside the admin cannot leave assigned_at NULL and silently age-less."""
@@ -382,15 +387,41 @@ class TestFlagAssignmentConstraint:
                 assigned_to=user,
             )
 
-    def test_assigned_at_without_assigned_to_is_rejected(self, separated_submission: SeparatedSubmission) -> None:
-        """The converse — a timestamp with nobody holding the flag — is equally meaningless."""
-        with pytest.raises(IntegrityError):
+    def test_deleting_an_assignee_leaves_the_flag_intact(self, separated_submission: SeparatedSubmission) -> None:
+        """The constraint must not make an assignee undeletable.
+
+        ``assigned_to`` is SET_NULL, so deleting a user issues a bare
+        ``UPDATE ... SET assigned_to_id = NULL`` that leaves ``assigned_at``
+        populated. A biconditional constraint rejects that row mid-cascade,
+        which would break user deletion, ``User.objects.filter(...).delete()``,
+        the admin's bulk-delete action and fixture teardown alike.
+        """
+        user = get_user_model().objects.create(username="departing")
+        flag = Flag.objects.create(
+            separated_submission=separated_submission,
+            flag_type="r",
+            message="m",
+            assigned_to=user,
+            assigned_at=timezone.now(),
+        )
+        user.delete()
+        flag.refresh_from_db()
+        assert flag.assigned_to_id is None
+        assert flag.assigned_at is not None  # harmless residue, not corruption
+
+    def test_bulk_delete_of_assignees_succeeds(self, separated_submission: SeparatedSubmission) -> None:
+        """The queryset delete path cascades through the same UPDATE."""
+        users = [get_user_model().objects.create(username=f"leaver{i}") for i in range(3)]
+        for user in users:
             Flag.objects.create(
                 separated_submission=separated_submission,
                 flag_type="r",
                 message="m",
+                assigned_to=user,
                 assigned_at=timezone.now(),
             )
+        get_user_model().objects.filter(username__startswith="leaver").delete()
+        assert Flag.objects.filter(assigned_to__isnull=True).count() == 3
 
 
 @pytest.mark.django_db

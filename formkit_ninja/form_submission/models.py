@@ -472,9 +472,17 @@ class Flag(models.Model):
             # age. The admin keeps the pair in step; this makes every other
             # writer (data migrations, rule engines, bulk ``.update()``) do the
             # same instead of failing quietly.
+            #
+            # One-directional on purpose. The biconditional ("both set or both
+            # NULL") is unenforceable alongside ``assigned_to``'s SET_NULL:
+            # deleting a user issues a bare ``UPDATE ... SET assigned_to_id =
+            # NULL``, leaving ``assigned_at`` behind, so it would make every
+            # user who has ever held a flag undeletable — and fail deep inside
+            # the delete cascade. A stranded ``assigned_at`` is harmless
+            # residue; an assignment with no age is the state worth rejecting.
             models.CheckConstraint(
-                check=models.Q(assigned_to__isnull=True, assigned_at__isnull=True) | models.Q(assigned_to__isnull=False, assigned_at__isnull=False),
-                name="flag_assigned_to_and_at_together",
+                check=models.Q(assigned_to__isnull=True) | models.Q(assigned_at__isnull=False),
+                name="flag_assigned_to_has_assigned_at",
             ),
         ]
         indexes = [
