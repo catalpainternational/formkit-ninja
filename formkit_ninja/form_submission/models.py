@@ -121,12 +121,9 @@ class Submission(models.Model):
         responsibility — call ``SeparatedSubmission.objects.from_submission(sub)``
         yourself, typically from a ``post_save`` receiver on this model.
 
-        ``save()`` used to call ``from_submission()`` itself, *after*
-        ``super().save()`` had already emitted ``post_save``. A consumer that
-        splits from its own ``post_save`` receiver therefore split every
-        submission twice, discarding roughly 40–50% of the write path, and any
-        post-split work the consumer did could be undone by the library's second
-        pass. See issue #57.
+        Nothing is derived until something calls it — see "Wiring the split" in
+        docs/submission_architecture.md. Removed in 2.5.4 / 2.6.x; CHANGELOG.md
+        has the rationale.
         """
         super().save(*args, **kwargs)
 

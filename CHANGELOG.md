@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] — next release must be 3.0.0
+
+This line carries a breaking change, so the next tag off `main` is **3.0.0**, not
+2.6.1. Nothing in the repo enforces that (`release.yml` only checks that the tag
+equals the `pyproject.toml` version) — it is on whoever cuts the release.
 
 ### Changed
 
@@ -30,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Consumers that already split from their own `post_save` receiver need no
   change — they simply stop doing the work twice. See issue #57.
+
+  **If you do not wire a receiver, nothing splits.** There is no exception and no
+  warning: `Submission` rows are stored correctly, but no `SeparatedSubmission`
+  rows are derived, so the derived-model endpoints and anything downstream of
+  them go quietly empty. This is the failure mode to check for first after
+  upgrading. Note this fix is also backported to **2.5.4** — a patch release that
+  is breaking by the same rule, published on the understanding that partisipa is
+  the only consumer of the 2.5.x line. If you are on 2.5.x and are *not*
+  partisipa, wire the receiver before upgrading to 2.5.4, or stay on 2.5.3.
 
 ## [2.6.0] - 2026-08-04
 

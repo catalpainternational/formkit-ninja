@@ -19,7 +19,7 @@ graph TD
     classDef app fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
 
     Client[FormKit Client] -->|JSON| Submission[Submission]
-    Submission -->|from_submission| Separated[SeparatedSubmission]
+    Submission -->|your post_save receiver calls from_submission| Separated[SeparatedSubmission]
     
     subgraph "FormKit Ninja Core"
         Submission:::generic
@@ -127,6 +127,46 @@ def to_model(self, models_module=None) -> tuple[models.Model | None, bool]:
 -   **Arguments**:
     -   `models_module` (Optional): A python module object to search for the model class. Useful for testing or when models are dynamic.
 -   **Returns**: `(model_instance, created_boolean)` or `(None, False)` if no model is found.
+
+---
+
+## Wiring the split
+
+`Submission.save()` does **not** derive `SeparatedSubmission` rows. Stage 1 and 2
+below only happen when something calls `from_submission()`, and wiring that is
+your application's job:
+
+```python
+# yourapp/signals.py
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
+
+
+@receiver(post_save, sender=Submission)
+def split_submission(sender, instance, **kwargs):
+    SeparatedSubmission.objects.from_submission(instance)
+```
+
+Connect it from your `AppConfig.ready()` (importing the module is enough) so it
+is live for every save path — API, admin, shell, management commands.
+
+Why the library does not do this itself: it used to, from inside `save()` and
+*after* `post_save` had already fired. An application that ran its own split
+from a `post_save` receiver — the arrangement documented here — therefore split
+every submission twice, and any work it did after its own split could be undone
+by the library's second pass. See issue #57.
+
+Two consequences worth knowing:
+
+- **Nothing splits until you wire it.** A submission saved with no receiver
+  connected is stored correctly but has no derived rows, and the derived-model
+  endpoints will show nothing for it.
+- **Orphan reconciliation rides on the split.** `from_submission()` sweeps rows
+  that no longer exist in canonical fields, so that self-healing only runs as
+  often as your receiver does. The `reconcile_separated_submissions` management
+  command is the out-of-band sweep.
 
 ---
 

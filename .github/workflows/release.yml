@@ -53,18 +53,35 @@ jobs:
           fi
       - name: Tagged commit must be on main or a maintenance branch
         run: |
-          # Patch releases for an older line are cut from `maint/<series>.x`
+          # Patch releases for an older line are cut from `maint/<major>.<minor>.x`
           # (e.g. maint/2.5.x for 2.5.4) — those commits are deliberately not
           # ancestors of main, so accept either.
-          git fetch --no-tags --depth=100 origin main || true
-          git fetch --no-tags --depth=100 origin '+refs/heads/maint/*:refs/remotes/origin/maint/*' || true
+          #
+          # The refspec is version-shaped on purpose: this check is what stands
+          # between a pushed tag and a PyPI publish, so it must not widen to
+          # "any branch called maint/<anything>". Keep `maint/*.*.x` under the
+          # same branch protection as main. The `pypi` deployment environment's
+          # required reviewers are the real backstop.
+          #
+          # No --depth here: checkout above uses fetch-depth: 0, and a shallow
+          # fetch onto a full clone makes `merge-base --is-ancestor` fail
+          # spuriously once a maint branch is cut from an older tag.
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main' || true
+          git fetch --no-tags origin '+refs/heads/maint/*:refs/remotes/origin/maint/*' || true
           for ref in $(git for-each-ref --format='%(refname)' refs/remotes/origin/main refs/remotes/origin/maint); do
+            # A refspec only takes one `*`, so the fetch above is broad; the
+            # shape check is here. Anchored, and `*` in a glob would match `/`,
+            # so this is a regex: maint/attack/9.9.x must not pass.
+            case "$ref" in
+              refs/remotes/origin/main) ;;
+              *) echo "$ref" | grep -Eq '^refs/remotes/origin/maint/[0-9]+\.[0-9]+\.x$' || continue ;;
+            esac
             if git merge-base --is-ancestor "$GITHUB_SHA" "$ref"; then
               echo "Tagged commit is on ${ref#refs/remotes/}"
               exit 0
             fi
           done
-          echo "::error::Tagged commit $GITHUB_SHA is not on main or any maint/* branch. Release only from a merged, CI-green branch."
+          echo "::error::Tagged commit $GITHUB_SHA is not on main or a maint/<major>.<minor>.x branch. Release only from a merged, CI-green branch."
           exit 1
 
   build:

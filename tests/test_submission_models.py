@@ -202,10 +202,11 @@ class TestStatusSyncTrigger:
     def test_bulk_status_update_syncs_separated_submission(self):
         data = {"group": {"field": "value"}, "repeater": [{"child": "a"}, {"child": "b"}]}
         sub = Submission.objects.create(fields=data, form_type="TestForm", status=Submission.Status.NEW)
-        # save() -> from_submission() materialised the root + repeater rows as NEW.
+        # The conftest `split_submissions_on_save` receiver — NOT save(), which no
+        # longer splits — materialised the root + repeater rows as NEW.
         assert set(SeparatedSubmission.objects.filter(submission=sub).values_list("status", flat=True)) == {Submission.Status.NEW}
 
-        # A bulk .update() bypasses save()/from_submission entirely — the trigger must
+        # A bulk .update() fires no post_save, so it bypasses the split entirely — the trigger must
         # still propagate the new status to every SeparatedSubmission row (root + repeaters).
         Submission.objects.filter(pk=sub.pk).update(status=Submission.Status.VERIFIED)
         assert set(SeparatedSubmission.objects.filter(submission=sub).values_list("status", flat=True)) == {Submission.Status.VERIFIED}, (
@@ -235,10 +236,13 @@ class TestSaveDoesNotSplit:
 
     def test_save_performs_no_split(self, monkeypatch):
         calls = []
+        # Signature-agnostic on purpose: the assertion is "was it called at all",
+        # so a positional-or-keyword change in from_submission must not turn a
+        # real regression into a TypeError that reads like an unrelated failure.
         monkeypatch.setattr(
             type(SeparatedSubmission.objects),
             "from_submission",
-            lambda self, submission, **kwargs: calls.append(submission),
+            lambda self, *args, **kwargs: calls.append(args or kwargs),
         )
 
         sub = Submission.objects.create(fields={"group": {"field": "value"}}, form_type="TestForm")
@@ -256,3 +260,37 @@ class TestSaveDoesNotSplit:
         # ...and the consumer's explicit call is what materialises them.
         SeparatedSubmission.objects.from_submission(sub)
         assert SeparatedSubmission.objects.filter(submission=sub).count() == 3
+
+    def test_documented_receiver_wiring_splits(self):
+        """
+        The migration path advertised in CHANGELOG.md / docs actually works.
+
+        The autouse conftest fixture is infrastructure, not an assertion — it
+        can't fail in a way that tells a reader the contract still holds. This
+        connects the exact receiver from the published snippet and pins it.
+        """
+        from django.db.models.signals import post_save
+        from django.dispatch import receiver
+
+        @receiver(post_save, sender=Submission, dispatch_uid="docs-snippet-split")
+        def split_submission(sender, instance, **kwargs):
+            SeparatedSubmission.objects.from_submission(instance)
+
+        try:
+            data = {"group": {"field": "value"}, "repeater": [{"child": "a"}, {"child": "b"}]}
+            sub = Submission.objects.create(fields=data, form_type="TestForm")
+
+            rows = SeparatedSubmission.objects.filter(submission=sub)
+            assert rows.count() == 3
+            assert rows.filter(repeater_key__isnull=True).count() == 1
+            assert rows.filter(repeater_key="repeater").count() == 2
+
+            # ...and an edit through the same path keeps the derived rows current.
+            sub.fields = {"group": {"field": "changed"}, "repeater": [{"child": "a"}]}
+            sub.save()
+
+            root = SeparatedSubmission.objects.get(submission=sub, repeater_key__isnull=True)
+            assert root.fields["group"]["field"] == "changed"
+            assert SeparatedSubmission.objects.filter(submission=sub, repeater_key="repeater").count() == 1
+        finally:
+            post_save.disconnect(sender=Submission, dispatch_uid="docs-snippet-split")
