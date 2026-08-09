@@ -122,7 +122,7 @@ class Submission(models.Model):
         yourself, typically from a ``post_save`` receiver on this model.
 
         Nothing is derived until something calls it — see "Wiring the split" in
-        docs/submission_architecture.md. Removed in 2.5.4 / 2.6.x; CHANGELOG.md
+        docs/submission_architecture.md. Removed in 2.5.4 / 3.0.0; CHANGELOG.md
         has the rationale.
         """
         super().save(*args, **kwargs)

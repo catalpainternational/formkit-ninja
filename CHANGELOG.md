@@ -5,11 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — next release must be 3.0.0
+## [Unreleased]
 
-This line carries a breaking change, so the next tag off `main` is **3.0.0**, not
-2.6.1. Nothing in the repo enforces that (`release.yml` only checks that the tag
-equals the `pyproject.toml` version) — it is on whoever cuts the release.
+## [3.0.0] - 2026-08-09
+
+Major because of the `Submission.save()` change below: it is breaking for any
+consumer that relied on the implicit split. The same fix is also on the 2.5.x
+line as **2.5.4**, which ships it as a patch — the entry below says why.
 
 ### Changed
 
@@ -69,6 +71,47 @@ equals the `pyproject.toml` version) — it is on whoever cuts the release.
   without paying for the per-row JSON aggregate. A partial index on
   `Flag(separated_submission_id) WHERE resolved_at IS NULL` keeps the
   correlated `EXISTS` flat as the flag table grows.
+
+- **`compose()`, the inverse of `flatten()`** — rebuilds the nested submission
+  document from a `SeparatedSubmission` row tree. Children are bucketed by
+  `repeater_parent` and emitted under their `repeater_key` sorted by
+  `(repeater_order, pk)`, with each row's pk re-injected as `uuid`. The
+  round-trip is covered by property tests:
+
+  ```python
+  pre_validation(compose(rows_of(s))) == pre_validation(s.fields)
+  ```
+
+  `pre_validation` is applied to *both* sides because the row fields were
+  pre-validated on save (issue #48). `compose()` raises `ValueError` rather than
+  returning a plausible-looking document when the row set is not exactly one
+  intact tree — no root, several roots, a duplicated row, rows unreachable from
+  the root, a non-object `fields`, or a `repeater_key` colliding with a
+  non-repeater value in the parent. Two losses are unrecoverable by design and
+  asserted in the tests: uuid-less document rows were never stored, and rows
+  whose parent could not be resolved were re-parented to the root. See #52.
+
+### Fixed
+
+- **The group-order trigger is now `BEFORE UPDATE`.** `update_group_trigger`
+  was declared `pgtrigger.After` while its body assigns to `NEW` — in an
+  `AFTER` trigger those assignments are silently discarded, so the guard that
+  restores a NULLed `order` never took effect. Fixes #53.
+
+- **The group-order trigger handles NULL stored order and cross-group moves.**
+  It could previously only express a move as "shift the span between
+  `OLD."order"` and `NEW."order"`", and three cases fell outside that, each
+  producing duplicate orders: a stored order that was already NULL (rows the
+  pre-#53 `AFTER` trigger left behind); a move to a different group, where the
+  source kept a hole and the target gained a duplicate; and ungrouped rows,
+  which were never treated as a group at all, since every comparison used `=`
+  and `= NULL` is never true. The first two are handled by one branch that
+  treats the write as an insert into the destination group, closing the gap
+  behind the row only when it held a slot in a group it has left; the third by
+  `IS NOT DISTINCT FROM` throughout, in the insert trigger too. Migration
+  `0048` regenerates both triggers for `FormComponents`, `NodeChildren` and
+  `Option`. No data migration: a production restore measured zero NULL and zero
+  duplicate orders in all three tables. Fixes #55.
 
 ## [2.6.0] - 2026-08-04
 
