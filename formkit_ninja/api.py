@@ -79,13 +79,25 @@ class FormComponentsOut(ModelSchema):
         model_fields = ("label",)
 
 
-class NodeChildrenOut(ModelSchema):
+class NodeChildrenOut(Schema):
+    """
+    The children of one node, in order.
+
+    Declared as a plain ``Schema``, not a ``ModelSchema``: django-ninja's
+    ``ModelSchema`` names a FK field after the model attribute (``parent``) but
+    gives it the attname as an alias (``parent_id``). Pydantic then serialises
+    ``parent`` while the generated OpenAPI document (which is built with
+    ``by_alias=True``) documents ``parent_id`` — the wire contract and the
+    published schema disagree, and any endpoint that sets ``by_alias=True``
+    serialises a third way. See partisipa-import#2606.
+
+    ``parent`` is the field name here and in the emitted OpenAPI document, with
+    no alias, so all three agree.
+    """
+
+    parent: UUID
     children: list[UUID] = []
     latest_change: int | None = None
-
-    class Config:
-        model = models.NodeChildren
-        model_fields = ("parent",)
 
 
 class NodeChildrenIn(Schema):
@@ -640,7 +652,6 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
         HTTPStatus.INTERNAL_SERVER_ERROR: FormKitErrors,
     },
     exclude_none=True,
-    by_alias=True,
     auth=formkit_auth,
 )
 def reorder_node_children(request, response: HttpResponse, payload: NodeChildrenIn):
@@ -705,7 +716,9 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
         error_response.errors.append("An unexpected error occurred while reordering.")
         return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
 
-    return payload
+    # Built explicitly rather than returning ``payload``: the request schema names
+    # the parent ``parent_id``, the response names it ``parent`` (see NodeChildrenOut).
+    return NodeChildrenOut(parent=payload.parent_id, children=payload.children, latest_change=payload.latest_change)
 
 
 def reorder_children(payload: NodeChildrenIn):

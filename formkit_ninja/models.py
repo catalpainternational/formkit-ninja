@@ -246,7 +246,10 @@ class NodeChildrenManager(models.Manager):
     def aggregate_changes_table(self, latest_change: int | None = None):
         values = (
             self.get_queryset()
-            .values("parent_id")
+            # ``.values("parent")`` yields the FK's stored id under the key
+            # ``parent`` — the name the API serialises and documents (see
+            # ``NodeChildrenOut``); ``parent_id`` would name it the other way.
+            .values("parent")
             .annotate(
                 children=ArrayAgg("child", ordering="order"),
             )
@@ -255,7 +258,7 @@ class NodeChildrenManager(models.Manager):
         )
         if latest_change:
             values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__track_change__gt=latest_change))
-        return values.values_list("parent_id", "latest_change", "children", named=True)
+        return values.values_list("parent", "latest_change", "children", named=True)
 
     def latest_change(self, parent_id=None):
         """

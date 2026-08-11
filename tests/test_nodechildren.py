@@ -330,3 +330,69 @@ def test_reorder_stale_token_after_success(admin_client: Client):
         content_type="application/json",
     )
     assert second.status_code == HTTPStatus.CONFLICT
+
+
+# ---------------------------------------------------------------------------
+# Wire-contract guards (partisipa-import#2606)
+#
+# django-ninja's ``ModelSchema`` used to name the FK ``parent`` but alias it
+# ``parent_id``: the JSON body said ``parent``, the generated OpenAPI document
+# said ``parent_id``, and an endpoint with ``by_alias=True`` said ``parent_id``
+# too. Downstream regenerated the client from the document and got type errors
+# that only "fix" cleanly by breaking the runtime. These tests pin the served
+# bytes and the published schema to each other.
+# ---------------------------------------------------------------------------
+
+
+def _openapi_properties(schema_name: str) -> set[str]:
+    """The property names the published OpenAPI document declares for a schema."""
+    from testproject.api import api
+
+    return set(api.get_openapi_schema()["components"]["schemas"][schema_name]["properties"])
+
+
+@pytest.mark.django_db
+def test_list_related_nodes_serialises_parent(admin_client: Client, tf_611_in_db):
+    """``list-related-nodes`` must serialise the FK as ``parent``."""
+    response = admin_client.get("/api/formkit/list-related-nodes")
+
+    assert response.status_code == HTTPStatus.OK
+    items = response.json()
+    assert items, "expected at least one relation from the tf_611 fixture"
+    for item in items:
+        assert "parent" in item
+        assert "parent_id" not in item
+
+
+@pytest.mark.django_db
+def test_reorder_response_serialises_parent(admin_client: Client):
+    """The reorder response must name the FK the same way the list endpoint does."""
+    parent, children = _make_parent_with_children(2)
+    latest_change = NodeChildren.objects.latest_change(parent.id)
+
+    response = admin_client.post(
+        reverse("api-1.0.0:reorder_node_children"),
+        data=NodeChildrenIn(children=[children[1].id, children[0].id], parent_id=parent.id, latest_change=latest_change).dict(),
+        content_type="application/json",
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    body = response.json()
+    assert body["parent"] == str(parent.id)
+    assert "parent_id" not in body
+
+
+@pytest.mark.django_db
+def test_openapi_schema_matches_served_keys(admin_client: Client, tf_611_in_db):
+    """Every key the endpoint serialises must be declared in the OpenAPI document.
+
+    This is the check that was missing: the generated artefact drifted from the
+    wire and nothing failed.
+    """
+    declared = _openapi_properties("NodeChildrenOut")
+    assert "parent" in declared
+    assert "parent_id" not in declared
+
+    served = admin_client.get("/api/formkit/list-related-nodes").json()
+    for item in served:
+        assert set(item) <= declared, f"served keys {set(item) - declared} are not in the OpenAPI document"
