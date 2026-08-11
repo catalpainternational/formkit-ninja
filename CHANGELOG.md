@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-08-11
+
+### Fixed
+
+- **The OpenAPI document now names the `NodeChildrenOut` parent field `parent`,
+  matching what the endpoints actually serialise.** `NodeChildrenOut` was a
+  django-ninja `ModelSchema`, which names a FK field after the model attribute
+  (`parent`) but attaches the attname as a pydantic alias (`parent_id`). The
+  OpenAPI document is generated with `by_alias=True`, so `manage.py openapi`
+  emitted `parent_id` while `GET list-related-nodes` served `parent` — one
+  field, two published answers, and only the response body is the contract.
+
+  Nothing was broken at runtime, which is what let it sit: the hazard is that a
+  faithful regeneration of a downstream client produces type errors against the
+  *correct* call sites, and the obvious fix — renaming them to `parent_id` —
+  typechecks and then breaks at runtime. See
+  catalpainternational/partisipa-import#2606.
+
+  `NodeChildrenOut` is now a plain `Schema` with an explicit `parent: UUID` and
+  no alias, so the field name, the serialised body and the emitted document
+  agree. Regenerate any committed OpenAPI artefacts after upgrading.
+
+### Changed
+
+- **`POST reorder_node_children` now responds with `parent`, not `parent_id`.**
+  The route set `by_alias=True` and returned the request payload, so it
+  serialised the same schema the other way round — the two endpoints sharing
+  `NodeChildrenOut` disagreed with each other on the wire. They now agree.
+
+  The **request** body is unchanged: `NodeChildrenIn` still requires
+  `parent_id`. Only the 200 response key is renamed. Minor rather than major on
+  the understanding that partisipa is the only consumer and does not call this
+  endpoint; if you read `parent_id` off this response, update it before
+  upgrading.
+
 ## [3.0.0] - 2026-08-09
 
 Major because of the `Submission.save()` change below: it is breaking for any
