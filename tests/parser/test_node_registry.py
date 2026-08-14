@@ -87,7 +87,7 @@ class TestNodeRegistryFactoryIntegration:
     def test_factory_uses_registry_for_text_node(self):
         """Test that factory can parse a text node using registry"""
         data = {"$formkit": "text", "name": "test_field", "label": "Test Field"}
-        node = FormKitNodeFactory.from_dict(data)
+        node = FormKitNodeFactory().from_dict(data)
         assert isinstance(node, TextNode)
         assert node.name == "test_field"
 
@@ -98,7 +98,7 @@ class TestNodeRegistryFactoryIntegration:
             "name": "test_group",
             "children": [{"$formkit": "text", "name": "field1"}],
         }
-        node = FormKitNodeFactory.from_dict(data)
+        node = FormKitNodeFactory().from_dict(data)
         assert isinstance(node, GroupNode)
         assert node.name == "test_group"
 
@@ -110,4 +110,4 @@ class TestNodeRegistryFactoryIntegration:
         # The factory should still work, falling back to Pydantic's parsing
         # which will likely raise a validation error
         with pytest.raises((ValueError, Exception)):
-            FormKitNodeFactory.from_dict(data)
+            FormKitNodeFactory().from_dict(data)
