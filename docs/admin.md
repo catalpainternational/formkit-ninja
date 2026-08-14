@@ -60,14 +60,14 @@ This can be transformed into a Pydantic object
 
 ```
 >>> FormKitSchemaNode.objects.first().get_node()
-FormKitNode(__root__=DateNode(children=None, key=None, if_condition=None, for_loop=None, bind=None, meta=None, html_id=None, name='date', label='date', help=None, validation=None, validationLabel=None, validationVisibility=None, validationMessages=None, placeholder=None, value=None, prefixIcon=None, classes=None, node_type='formkit', formkit='date', dollar_formkit='date'))
+DateNode(children=None, key=None, if_condition=None, for_loop=None, bind=None, meta=None, id=None, name='date', label=None, help=None, validation=None, validationLabel=None, validationVisibility=None, validationMessages=None, placeholder=None, value=None, prefixIcon=None, icon=None, title=None, code_scheme=None, classes=None, readonly=None, sectionsSchema=None, django_field_type='DateField', django_field_args={}, django_field_positional_args=[], pydantic_field_type='date', extra_imports=[], validators=[], list_filter=None, additional_props={'description': 'Date'}, node_type='formkit', formkit='date')
 ```
 
 And a valid JSON object
 
 ```
->>> FormKitSchemaNode.objects.first().get_node().json(exclude_none=True)
-'{"name": "date", "label": "date", "node_type": "formkit", "formkit": "date", "dollar_formkit": "date"}'
+>>> FormKitSchemaNode.objects.first().get_node().model_dump_json(exclude_none=True)
+'{"name":"date","formkit":"date","description":"Date"}'
 ```
 
 ### Check The API
