@@ -151,7 +151,9 @@ def node_queryset_response(qs: models.NodeQS) -> NodeQSResponse:
 
 
 class Option(ModelSchema):
-    group_name: str  # This is annotation of the model `content_type_model`
+    # Annotation of `group__group`. `Option.group` is nullable, so this is too:
+    # with `exclude_none=True` the key is simply omitted for a group-less option.
+    group_name: str | None = None
     value: str
     # Note: For other projects you may want to extend this with additional languages
     label_tet: str | None
