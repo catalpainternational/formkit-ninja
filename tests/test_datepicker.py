@@ -80,11 +80,11 @@ def test_datepicker_parse_from_pydantic():
     }
 
     node = formkit_schema.FormKitNode.parse_obj(datepicker_json)
-    assert node.__root__.formkit == "datepicker"
-    assert node.__root__.format == "DD/MM/YY"
-    assert node.__root__.minDateSource == "start_date"
-    assert node.__root__.maxDateSource == "end_date"
-    assert node.__root__.disabledDays == "return true"
+    assert node.root.formkit == "datepicker"
+    assert node.root.format == "DD/MM/YY"
+    assert node.root.minDateSource == "start_date"
+    assert node.root.maxDateSource == "end_date"
+    assert node.root.disabledDays == "return true"
 
 
 @pytest.mark.django_db
@@ -104,8 +104,8 @@ def test_datepicker_to_pydantic():
         },
     )
     pydantic_node = node.to_pydantic()
-    assert pydantic_node.__root__.formkit == "datepicker"
-    assert pydantic_node.__root__.format == "DD/MM/YY"
+    assert pydantic_node.root.formkit == "datepicker"
+    assert pydantic_node.root.format == "DD/MM/YY"
 
 
 @pytest.mark.django_db

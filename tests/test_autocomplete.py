@@ -76,8 +76,8 @@ def test_autocomplete_parse_from_pydantic():
     }
 
     node = formkit_schema.FormKitNode.parse_obj(autocomplete_json)
-    assert node.__root__.formkit == "autocomplete"
-    assert len(node.__root__.options) == 2
+    assert node.root.formkit == "autocomplete"
+    assert len(node.root.options) == 2
 
 
 @pytest.mark.django_db
@@ -92,9 +92,9 @@ def test_autocomplete_to_pydantic():
         option_group=option_group,
     )
     pydantic_node = node.to_pydantic(options=True)
-    assert pydantic_node.__root__.formkit == "autocomplete"
+    assert pydantic_node.root.formkit == "autocomplete"
     # Options should be included when options=True
-    assert pydantic_node.__root__.options is not None
+    assert pydantic_node.root.options is not None
 
 
 @pytest.mark.django_db

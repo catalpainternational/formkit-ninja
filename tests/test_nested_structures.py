@@ -256,10 +256,10 @@ def test_nested_structure_to_pydantic():
 
     # Convert to Pydantic
     pydantic_node = group.to_pydantic(recursive=True)
-    assert pydantic_node.__root__.formkit == "group"
-    assert pydantic_node.__root__.children is not None
-    assert len(pydantic_node.__root__.children) == 1
-    assert pydantic_node.__root__.children[0].formkit == "repeater"
+    assert pydantic_node.root.formkit == "group"
+    assert pydantic_node.root.children is not None
+    assert len(pydantic_node.root.children) == 1
+    assert pydantic_node.root.children[0].formkit == "repeater"
 
 
 @pytest.mark.django_db

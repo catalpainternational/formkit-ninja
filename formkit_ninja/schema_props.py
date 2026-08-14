@@ -44,7 +44,7 @@ _RECOGNISED_KEYS_CACHE: frozenset[str] | None = None
 
 def _collect_pydantic_field_keys(model_class: Type[BaseModel]) -> set[str]:
     keys: set[str] = set()
-    for name, field in model_class.__fields__.items():
+    for name, field in model_class.model_fields.items():
         keys.add(name)
         if field.alias:
             keys.add(field.alias)

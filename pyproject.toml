@@ -8,9 +8,14 @@ authors = [
     { name = "Josh Brooks", email = "josh@catalpa.io" }
 ]
 dependencies = [
-    "django-ninja<1",
+    # >=1.6 because `ninja.Status`, which every endpoint here returns, was added
+    # in 1.6; on 1.4 and 1.5 importing formkit_ninja.api raises ImportError.
+    "django-ninja>=1.6,<2",
     "Django==4.*",
-    "pydantic<2",
+    # >=2.11 because `ConfigDict(validate_by_name=True)` is only honoured from
+    # 2.11. Earlier 2.x drops the unknown key with no warning at all, so population
+    # by field name silently stops working instead of failing loudly.
+    "pydantic>=2.11,<3",
     "django-pgtrigger==4.*",
     "rich",
     "django-pghistory==3.*",

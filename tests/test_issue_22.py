@@ -138,7 +138,7 @@ def test_import_old_format_repeater_via_pydantic():
     node = formkit_schema.FormKitNode.parse_obj(old_format_json)
 
     # Save to DB
-    db_nodes = list(models.FormKitSchemaNode.from_pydantic(node.__root__))
+    db_nodes = list(models.FormKitSchemaNode.from_pydantic(node.root))
     assert len(db_nodes) == 1
 
     # Verify the fields are correctly stored in the model
@@ -192,7 +192,7 @@ def test_import_mixed_format_schema():
     schema = formkit_schema.FormKitSchema.parse_obj(mixed_schema)
 
     # Save to DB
-    for node in schema.__root__:
+    for node in schema.root:
         db_nodes = list(models.FormKitSchemaNode.from_pydantic(node))
 
         # Find the repeater node
@@ -229,7 +229,7 @@ def test_edge_case_bool_string_conversions():
         }
 
         node = formkit_schema.FormKitNode.parse_obj(json_data)
-        db_nodes = list(models.FormKitSchemaNode.from_pydantic(node.__root__))
+        db_nodes = list(models.FormKitSchemaNode.from_pydantic(node.root))
 
         assert len(db_nodes) == 1
         assert db_nodes[0].up_control == expected_val
