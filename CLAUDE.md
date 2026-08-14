@@ -1,5 +1,9 @@
 # formkit-ninja — contributor / agent notes
 
+See also [AGENTS.md](AGENTS.md) for how to file issues, verify claims and write
+regression tests, and [.agent/workflows/conventions.md](.agent/workflows/conventions.md)
+for Pydantic v2 / django-ninja 1.x conventions.
+
 ## Before committing
 
 CI enforces formatting: the **Lint (ruff)** and **Pre-commit hooks** jobs run
