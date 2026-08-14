@@ -9,15 +9,17 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: 3.x
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        # setup-uv publishes no floating major tag past v7 (which is now well
+        # behind), so this one is pinned to an exact release, unlike the rest.
+        uses: astral-sh/setup-uv@v10.0.0
         with:
           enable-cache: true
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           key: ${{ github.ref }}
           path: .cache
