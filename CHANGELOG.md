@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-08-14
+
 ### Fixed
+
+- **`GET /api/formkit/options` no longer returns HTTP 500 when an `Option` has
+  no group.** `Option.group` is nullable — `Option.__str__` has an explicit
+  "No group" branch for exactly that state — but the response schema declared
+  `group_name: str`. The `F("group__group")` annotation yields `None` for a
+  group-less row, so pydantic rejected the *entire* list: one group-less option
+  took every option down with it.
+
+  `group_name` is now `str | None`, matching the model. The endpoint already
+  serialises with `exclude_none=True`, so the key is simply omitted for a
+  group-less option rather than serialised as `null`; grouped rows are
+  unchanged. (#64)
 
 - **A `$cmp` component node no longer stores its own discriminator a second
   time in `additional_props`.** `FormKitNode.parse_obj` carried a private copy
