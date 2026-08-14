@@ -97,29 +97,15 @@ def test_unknown_keys_go_to_additional_props():
     assert node.additional_props == {"onClick": "doThing()"}
 
 
-@pytest.mark.parametrize(
-    "discriminator",
-    [
-        "$el",
-        "$formkit",
-        pytest.param(
-            "$cmp",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="set_handled_keys in FormKitNode.parse_obj omits '$cmp'; drop this mark when it is deduped against schema_props.STRUCTURAL_NODE_KEYS",
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize("discriminator", ["$el", "$formkit", "$cmp"])
 def test_discriminator_key_is_not_duplicated_into_additional_props(discriminator):
     """
     The structural key that selected the node type is consumed by parsing and
     must not also be stored as an arbitrary extra prop.
 
-    ``$cmp`` currently leaks: ``FormKitNode.parse_obj`` carries its own inline
-    copy of the structural-key set (``set_handled_keys``) which lists ``$el``
-    and ``$formkit`` but omits ``$cmp`` -- diverging from the canonical
-    ``schema_props.STRUCTURAL_NODE_KEYS``.
+    ``$cmp`` used to leak here: ``FormKitNode.parse_obj`` carried its own inline
+    copy of the structural-key set, listing ``$el`` and ``$formkit`` but not
+    ``$cmp``. Both now read ``formkit_schema.STRUCTURAL_NODE_KEYS``.
     """
     value = "div" if discriminator == "$el" else ("text" if discriminator == "$formkit" else "MyWidget")
     node = fs.FormKitNode.parse_obj({discriminator: value, "name": "n"}).__root__

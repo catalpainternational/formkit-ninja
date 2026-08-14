@@ -423,6 +423,30 @@ class Discriminators(TypedDict, total=False):
     formkit: FORMKIT_TYPE
 
 
+# Keys consumed structurally when parsing a node: the three discriminators
+# ("$el", "$formkit", "$cmp"), the condition/loop keywords, and the fields we
+# handle explicitly. Anything else on the input object is an arbitrary FormKit
+# prop and falls through to `additional_props`.
+#
+# Defined here rather than in `schema_props` because that module imports this
+# one; `schema_props.STRUCTURAL_NODE_KEYS` re-exports this name.
+STRUCTURAL_NODE_KEYS = frozenset(
+    {
+        "$el",
+        "$formkit",
+        "$cmp",
+        "if",
+        "for",
+        "then",
+        "else",
+        "children",
+        "node_type",
+        "formkit",
+        "id",
+    }
+)
+
+
 def get_node_type(obj: str | dict) -> Discriminators:
     """
     Pydantic requires nodes to be "differentiated" by a field value
@@ -474,25 +498,12 @@ class FormKitNode(BaseModel):
 
             However: if we're coming from the database we already store these in a separate field
             """
-            # Things which are not "other attributes"
-            set_handled_keys = {
-                "$formkit",
-                "$el",
-                "if",
-                "for",
-                "then",
-                "else",
-                "children",
-                "node_type",
-                "formkit",
-                "id",
-            }
             # Merge "additional props" from the input object
             # with any "unknown" params we received
             # obj is a dict here because of the earlier check
             assert isinstance(obj, dict)
             props: dict[str, Any] = object_in.get("additional_props", {})
-            props.update({k: obj[k] for k in object_in.keys() - exclude - set_handled_keys})
+            props.update({k: obj[k] for k in object_in.keys() - exclude - STRUCTURAL_NODE_KEYS})
             return props
 
         def get_children(object_in: dict):

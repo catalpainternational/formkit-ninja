@@ -10,22 +10,10 @@ from pydantic import BaseModel
 
 from formkit_ninja import formkit_schema
 
-# Keys handled structurally when parsing nodes (see FormKitNode.parse_obj).
-STRUCTURAL_NODE_KEYS = frozenset(
-    {
-        "$formkit",
-        "$el",
-        "$cmp",
-        "if",
-        "for",
-        "then",
-        "else",
-        "children",
-        "node_type",
-        "formkit",
-        "id",
-    }
-)
+# Keys handled structurally when parsing nodes. Defined alongside the parser
+# that consumes them (see FormKitNode.parse_obj) and re-exported here, so the
+# two can no longer drift apart.
+STRUCTURAL_NODE_KEYS = formkit_schema.STRUCTURAL_NODE_KEYS
 
 # Promoted model columns written into node JSON by FormKitSchemaNode.save / get_node_values.
 PROMOTED_NODE_KEYS = frozenset(

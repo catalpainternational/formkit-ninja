@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A `$cmp` component node no longer stores its own discriminator a second
+  time in `additional_props`.** `FormKitNode.parse_obj` carried a private copy
+  of the structural-key set that listed `$el` and `$formkit` but omitted
+  `$cmp`, so — unlike the other two node types — a component's `$cmp` key was
+  treated as an arbitrary extra prop and duplicated into JSON storage
+  alongside the parsed `cmp` field.
+
+  The set is now defined once, as `formkit_schema.STRUCTURAL_NODE_KEYS`, and
+  re-exported by `schema_props`, which had been maintaining the correct copy
+  all along. No migration is required: existing rows carrying the stray key
+  merge it back to the same value it already has.
+
 ### Removed
 
 - **`formkit_schema.FormKitTagParser` has been removed.** It reversed a
