@@ -74,7 +74,7 @@ def test_api_nonexistent_parent_id(admin_client: Client):
     )
     response = admin_client.post(
         path=path,
-        data=node.json(exclude_none=True),
+        data=node.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     # API might create node without parent or return error
@@ -177,7 +177,7 @@ def test_api_create_node_with_invalid_name(admin_client: Client):
     node = FormKitNodeIn(**{"$formkit": "text", "label": "Test", "name": "123invalid"})
     response = admin_client.post(
         path=path,
-        data=node.json(exclude_none=True),
+        data=node.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     # System should auto-fix invalid names
@@ -227,7 +227,7 @@ def test_api_create_node_empty_label(admin_client: Client):
     node = FormKitNodeIn(**{"$formkit": "text", "label": ""})
     response = admin_client.post(
         path=path,
-        data=node.json(exclude_none=True),
+        data=node.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     # Empty label might be allowed (name can be generated from other fields)
@@ -247,7 +247,7 @@ def test_api_create_node_very_long_label(admin_client: Client):
     node = FormKitNodeIn(**{"$formkit": "text", "label": long_label})
     response = admin_client.post(
         path=path,
-        data=node.json(exclude_none=True),
+        data=node.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     # Should either truncate, return validation error, or accept (if DB allows)
@@ -266,7 +266,7 @@ def test_api_create_node_with_special_characters(admin_client: Client):
     node = FormKitNodeIn(**{"$formkit": "text", "label": "Test @#$%^&*() Label"})
     response = admin_client.post(
         path=path,
-        data=node.json(exclude_none=True),
+        data=node.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     # Should handle special characters (likely in name generation)
@@ -289,7 +289,7 @@ def test_api_create_repeater_with_invalid_min_max(admin_client: Client):
     )
     response = admin_client.post(
         path=path,
-        data=node.json(exclude_none=True),
+        data=node.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     # API might accept this (validation could be client-side or in model)
@@ -310,7 +310,7 @@ def test_api_create_node_with_malformed_options(admin_client: Client):
     node = FormKitNodeIn(**{"$formkit": "select", "label": "Test", "options": "$ida(test)"})
     response = admin_client.post(
         path=path,
-        data=node.json(exclude_none=True),
+        data=node.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     # Should accept string options
@@ -333,7 +333,7 @@ def test_api_transaction_rollback_on_error(admin_client: Client):
     node = FormKitNodeIn(**{"$formkit": "text", "label": "Test"})
     response = admin_client.post(
         path=path,
-        data=node.json(exclude_none=True),
+        data=node.model_dump_json(exclude_none=True),
         content_type="application/json",
     )
     # If successful, count should increase by 1

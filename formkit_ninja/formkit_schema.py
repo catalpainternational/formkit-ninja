@@ -4,7 +4,7 @@ import logging
 import warnings
 from typing import Annotated, Any, Literal, Type, TypeAlias, TypedDict, TypeVar, Union
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel
+from pydantic import BaseModel, ConfigDict, Field, RootModel, SerializeAsAny, model_serializer
 
 """
 This is a port of selected parts of the FormKit schema
@@ -56,8 +56,8 @@ class FormKitListStatement(RootModel[tuple[str, float | int | str, list["FormKit
 
 
 class FormKitSchemaAttributesCondition(BaseModel):
-    if_: str = Field(None, alias="if")
-    then_: FormKitAttributeValue = Field(None, alias="then")
+    if_: str = Field(..., alias="if")
+    then_: FormKitAttributeValue = Field(..., alias="then")
     else_: FormKitAttributeValue | None = Field(None, alias="else")
 
     model_config = ConfigDict(validate_by_name=True)
@@ -83,7 +83,11 @@ class FormKitSchemaProps(BaseModel):
     # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
     #     default_factory=list
     # )
-    children: str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None = Field(None)
+    # ``SerializeAsAny`` because v2 serialises by the *declared* type, not the
+    # runtime one: a ``TextNode`` stored in a ``list[FormKitSchemaProps]`` would
+    # otherwise be dumped as its base class, silently dropping every subclass
+    # field — including the ``$formkit`` discriminator. v1 was duck-typed here.
+    children: list[SerializeAsAny[FormKitSchemaProps] | str] | FormKitSchemaCondition | str | None = Field(None)
     key: str | None = None
     if_condition: str | None = Field(None, alias="if")
     for_loop: FormKitListStatement | None = Field(None, alias="for")
@@ -130,23 +134,37 @@ class FormKitSchemaProps(BaseModel):
     model_config = ConfigDict(validate_by_name=True)
 
     def model_dump(self, *args, **kwargs):
-        # Set some sensible defaults for "to_dict"
-        if "by_alias" not in kwargs:
-            kwargs["by_alias"] = True
-        if "exclude_none" not in kwargs:
-            kwargs["exclude_none"] = True
-        _ = super().model_dump(*args, **kwargs)
+        """Dump with this package's wire defaults.
 
-        # Merge additional_props if they exist
-        if "additional_props" in _:
-            additional = _["additional_props"]
-            if additional:
-                _.update(additional)
-            del _["additional_props"]
+        Only sets the flags: the actual shaping lives in ``_serialize`` below,
+        because a ``model_dump`` override is *not* called for nested models —
+        see the note there.
+        """
+        kwargs.setdefault("by_alias", True)
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(*args, **kwargs)
 
-        # Filter out empty strings
-        # We do this after merging additional_props so they are also cleaned
-        return {k: v for k, v in _.items() if v != ""}
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler) -> dict[str, Any]:
+        """Lift ``additional_props`` up to the top level and drop empty strings.
+
+        This must be a ``model_serializer`` rather than part of the
+        ``model_dump`` override above. pydantic-core serialises nested models
+        itself and never calls a Python-level ``model_dump`` on a child, so
+        under v1 semantics (where ``.model_dump()`` recursed through ``.model_dump()``) a
+        plain override silently stopped applying below the top level — leaving
+        every child node with a raw ``additional_props`` key, its props
+        unmerged, and its ``$formkit``/``$el`` alias missing. A
+        ``model_serializer`` *is* invoked for nested models.
+        """
+        data = handler(self)
+
+        additional = data.pop("additional_props", None)
+        if additional:
+            data.update(additional)
+
+        # After merging, so additional_props are cleaned too.
+        return {key: value for key, value in data.items() if value != ""}
 
 
 # We defined this after the model above as it's a circular reference
@@ -202,9 +220,9 @@ class NumberNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["number"] = Field(default="number", alias="$formkit")
     text: str | None = None
-    max: int | None = None
-    min: int | str | None = None
-    step: int | str | None = None
+    max: int | float | None = None
+    min: int | float | str | None = None
+    step: int | float | str | None = None
 
 
 class PasswordNode(FormKitSchemaProps):
@@ -333,7 +351,7 @@ class FormKitSchemaDOMNode(FormKitSchemaProps):
     """
 
     node_type: Literal["element"] = Field(default="element", exclude=True)
-    el: str = Field(None, alias="$el")
+    el: str = Field(..., alias="$el")
     attrs: FormKitSchemaAttributes | None = None
 
     model_config = ConfigDict(validate_by_name=True)
@@ -464,7 +482,13 @@ def get_node_type(obj: str | dict) -> Discriminators:
 NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
 
 
-class FormKitNode(RootModel[Union[str, Node]]):
+class FormKitNode(RootModel[SerializeAsAny[Union[Node, str]]]):
+    def model_dump(self, *args, **kwargs):
+        """Dump with this package's wire defaults (see FormKitSchemaProps)."""
+        kwargs.setdefault("by_alias", True)
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(*args, **kwargs)
+
     @classmethod
     def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":  # noqa: C901
         """
@@ -521,11 +545,11 @@ class FormKitNode(RootModel[Union[str, Node]]):
             raise KeyError(f"Node type couln't be determined: {obj}") from E
 
         try:
-            parsed = super().parse_obj({**obj, "node_type": node_type["node_type"]})
+            parsed = super().model_validate({**obj, "node_type": node_type["node_type"]})
             node: NodeTypes = parsed.root  # type: ignore
         except KeyError as E:
             raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
-        if additional_props := get_additional_props(obj, exclude=set(node.__fields__)):
+        if additional_props := get_additional_props(obj, exclude=set(type(node).model_fields)):
             if hasattr(node, "additional_props"):
                 node.additional_props = additional_props
         # Recursively parse 'child' nodes back to Pydantic models for 'children'
@@ -538,7 +562,13 @@ class FormKitNode(RootModel[Union[str, Node]]):
         return parsed
 
 
-class FormKitSchema(RootModel[list[Node]]):
+class FormKitSchema(RootModel[list[SerializeAsAny[Node]]]):
+    def model_dump(self, *args, **kwargs):
+        """Dump with this package's wire defaults (see FormKitSchemaProps)."""
+        kwargs.setdefault("by_alias", True)
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(*args, **kwargs)
+
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
         """

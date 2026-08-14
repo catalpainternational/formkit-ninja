@@ -25,7 +25,7 @@ def get_supported_api_fields() -> set[str]:
     """
     # Get all fields from FormKitNodeIn, including aliases
     fields: set[str] = set()
-    for field_name, field_info in FormKitNodeIn.__fields__.items():
+    for field_name, field_info in FormKitNodeIn.model_fields.items():
         # Add the field name
         fields.add(field_name)
         # Add the alias if it exists
@@ -458,7 +458,7 @@ def extract_recreated_schema(schema_obj: models.FormKitSchema) -> dict | list:
         The recreated schema as a dict or list of nodes.
     """
     recreated_schema = schema_obj.to_pydantic()
-    recreated_dict = json.loads(recreated_schema.json(by_alias=True, exclude_none=True))
+    recreated_dict = json.loads(recreated_schema.model_dump_json(by_alias=True, exclude_none=True))
 
     # Handle both dict and list responses
     if isinstance(recreated_dict, dict):
@@ -805,14 +805,14 @@ def create_schema_via_admin(schema: dict | list, schema_label: str | None = None
                     process_nodes_recursive(children, node)
 
     # Process the schema - convert Pydantic models to dicts for processing
-    root_nodes = schema_nodes.root if hasattr(schema_nodes, "__root__") else []
+    root_nodes = schema_nodes.root if hasattr(schema_nodes, "root") else []
 
     def process_pydantic_nodes(nodes):
         """Convert Pydantic nodes to dicts recursively."""
         if isinstance(nodes, list):
             return [process_pydantic_nodes(n) for n in nodes]
         elif hasattr(nodes, "dict"):
-            node_dict = nodes.dict(by_alias=True, exclude_none=True)
+            node_dict = nodes.model_dump(by_alias=True, exclude_none=True)
             # Process children if they exist
             if "children" in node_dict:
                 node_dict["children"] = process_pydantic_nodes(node_dict["children"])

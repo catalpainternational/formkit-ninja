@@ -50,7 +50,7 @@ def test_node_children_no_change(admin_client: Client, tf_611_in_db):
 
     response = admin_client.post(
         path=path,
-        data=data.dict(),
+        data=data.model_dump(),
         content_type="application/json",
     )
     assert response.status_code == HTTPStatus.OK
@@ -76,7 +76,7 @@ def test_node_children_conflict(admin_client: Client, tf_611_in_db):
 
     response = admin_client.post(
         path=path,
-        data=data.dict(),
+        data=data.model_dump(),
         content_type="application/json",
     )
     assert response.status_code == HTTPStatus.CONFLICT
@@ -102,7 +102,7 @@ def test_node_children_change(admin_client: Client, tf_611_in_db):
 
     response = admin_client.post(
         path=path,
-        data=data.dict(),
+        data=data.model_dump(),
         content_type="application/json",
     )
     assert response.status_code == HTTPStatus.OK
@@ -130,7 +130,7 @@ def test_node_children_change_persists_to_db(admin_client: Client, tf_611_in_db)
 
     response = admin_client.post(
         path=path,
-        data=NodeChildrenIn(children=reversed_ids, parent_id=root.id, latest_change=latest_change).dict(),
+        data=NodeChildrenIn(children=reversed_ids, parent_id=root.id, latest_change=latest_change).model_dump(),
         content_type="application/json",
     )
     assert response.status_code == HTTPStatus.OK
@@ -151,7 +151,7 @@ def test_reorder_response_is_read_from_db_not_echoed(admin_client: Client, tf_61
 
     response = admin_client.post(
         path=path,
-        data=NodeChildrenIn(children=reversed_ids, parent_id=root.id, latest_change=latest_change).dict(),
+        data=NodeChildrenIn(children=reversed_ids, parent_id=root.id, latest_change=latest_change).model_dump(),
         content_type="application/json",
     )
     assert response.status_code == HTTPStatus.OK
@@ -175,7 +175,7 @@ def test_reorder_rejects_mismatched_children(admin_client: Client):
 
     response = admin_client.post(
         path=path,
-        data=NodeChildrenIn(children=bogus, parent_id=parent.id, latest_change=latest_change).dict(),
+        data=NodeChildrenIn(children=bogus, parent_id=parent.id, latest_change=latest_change).model_dump(),
         content_type="application/json",
     )
 
@@ -193,7 +193,7 @@ def test_reorder_requires_authentication(client: Client):
 
     response = client.post(
         reverse("api-1.0.0:reorder_node_children"),
-        data=data.dict(),
+        data=data.model_dump(),
         content_type="application/json",
     )
 
@@ -213,7 +213,7 @@ def test_reorder_requires_change_permission(client: Client, django_user_model):
 
     response = client.post(
         reverse("api-1.0.0:reorder_node_children"),
-        data=data.dict(),
+        data=data.model_dump(),
         content_type="application/json",
     )
 
@@ -276,7 +276,7 @@ def test_reorder_per_parent_isolation(admin_client: Client):
             children=[kids_b[2].id, kids_b[1].id, kids_b[0].id],
             parent_id=parent_b.id,
             latest_change=NodeChildren.objects.latest_change(parent_b.id),
-        ).dict(),
+        ).model_dump(),
         content_type="application/json",
     )
     assert resp_b.status_code == HTTPStatus.OK
@@ -286,7 +286,7 @@ def test_reorder_per_parent_isolation(admin_client: Client):
     desired_a = [kids_a[2].id, kids_a[1].id, kids_a[0].id]
     resp_a = admin_client.post(
         path,
-        data=NodeChildrenIn(children=desired_a, parent_id=parent_a.id, latest_change=token_a).dict(),
+        data=NodeChildrenIn(children=desired_a, parent_id=parent_a.id, latest_change=token_a).model_dump(),
         content_type="application/json",
     )
     assert resp_a.status_code == HTTPStatus.OK
@@ -301,7 +301,7 @@ def test_reorder_rejects_null_token(admin_client: Client):
 
     response = admin_client.post(
         path,
-        data=NodeChildrenIn(children=[children[1].id, children[0].id], parent_id=parent.id, latest_change=None).dict(),
+        data=NodeChildrenIn(children=[children[1].id, children[0].id], parent_id=parent.id, latest_change=None).model_dump(),
         content_type="application/json",
     )
 
@@ -318,7 +318,7 @@ def test_reorder_stale_token_after_success(admin_client: Client):
 
     first = admin_client.post(
         path,
-        data=NodeChildrenIn(children=[children[2].id, children[1].id, children[0].id], parent_id=parent.id, latest_change=token).dict(),
+        data=NodeChildrenIn(children=[children[2].id, children[1].id, children[0].id], parent_id=parent.id, latest_change=token).model_dump(),
         content_type="application/json",
     )
     assert first.status_code == HTTPStatus.OK
@@ -326,7 +326,7 @@ def test_reorder_stale_token_after_success(admin_client: Client):
     # Same (now stale) token again — must be rejected as a conflict
     second = admin_client.post(
         path,
-        data=NodeChildrenIn(children=[children[0].id, children[1].id, children[2].id], parent_id=parent.id, latest_change=token).dict(),
+        data=NodeChildrenIn(children=[children[0].id, children[1].id, children[2].id], parent_id=parent.id, latest_change=token).model_dump(),
         content_type="application/json",
     )
     assert second.status_code == HTTPStatus.CONFLICT
@@ -372,7 +372,7 @@ def test_reorder_response_serialises_parent(admin_client: Client):
 
     response = admin_client.post(
         reverse("api-1.0.0:reorder_node_children"),
-        data=NodeChildrenIn(children=[children[1].id, children[0].id], parent_id=parent.id, latest_change=latest_change).dict(),
+        data=NodeChildrenIn(children=[children[1].id, children[0].id], parent_id=parent.id, latest_change=latest_change).model_dump(),
         content_type="application/json",
     )
 

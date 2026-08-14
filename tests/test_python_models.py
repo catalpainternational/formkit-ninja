@@ -43,7 +43,7 @@ def test_create_from_schema(element_schema):
     assert c.nodes.count() == 1
 
     # The node...
-    dictify = c.nodes.first().get_node(recursive=True).dict(exclude_none=True)
+    dictify = c.nodes.first().get_node(recursive=True).model_dump(exclude_none=True)
 
     # The node looks like this:
     # {'children': [], 'node_type': 'element', 'el': 'div', 'attrs': {'style': {...}, 'data-foo': 'bar'}}
@@ -55,7 +55,7 @@ def test_create_from_schema(element_schema):
 
     # A 'group' node
     first_node = c.nodes.first()
-    first_node.get_node().dict(exclude_none=True, exclude={"children"})
+    first_node.get_node().model_dump(exclude_none=True, exclude={"children"})
 
 
 @pytest.mark.django_db()
@@ -130,7 +130,7 @@ def test_additional_props(formkit_text_node: dict):  # noqa: F811
     assert from_the_db.root.additional_props == {"class": "red"}
 
     # And back to JSON
-    json_from_the_db = json.loads(from_the_db.json(exclude_none=True, by_alias=True, exclude={"node_type"}))
+    json_from_the_db = json.loads(from_the_db.model_dump_json(exclude_none=True, by_alias=True, exclude={"node_type"}))
     assert json_from_the_db["class"] == "red"
 
     # Additional checks that the JSON output is equivalent to the JSON input

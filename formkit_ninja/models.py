@@ -900,7 +900,7 @@ class FormKitSchemaNode(UuidIdModel):
             log(f"[green]Yielding: {instance}")
 
             # Must save the instance before  adding "options" or "children"
-            instance.node = input_model.dict(
+            instance.node = input_model.model_dump(
                 exclude={
                     "options",
                     "children",

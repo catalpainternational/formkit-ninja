@@ -20,7 +20,7 @@ def test_login_form():
 def test_raw_values():
     schema = json.loads(files(samples).joinpath("raw_values.json").read_text())
     node = formkit_schema.FormKitNode.parse_obj(schema)
-    node_reloaded = json.loads(node.json(by_alias=True, exclude_unset=True))
+    node_reloaded = json.loads(node.model_dump_json(by_alias=True, exclude_unset=True))
     assert node_reloaded["props"]["__raw__price"] == "$2.99"
     assert node_reloaded["$cmp"] == "PriceComponent"
 
@@ -33,7 +33,7 @@ def test_meeting_type_node():
     schema = json.loads(files(samples).joinpath("meeting_type_node.json").read_text())
     formkit_schema.FormKitNode.parse_obj(schema[0])
     meeting_type_schema = formkit_schema.FormKitSchema.parse_obj(schema)
-    reloaded = json.loads(meeting_type_schema.json(by_alias=True, exclude_none=True))
+    reloaded = json.loads(meeting_type_schema.model_dump_json(by_alias=True, exclude_none=True))
 
     assert reloaded[0].get("id") == "meeting_type"
     assert reloaded[0].get("name") == "meeting_type"

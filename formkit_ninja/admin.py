@@ -616,7 +616,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
 
             # If it's a Pydantic model, convert to dict
             if hasattr(node, "dict"):
-                node_values = node.dict(exclude_none=True)
+                node_values = node.model_dump(exclude_none=True)
             else:
                 # Could be a string (TextNode) or other primitive
                 node_values = node

@@ -470,7 +470,7 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
     if child.is_active is False:
         return None, ["This node has already been deleted and cannot be edited"]
 
-    values = payload.dict(
+    values = payload.model_dump(
         by_alias=True,
         exclude_none=True,
         exclude={"parent_id", "uuid"} | {"parent", "child", "preferred_name", "parent_names"},
@@ -495,9 +495,9 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
     # Extract and preserve unrecognized fields from raw payload
     if raw_payload_dict is not None:
         # Get set of recognized fields from FormKitNodeIn schema
-        recognized_fields = set(FormKitNodeIn.__fields__.keys())
+        recognized_fields = set(FormKitNodeIn.model_fields.keys())
         # Also include alias names
-        for field_name, field_info in FormKitNodeIn.__fields__.items():
+        for field_name, field_info in FormKitNodeIn.model_fields.items():
             if hasattr(field_info, "alias") and field_info.alias:
                 recognized_fields.add(field_info.alias)
 

@@ -84,7 +84,7 @@ def test_schema_to_api_to_frontend_roundtrip():
     # Use json() then parse to handle Pydantic v1 serialization
     import json
 
-    schema_json = pydantic_schema.json(by_alias=True, exclude_none=True)
+    schema_json = pydantic_schema.model_dump_json(by_alias=True, exclude_none=True)
     schema_dict = json.loads(schema_json)
 
     # Parse back to Pydantic (simulating frontend -> backend)
