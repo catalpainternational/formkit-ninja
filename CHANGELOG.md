@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`GET /api/formkit/options` no longer 500s when `settings.LANGUAGES` differs
+  from tet/en/pt.** `label_tet`/`label_en`/`label_pt` were declared `str | None`
+  with no default, which in pydantic v2 is a *required* field whose value may be
+  null. Their values come from a queryset annotation driven by
+  `settings.LANGUAGES`, so a deployment declaring a different set left them
+  absent and response validation rejected the whole list. They now default to
+  `None`; with the route's existing `exclude_none=True` an undeclared language is
+  simply omitted. Third instance of the shape #64 fixed. (#70)
+
+- **Editing a protected node returns 403, not 500.** `protect_node_updates`
+  raises, and `create_or_update_node`'s bare `except Exception` reported it as
+  "An unexpected error occurred". `delete_node` already answered 403 for the same
+  condition, so the two endpoints disagreed about one situation and an
+  authorisation outcome was hidden behind a server error. Matched narrowly on
+  pgtrigger's own message so unrelated database errors still surface as 500. (#70)
+
+- **`additional_props` accepts any JSON value through the API.** It was
+  `dict[str, str | int]` on `FormKitNodeIn` while the library stores
+  `dict[str, Any]`, so lists and nested objects were rejected with 422 — a schema
+  imported from YAML could hold props that could never be edited back through the
+  API. (#70)
+
+- **`api.SchemaDescription` reads from `models.SchemaDescription`.** It was
+  declared against `models.SchemaLabel`. The two models happen to declare
+  identical fields, so both the served data and the OpenAPI document were correct
+  by coincidence, and would have gone wrong the moment either gained a field. (#71)
+
+- **`recognised_node_prop_keys()` notices node types registered after first
+  use.** The result was memoised for the life of the process after one walk of
+  `__subclasses__()`, so a consumer registering a custom node type — which
+  `NodeRegistry` explicitly invites — had its fields misfiled into
+  `additional_props`. Now cached against the class set it was built from. (#71)
+
+
 - **Reordering a node's children is now visible to incremental clients, and
   `reorder_node_children` can actually succeed.** `NodeChildren.track_change`
   was stamped from its own Postgres sequence, `nodechildren_change_id`, which no

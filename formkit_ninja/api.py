@@ -3,7 +3,7 @@ import logging
 import re
 from functools import cached_property
 from http import HTTPStatus
-from typing import Sequence, cast
+from typing import Any, Sequence, cast
 from uuid import UUID, uuid4
 
 from django.contrib.auth import get_user
@@ -57,7 +57,11 @@ class SchemaLabel(ModelSchema):
 
 class SchemaDescription(ModelSchema):
     class Meta:
-        model = models.SchemaLabel
+        # SchemaDescription, not SchemaLabel. The two models declare identical
+        # fields, so pointing this at the wrong one produced correct output and a
+        # correct OpenAPI document purely by coincidence — until either gained a
+        # field.
+        model = models.SchemaDescription
         fields = ("lang", "label")
 
 
@@ -153,10 +157,14 @@ def node_queryset_response(qs: models.NodeQS) -> NodeQSResponse:
 class Option(ModelSchema):
     group_name: str  # This is annotation of the model `content_type_model`
     value: str
-    # Note: For other projects you may want to extend this with additional languages
-    label_tet: str | None
-    label_en: str | None
-    label_pt: str | None
+    # Filled by an annotation driven by ``settings.LANGUAGES``, so a deployment
+    # declaring a different set leaves some of these absent entirely. They need
+    # defaults to be *optional*: `str | None` alone is a required field whose
+    # value may be null, which 500'd the whole endpoint. With the route's
+    # ``exclude_none=True`` an undeclared language is simply omitted.
+    label_tet: str | None = None
+    label_en: str | None = None
+    label_pt: str | None = None
     # This is an optional field used to indicate the last update
     # It's linked to a Django pg trigger instance in Partisipa
     change_id: int | None = None
@@ -284,6 +292,18 @@ class FormKitErrors(BaseModel):
     field_errors: dict[str, str] = {}
 
 
+def is_protect_violation(exc: BaseException) -> bool:
+    """Is this exception a ``pgtrigger.Protect`` refusal on a protected node?
+
+    A refusal, not a fault: the caller asked for something the row forbids, so
+    it belongs at 403 rather than 500. Matched on pgtrigger's own message
+    prefix, which is narrow enough not to catch unrelated database errors —
+    those must keep surfacing as 500 rather than being reported as permission
+    problems.
+    """
+    return "pgtrigger:" in str(exc).lower() and "cannot" in str(exc).lower()
+
+
 @router.delete(
     "delete/{node_id}",
     response={
@@ -374,7 +394,12 @@ class FormKitNodeIn(Schema):
 
     # Used for "Add Group"
     # This should include an `icon`, `title` and `id` for the second level group
-    additional_props: dict[str, str | int] | None = None
+    #
+    # ``Any`` to match ``FormKitSchemaProps.additional_props``: FormKit props are
+    # arbitrary JSON and real schemas carry lists and nested objects here. A
+    # narrower type here than in the library meant a schema imported from YAML
+    # could hold props that could never be edited back through the API.
+    additional_props: dict[str, Any] | None = None
 
     @field_validator("formkit")
     def validate_formkit_type(cls, v):
@@ -631,6 +656,9 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
             else:
                 return Status(HTTPStatus.BAD_REQUEST, error_response)
     except Exception as E:
+        if is_protect_violation(E):
+            error_response.errors.append("This node is protected and cannot be edited.")
+            return Status(HTTPStatus.FORBIDDEN, error_response)
         error_response.errors.append(f"{E}")
         return Status(HTTPStatus.INTERNAL_SERVER_ERROR, error_response)
 
