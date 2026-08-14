@@ -3,11 +3,14 @@
 """
 E2E tests for complex FormKit node types.
 
-Each node type is tested through 4 verification steps:
-1. Admin creation via Playwright
-2. Database verification
-3. Pydantic conversion
-4. API availability
+Each node type is created through the Django admin with Playwright, then
+verified two ways:
+1. Database verification -- the admin wrote the row we expect
+2. API availability -- the node is served correctly
+
+DB row -> Pydantic conversion is deliberately *not* tested here: it does not
+depend on how the row was written, so it lives in
+``test_node_pydantic_conversion.py`` and runs without a browser.
 """
 
 import os
@@ -18,7 +21,7 @@ from django.contrib.auth.models import User
 from playwright.sync_api import Page
 from pytest_django.fixtures import live_server, live_server_helper
 
-from formkit_ninja import formkit_schema, models
+from formkit_ninja import models
 
 os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
@@ -75,17 +78,6 @@ def test_repeater_database(repeater_node):
 
 
 @pytest.mark.django_db
-def test_repeater_pydantic(repeater_node):
-    """Verify RepeaterNode converts to Pydantic RepeaterNode."""
-    node = models.FormKitSchemaNode.objects.get(id=repeater_node)
-    pydantic_node = node.get_node()
-
-    assert isinstance(pydantic_node, formkit_schema.RepeaterNode)
-    assert pydantic_node.name == "e2e_repeater"
-    assert pydantic_node.addLabel == "Add new item"
-
-
-@pytest.mark.django_db
 def test_repeater_api(repeater_node, live_server: live_server_helper.LiveServer):
     """Verify RepeaterNode is available via API."""
     response = requests.get(f"{live_server.url}/api/formkit/node/{repeater_node}")
@@ -126,16 +118,6 @@ def test_group_database(group_node):
 
     assert node.node["$formkit"] == "group"
     assert node.node["name"] == "e2e_group"
-
-
-@pytest.mark.django_db
-def test_group_pydantic(group_node):
-    """Verify GroupNode converts to Pydantic GroupNode."""
-    node = models.FormKitSchemaNode.objects.get(id=group_node)
-    pydantic_node = node.get_node()
-
-    assert isinstance(pydantic_node, formkit_schema.GroupNode)
-    assert pydantic_node.name == "e2e_group"
 
 
 @pytest.mark.django_db
@@ -186,16 +168,6 @@ def test_number_database(number_node):
 
 
 @pytest.mark.django_db
-def test_number_pydantic(number_node):
-    """Verify NumberNode converts to Pydantic NumberNode."""
-    node = models.FormKitSchemaNode.objects.get(id=number_node)
-    pydantic_node = node.get_node()
-
-    assert isinstance(pydantic_node, formkit_schema.NumberNode)
-    assert pydantic_node.name == "e2e_number"
-
-
-@pytest.mark.django_db
 def test_number_api(number_node, live_server: live_server_helper.LiveServer):
     """Verify NumberNode is available via API."""
     response = requests.get(f"{live_server.url}/api/formkit/node/{number_node}")
@@ -240,16 +212,6 @@ def test_dropdown_database(dropdown_node):
 
 
 @pytest.mark.django_db
-def test_dropdown_pydantic(dropdown_node):
-    """Verify DropDownNode converts to Pydantic DropDownNode."""
-    node = models.FormKitSchemaNode.objects.get(id=dropdown_node)
-    pydantic_node = node.get_node()
-
-    assert isinstance(pydantic_node, formkit_schema.DropDownNode)
-    assert pydantic_node.name == "e2e_dropdown"
-
-
-@pytest.mark.django_db
 def test_dropdown_api(dropdown_node, live_server: live_server_helper.LiveServer):
     """Verify DropDownNode is available via API."""
     response = requests.get(f"{live_server.url}/api/formkit/node/{dropdown_node}")
@@ -289,16 +251,6 @@ def test_datepicker_database(datepicker_node):
 
     assert node.node["$formkit"] == "datepicker"
     assert node.node["name"] == "e2e_datepicker"
-
-
-@pytest.mark.django_db
-def test_datepicker_pydantic(datepicker_node):
-    """Verify DatePickerNode converts to Pydantic DatePickerNode."""
-    node = models.FormKitSchemaNode.objects.get(id=datepicker_node)
-    pydantic_node = node.get_node()
-
-    assert isinstance(pydantic_node, formkit_schema.DatePickerNode)
-    assert pydantic_node.name == "e2e_datepicker"
 
 
 @pytest.mark.django_db

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import warnings
-from html.parser import HTMLParser
 from typing import Annotated, Any, Literal, Type, TypeAlias, TypedDict, TypeVar, Union
 
 # Configure Pydantic to avoid forward reference issues
@@ -381,57 +380,7 @@ class FormKitSchemaComponent(FormKitSchemaProps):
 # FormKitSchemaComponent.update_forward_refs()
 
 
-class FormKitTagParser(HTMLParser):
-    """
-    Reverse an HTML example to schema
-    This is for lazy copy-pasting from the formkit website :)
-    """
-
-    def __init__(self, html_content, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data: str | None = None
-
-        self.current_tag: FormKitSchemaFormKit | None = None
-        self.tags: list[FormKitSchemaFormKit] = []
-        self.parents: list[FormKitSchemaFormKit] = []
-        self.feed(html_content)
-
-    def handle_starttag(self, tag, attrs):
-        """
-        Read anything that's a "formtag" type
-        """
-        if tag != "formkit":
-            return
-        props = dict(attrs)
-        props["formkit"] = props.pop("type")
-
-        tag = FormKitSchemaFormKit(**props)
-        self.current_tag = tag
-
-        if self.parents:
-            self.parents[-1].children.append(tag)
-        else:
-            self.tags.append(tag)
-            self.parents.append(tag)
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag != "formkit":
-            return
-        if self.parents:
-            self.parents.pop()
-
-    def handle_data(self, data):
-        if self.current_tag and data.strip():
-            self.current_tag.children.append(data.strip())
-            # Ensure that children is included even when "exclude_unset" is True
-            # since we populated this after the initial tag build
-            self.current_tag.__fields_set__.add("children")
-
-
-# FormKitSchemaDOMNode.update_forward_refs()
-
 Model = TypeVar("Model", bound="BaseModel")
-StrBytes = str | bytes
 
 Node: TypeAlias = Annotated[
     Union[
@@ -472,6 +421,30 @@ FORMKIT_TYPE = Literal[
 class Discriminators(TypedDict, total=False):
     node_type: NODE_TYPE
     formkit: FORMKIT_TYPE
+
+
+# Keys consumed structurally when parsing a node: the three discriminators
+# ("$el", "$formkit", "$cmp"), the condition/loop keywords, and the fields we
+# handle explicitly. Anything else on the input object is an arbitrary FormKit
+# prop and falls through to `additional_props`.
+#
+# Defined here rather than in `schema_props` because that module imports this
+# one; `schema_props.STRUCTURAL_NODE_KEYS` re-exports this name.
+STRUCTURAL_NODE_KEYS = frozenset(
+    {
+        "$el",
+        "$formkit",
+        "$cmp",
+        "if",
+        "for",
+        "then",
+        "else",
+        "children",
+        "node_type",
+        "formkit",
+        "id",
+    }
+)
 
 
 def get_node_type(obj: str | dict) -> Discriminators:
@@ -525,25 +498,12 @@ class FormKitNode(BaseModel):
 
             However: if we're coming from the database we already store these in a separate field
             """
-            # Things which are not "other attributes"
-            set_handled_keys = {
-                "$formkit",
-                "$el",
-                "if",
-                "for",
-                "then",
-                "else",
-                "children",
-                "node_type",
-                "formkit",
-                "id",
-            }
             # Merge "additional props" from the input object
             # with any "unknown" params we received
             # obj is a dict here because of the earlier check
             assert isinstance(obj, dict)
             props: dict[str, Any] = object_in.get("additional_props", {})
-            props.update({k: obj[k] for k in object_in.keys() - exclude - set_handled_keys})
+            props.update({k: obj[k] for k in object_in.keys() - exclude - STRUCTURAL_NODE_KEYS})
             return props
 
         def get_children(object_in: dict):

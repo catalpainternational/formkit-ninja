@@ -26,6 +26,12 @@ Gotchas we've hit:
   intended a dependency change.
 - **Tests need Postgres** on `$POSTGRES_PORT` (default `5434`). Quick throwaway:
   `podman run -d --rm -p 5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:16-alpine`.
+- **Lint *before* you test, or ignore `tests/parser/fixtures/generated*/`.**
+  The suite writes generated code into those directories. They are gitignored,
+  so CI lints a fresh checkout and never sees them — but locally, a `ruff check`
+  run after `pytest` reports ~90 errors in generated fixtures that you did not
+  write and must not "fix". Scope the check to what you touched, or
+  `git clean -fdx tests/parser/fixtures` first.
 
 ## `Submission.save()` does not split — the tests only look like it does
 
