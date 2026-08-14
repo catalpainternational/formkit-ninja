@@ -14,7 +14,7 @@ from django.db.models.aggregates import Max
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.cache import add_never_cache_headers
-from ninja import Field, ModelSchema, Router, Schema
+from ninja import Field, ModelSchema, Router, Schema, Status
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from formkit_ninja import formkit_schema, models
@@ -315,14 +315,14 @@ def delete_node(request, node_id: UUID):
     if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
         error_response = FormKitErrors()
         error_response.errors.append("You do not have permission to delete FormKit schema nodes.")
-        return HTTPStatus.FORBIDDEN, error_response
+        return Status(HTTPStatus.FORBIDDEN, error_response)
     try:
         with transaction.atomic():
             node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
             if get_schema_edit_policy() is not None and not schema_edit_allowed(node.get_root(), node, "meaning", request):
                 error_response = FormKitErrors()
                 error_response.errors.append(refusal_message("meaning", deleted=True))
-                return HTTPStatus.FORBIDDEN, error_response
+                return Status(HTTPStatus.FORBIDDEN, error_response)
             node.delete()
             # node.refresh_from_db()
             objects: models.NodeQS = cast(models.NodeQS, models.FormKitSchemaNode.objects)
@@ -333,7 +333,7 @@ def delete_node(request, node_id: UUID):
         error_msg = str(e)
         if "protected" in error_msg.lower() or "cannot delete" in error_msg.lower():
             error_response.errors.append("This node is protected and cannot be deleted.")
-            return HTTPStatus.FORBIDDEN, error_response
+            return Status(HTTPStatus.FORBIDDEN, error_response)
         # Re-raise other exceptions
         raise
 
@@ -644,7 +644,7 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
         error_response = FormKitErrors()
         error_response.errors.append("You do not have permission to create or update FormKit schema nodes.")
-        return HTTPStatus.FORBIDDEN, error_response
+        return Status(HTTPStatus.FORBIDDEN, error_response)
 
     error_response = FormKitErrors()
     # Update the payload "name"
@@ -665,7 +665,7 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
             child, errors = create_or_update_child_node(payload, raw_payload_dict, request=request)
         except SchemaEditRefused as refused:
             error_response.errors.append(str(refused))
-            return HTTPStatus.FORBIDDEN, error_response
+            return Status(HTTPStatus.FORBIDDEN, error_response)
         if errors:
             # Flatten errors if it's a list
             if isinstance(errors, list):
@@ -676,17 +676,17 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
             # Determine appropriate status code based on error type
             error_text = " ".join(error_response.errors) if error_response.errors else ""
             if "does not exist" in error_text or "UUID" in error_text:
-                return HTTPStatus.NOT_FOUND, error_response
+                return Status(HTTPStatus.NOT_FOUND, error_response)
             elif "deleted" in error_text or "cannot be edited" in error_text:
-                return HTTPStatus.BAD_REQUEST, error_response
+                return Status(HTTPStatus.BAD_REQUEST, error_response)
             else:
-                return HTTPStatus.BAD_REQUEST, error_response
+                return Status(HTTPStatus.BAD_REQUEST, error_response)
     except Exception as E:
         error_response.errors.append(f"{E}")
-        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+        return Status(HTTPStatus.INTERNAL_SERVER_ERROR, error_response)
 
     if error_response.errors or error_response.field_errors:
-        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+        return Status(HTTPStatus.INTERNAL_SERVER_ERROR, error_response)
 
     return node_queryset_response(models.FormKitSchemaNode.objects.filter(pk__in=[child.pk]))[0]
 
@@ -728,12 +728,12 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
     # to mirror delete_node / create_or_update_node (both mutate schema nodes).
     if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
         error_response.errors.append("You do not have permission to reorder FormKit schema nodes.")
-        return HTTPStatus.FORBIDDEN, error_response
+        return Status(HTTPStatus.FORBIDDEN, error_response)
 
     # Reject a missing token — otherwise None == None silently bypasses the check
     if payload.latest_change is None:
         error_response.errors.append("latest_change is required.")
-        return HTTPStatus.BAD_REQUEST, error_response
+        return Status(HTTPStatus.BAD_REQUEST, error_response)
 
     # Reordering siblings is presentational. The policy is still asked, so an application
     # can lock a form against every edit if it wants to.
@@ -741,7 +741,7 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
         parent = models.FormKitSchemaNode.objects.filter(pk=payload.parent_id).first()
         if parent is not None and not schema_edit_allowed(parent.get_root(), parent, "presentational", request):
             error_response.errors.append(refusal_message("presentational"))
-            return HTTPStatus.FORBIDDEN, error_response
+            return Status(HTTPStatus.FORBIDDEN, error_response)
 
     try:
         with transaction.atomic():
@@ -754,7 +754,7 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
             current = models.NodeChildren.objects.latest_change(payload.parent_id)
             if payload.latest_change != current:
                 error_response.errors = ["change conflict"]
-                return HTTPStatus.CONFLICT, error_response
+                return Status(HTTPStatus.CONFLICT, error_response)
 
             reorder_children(payload)
 
@@ -766,12 +766,12 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
     except ValueError as E:
         # The payload's children don't match the parent's children
         error_response.errors.append(f"{E}")
-        return HTTPStatus.BAD_REQUEST, error_response
+        return Status(HTTPStatus.BAD_REQUEST, error_response)
     except Exception:
         # Don't leak internal SQL / trigger detail to the client
         logger.exception("reorder_node_children failed for parent_id=%s", payload.parent_id)
         error_response.errors.append("An unexpected error occurred while reordering.")
-        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+        return Status(HTTPStatus.INTERNAL_SERVER_ERROR, error_response)
 
     # Built explicitly rather than returning ``payload``: the request schema names
     # the parent ``parent_id``, the response names it ``parent`` (see NodeChildrenOut).
