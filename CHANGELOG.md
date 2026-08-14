@@ -20,6 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now resolved together by `formkit_schema.model_key_names`, shared with
   `schema_props`.
 
+- **`FormKitNodeFactory` no longer drops arbitrary props on its fast path.**
+  When a node's `$formkit` type was in the registry, the factory validated
+  against that class directly, which fills only declared fields — so every
+  unrecognised FormKit prop was silently discarded. The same input routed
+  through the fallback (`FormKitNode.parse_obj`) kept them. Both paths now
+  produce identical output.
+
+- **`FormKitNodeFactory` now uses the registry it was constructed with.**
+  `from_dict`/`from_json` were `staticmethod`s reading the module-level
+  `default_registry`, so a `NodeRegistry` passed to `__init__` was accepted and
+  then ignored.
+
 - **A `$cmp` component node no longer stores its own discriminator a second
   time in `additional_props`.** `FormKitNode.parse_obj` carried a private copy
   of the structural-key set that listed `$el` and `$formkit` but omitted
@@ -31,6 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   re-exported by `schema_props`, which had been maintaining the correct copy
   all along. No migration is required: existing rows carrying the stray key
   merge it back to the same value it already has.
+
+### Changed
+
+- **`FormKitNodeFactory.from_dict` and `.from_json` are instance methods.**
+  They were `staticmethod`s; call them on an instance
+  (`FormKitNodeFactory().from_dict(...)`) or use the new
+  `node_factory.default_factory` singleton. This is what makes the
+  constructor's `registry` argument meaningful.
 
 ### Removed
 

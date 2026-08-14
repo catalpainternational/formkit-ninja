@@ -8,7 +8,7 @@ from typing import Generator, Iterable, Literal, cast
 from formkit_ninja import formkit_schema
 from formkit_ninja.formkit_schema import FormKitSchemaDOMNode, GroupNode, RepeaterNode
 from formkit_ninja.parser.converters import TypeConverterRegistry, default_registry
-from formkit_ninja.parser.node_factory import FormKitNodeFactory
+from formkit_ninja.parser.node_factory import default_factory as node_factory
 
 FormKitType = formkit_schema.FormKitType
 
@@ -59,7 +59,7 @@ class NodePath:
 
     @classmethod
     def from_obj(cls, obj: dict):
-        node = FormKitNodeFactory.from_dict(obj)
+        node = node_factory.from_dict(obj)
         return cls(cast(FormKitType, node))
 
     def __truediv__(self, node: Literal[".."] | FormKitType):
