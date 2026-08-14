@@ -805,7 +805,7 @@ def create_schema_via_admin(schema: dict | list, schema_label: str | None = None
                     process_nodes_recursive(children, node)
 
     # Process the schema - convert Pydantic models to dicts for processing
-    root_nodes = schema_nodes.__root__ if hasattr(schema_nodes, "__root__") else []
+    root_nodes = schema_nodes.root if hasattr(schema_nodes, "__root__") else []
 
     def process_pydantic_nodes(nodes):
         """Convert Pydantic nodes to dicts recursively."""

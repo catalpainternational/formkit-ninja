@@ -787,7 +787,7 @@ class FormKitSchemaNode(UuidIdModel):
             node_content_dict = self.get_node_values(**kwargs, recursive=recursive, options=options)  # type: ignore[assignment]
 
         formkit_node = formkit_schema.FormKitNode.parse_obj(node_content_dict, recursive=recursive)
-        return formkit_node.__root__
+        return formkit_node.root
 
     @classmethod
     def from_pydantic(  # noqa: C901

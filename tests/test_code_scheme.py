@@ -26,7 +26,7 @@ def test_code_scheme_roundtrips_db_backed_select():
         "options": [{"value": "020101", "label": "Aissirimou"}],
     }
 
-    parsed = FormKitNode.parse_obj(node_json).__root__
+    parsed = FormKitNode.parse_obj(node_json).root
     assert parsed.code_scheme == "intl2024"
 
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed))[0]
@@ -39,7 +39,7 @@ def test_code_scheme_roundtrips_db_backed_select():
 
     # And back out through Pydantic.
     from_the_db = node_in_the_db.to_pydantic(options=True)
-    assert from_the_db.__root__.code_scheme == "intl2024"
+    assert from_the_db.root.code_scheme == "intl2024"
 
 
 @pytest.mark.django_db
@@ -54,7 +54,7 @@ def test_code_scheme_roundtrips_js_backed_select():
         "options": "$getLocations()",
     }
 
-    parsed = FormKitNode.parse_obj(node_json).__root__
+    parsed = FormKitNode.parse_obj(node_json).root
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed))[0]
 
     assert node_in_the_db.code_scheme == "pnds"
@@ -75,7 +75,7 @@ def test_untagged_node_emits_no_code_scheme_key():
         "options": "$ida(activity)",
     }
 
-    parsed = FormKitNode.parse_obj(node_json).__root__
+    parsed = FormKitNode.parse_obj(node_json).root
     node_in_the_db = list(models.FormKitSchemaNode.from_pydantic(parsed))[0]
 
     assert node_in_the_db.code_scheme is None

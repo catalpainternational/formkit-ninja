@@ -57,7 +57,7 @@ def test_complete_schema_creation_workflow():
     schema.refresh_from_db()
     pydantic_schema = schema.to_pydantic()
     assert pydantic_schema is not None
-    assert len(pydantic_schema.__root__) >= 1
+    assert len(pydantic_schema.root) >= 1
 
 
 @pytest.mark.django_db
@@ -91,7 +91,7 @@ def test_schema_to_api_to_frontend_roundtrip():
     parsed_schema = formkit_schema.FormKitSchema.parse_obj(schema_dict)
 
     # Verify structure
-    assert len(parsed_schema.__root__) >= 1
+    assert len(parsed_schema.root) >= 1
 
 
 @pytest.mark.django_db
@@ -153,10 +153,10 @@ def test_nested_structure_serialization():
 
     # Serialize to Pydantic
     pydantic_node = group.to_pydantic(recursive=True)
-    assert pydantic_node.__root__.formkit == "group"
-    assert pydantic_node.__root__.children is not None
-    assert len(pydantic_node.__root__.children) == 1
-    assert pydantic_node.__root__.children[0].formkit == "repeater"
+    assert pydantic_node.root.formkit == "group"
+    assert pydantic_node.root.children is not None
+    assert len(pydantic_node.root.children) == 1
+    assert pydantic_node.root.children[0].formkit == "repeater"
 
 
 @pytest.mark.django_db

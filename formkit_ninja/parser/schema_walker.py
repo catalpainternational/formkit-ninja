@@ -41,7 +41,7 @@ class SchemaWalker:
 
         schema_dicts: List[dict] = []
         if isinstance(schema, FormKitSchema):
-            for node in schema.__root__:
+            for node in schema.root:
                 if isinstance(node, str):
                     continue
                 schema_dicts.append(node.dict(exclude_none=True))

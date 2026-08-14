@@ -85,7 +85,7 @@ class FormKitNodeFactory:
 
         # Fall back to original behavior for backward compatibility
         try:
-            node = FormKitNode.parse_obj(data).__root__  # type: ignore[assignment]
+            node = FormKitNode.parse_obj(data).root  # type: ignore[assignment]
         except Exception as exc:
             raise ValueError("Invalid FormKit node data") from exc
         return cast(formkit_schema.FormKitType, node)
