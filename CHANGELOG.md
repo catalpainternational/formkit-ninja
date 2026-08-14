@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **`formkit_schema.FormKitTagParser` has been removed.** It reversed a
+  copy-pasted HTML `<formkit>` snippet back into schema nodes — a development
+  convenience that was never referenced anywhere in the package, exercised by
+  no test, and reachable only via a deep import. It also called the Pydantic v1
+  private `__fields_set__` API, so it was untested code standing directly in
+  the way of a v2 upgrade. The unused `formkit_schema.StrBytes` alias went with
+  it.
+
 ## [3.1.0] - 2026-08-11
 
 ### Fixed
