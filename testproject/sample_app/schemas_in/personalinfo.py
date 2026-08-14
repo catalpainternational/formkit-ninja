@@ -13,4 +13,4 @@ class PersonalInfoSchema(BaseModel):
     email_address: str | None = None
 
 
-PersonalInfoSchema.update_forward_refs()
+PersonalInfoSchema.model_rebuild()

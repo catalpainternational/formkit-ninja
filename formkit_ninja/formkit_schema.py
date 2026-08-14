@@ -4,7 +4,7 @@ import logging
 import warnings
 from typing import Annotated, Any, Literal, Type, TypeAlias, TypedDict, TypeVar, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, RootModel, SerializeAsAny, model_serializer
 
 """
 This is a port of selected parts of the FormKit schema
@@ -31,8 +31,8 @@ class FormKitSchemaCondition(BaseModel):
     else_condition: Any | None = Field(None, alias="else")
 
 
-class FormKitSchemaMeta(BaseModel):
-    __root__: dict[str, str | float | int | bool | None]
+class FormKitSchemaMeta(RootModel[dict[str, str | float | int | bool | None]]):
+    pass
 
 
 class FormKitTypeDefinition(BaseModel): ...
@@ -44,38 +44,33 @@ class FormKitContextShape(BaseModel):
     _value: Any
 
 
-class FormKitListValue(BaseModel):
-    __root__: str | list[str] | list[dict[str, str]]
+class FormKitListValue(RootModel[str | list[str] | list[dict[str, str]]]):
+    pass
 
 
-class FormKitListStatement(BaseModel):
+class FormKitListStatement(RootModel[tuple[str, float | int | str, list["FormKitListValue"]]]):
     """
     A full loop statement in tuple syntax. Can be read like "foreach value, key? in list"
     A 2 or 2 element tuple of value, key, and list or value, list
     """
 
-    __root__: tuple[str, float | int | str, list[FormKitListValue]]
-
 
 class FormKitSchemaAttributesCondition(BaseModel):
-    if_: str = Field(alias="if")
-    then_: FormKitAttributeValue = Field(alias="then")
-    else_: FormKitAttributeValue | None = Field(alias="else")
+    if_: str = Field(..., alias="if")
+    then_: FormKitAttributeValue = Field(..., alias="then")
+    else_: FormKitAttributeValue | None = Field(None, alias="else")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(validate_by_name=True)
 
 
-class FormKitAttributeValue(BaseModel):
+class FormKitAttributeValue(RootModel[Any]):
     """
     The possible value types of attributes (in the schema)
     """
 
-    __root__: Any
 
-
-class FormKitSchemaAttributes(BaseModel):
-    __root__: dict[str, Any]
+class FormKitSchemaAttributes(RootModel[dict[str, Any]]):
+    pass
 
 
 class FormKitSchemaProps(BaseModel):
@@ -88,24 +83,28 @@ class FormKitSchemaProps(BaseModel):
     # children: str | list[FormKitSchemaProps] | FormKitSchemaCondition | None = Field(
     #     default_factory=list
     # )
-    children: str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None = Field()
-    key: str | None
-    if_condition: str | None = Field(alias="if")
-    for_loop: FormKitListStatement | None = Field(alias="for")
-    bind: str | None
-    meta: FormKitSchemaMeta | None
+    # ``SerializeAsAny`` because v2 serialises by the *declared* type, not the
+    # runtime one: a ``TextNode`` stored in a ``list[FormKitSchemaProps]`` would
+    # otherwise be dumped as its base class, silently dropping every subclass
+    # field — including the ``$formkit`` discriminator. v1 was duck-typed here.
+    children: list[SerializeAsAny[FormKitSchemaProps] | str] | FormKitSchemaCondition | str | None = Field(None)
+    key: str | None = None
+    if_condition: str | None = Field(None, alias="if")
+    for_loop: FormKitListStatement | None = Field(None, alias="for")
+    bind: str | None = None
+    meta: FormKitSchemaMeta | None = None
 
     # These are not formal parts of spec, but
     # are attributes defined in ts as Record<string, any>
     # id: str | uuid.UUID | None = Field(None)
-    id: str = Field(None)
+    id: str | None = Field(None)
     name: str | None = Field(None)
     label: str | None = Field(None)
     help: str | None = Field(None)
     validation: str | None = Field(None)
     validationLabel: str | None = Field(None, alias="validation-label")
     validationVisibility: str | None = Field(None, alias="validation-visibility")
-    validationMessages: str | dict[str, str] = Field(None, alias="validation-messages")
+    validationMessages: str | dict[str, str] | None = Field(None, alias="validation-messages")
     placeholder: str | None = Field(None)
     value: str | None = Field(None)
     prefixIcon: str | None = Field(None)
@@ -132,27 +131,40 @@ class FormKitSchemaProps(BaseModel):
     # Additional Props can be quite a complicated structure
     additional_props: None | dict[str, str | dict[str, Any]] = Field(None)
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(validate_by_name=True)
 
-    def dict(self, *args, **kwargs):
-        # Set some sensible defaults for "to_dict"
-        if "by_alias" not in kwargs:
-            kwargs["by_alias"] = True
-        if "exclude_none" not in kwargs:
-            kwargs["exclude_none"] = True
-        _ = super().dict(*args, **kwargs)
+    def model_dump(self, *args, **kwargs):
+        """Dump with this package's wire defaults.
 
-        # Merge additional_props if they exist
-        if "additional_props" in _:
-            additional = _["additional_props"]
-            if additional:
-                _.update(additional)
-            del _["additional_props"]
+        Only sets the flags: the actual shaping lives in ``_serialize`` below,
+        because a ``model_dump`` override is *not* called for nested models —
+        see the note there.
+        """
+        kwargs.setdefault("by_alias", True)
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(*args, **kwargs)
 
-        # Filter out empty strings
-        # We do this after merging additional_props so they are also cleaned
-        return {k: v for k, v in _.items() if v != ""}
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler) -> dict[str, Any]:
+        """Lift ``additional_props`` up to the top level and drop empty strings.
+
+        This must be a ``model_serializer`` rather than part of the
+        ``model_dump`` override above. pydantic-core serialises nested models
+        itself and never calls a Python-level ``model_dump`` on a child, so
+        under v1 semantics (where ``.model_dump()`` recursed through ``.model_dump()``) a
+        plain override silently stopped applying below the top level — leaving
+        every child node with a raw ``additional_props`` key, its props
+        unmerged, and its ``$formkit``/``$el`` alias missing. A
+        ``model_serializer`` *is* invoked for nested models.
+        """
+        data = handler(self)
+
+        additional = data.pop("additional_props", None)
+        if additional:
+            data.update(additional)
+
+        # After merging, so additional_props are cleaned too.
+        return {key: value for key, value in data.items() if value != ""}
 
 
 # We defined this after the model above as it's a circular reference
@@ -162,14 +174,14 @@ ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | 
 class TextNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["text"] = Field(default="text", alias="$formkit")
-    text: str | None
+    text: str | None = None
     maxLength: int | None = Field(None, description="Maximum length of the text input")
 
 
 class TextAreaNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["textarea"] = Field(default="textarea", alias="$formkit")
-    text: str | None
+    text: str | None = None
 
 
 class DateNode(FormKitSchemaProps):
@@ -207,16 +219,16 @@ class CheckBoxNode(FormKitSchemaProps):
 class NumberNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["number"] = Field(default="number", alias="$formkit")
-    text: str | None
-    max: int | None = None
-    min: int | str | None = None
-    step: int | str | None = None
+    text: str | None = None
+    max: int | float | None = None
+    min: int | float | str | None = None
+    step: int | float | str | None = None
 
 
 class PasswordNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["password"] = Field(default="password", alias="$formkit")
-    name: str | None
+    name: str | None = None
 
 
 class HiddenNode(FormKitSchemaProps):
@@ -227,7 +239,7 @@ class HiddenNode(FormKitSchemaProps):
 class RadioNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["radio"] = Field(default="radio", alias="$formkit")
-    name: str | None
+    name: str | None = None
     options: OptionsType = Field(None)
 
 
@@ -259,7 +271,7 @@ class DropDownNode(FormKitSchemaProps):
     options: OptionsType = Field(None)
     empty_message: str | None = Field(None, alias="empty-message")
     select_icon: str | None = Field(None, alias="selectIcon")
-    placeholder: str | None
+    placeholder: str | None = None
 
 
 class RepeaterNode(FormKitSchemaProps):
@@ -279,7 +291,7 @@ class RepeaterNode(FormKitSchemaProps):
 class GroupNode(FormKitSchemaProps):
     node_type: Literal["formkit"] = Field(default="formkit", exclude=True)
     formkit: Literal["group"] = Field(default="group", alias="$formkit")
-    text: str | None
+    text: str | None = None
 
 
 # This is useful for "isinstance" checks
@@ -339,11 +351,10 @@ class FormKitSchemaDOMNode(FormKitSchemaProps):
     """
 
     node_type: Literal["element"] = Field(default="element", exclude=True)
-    el: str = Field(alias="$el")
-    attrs: FormKitSchemaAttributes | None
+    el: str = Field(..., alias="$el")
+    attrs: FormKitSchemaAttributes | None = None
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(validate_by_name=True)
 
 
 class FormKitSchemaComponent(FormKitSchemaProps):
@@ -361,10 +372,9 @@ class FormKitSchemaComponent(FormKitSchemaProps):
         alias="$cmp",
         description="The $cmp property should be a string that references a globally defined component or a component passed into FormKitSchema with the library prop.",  # noqa: E501
     )
-    props: dict[str, str | Any] | None
+    props: dict[str, str | Any] | None = None
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(validate_by_name=True)
 
 
 # This necessary to properly "populate" some more complicated models
@@ -453,9 +463,6 @@ def get_node_type(obj: str | dict) -> Discriminators:
     if isinstance(obj, str):
         return {"node_type": "element"}
 
-    if "__root__" in obj:
-        return get_node_type(obj["__root__"])
-
     if isinstance(obj, dict) and len(obj.keys()) == 0:
         return {"node_type": "element"}
 
@@ -472,8 +479,12 @@ def get_node_type(obj: str | dict) -> Discriminators:
 NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
 
 
-class FormKitNode(BaseModel):
-    __root__: str | Node
+class FormKitNode(RootModel[SerializeAsAny[Union[Node, str]]]):
+    def model_dump(self, *args, **kwargs):
+        """Dump with this package's wire defaults (see FormKitSchemaProps)."""
+        kwargs.setdefault("by_alias", True)
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(*args, **kwargs)
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":  # noqa: C901
@@ -513,7 +524,7 @@ class FormKitNode(BaseModel):
                         children_out.append(n)
                     else:
                         try:
-                            children_out.append(cls.parse_obj(n).__root__)  # type: ignore
+                            children_out.append(cls.parse_obj(n).root)  # type: ignore
                         except Exception as E:
                             warnings.warn(f"{E}")
                 return children_out
@@ -521,7 +532,7 @@ class FormKitNode(BaseModel):
                 return None
 
         if isinstance(obj, str):
-            return cls(__root__=obj)
+            return cls(root=obj)
 
         # There's a discriminator step which needs assisance: `node_type`
         # must be set on the input object
@@ -531,11 +542,11 @@ class FormKitNode(BaseModel):
             raise KeyError(f"Node type couln't be determined: {obj}") from E
 
         try:
-            parsed = super().parse_obj({**obj, "node_type": node_type["node_type"]})
-            node: NodeTypes = parsed.__root__  # type: ignore
+            parsed = super().model_validate({**obj, "node_type": node_type["node_type"]})
+            node: NodeTypes = parsed.root  # type: ignore
         except KeyError as E:
             raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
-        if additional_props := get_additional_props(obj, exclude=set(node.__fields__)):
+        if additional_props := get_additional_props(obj, exclude=set(type(node).model_fields)):
             if hasattr(node, "additional_props"):
                 node.additional_props = additional_props
         # Recursively parse 'child' nodes back to Pydantic models for 'children'
@@ -548,8 +559,12 @@ class FormKitNode(BaseModel):
         return parsed
 
 
-class FormKitSchema(BaseModel):
-    __root__: list[Node]
+class FormKitSchema(RootModel[list[SerializeAsAny[Node]]]):
+    def model_dump(self, *args, **kwargs):
+        """Dump with this package's wire defaults (see FormKitSchemaProps)."""
+        kwargs.setdefault("by_alias", True)
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(*args, **kwargs)
 
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
@@ -561,7 +576,7 @@ class FormKitSchema(BaseModel):
         if isinstance(obj, dict):
             return cls.parse_obj([obj])
         try:
-            return cls(__root__=[FormKitNode.parse_obj(_).__root__ for _ in obj])
+            return cls(root=[FormKitNode.parse_obj(_).root for _ in obj])
         except TypeError:
             raise
 

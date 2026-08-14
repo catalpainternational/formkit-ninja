@@ -28,7 +28,7 @@ def {{this.classname_lower}}(request):
 {% if not this.is_abstract_base %}
 @router.post("{{this.classname_lower}}", response=schema_out.{{this.classname_schema}})
 def create_{{this.classname_lower}}(request, payload: schema_in.{{this.classname_schema}}):
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     
     # Create a Submission entry
     submission = Submission.objects.create(

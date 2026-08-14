@@ -310,7 +310,7 @@ def test_api_nested_group_node_field(api_template: Template, nested_group_node: 
 
         @router.post("bar", response=schema_out.BarSchema)
         def create_bar(request, payload: schema_in.BarSchema):
-            data = payload.dict(exclude_unset=True)
+            data = payload.model_dump(exclude_unset=True)
             
             # Create a Submission entry
             submission = Submission.objects.create(
@@ -359,7 +359,7 @@ def test_api_nested_repeater_node_field(api_template: Template, nested_repeater_
 
         @router.post("bar", response=schema_out.BarSchema)
         def create_bar(request, payload: schema_in.BarSchema):
-            data = payload.dict(exclude_unset=True)
+            data = payload.model_dump(exclude_unset=True)
             
             # Create a Submission entry
             submission = Submission.objects.create(

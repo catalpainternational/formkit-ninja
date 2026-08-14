@@ -47,7 +47,7 @@ def create_tf611(request, payload: schema_in.Tf611SchemaIn):
 
     Returns the created TF611 record.
     """
-    data = payload.dict(exclude_unset=True, by_alias=True)
+    data = payload.model_dump(exclude_unset=True, by_alias=True)
 
     # Create a Submission entry
     submission = Submission.objects.create(

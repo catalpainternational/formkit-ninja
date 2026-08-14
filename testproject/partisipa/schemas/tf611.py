@@ -59,5 +59,5 @@ class Tf611Schema(Schema):
     project_outputs: List[Tf611RepeaterprojectoutputSchema] | None = None
 
 
-Tf611Schema.update_forward_refs()
-Tf611RepeaterprojectoutputSchema.update_forward_refs()
+Tf611Schema.model_rebuild()
+Tf611RepeaterprojectoutputSchema.model_rebuild()

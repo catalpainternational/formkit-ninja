@@ -33,11 +33,6 @@ def test_get_node_type_discriminates(obj, expected):
     assert fs.get_node_type(obj) == {"node_type": expected}
 
 
-def test_get_node_type_unwraps_root():
-    """A ``__root__``-wrapped payload is discriminated by its inner value."""
-    assert fs.get_node_type({"__root__": {"$formkit": "text"}}) == {"node_type": "formkit"}
-
-
 def test_get_node_type_rejects_undiscriminatable():
     with pytest.raises(KeyError):
         fs.get_node_type({"name": "no discriminator here"})
@@ -50,7 +45,7 @@ def test_get_node_type_rejects_undiscriminatable():
 
 def test_parse_obj_string_node():
     """A bare string is a valid node (DOM text content)."""
-    assert fs.FormKitNode.parse_obj("hello").__root__ == "hello"
+    assert fs.FormKitNode.parse_obj("hello").root == "hello"
 
 
 def test_parse_obj_undiscriminatable_raises_keyerror():
@@ -65,7 +60,7 @@ def test_parse_obj_recurses_into_children():
             "name": "outer",
             "children": [{"$formkit": "text", "name": "inner"}, "literal text"],
         }
-    ).__root__
+    ).root
 
     assert [getattr(c, "name", c) for c in node.children] == ["inner", "literal text"]
 
@@ -74,7 +69,7 @@ def test_parse_obj_recursive_false_drops_children():
     node = fs.FormKitNode.parse_obj(
         {"$formkit": "group", "name": "outer", "children": [{"$formkit": "text", "name": "inner"}]},
         recursive=False,
-    ).__root__
+    ).root
 
     assert node.children is None
 
@@ -82,7 +77,7 @@ def test_parse_obj_recursive_false_drops_children():
 def test_parse_obj_warns_and_skips_unparseable_child():
     """An undiscriminatable child is warned about, not fatal to the parent."""
     with pytest.warns(UserWarning):
-        node = fs.FormKitNode.parse_obj({"$formkit": "group", "name": "outer", "children": [{"bogus": "child"}]}).__root__
+        node = fs.FormKitNode.parse_obj({"$formkit": "group", "name": "outer", "children": [{"bogus": "child"}]}).root
 
     assert node.children == []
 
@@ -93,7 +88,7 @@ def test_parse_obj_warns_and_skips_unparseable_child():
 
 
 def test_unknown_keys_go_to_additional_props():
-    node = fs.FormKitNode.parse_obj({"$formkit": "text", "name": "n", "onClick": "doThing()"}).__root__
+    node = fs.FormKitNode.parse_obj({"$formkit": "text", "name": "n", "onClick": "doThing()"}).root
     assert node.additional_props == {"onClick": "doThing()"}
 
 
@@ -108,7 +103,7 @@ def test_discriminator_key_is_not_duplicated_into_additional_props(discriminator
     ``$cmp``. Both now read ``formkit_schema.STRUCTURAL_NODE_KEYS``.
     """
     value = "div" if discriminator == "$el" else ("text" if discriminator == "$formkit" else "MyWidget")
-    node = fs.FormKitNode.parse_obj({discriminator: value, "name": "n"}).__root__
+    node = fs.FormKitNode.parse_obj({discriminator: value, "name": "n"}).root
 
     assert discriminator not in (node.additional_props or {})
 
@@ -120,10 +115,10 @@ def test_discriminator_key_is_not_duplicated_into_additional_props(discriminator
 
 def test_schema_parse_obj_wraps_single_node():
     schema = fs.FormKitSchema.parse_obj({"$formkit": "text", "name": "solo"})
-    assert len(schema.__root__) == 1
-    assert schema.__root__[0].name == "solo"
+    assert len(schema.root) == 1
+    assert schema.root[0].name == "solo"
 
 
 def test_schema_parse_obj_accepts_list():
     schema = fs.FormKitSchema.parse_obj([{"$formkit": "text", "name": "a"}, {"$el": "div"}])
-    assert len(schema.__root__) == 2
+    assert len(schema.root) == 2

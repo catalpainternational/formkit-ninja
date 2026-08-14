@@ -21,7 +21,7 @@ def test_serve_node_validation_wins_over_stale_additional_props():
     )
 
     served = api.node_queryset_response(models.FormKitSchemaNode.objects.filter(pk=node.pk))[0]
-    node_dict = served.dict(by_alias=True, exclude_none=True)["node"]
+    node_dict = served.model_dump(by_alias=True, exclude_none=True)["node"]
     assert node_dict["validation"] == "required|min:1"
 
     values = node.get_node_values()

@@ -20,5 +20,5 @@ class MainFormLineItemsSchema(BaseModel):
     price: int | None = None
 
 
-MainFormSchema.update_forward_refs()
-MainFormLineItemsSchema.update_forward_refs()
+MainFormSchema.model_rebuild()
+MainFormLineItemsSchema.model_rebuild()
