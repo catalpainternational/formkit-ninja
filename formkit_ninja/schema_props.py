@@ -41,14 +41,9 @@ PROMOTED_NODE_KEYS = frozenset(
 
 _RECOGNISED_KEYS_CACHE: frozenset[str] | None = None
 
-
-def _collect_pydantic_field_keys(model_class: Type[BaseModel]) -> set[str]:
-    keys: set[str] = set()
-    for name, field in model_class.model_fields.items():
-        keys.add(name)
-        if field.alias:
-            keys.add(field.alias)
-    return keys
+# Field names + aliases of a model. Shared with the parser so "what keys does
+# this node model consume?" has exactly one answer.
+_collect_pydantic_field_keys = formkit_schema.model_key_names
 
 
 def _all_schema_props_classes() -> set[Type[BaseModel]]:

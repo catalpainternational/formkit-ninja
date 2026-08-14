@@ -1,3 +1,8 @@
+"""
+This is a port of selected parts of the FormKit schema
+to Pydantic models.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -6,22 +11,29 @@ from typing import Annotated, Any, Literal, Type, TypeAlias, TypedDict, TypeVar,
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, SerializeAsAny, model_serializer
 
-"""
-This is a port of selected parts of the FormKit schema
-to Pydantic models.
-"""
-
-
 logger = logging.getLogger(__name__)
-
-HtmlAttrs = dict[str, str | dict[str, str]]
-
-
-# Node is defined below as a TypeAlias
 
 # Radio, Select, Autocomplete and Dropdown nodes have
 # these options
 OptionsType = str | list[dict[str, Any]] | list[str] | dict[str, str] | None
+
+
+class WireDumpDefaults:
+    """Mixin giving ``model_dump`` this package's wire defaults.
+
+    FormKit JSON is alias-keyed (``$formkit``, ``validation-label``) and omits
+    unset props, so every dump in this module wants ``by_alias=True`` and
+    ``exclude_none=True``. Callers can still override either explicitly.
+
+    Only the flags live here — the actual reshaping is in
+    ``FormKitSchemaProps._serialize``, which (unlike a ``model_dump`` override)
+    pydantic-core also invokes for nested models.
+    """
+
+    def model_dump(self, *args, **kwargs):
+        kwargs.setdefault("by_alias", True)
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(*args, **kwargs)  # type: ignore[misc]
 
 
 class FormKitSchemaCondition(BaseModel):
@@ -33,15 +45,6 @@ class FormKitSchemaCondition(BaseModel):
 
 class FormKitSchemaMeta(RootModel[dict[str, str | float | int | bool | None]]):
     pass
-
-
-class FormKitTypeDefinition(BaseModel): ...
-
-
-class FormKitContextShape(BaseModel):
-    type: Literal["input", "list", "group"]
-    value: Any
-    _value: Any
 
 
 class FormKitListValue(RootModel[str | list[str] | list[dict[str, str]]]):
@@ -73,7 +76,7 @@ class FormKitSchemaAttributes(RootModel[dict[str, Any]]):
     pass
 
 
-class FormKitSchemaProps(BaseModel):
+class FormKitSchemaProps(WireDumpDefaults, BaseModel):
     """
     Properties available in all schema nodes.
     """
@@ -133,17 +136,6 @@ class FormKitSchemaProps(BaseModel):
 
     model_config = ConfigDict(validate_by_name=True)
 
-    def model_dump(self, *args, **kwargs):
-        """Dump with this package's wire defaults.
-
-        Only sets the flags: the actual shaping lives in ``_serialize`` below,
-        because a ``model_dump`` override is *not* called for nested models —
-        see the note there.
-        """
-        kwargs.setdefault("by_alias", True)
-        kwargs.setdefault("exclude_none", True)
-        return super().model_dump(*args, **kwargs)
-
     @model_serializer(mode="wrap")
     def _serialize(self, handler) -> dict[str, Any]:
         """Lift ``additional_props`` up to the top level and drop empty strings.
@@ -165,10 +157,6 @@ class FormKitSchemaProps(BaseModel):
 
         # After merging, so additional_props are cleaned too.
         return {key: value for key, value in data.items() if value != ""}
-
-
-# We defined this after the model above as it's a circular reference
-ChildNodeType = str | list[FormKitSchemaProps | str] | FormKitSchemaCondition | None
 
 
 class TextNode(FormKitSchemaProps):
@@ -377,15 +365,6 @@ class FormKitSchemaComponent(FormKitSchemaProps):
     model_config = ConfigDict(validate_by_name=True)
 
 
-# This necessary to properly "populate" some more complicated models
-# Forward reference updates removed to avoid Pydantic compatibility issues
-# FormKitSchemaAttributesCondition.update_forward_refs()
-# FormKitAttributeValue.update_forward_refs()
-# # FormKitSchemaDOMNode.update_forward_refs()
-# FormKitSchemaCondition.update_forward_refs()
-# FormKitSchemaComponent.update_forward_refs()
-
-
 Model = TypeVar("Model", bound="BaseModel")
 
 Node: TypeAlias = Annotated[
@@ -482,39 +461,50 @@ def get_node_type(obj: str | dict) -> Discriminators:
 NodeTypes = FormKitType | FormKitSchemaDOMNode | FormKitSchemaComponent | FormKitSchemaCondition
 
 
-class FormKitNode(RootModel[SerializeAsAny[Union[Node, str]]]):
-    def model_dump(self, *args, **kwargs):
-        """Dump with this package's wire defaults (see FormKitSchemaProps)."""
-        kwargs.setdefault("by_alias", True)
-        kwargs.setdefault("exclude_none", True)
-        return super().model_dump(*args, **kwargs)
+def model_key_names(model_class: Type[BaseModel]) -> frozenset[str]:
+    """Every input key a model consumes: field names *and* their aliases.
 
+    Aliases matter: a node declares ``validationLabel`` with alias
+    ``validation-label``, and FormKit JSON only ever uses the alias. Excluding
+    field names alone would let ``validation-label`` be parsed into the field
+    *and* copied into ``additional_props`` — and ``_serialize`` merges
+    ``additional_props`` last, so the stale copy would then win over any later
+    edit to the field.
+    """
+    keys: set[str] = set()
+    for name, field in model_class.model_fields.items():
+        keys.add(name)
+        if field.alias:
+            keys.add(field.alias)
+    return frozenset(keys)
+
+
+def extract_additional_props(obj: dict[str, Any], model_class: Type[BaseModel]) -> dict[str, Any]:
+    """Split a raw node dict's arbitrary FormKit props out of its known ones.
+
+    A FormKit node can carry arbitrary additional properties (classes to apply
+    to child nodes, event handlers, ...). We can't realistically model every
+    one, so anything that is neither structural (see ``STRUCTURAL_NODE_KEYS``)
+    nor a field of ``model_class`` falls back to JSON storage in
+    ``additional_props``.
+
+    An input that already has an ``additional_props`` key — a row read back out
+    of the database, where the split has happened once already — keeps it, with
+    any newly-unrecognised keys merged on top.
+    """
+    props: dict[str, Any] = dict(obj.get("additional_props") or {})
+    unknown = obj.keys() - model_key_names(model_class) - STRUCTURAL_NODE_KEYS
+    props.update({key: obj[key] for key in unknown})
+    return props
+
+
+class FormKitNode(WireDumpDefaults, RootModel[SerializeAsAny[Union[Node, str]]]):
     @classmethod
-    def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":  # noqa: C901
+    def parse_obj(cls: Type["Model"], obj: str | dict, recursive: bool = True) -> "Model":
         """
         This classmethod differentiates between the different "Node" types
         when deserializing
         """
-
-        def get_additional_props(object_in: dict[str, Any], exclude: set[str] = set()):
-            """
-            Parse the object or database return (dict)
-            to break out fields we handle in JSON
-
-            A FormKit node can have 'arbitrary' additional properties
-            For instance classes to apply to child nodes
-            here we can't realistically cover every scenario so
-            fall back to JSON storage for thes
-
-            However: if we're coming from the database we already store these in a separate field
-            """
-            # Merge "additional props" from the input object
-            # with any "unknown" params we received
-            # obj is a dict here because of the earlier check
-            assert isinstance(obj, dict)
-            props: dict[str, Any] = object_in.get("additional_props", {})
-            props.update({k: obj[k] for k in object_in.keys() - exclude - STRUCTURAL_NODE_KEYS})
-            return props
 
         def get_children(object_in: dict):
             if children_in := object_in.get("children", None):
@@ -549,7 +539,7 @@ class FormKitNode(RootModel[SerializeAsAny[Union[Node, str]]]):
             node: NodeTypes = parsed.root  # type: ignore
         except KeyError as E:
             raise KeyError(f"Unable to parse content {obj} to a {cls}") from E
-        if additional_props := get_additional_props(obj, exclude=set(type(node).model_fields)):
+        if additional_props := extract_additional_props(obj, type(node)):
             if hasattr(node, "additional_props"):
                 node.additional_props = additional_props
         # Recursively parse 'child' nodes back to Pydantic models for 'children'
@@ -562,13 +552,7 @@ class FormKitNode(RootModel[SerializeAsAny[Union[Node, str]]]):
         return parsed
 
 
-class FormKitSchema(RootModel[list[SerializeAsAny[Node]]]):
-    def model_dump(self, *args, **kwargs):
-        """Dump with this package's wire defaults (see FormKitSchemaProps)."""
-        kwargs.setdefault("by_alias", True)
-        kwargs.setdefault("exclude_none", True)
-        return super().model_dump(*args, **kwargs)
-
+class FormKitSchema(WireDumpDefaults, RootModel[list[SerializeAsAny[Node]]]):
     @classmethod
     def parse_obj(cls: Type["Model"], obj: Any) -> "Model":
         """
@@ -583,9 +567,5 @@ class FormKitSchema(RootModel[list[SerializeAsAny[Node]]]):
         except TypeError:
             raise
 
-
-# FormKitSchema.update_forward_refs()
-# FormKitSchemaCondition.update_forward_refs()
-# PasswordNode.update_forward_refs()
 
 FormKitSchemaDefinition = Node | list[Node] | FormKitSchemaCondition

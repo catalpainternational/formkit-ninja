@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A node property that has a Pydantic *alias* is no longer stored twice.**
+  `FormKitNode.parse_obj` decided what counted as an arbitrary extra prop by
+  excluding the node model's *field names* — but not their aliases. FormKit
+  JSON only ever uses the alias, so a key like `validation-label` was parsed
+  into the `validationLabel` field *and* copied into `additional_props`. That
+  was invisible on the wire, because both copies held the same value — until
+  something edited the field, at which point the stale `additional_props` copy
+  won: `_serialize` merges `additional_props` last. Field names and aliases are
+  now resolved together by `formkit_schema.model_key_names`, shared with
+  `schema_props`.
+
 - **A `$cmp` component node no longer stores its own discriminator a second
   time in `additional_props`.** `FormKitNode.parse_obj` carried a private copy
   of the structural-key set that listed `$el` and `$formkit` but omitted
@@ -22,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   merge it back to the same value it already has.
 
 ### Removed
+
+- **Unused Pydantic-v1-era leftovers in `formkit_schema`.** `HtmlAttrs`,
+  `ChildNodeType`, the empty `FormKitTypeDefinition` stub, and
+  `FormKitContextShape` (whose `_value` field v2 treats as a private attribute
+  and drops) had no references in the package, its tests, or its docs. The
+  blocks of commented-out `update_forward_refs()` calls went with them —
+  Pydantic v2 resolves these forward references lazily.
 
 - **`formkit_schema.FormKitTagParser` has been removed.** It reversed a
   copy-pasted HTML `<formkit>` snippet back into schema nodes — a development
