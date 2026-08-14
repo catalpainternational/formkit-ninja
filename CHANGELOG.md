@@ -5,7 +5,154 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.0.0] - unreleased
+
+Major because the package now requires **Pydantic v2 and django-ninja 1.x**.
+Installing this version forces both upgrades on the consuming project, and
+`ninja.Schema` subclasses in consumer code must move to v2 syntax. The
+`FormKitNodeFactory` change below is breaking on its own account.
+
+### Fixed
+
+- **`GET /api/formkit/options` no longer 500s when `settings.LANGUAGES` differs
+  from tet/en/pt.** `label_tet`/`label_en`/`label_pt` were declared `str | None`
+  with no default, which in pydantic v2 is a *required* field whose value may be
+  null. Their values come from a queryset annotation driven by
+  `settings.LANGUAGES`, so a deployment declaring a different set left them
+  absent and response validation rejected the whole list. They now default to
+  `None`; with the route's existing `exclude_none=True` an undeclared language is
+  simply omitted. Third instance of the shape #64 fixed. (#70)
+
+- **Editing a protected node returns 403, not 500.** `protect_node_updates`
+  raises, and `create_or_update_node`'s bare `except Exception` reported it as
+  "An unexpected error occurred". `delete_node` already answered 403 for the same
+  condition, so the two endpoints disagreed about one situation and an
+  authorisation outcome was hidden behind a server error. Matched narrowly on
+  pgtrigger's own message so unrelated database errors still surface as 500. (#70)
+
+- **`additional_props` accepts any JSON value through the API.** It was
+  `dict[str, str | int]` on `FormKitNodeIn` while the library stores
+  `dict[str, Any]`, so lists and nested objects were rejected with 422 — a schema
+  imported from YAML could hold props that could never be edited back through the
+  API. (#70)
+
+- **`api.SchemaDescription` reads from `models.SchemaDescription`.** It was
+  declared against `models.SchemaLabel`. The two models happen to declare
+  identical fields, so both the served data and the OpenAPI document were correct
+  by coincidence, and would have gone wrong the moment either gained a field. (#71)
+
+- **`recognised_node_prop_keys()` notices node types registered after first
+  use.** The result was memoised for the life of the process after one walk of
+  `__subclasses__()`, so a consumer registering a custom node type — which
+  `NodeRegistry` explicitly invites — had its fields misfiled into
+  `additional_props`. Now cached against the class set it was built from. (#71)
+
+
+- **Reordering a node's children is now visible to incremental clients, and
+  `reorder_node_children` can actually succeed.** `NodeChildren.track_change`
+  was stamped from its own Postgres sequence, `nodechildren_change_id`, which no
+  read endpoint published. Two silent defects followed (issue #68):
+
+  1. `list-related-nodes` derived each parent's `latest_change` from the *node*
+     sequence only. A reorder changes no node row — just `NodeChildren.order` —
+     so the published watermark never moved and a client that had already synced
+     kept rendering the **old child order indefinitely**.
+  2. `reorder_node_children` validated its token against the NodeChildren
+     sequence while the client's only source for that token served the node
+     sequence. The two are never equal, so every well-behaved reorder got
+     `409 "change conflict"`. Not caught because nothing calls the endpoint, and
+     because every existing test took its token from the server-side
+     `NodeChildren.objects.latest_change` helper rather than from the API.
+
+  `NodeChildren` now stamps `track_change` from `formkitschemanode_change_id`,
+  the same sequence as `FormKitSchemaNode`, so link rows and the nodes they join
+  form one comparable change stream. `latest_change` is the greatest of the
+  parent's version, the greatest child's version, and the greatest link-row
+  version — computed by one expression that both the endpoint and the token
+  check now share.
+
+  Migration `0050` re-points the trigger and `setval`s the node sequence past any
+  value already stored on a link row. **Existing rows are deliberately not
+  re-stamped**: that would mark every relation as changed and force a full
+  re-fetch on every client, and the `setval` is what makes it unnecessary.
+
+  `NodeChildrenManager.latest_change()` called with no `parent_id` now returns
+  the greatest *published* token rather than `Max(NodeChildren.track_change)`.
+  The old value was on a sequence no endpoint exposed.
+
+- **`additional_props` no longer provokes a Pydantic serializer warning for
+  every non-string value.** It was declared `dict[str, str | dict[str, Any]]`,
+  but real schemas carry ints (`cols: 8`), bools and lists there — and because
+  the field is assigned *after* validation, the narrow type never rejected
+  anything. It only made pydantic warn on serialization. Worse, the warning
+  propagated up through every union member of `children`, so one int in a leaf
+  node produced a cascade of spurious "expected `str`" / "expected
+  `FormKitSchemaCondition`" warnings on all of its ancestors — 68 of the
+  suite's 71 warnings came from this one narrow annotation. Now
+  `dict[str, Any]`, matching what the field always held.
+
+- **Endpoints return `ninja.Status(...)` rather than a `(status, body)`
+  tuple.** django-ninja 1.x deprecates the tuple form and 2.x removes it.
+
+- **A node property that has a Pydantic *alias* is no longer stored twice.**
+  `FormKitNode.parse_obj` decided what counted as an arbitrary extra prop by
+  excluding the node model's *field names* — but not their aliases. FormKit
+  JSON only ever uses the alias, so a key like `validation-label` was parsed
+  into the `validationLabel` field *and* copied into `additional_props`. That
+  was invisible on the wire, because both copies held the same value — until
+  something edited the field, at which point the stale `additional_props` copy
+  won: `_serialize` merges `additional_props` last. Field names and aliases are
+  now resolved together by `formkit_schema.model_key_names`, shared with
+  `schema_props`.
+
+- **`FormKitNodeFactory` no longer drops arbitrary props on its fast path.**
+  When a node's `$formkit` type was in the registry, the factory validated
+  against that class directly, which fills only declared fields — so every
+  unrecognised FormKit prop was silently discarded. The same input routed
+  through the fallback (`FormKitNode.parse_obj`) kept them. Both paths now
+  produce identical output.
+
+- **`FormKitNodeFactory` now uses the registry it was constructed with.**
+  `from_dict`/`from_json` were `staticmethod`s reading the module-level
+  `default_registry`, so a `NodeRegistry` passed to `__init__` was accepted and
+  then ignored.
+
+- **A `$cmp` component node no longer stores its own discriminator a second
+  time in `additional_props`.** `FormKitNode.parse_obj` carried a private copy
+  of the structural-key set that listed `$el` and `$formkit` but omitted
+  `$cmp`, so — unlike the other two node types — a component's `$cmp` key was
+  treated as an arbitrary extra prop and duplicated into JSON storage
+  alongside the parsed `cmp` field.
+
+  The set is now defined once, as `formkit_schema.STRUCTURAL_NODE_KEYS`, and
+  re-exported by `schema_props`, which had been maintaining the correct copy
+  all along. No migration is required: existing rows carrying the stray key
+  merge it back to the same value it already has.
+
+### Changed
+
+- **`FormKitNodeFactory.from_dict` and `.from_json` are instance methods.**
+  They were `staticmethod`s; call them on an instance
+  (`FormKitNodeFactory().from_dict(...)`) or use the new
+  `node_factory.default_factory` singleton. This is what makes the
+  constructor's `registry` argument meaningful.
+
+### Removed
+
+- **Unused Pydantic-v1-era leftovers in `formkit_schema`.** `HtmlAttrs`,
+  `ChildNodeType`, the empty `FormKitTypeDefinition` stub, and
+  `FormKitContextShape` (whose `_value` field v2 treats as a private attribute
+  and drops) had no references in the package, its tests, or its docs. The
+  blocks of commented-out `update_forward_refs()` calls went with them —
+  Pydantic v2 resolves these forward references lazily.
+
+- **`formkit_schema.FormKitTagParser` has been removed.** It reversed a
+  copy-pasted HTML `<formkit>` snippet back into schema nodes — a development
+  convenience that was never referenced anywhere in the package, exercised by
+  no test, and reachable only via a deep import. It also called the Pydantic v1
+  private `__fields_set__` API, so it was untested code standing directly in
+  the way of a v2 upgrade. The unused `formkit_schema.StrBytes` alias went with
+  it.
 
 ## [3.2.0] - 2026-08-14
 
@@ -22,28 +169,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   serialises with `exclude_none=True`, so the key is simply omitted for a
   group-less option rather than serialised as `null`; grouped rows are
   unchanged. (#64)
-
-- **A `$cmp` component node no longer stores its own discriminator a second
-  time in `additional_props`.** `FormKitNode.parse_obj` carried a private copy
-  of the structural-key set that listed `$el` and `$formkit` but omitted
-  `$cmp`, so — unlike the other two node types — a component's `$cmp` key was
-  treated as an arbitrary extra prop and duplicated into JSON storage
-  alongside the parsed `cmp` field.
-
-  The set is now defined once, as `formkit_schema.STRUCTURAL_NODE_KEYS`, and
-  re-exported by `schema_props`, which had been maintaining the correct copy
-  all along. No migration is required: existing rows carrying the stray key
-  merge it back to the same value it already has.
-
-### Removed
-
-- **`formkit_schema.FormKitTagParser` has been removed.** It reversed a
-  copy-pasted HTML `<formkit>` snippet back into schema nodes — a development
-  convenience that was never referenced anywhere in the package, exercised by
-  no test, and reachable only via a deep import. It also called the Pydantic v1
-  private `__fields_set__` API, so it was untested code standing directly in
-  the way of a v2 upgrade. The unused `formkit_schema.StrBytes` alias went with
-  it.
 
 ## [3.1.0] - 2026-08-11
 

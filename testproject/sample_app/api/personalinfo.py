@@ -23,7 +23,7 @@ def personalinfo(request):
 
 @router.post("personalinfo", response=schema_out.PersonalInfoSchema)
 def create_personalinfo(request, payload: schema_in.PersonalInfoSchema):
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     # Create a Submission entry
     submission = Submission.objects.create(

@@ -243,35 +243,70 @@ class NodeChildrenManager(models.Manager):
     of NodeChildren relations
     """
 
-    def aggregate_changes_table(self, latest_change: int | None = None):
-        values = (
-            self.get_queryset()
+    def _changes_qs(self, parent_id=None):
+        """
+        Per-parent change rows, annotated with the one ``latest_change`` expression.
+
+        Single source of truth on purpose. ``list-related-nodes`` published one
+        expression and ``reorder_node_children`` validated its token against a
+        different one, so the token a client was handed could never satisfy the
+        endpoint it was for — every well-behaved reorder got a 409 (issue #68).
+
+        ``latest_change`` is the greatest of three: the parent node's version,
+        the greatest child node's version, and the greatest version of the link
+        rows themselves. That last one is what makes a *reorder* — which changes
+        no node row, only ``NodeChildren.order`` — visible to an incremental
+        client. All three are now stamped from ``formkitschemanode_change_id``,
+        so they are comparable; before, the link rows had a private sequence and
+        a reorder simply never moved the published watermark.
+        """
+        qs = self.get_queryset()
+        if parent_id is not None:
+            qs = qs.filter(parent_id=parent_id)
+        return (
             # ``.values("parent")`` yields the FK's stored id under the key
             # ``parent`` — the name the API serialises and documents (see
             # ``NodeChildrenOut``); ``parent_id`` would name it the other way.
-            .values("parent")
+            qs.values("parent")
             .annotate(
                 children=ArrayAgg("child", ordering="order"),
             )
             .annotate(Max("child__track_change"))
-            .annotate(latest_change=Greatest("child__track_change__max", "parent__track_change"))
+            .annotate(Max("track_change"))
+            .annotate(
+                latest_change=Greatest(
+                    "child__track_change__max",
+                    "parent__track_change",
+                    "track_change__max",
+                )
+            )
         )
+
+    def aggregate_changes_table(self, latest_change: int | None = None):
+        values = self._changes_qs()
         if latest_change:
             values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__track_change__gt=latest_change))
         return values.values_list("parent", "latest_change", "children", named=True)
 
     def latest_change(self, parent_id=None):
         """
-        The optimistic-concurrency token: the max ``NodeChildren.track_change`` (the
-        per-row version bumped by the pg trigger on every insert/update, including a
-        reorder). With ``parent_id`` it is scoped to a single parent so a reorder of
-        one node does not conflict with a reorder of another; without it, the global
-        maximum (kept for backwards compatibility).
+        The optimistic-concurrency token for a parent's child list.
+
+        This is *exactly* the ``latest_change`` that ``list-related-nodes``
+        publishes for the same parent — it has to be, because that endpoint is
+        the client's only source for the token it must send back. Scoped by
+        ``parent_id`` so a reorder of one node does not conflict with a reorder
+        of another.
+
+        Without ``parent_id``, the greatest token across all parents. Note this
+        is the published value now, not the bare ``Max(NodeChildren.track_change)``
+        it used to be; the old value was on a sequence no endpoint exposed.
         """
-        qs = self.get_queryset()
-        if parent_id is not None:
-            qs = qs.filter(parent_id=parent_id)
-        return qs.aggregate(_max=Max("track_change"))["_max"]
+        # ``max`` rather than ``.first()``: this queryset aggregates, and Django
+        # refuses ``.first()`` on an unordered aggregate. Scoped by ``parent_id``
+        # it yields at most one row, so the two agree.
+        tokens = self._changes_qs(parent_id).values_list("latest_change", flat=True)
+        return max(tokens, default=None)
 
 
 class NodeChildren(models.Model):
@@ -293,7 +328,12 @@ class NodeChildren(models.Model):
     class Meta:
         triggers = [
             *triggers.update_or_insert_group_trigger("parent_id"),
-            triggers.bump_sequence_value(sequence_name=triggers.NODE_CHILDREN_CHANGE_ID),
+            # Deliberately the *node* sequence, shared with FormKitSchemaNode.
+            # A link row and the nodes it joins are one change stream — a client
+            # syncing "the schema" must order them against each other — and
+            # values from two different sequences cannot be compared. See #68
+            # and ``NodeChildrenManager._changes_qs``.
+            triggers.bump_sequence_value(sequence_name=triggers.NODE_CHANGE_ID),
         ]
         ordering = (
             "parent_id",
@@ -787,7 +827,7 @@ class FormKitSchemaNode(UuidIdModel):
             node_content_dict = self.get_node_values(**kwargs, recursive=recursive, options=options)  # type: ignore[assignment]
 
         formkit_node = formkit_schema.FormKitNode.parse_obj(node_content_dict, recursive=recursive)
-        return formkit_node.__root__
+        return formkit_node.root
 
     @classmethod
     def from_pydantic(  # noqa: C901
@@ -900,7 +940,7 @@ class FormKitSchemaNode(UuidIdModel):
             log(f"[green]Yielding: {instance}")
 
             # Must save the instance before  adding "options" or "children"
-            instance.node = input_model.dict(
+            instance.node = input_model.model_dump(
                 exclude={
                     "options",
                     "children",

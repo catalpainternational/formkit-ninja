@@ -26,7 +26,7 @@ def mainform(request):
 
 @router.post("mainform", response=schema_out.MainFormSchema)
 def create_mainform(request, payload: schema_in.MainFormSchema):
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     # Create a Submission entry
     submission = Submission.objects.create(
@@ -61,7 +61,7 @@ def mainformlineitems(request):
 
 @router.post("mainformlineitems", response=schema_out.MainFormLineItemsSchema)
 def create_mainformlineitems(request, payload: schema_in.MainFormLineItemsSchema):
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     # Create a Submission entry
     submission = Submission.objects.create(

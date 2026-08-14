@@ -32,8 +32,7 @@ class FormKitNodeFactory:
         """
         self.registry = registry or default_registry
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> formkit_schema.FormKitType:
+    def from_dict(self, data: dict[str, Any]) -> formkit_schema.FormKitType:
         """
         Create a FormKit node from a dictionary.
 
@@ -49,16 +48,24 @@ class FormKitNodeFactory:
         Raises:
             ValueError: If the data is invalid or cannot be parsed
         """
-        # Try to use registry if this is a formkit node
+        # Try to use the registry if this is a formkit node
         node: formkit_schema.FormKitType | None = None
         if "$formkit" in data:
-            formkit_type = data["$formkit"]
-            node_class = default_registry.get_formkit_node_class(formkit_type)
+            node_class = self.registry.get_formkit_node_class(data["$formkit"])
 
             if node_class is not None:
                 try:
                     # Use the registered class directly
-                    node = node_class.parse_obj(data)
+                    node = node_class.model_validate(data)
+
+                    # ``model_validate`` only fills declared fields, so the
+                    # arbitrary FormKit props have to be split out by hand —
+                    # exactly as FormKitNode.parse_obj does on the fallback
+                    # path. Without this the registry fast-path silently drops
+                    # every unrecognised prop.
+                    node.additional_props = (
+                        formkit_schema.extract_additional_props(data, node_class) or None  # type: ignore[assignment]
+                    )
 
                     # Recursively parse children if present
                     # This is necessary because Pydantic models define children as FormKitSchemaProps
@@ -70,7 +77,7 @@ class FormKitNodeFactory:
                             for child_data in children_in:
                                 if isinstance(child_data, dict):
                                     # Recursively use the factory
-                                    children_out.append(FormKitNodeFactory.from_dict(child_data))
+                                    children_out.append(self.from_dict(child_data))
                                 elif isinstance(child_data, str):
                                     children_out.append(child_data)
 
@@ -85,13 +92,12 @@ class FormKitNodeFactory:
 
         # Fall back to original behavior for backward compatibility
         try:
-            node = FormKitNode.parse_obj(data).__root__  # type: ignore[assignment]
+            node = FormKitNode.parse_obj(data).root  # type: ignore[assignment]
         except Exception as exc:
             raise ValueError("Invalid FormKit node data") from exc
         return cast(formkit_schema.FormKitType, node)
 
-    @staticmethod
-    def from_json(payload: str) -> formkit_schema.FormKitType:
+    def from_json(self, payload: str) -> formkit_schema.FormKitType:
         """
         Create a FormKit node from a JSON string.
 
@@ -110,4 +116,8 @@ class FormKitNodeFactory:
             raise ValueError("Invalid JSON for FormKit node") from exc
         if not isinstance(data, dict):
             raise ValueError("FormKit node JSON must be an object")
-        return FormKitNodeFactory.from_dict(data)
+        return self.from_dict(data)
+
+
+# Singleton over the default registry, for callers with no registry of their own.
+default_factory = FormKitNodeFactory()

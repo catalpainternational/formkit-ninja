@@ -1,6 +1,6 @@
 [project]
 name = "formkit-ninja"
-version = "3.2.0"
+version = "4.0.0"
 description = "A Django-Ninja backend to specify FormKit schemas"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
@@ -8,9 +8,9 @@ authors = [
     { name = "Josh Brooks", email = "josh@catalpa.io" }
 ]
 dependencies = [
-    "django-ninja<1",
+    "django-ninja>=1.4,<2",
     "Django==4.*",
-    "pydantic<2",
+    "pydantic>=2.9,<3",
     "django-pgtrigger==4.*",
     "rich",
     "django-pghistory==3.*",

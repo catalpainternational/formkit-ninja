@@ -40,7 +40,7 @@ def test_conditional_node_parse_from_pydantic():
     }
 
     node = formkit_schema.FormKitNode.parse_obj(conditional_json)
-    assert node.__root__.if_condition == "$get(sector_id).value"
+    assert node.root.if_condition == "$get(sector_id).value"
 
 
 @pytest.mark.django_db
@@ -142,7 +142,7 @@ def test_conditional_node_to_pydantic():
         },
     )
     pydantic_node = node.to_pydantic()
-    assert pydantic_node.__root__.if_condition == "$get(parent).value"
+    assert pydantic_node.root.if_condition == "$get(parent).value"
 
 
 @pytest.mark.django_db

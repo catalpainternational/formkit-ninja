@@ -288,11 +288,10 @@ class CodeGenerator:
                         for target in node.targets:
                             if isinstance(target, ast.Name) and target.id == "__all__":
                                 if isinstance(node.value, (ast.List, ast.Tuple)):
-                                    existing_all = [
-                                        (elt.value if isinstance(elt, ast.Constant) else (elt.s if isinstance(elt, ast.Str) else str(elt)))
-                                        for elt in node.value.elts
-                                        if isinstance(elt, (ast.Constant, ast.Str))
-                                    ]
+                                    # ``ast.Str`` was only ever an alias of
+                                    # ``ast.Constant``; ast.parse has not produced
+                                    # it since Python 3.8, and 3.14 removes it.
+                                    existing_all = [elt.value for elt in node.value.elts if isinstance(elt, ast.Constant)]
             except SyntaxError:
                 # If parsing fails, try to extract imports manually
                 for line in existing_init_content.split("\n"):

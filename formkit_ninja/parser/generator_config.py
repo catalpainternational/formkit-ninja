@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Any, Optional, Type
 
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from formkit_ninja.parser.type_convert import NodePath
 
@@ -72,28 +72,32 @@ class GeneratorConfig(BaseModel):
     merge_top_level_groups: bool = False
     schema_name: Optional[str] = None
 
-    @validator("app_name")
+    @field_validator("app_name")
+    @classmethod
     def validate_app_name(cls, v: str) -> str:
         """Validate that app_name is not empty."""
         if not v or not v.strip():
             raise ValueError("app_name cannot be empty")
         return v.strip()
 
-    @validator("output_dir", pre=True)
+    @field_validator("output_dir", mode="before")
+    @classmethod
     def validate_output_dir(cls, v: str | Path) -> Path:
         """Convert string to Path if necessary."""
         if isinstance(v, str):
             return Path(v)
         return v
 
-    @validator("node_path_class")
+    @field_validator("node_path_class")
+    @classmethod
     def validate_node_path_class(cls, v: Type[NodePath]) -> Type[NodePath]:
         """Validate that node_path_class is a subclass of NodePath."""
         if not isinstance(v, type) or not issubclass(v, NodePath):
             raise ValueError("node_path_class must be a subclass of NodePath")
         return v
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def validate_list_items_before_coercion(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Validate that list items are strings before Pydantic coerces them."""
         if "template_packages" in values:
@@ -112,7 +116,4 @@ class GeneratorConfig(BaseModel):
 
         return values
 
-    class Config:
-        """Pydantic configuration."""
-
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)

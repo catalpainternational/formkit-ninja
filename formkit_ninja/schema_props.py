@@ -39,16 +39,16 @@ PROMOTED_NODE_KEYS = frozenset(
     }
 )
 
-_RECOGNISED_KEYS_CACHE: frozenset[str] | None = None
+# Cached against the set of node classes it was built from, so registering a new
+# node type invalidates it. A plain memo went stale for the life of the process:
+# a subclass defined after first use was never recognised, and its fields were
+# misfiled into ``additional_props`` — precisely the case ``NodeRegistry``
+# invites consumers to create.
+_RECOGNISED_KEYS_CACHE: tuple[frozenset[Type[BaseModel]], frozenset[str]] | None = None
 
-
-def _collect_pydantic_field_keys(model_class: Type[BaseModel]) -> set[str]:
-    keys: set[str] = set()
-    for name, field in model_class.__fields__.items():
-        keys.add(name)
-        if field.alias:
-            keys.add(field.alias)
-    return keys
+# Field names + aliases of a model. Shared with the parser so "what keys does
+# this node model consume?" has exactly one answer.
+_collect_pydantic_field_keys = formkit_schema.model_key_names
 
 
 def _all_schema_props_classes() -> set[Type[BaseModel]]:
@@ -68,13 +68,18 @@ def recognised_node_prop_keys() -> frozenset[str]:
     Return FormKit node property names that have first-class schema / API representation.
     """
     global _RECOGNISED_KEYS_CACHE
-    if _RECOGNISED_KEYS_CACHE is not None:
-        return _RECOGNISED_KEYS_CACHE
+
+    # Walking the subclass tree is cheap; it is the key collection and the api
+    # import below that are worth memoising. Doing the walk every call is what
+    # lets the cache notice a node type registered after first use.
+    classes = frozenset(_all_schema_props_classes())
+    if _RECOGNISED_KEYS_CACHE is not None and _RECOGNISED_KEYS_CACHE[0] == classes:
+        return _RECOGNISED_KEYS_CACHE[1]
 
     keys: set[str] = set(STRUCTURAL_NODE_KEYS) | set(PROMOTED_NODE_KEYS)
     keys.add("additional_props")
 
-    for cls in _all_schema_props_classes():
+    for cls in classes:
         keys.update(_collect_pydantic_field_keys(cls))
 
     # API payload fields (lazy import avoids circular dependency with api.py).
@@ -84,8 +89,8 @@ def recognised_node_prop_keys() -> frozenset[str]:
     keys.discard("parent_id")
     keys.discard("uuid")
 
-    _RECOGNISED_KEYS_CACHE = frozenset(keys)
-    return _RECOGNISED_KEYS_CACHE
+    _RECOGNISED_KEYS_CACHE = (classes, frozenset(keys))
+    return _RECOGNISED_KEYS_CACHE[1]
 
 
 def _flatten_additional_props(props: dict[str, Any]) -> dict[str, Any]:

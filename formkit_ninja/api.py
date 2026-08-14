@@ -3,7 +3,7 @@ import logging
 import re
 from functools import cached_property
 from http import HTTPStatus
-from typing import Sequence, cast
+from typing import Any, Sequence, cast
 from uuid import UUID, uuid4
 
 from django.contrib.auth import get_user
@@ -13,8 +13,8 @@ from django.db.models.aggregates import Max
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.cache import add_never_cache_headers
-from ninja import Field, ModelSchema, Router, Schema
-from pydantic import BaseModel, validator
+from ninja import Field, ModelSchema, Router, Schema, Status
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from formkit_ninja import formkit_schema, models
 from formkit_ninja.notifications import get_default_notifier
@@ -44,39 +44,43 @@ def formkit_auth(request: HttpRequest):
 
 
 class FormKitSchemaIn(ModelSchema):
-    class Config:
+    class Meta:
         model = models.FormKitSchema
-        model_fields = "__all__"
+        fields = "__all__"
 
 
 class SchemaLabel(ModelSchema):
-    class Config:
+    class Meta:
         model = models.SchemaLabel
-        model_fields = ("lang", "label")
+        fields = ("lang", "label")
 
 
 class SchemaDescription(ModelSchema):
-    class Config:
-        model = models.SchemaLabel
-        model_fields = ("lang", "label")
+    class Meta:
+        # SchemaDescription, not SchemaLabel. The two models declare identical
+        # fields, so pointing this at the wrong one produced correct output and a
+        # correct OpenAPI document purely by coincidence — until either gained a
+        # field.
+        model = models.SchemaDescription
+        fields = ("lang", "label")
 
 
 class FormKitSchemaListOut(ModelSchema):
     schemalabel_set: list[SchemaLabel]
     schemadescription_set: list[SchemaDescription]
 
-    class Config:
+    class Meta:
         model = models.FormKitSchema
-        model_fields = ("id", "label")
+        fields = ("id", "label")
 
 
 class FormComponentsOut(ModelSchema):
     node_id: UUID
     schema_id: UUID
 
-    class Config:
+    class Meta:
         model = models.FormComponents
-        model_fields = ("label",)
+        fields = ("label",)
 
 
 class NodeChildrenOut(Schema):
@@ -155,17 +159,21 @@ class Option(ModelSchema):
     # with `exclude_none=True` the key is simply omitted for a group-less option.
     group_name: str | None = None
     value: str
-    # Note: For other projects you may want to extend this with additional languages
-    label_tet: str | None
-    label_en: str | None
-    label_pt: str | None
+    # Filled by an annotation driven by ``settings.LANGUAGES``, so a deployment
+    # declaring a different set leaves some of these absent entirely. They need
+    # defaults to be *optional*: `str | None` alone is a required field whose
+    # value may be null, which 500'd the whole endpoint. With the route's
+    # ``exclude_none=True`` an undeclared language is simply omitted.
+    label_tet: str | None = None
+    label_en: str | None = None
+    label_pt: str | None = None
     # This is an optional field used to indicate the last update
     # It's linked to a Django pg trigger instance in Partisipa
     change_id: int | None = None
 
-    class Config:
+    class Meta:
         model = models.Option
-        model_fields = ("value",)
+        fields = ("value",)
 
 
 @router.get("list-schemas", response=list[FormKitSchemaListOut])
@@ -286,6 +294,18 @@ class FormKitErrors(BaseModel):
     field_errors: dict[str, str] = {}
 
 
+def is_protect_violation(exc: BaseException) -> bool:
+    """Is this exception a ``pgtrigger.Protect`` refusal on a protected node?
+
+    A refusal, not a fault: the caller asked for something the row forbids, so
+    it belongs at 403 rather than 500. Matched on pgtrigger's own message
+    prefix, which is narrow enough not to catch unrelated database errors —
+    those must keep surfacing as 500 rather than being reported as permission
+    problems.
+    """
+    return "pgtrigger:" in str(exc).lower() and "cannot" in str(exc).lower()
+
+
 @router.delete(
     "delete/{node_id}",
     response={
@@ -306,7 +326,7 @@ def delete_node(request, node_id: UUID):
     if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
         error_response = FormKitErrors()
         error_response.errors.append("You do not have permission to delete FormKit schema nodes.")
-        return HTTPStatus.FORBIDDEN, error_response
+        return Status(HTTPStatus.FORBIDDEN, error_response)
     try:
         with transaction.atomic():
             node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
@@ -320,7 +340,7 @@ def delete_node(request, node_id: UUID):
         error_msg = str(e)
         if "protected" in error_msg.lower() or "cannot delete" in error_msg.lower():
             error_response.errors.append("This node is protected and cannot be deleted.")
-            return HTTPStatus.FORBIDDEN, error_response
+            return Status(HTTPStatus.FORBIDDEN, error_response)
         # Re-raise other exceptions
         raise
 
@@ -376,9 +396,14 @@ class FormKitNodeIn(Schema):
 
     # Used for "Add Group"
     # This should include an `icon`, `title` and `id` for the second level group
-    additional_props: dict[str, str | int] | None = None
+    #
+    # ``Any`` to match ``FormKitSchemaProps.additional_props``: FormKit props are
+    # arbitrary JSON and real schemas carry lists and nested objects here. A
+    # narrower type here than in the library meant a schema imported from YAML
+    # could hold props that could never be edited back through the API.
+    additional_props: dict[str, Any] | None = None
 
-    @validator("formkit")
+    @field_validator("formkit")
     def validate_formkit_type(cls, v):
         """Validate that the formkit type is a valid FormKit type"""
         from typing import get_args
@@ -444,9 +469,7 @@ class FormKitNodeIn(Schema):
             return disambiguate_name(make_name_valid_id(self.label), self.parent_names)
         return make_name_valid_id(f"{uuid4().hex[:8]}_unnamed")
 
-    class Config:
-        allow_population_by_field_name = True
-        keep_untouched = (cached_property,)
+    model_config = ConfigDict(validate_by_name=True, ignored_types=(cached_property,))
 
 
 def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict | None = None):
@@ -474,7 +497,7 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
     if child.is_active is False:
         return None, ["This node has already been deleted and cannot be edited"]
 
-    values = payload.dict(
+    values = payload.model_dump(
         by_alias=True,
         exclude_none=True,
         exclude={"parent_id", "uuid"} | {"parent", "child", "preferred_name", "parent_names"},
@@ -499,9 +522,9 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
     # Extract and preserve unrecognized fields from raw payload
     if raw_payload_dict is not None:
         # Get set of recognized fields from FormKitNodeIn schema
-        recognized_fields = set(FormKitNodeIn.__fields__.keys())
+        recognized_fields = set(FormKitNodeIn.model_fields.keys())
         # Also include alias names
-        for field_name, field_info in FormKitNodeIn.__fields__.items():
+        for field_name, field_info in FormKitNodeIn.model_fields.items():
             if hasattr(field_info, "alias") and field_info.alias:
                 recognized_fields.add(field_info.alias)
 
@@ -601,7 +624,7 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
         error_response = FormKitErrors()
         error_response.errors.append("You do not have permission to create or update FormKit schema nodes.")
-        return HTTPStatus.FORBIDDEN, error_response
+        return Status(HTTPStatus.FORBIDDEN, error_response)
 
     error_response = FormKitErrors()
     # Update the payload "name"
@@ -629,17 +652,20 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
             # Determine appropriate status code based on error type
             error_text = " ".join(error_response.errors) if error_response.errors else ""
             if "does not exist" in error_text or "UUID" in error_text:
-                return HTTPStatus.NOT_FOUND, error_response
+                return Status(HTTPStatus.NOT_FOUND, error_response)
             elif "deleted" in error_text or "cannot be edited" in error_text:
-                return HTTPStatus.BAD_REQUEST, error_response
+                return Status(HTTPStatus.BAD_REQUEST, error_response)
             else:
-                return HTTPStatus.BAD_REQUEST, error_response
+                return Status(HTTPStatus.BAD_REQUEST, error_response)
     except Exception as E:
+        if is_protect_violation(E):
+            error_response.errors.append("This node is protected and cannot be edited.")
+            return Status(HTTPStatus.FORBIDDEN, error_response)
         error_response.errors.append(f"{E}")
-        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+        return Status(HTTPStatus.INTERNAL_SERVER_ERROR, error_response)
 
     if error_response.errors or error_response.field_errors:
-        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+        return Status(HTTPStatus.INTERNAL_SERVER_ERROR, error_response)
 
     return node_queryset_response(models.FormKitSchemaNode.objects.filter(pk__in=[child.pk]))[0]
 
@@ -681,12 +707,12 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
     # to mirror delete_node / create_or_update_node (both mutate schema nodes).
     if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
         error_response.errors.append("You do not have permission to reorder FormKit schema nodes.")
-        return HTTPStatus.FORBIDDEN, error_response
+        return Status(HTTPStatus.FORBIDDEN, error_response)
 
     # Reject a missing token — otherwise None == None silently bypasses the check
     if payload.latest_change is None:
         error_response.errors.append("latest_change is required.")
-        return HTTPStatus.BAD_REQUEST, error_response
+        return Status(HTTPStatus.BAD_REQUEST, error_response)
 
     try:
         with transaction.atomic():
@@ -699,7 +725,7 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
             current = models.NodeChildren.objects.latest_change(payload.parent_id)
             if payload.latest_change != current:
                 error_response.errors = ["change conflict"]
-                return HTTPStatus.CONFLICT, error_response
+                return Status(HTTPStatus.CONFLICT, error_response)
 
             reorder_children(payload)
 
@@ -711,12 +737,12 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
     except ValueError as E:
         # The payload's children don't match the parent's children
         error_response.errors.append(f"{E}")
-        return HTTPStatus.BAD_REQUEST, error_response
+        return Status(HTTPStatus.BAD_REQUEST, error_response)
     except Exception:
         # Don't leak internal SQL / trigger detail to the client
         logger.exception("reorder_node_children failed for parent_id=%s", payload.parent_id)
         error_response.errors.append("An unexpected error occurred while reordering.")
-        return HTTPStatus.INTERNAL_SERVER_ERROR, error_response
+        return Status(HTTPStatus.INTERNAL_SERVER_ERROR, error_response)
 
     # Built explicitly rather than returning ``payload``: the request schema names
     # the parent ``parent_id``, the response names it ``parent`` (see NodeChildrenOut).

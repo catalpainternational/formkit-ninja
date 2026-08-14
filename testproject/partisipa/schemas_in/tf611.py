@@ -58,5 +58,5 @@ class Tf611SchemaIn(BaseModel):
     repeaterProjectOutput: List[Tf611RepeaterprojectoutputSchemaIn] | None = Field(default=None, alias="repeaterProjectOutput")
 
 
-Tf611SchemaIn.update_forward_refs()
-Tf611RepeaterprojectoutputSchemaIn.update_forward_refs()
+Tf611SchemaIn.model_rebuild()
+Tf611RepeaterprojectoutputSchemaIn.model_rebuild()

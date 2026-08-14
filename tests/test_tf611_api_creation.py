@@ -101,7 +101,7 @@ class TestTF611APICreation:
     # Test: Create TF611 Schema via API
     # =========================================================================
 
-    def test_create_tf611_schema_via_api(self, admin_client: Client):
+    def create_tf611_schema_via_api(self, admin_client: Client):
         """
         Create the complete TF 6 1 1 form structure using only API calls.
 
@@ -429,7 +429,7 @@ class TestTF611APICreation:
         print("✅ TF611 Schema Created Successfully via API!")
         print("=" * 70)
 
-        # Return IDs for use in other tests
+        # Returned for the tests below, which build on this schema.
         return {
             "schema": schema,
             "root_id": root_id,
@@ -440,6 +440,19 @@ class TestTF611APICreation:
             "projectoutput_id": output_id,
             "repeater_id": repeater_id,
         }
+
+    def test_create_tf611_schema_via_api(self, admin_client: Client):
+        """
+        The schema builds via the API alone.
+
+        The work lives in ``create_tf611_schema_via_api`` above, which returns
+        the created IDs so the later tests can build on it. That return value is
+        why it cannot itself be a test: pytest does not pass a test's return
+        value anywhere, and warns (soon errors) on a test that returns non-None.
+        """
+        ids = self.create_tf611_schema_via_api(admin_client)
+
+        assert ids["schema"].pk is not None
 
     # =========================================================================
     # Test: Submit Data and Verify Flow
@@ -461,7 +474,7 @@ class TestTF611APICreation:
         print("=" * 70)
 
         # First create the schema
-        self.test_create_tf611_schema_via_api(admin_client)
+        self.create_tf611_schema_via_api(admin_client)
 
         print("\n" + "=" * 70)
         print("STEP 2: Submitting TF611 Data")
@@ -591,7 +604,7 @@ class TestTF611APICreation:
         print("=" * 70)
 
         # Create the schema
-        ids = self.test_create_tf611_schema_via_api(admin_client)
+        ids = self.create_tf611_schema_via_api(admin_client)
 
         print("\n" + "=" * 70)
         print("STEP 2: Running Code Generation")
