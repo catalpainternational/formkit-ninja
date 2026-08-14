@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Reordering a node's children is now visible to incremental clients, and
+  `reorder_node_children` can actually succeed.** `NodeChildren.track_change`
+  was stamped from its own Postgres sequence, `nodechildren_change_id`, which no
+  read endpoint published. Two silent defects followed (issue #68):
+
+  1. `list-related-nodes` derived each parent's `latest_change` from the *node*
+     sequence only. A reorder changes no node row — just `NodeChildren.order` —
+     so the published watermark never moved and a client that had already synced
+     kept rendering the **old child order indefinitely**.
+  2. `reorder_node_children` validated its token against the NodeChildren
+     sequence while the client's only source for that token served the node
+     sequence. The two are never equal, so every well-behaved reorder got
+     `409 "change conflict"`. Not caught because nothing calls the endpoint, and
+     because every existing test took its token from the server-side
+     `NodeChildren.objects.latest_change` helper rather than from the API.
+
+  `NodeChildren` now stamps `track_change` from `formkitschemanode_change_id`,
+  the same sequence as `FormKitSchemaNode`, so link rows and the nodes they join
+  form one comparable change stream. `latest_change` is the greatest of the
+  parent's version, the greatest child's version, and the greatest link-row
+  version — computed by one expression that both the endpoint and the token
+  check now share.
+
+  Migration `0050` re-points the trigger and `setval`s the node sequence past any
+  value already stored on a link row. **Existing rows are deliberately not
+  re-stamped**: that would mark every relation as changed and force a full
+  re-fetch on every client, and the `setval` is what makes it unnecessary.
+
+  `NodeChildrenManager.latest_change()` called with no `parent_id` now returns
+  the greatest *published* token rather than `Max(NodeChildren.track_change)`.
+  The old value was on a sequence no endpoint exposed.
+
 - **`additional_props` no longer provokes a Pydantic serializer warning for
   every non-string value.** It was declared `dict[str, str | dict[str, Any]]`,
   but real schemas carry ints (`cols: 8`), bools and lists there — and because
