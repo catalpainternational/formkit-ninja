@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Literal, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 {% for nodepath in nodepaths %}
 {% with this = nodepath %}
