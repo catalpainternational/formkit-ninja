@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`additional_props` no longer provokes a Pydantic serializer warning for
+  every non-string value.** It was declared `dict[str, str | dict[str, Any]]`,
+  but real schemas carry ints (`cols: 8`), bools and lists there — and because
+  the field is assigned *after* validation, the narrow type never rejected
+  anything. It only made pydantic warn on serialization. Worse, the warning
+  propagated up through every union member of `children`, so one int in a leaf
+  node produced a cascade of spurious "expected `str`" / "expected
+  `FormKitSchemaCondition`" warnings on all of its ancestors — 68 of the
+  suite's 71 warnings came from this one narrow annotation. Now
+  `dict[str, Any]`, matching what the field always held.
+
+- **Endpoints return `ninja.Status(...)` rather than a `(status, body)`
+  tuple.** django-ninja 1.x deprecates the tuple form and 2.x removes it.
+
 - **A node property that has a Pydantic *alias* is no longer stored twice.**
   `FormKitNode.parse_obj` decided what counted as an arbitrary extra prop by
   excluding the node model's *field names* — but not their aliases. FormKit

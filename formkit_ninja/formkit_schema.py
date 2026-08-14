@@ -132,7 +132,12 @@ class FormKitSchemaProps(WireDumpDefaults, BaseModel):
 
     # FormKit allows arbitrary values, we do our best to represent these here
     # Additional Props can be quite a complicated structure
-    additional_props: None | dict[str, str | dict[str, Any]] = Field(None)
+    # Values are genuinely arbitrary: real schemas carry ints (`cols: 8`),
+    # bools, lists and nested objects here. Narrowing this to `str | dict` was a
+    # declared-type lie — `additional_props` is assigned after validation, so
+    # the narrow type never rejected anything, it just made pydantic emit a
+    # serializer warning for every int it met.
+    additional_props: dict[str, Any] | None = Field(None)
 
     model_config = ConfigDict(validate_by_name=True)
 

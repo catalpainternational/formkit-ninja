@@ -216,6 +216,9 @@ class ConditionalNodeFactory(FormKitSchemaNodeFactory):
 class FormKitSchemaFactory(DjangoModelFactory):
     class Meta:
         model = models.FormKitSchema
+        # ``add_nodes`` below writes FormComponents rows; it never touches the
+        # schema instance, so factory_boy's post-hook save is extraneous.
+        skip_postgeneration_save = True
 
     label = Faker("sentence", nb_words=3)
 

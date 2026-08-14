@@ -17,6 +17,8 @@ difference only shows up there.
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 from formkit_ninja import formkit_schema as fs
@@ -163,6 +165,44 @@ def test_aliased_props_are_not_duplicated_into_additional_props():
     node.validationLabel = "Edited"
 
     assert node.model_dump()["validation-label"] == "Edited"
+
+
+@pytest.mark.parametrize("value", [8, True, ["a", "b"], {"nested": {"deep": 1}}, None])
+def test_additional_props_accept_arbitrary_json_values(value):
+    """
+    ``additional_props`` was declared ``dict[str, str | dict[str, Any]]``, but it
+    is assigned after validation, so the narrow type rejected nothing — it only
+    made pydantic emit a serializer warning for every non-str value it met. Real
+    schemas carry ints (``cols: 8``), bools and lists here.
+    """
+    node = fs.FormKitNode.parse_obj({"$formkit": "text", "name": "n", "cols": value}).root
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert node.model_dump()["cols"] == value
+
+
+def test_nested_nodes_serialize_without_warnings():
+    """
+    A child's serializer warning propagated up through every union member of
+    ``children``, so one int in a leaf node produced a cascade of spurious
+    "expected str / expected FormKitSchemaCondition" warnings on its ancestors.
+    """
+    node = fs.FormKitNode.parse_obj(
+        {
+            "$formkit": "group",
+            "name": "outer",
+            "children": [
+                {"$formkit": "tel", "name": "t"},
+                {"$el": "div", "children": [{"$formkit": "text", "name": "x", "cols": 8}]},
+                "literal",
+            ],
+        }
+    ).root
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        node.model_dump()
 
 
 # ---------------------------------------------------------------------------
