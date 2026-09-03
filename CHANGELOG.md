@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-09-03
+
+### Fixed
+
+- **Deleting a `Submission` or a `SeparatedSubmission` is recorded again.** Both models
+  were decorated with a bare `@pghistory.track()`. django-pghistory 2.x included deletes
+  in that default; 3.x resolves it to `(InsertEvent(), UpdateEvent())`, so the delete
+  triggers were dropped at the 3.0 upgrade and nothing has recorded a deletion since.
+
+  The failure is quiet in the worst way: a deleted row's *content* stays in the event
+  table, so the history looks complete while giving no indication the row is gone. A
+  reader sees a submission's last state and cannot tell "deleted" from "never touched
+  again". Measured on one consumer's production data, 80 submissions had vanished with no
+  event to say so — including rows removed by the reconcile sweep inside
+  `from_submission`, which no user ever sees.
+
+  Both models now track deletes explicitly (migration `0050_track_deletes` — two
+  `delete_delete` triggers, no tracked-column changes, so the existing insert/update
+  triggers are untouched). The event snapshots `OLD.*`, so a deletion is recoverable and
+  not merely noted.
+
+  `FormKitSchemaNode` is deliberately **not** changed: its `pgtrigger.SoftDelete` converts
+  a `DELETE` into an `UPDATE`, so a delete trigger there could never fire.
+
+  This does not backfill — deletions that happened while the trigger was absent cannot be
+  recovered as events. Apply the migration before relying on the audit trail for anything
+  destructive.
+
 ## [3.2.0] - 2026-08-14
 
 ### Fixed

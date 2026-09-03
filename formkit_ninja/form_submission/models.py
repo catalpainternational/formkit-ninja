@@ -62,7 +62,12 @@ class SubmissionField(models.JSONField):
         return validated
 
 
-@pghistory.track()
+# Deletes are tracked explicitly. django-pghistory 3.x defaults to
+# ``(InsertEvent(), UpdateEvent())`` when ``track()`` is called with no arguments — 2.x
+# included deletes — so a bare decorator silently stopped recording them at the 3.0 upgrade.
+# A hard delete is exactly the event an audit trail exists for: without this, a deleted
+# submission leaves its content in the event table and nothing at all to say it is gone.
+@pghistory.track(pghistory.InsertEvent(), pghistory.UpdateEvent(), pghistory.DeleteEvent())
 class Submission(models.Model):
     class Status(models.IntegerChoices):
         NEW = 1, _("New Submission")
@@ -311,7 +316,10 @@ class _SeparatedSubmissionManagerBase(models.Manager):
 SeparatedSubmissionManager = _SeparatedSubmissionManagerBase.from_queryset(SeparatedSubmissionQuerySet)
 
 
-@pghistory.track()
+# Deletes tracked for the same reason as ``Submission`` above, and it matters more here:
+# these rows are removed on paths a user never sees — the orphan reconcile inside
+# ``from_submission``, and the cascade from deleting a canonical submission.
+@pghistory.track(pghistory.InsertEvent(), pghistory.UpdateEvent(), pghistory.DeleteEvent())
 class SeparatedSubmission(models.Model):
     """
     This represents a Submission broken down into the main
