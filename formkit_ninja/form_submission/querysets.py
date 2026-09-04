@@ -121,7 +121,25 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
         SeparatedSubmission.objects.with_import_failure()
         SeparatedSubmission.objects.with_unresolved_flags()
         SeparatedSubmission.objects.with_import_failure().with_unresolved_flags()
+        SeparatedSubmission.objects.filter(repeater_parent=row).in_document_order()
     """
+
+    def in_document_order(self: _QS) -> _QS:
+        """
+        Order sibling rows the way the document had them.
+
+        The rule — rank, then the legacy array index, then pk to make the sort total
+        — is defined once in :mod:`formkit_ninja.form_submission.ordering`; this is
+        its SQL form, and ``document_order_key`` is its Python form for callers
+        holding rows rather than a queryset.
+
+        Note this orders rows *within* each ``(repeater_parent, repeater_key)`` group.
+        Filter to one parent, or group the results yourself: ranks are only comparable
+        between siblings, and two rows under different parents may hold the same key.
+        """
+        from formkit_ninja.form_submission.ordering import DOCUMENT_ORDER_SQL
+
+        return self.order_by(*(models.F(field).asc(nulls_last=True) for field in DOCUMENT_ORDER_SQL))
 
     def with_import_failure(self: _QS) -> _QS:
         """

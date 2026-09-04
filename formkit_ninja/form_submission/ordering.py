@@ -20,6 +20,7 @@ from __future__ import annotations
 import uuid as uuid_module
 from bisect import bisect_left
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 from formkit_ninja.fracrank import keys_between
 
@@ -72,12 +73,13 @@ def _anchors(ranks: Sequence[str | None]) -> set[int]:
     return keep
 
 
-def plan_ranks(now: Sequence[RowId], ranks: Mapping[RowId, str | None]) -> dict[str, str]:
+def plan_ranks(now: Sequence[RowId], ranks: Mapping[Any, str | None]) -> dict[str, str]:
     """The new ranks needed to put ``now`` in order, keyed by row id as a string.
 
     ``now`` is the sibling uuids in document order. ``ranks`` holds the keys currently
     stored; a row missing from it, or mapped to ``None``, is unranked — which is every row
-    until the backfill runs.
+    until the backfill runs. Its keys may be ``UUID`` or ``str`` — hence ``Any``, since
+    ``Mapping`` is invariant in its key type and both are looked up.
 
     Returns only the rows whose rank must change. An already-ordered group returns ``{}``,
     and that is the case worth protecting: it is the overwhelming majority of saves and the
@@ -118,3 +120,50 @@ def _mint(
 ) -> dict[str, str]:
     """Keys for one run of rows sitting between two kept neighbours."""
     return {_key(now[i]): key for i, key in zip(run, keys_between(lower, upper, len(run)))}
+
+
+# --------------------------------------------------------------------------- #
+# The one definition of "document order"
+# --------------------------------------------------------------------------- #
+#
+# Three places need to put a set of sibling rows back in the order the document had
+# them: ``compose()``, which sorts an arbitrary iterable in Python; the queryset method
+# ``in_document_order()``, which sorts in SQL; and the backfill, which reads through the
+# latter. They must not drift, so the rule is written once here and both forms live
+# side by side.
+#
+# The rule, in order of precedence:
+#
+# 1. ``repeater_key`` — siblings are grouped per repeater before anything else, because
+#    a parent carrying two repeaters has two independent orderings.
+# 2. ``repeater_rank`` if the row has one, nulls last. A ranked row therefore precedes an
+#    unranked one. That only arises in a group that is *part* ranked, which is transient:
+#    the backfill ranks a group whole or not at all, and once the splitter is wired every
+#    new row is ranked as it is written.
+# 3. ``repeater_order``, nulls last — the array index, still written, and the only
+#    ordering any existing installation has until its backfill runs.
+# 4. ``pk`` — because the two above are both nullable and unconstrained, and a sort that
+#    is not total comes back in an order Postgres does not promise to keep stable.
+
+#: ``order_by()`` arguments implementing the rule above. ``F`` expressions rather than
+#: ``"-field"`` strings because nulls-last has to be said explicitly.
+DOCUMENT_ORDER_SQL = ("repeater_key", "repeater_rank", "repeater_order", "pk")
+
+
+def document_order_key(row) -> tuple:
+    """The rule above as a Python sort key, for callers holding rows rather than a queryset.
+
+    ``rank or None`` rather than ``rank is None``: an empty string is not a valid order
+    key (``fracrank.validate_key`` rejects it) and must sort with the unranked rows, not
+    ahead of every real key at byte position zero.
+    """
+    rank = getattr(row, "repeater_rank", None) or None
+    order = row.repeater_order
+    return (
+        row.repeater_key or "",
+        rank is None,
+        rank or "",
+        order is None,
+        order or 0,
+        str(row.pk),
+    )

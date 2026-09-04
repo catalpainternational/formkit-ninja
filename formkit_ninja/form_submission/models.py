@@ -16,11 +16,13 @@ from django.db import models, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from formkit_ninja.form_submission.ordering import plan_ranks
 from formkit_ninja.form_submission.querysets import SeparatedSubmissionQuerySet, SubmissionQuerySet
 from formkit_ninja.form_submission.utils import (
     ensure_repeater_uuid,
     flatten,
     pre_validation,
+    sibling_groups,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,22 @@ def immediate_constraints():
             # errors which we'll catch in outer scope later
             c.execute("SET CONSTRAINTS ALL IMMEDIATE")
         yield
+
+
+#: Whether ``repeater_rank`` is the only position a repeater row has (#74).
+#:
+#: Off by default, and off is the safe reading: ``repeater_order`` — the array index —
+#: is what every existing consumer reads, so the library keeps maintaining it and a
+#: re-order keeps costing one write per row it passes. The rank is written either way,
+#: so a consumer can back-fill, verify and migrate its readers at its own pace.
+#:
+#: Turned on (``FORMKIT_NINJA_RANK_IS_AUTHORITATIVE = True`` in settings), ``repeater_order``
+#: is written when a row is created and never updated again. Ordering comes from the rank,
+#: and moving a row costs exactly one row write instead of one per position it passed —
+#: which is the entire point of the rank. The cost of turning it on is that
+#: ``repeater_order`` stops tracking the document: it keeps whatever index the row had when
+#: it was first split. Anything still reading it must move to ``in_document_order()`` or
+#: ``compose()`` first.
 
 
 class SubmissionField(models.JSONField):
@@ -156,7 +174,7 @@ def _normalize_json(value) -> str:
 class _SeparatedSubmissionManagerBase(models.Manager):
     """Base manager with custom creation methods for SeparatedSubmission."""
 
-    def _apply_defaults(self, pk, defaults: dict, *, force: bool) -> tuple[SeparatedSubmission, bool, bool]:
+    def _apply_defaults(self, pk, defaults: dict, *, force: bool, create_only: frozenset[str] = frozenset()) -> tuple[SeparatedSubmission, bool, bool]:
         """
         Change-aware upsert of one ``SeparatedSubmission`` row.
 
@@ -164,6 +182,12 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         ``.save()`` when the computed ``defaults`` actually differ from the
         stored row (or when ``force`` is set), so an unchanged row fires no
         ``post_save`` and no downstream projection cascade.
+
+        ``create_only`` names defaults that are written when the row is created and
+        then left alone. A field listed there cannot make a row look changed, which
+        is the point: see ``RANK_IS_AUTHORITATIVE`` in this module for the one
+        caller, and why a stored value nobody consults is better left where it is
+        than rewritten on every save.
 
         Returns ``(instance, created, changed)`` where ``changed`` reflects the
         real content diff, independent of ``force``.
@@ -175,6 +199,8 @@ class _SeparatedSubmissionManagerBase(models.Manager):
 
         changed = False
         for name, value in defaults.items():
+            if name in create_only:
+                continue
             field = cast(models.Field, SeparatedSubmission._meta.get_field(name))
             if field.is_relation:
                 stored = getattr(obj, field.attname)
@@ -192,6 +218,8 @@ class _SeparatedSubmissionManagerBase(models.Manager):
             # Forced re-touch: re-apply every default so the write matches the
             # old unconditional-upsert semantics (self-heals stale rows).
             for name, value in defaults.items():
+                if name in create_only:
+                    continue
                 setattr(obj, name, value)
 
         if changed or force:
@@ -230,6 +258,13 @@ class _SeparatedSubmissionManagerBase(models.Manager):
             force=force,
         )
 
+        # Positions for the repeater rows, worked out once for the whole document.
+        # Only the rows that actually moved get a new key; everything else is handed
+        # back the key it already holds, so `_apply_defaults` sees no difference and
+        # does not write. This is what makes a re-order cost one row instead of every
+        # row whose array index shifted.
+        ranks = self._plan_repeater_ranks(sub, main.pk)
+
         results: list[tuple[SeparatedSubmission, bool, bool]] = []
 
         # Track every row we (re)write so we can reconcile away orphans below.
@@ -242,7 +277,7 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         repeater_data = reversed(fields[:-1])
 
         for item_data in repeater_data:
-            res = self._save_repeater_chunk(main, item_data, force=force)  # type: ignore[arg-type]
+            res = self._save_repeater_chunk(main, item_data, ranks=ranks, force=force)  # type: ignore[arg-type]
             if res:
                 results.append(res)
                 written_pks.add(res[0].pk)
@@ -267,7 +302,36 @@ class _SeparatedSubmissionManagerBase(models.Manager):
 
         return results
 
-    def _save_repeater_chunk(self, main: SeparatedSubmission, data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int], *, force: bool = False) -> tuple[SeparatedSubmission, bool, bool] | None:
+    @staticmethod
+    def _create_only_fields() -> frozenset[str]:
+        """Which defaults are written once and then left alone — see ``RANK_IS_AUTHORITATIVE``."""
+        if getattr(settings, "FORMKIT_NINJA_RANK_IS_AUTHORITATIVE", False):
+            return frozenset({"repeater_order"})
+        return frozenset()
+
+    def _plan_repeater_ranks(self, sub: Submission, root_pk: uuid.UUID) -> dict[str, str | None]:
+        """The ``repeater_rank`` every child row should hold after this save.
+
+        Returns a key for *every* child, not just the moved ones: the keys that did not
+        move map to the value already stored, so ``_apply_defaults`` compares equal and
+        skips the write. Handing back only the changes would set the rest to ``None``
+        and wipe the column on every save.
+
+        Ranks are planned per sibling group — one repeater on one parent — because a
+        rank is only meaningful against its siblings. A parent carrying two repeaters
+        has two independent orderings.
+        """
+        stored: dict[str, str | None] = {str(pk): rank for pk, rank in SeparatedSubmission.objects.filter(submission=sub).values_list("pk", "repeater_rank")}
+
+        planned: dict[str, str | None] = {}
+        for now in sibling_groups(sub.fields, root_pk, sub.form_type).values():
+            planned.update({child_uuid: stored.get(child_uuid) for child_uuid in now})
+            planned.update(plan_ranks(now, stored))
+        return planned
+
+    def _save_repeater_chunk(
+        self, main: SeparatedSubmission, data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int], *, ranks: dict[str, str | None] | None = None, force: bool = False
+    ) -> tuple[SeparatedSubmission, bool, bool] | None:
         """
         Helper to save a single repeater item.
         """
@@ -306,8 +370,10 @@ class _SeparatedSubmissionManagerBase(models.Manager):
                 repeater_parent=parent_obj,
                 repeater_key=repeater_name,
                 repeater_order=index,
+                repeater_rank=(ranks or {}).get(str(submission_key)),
             ),
             force=force,
+            create_only=self._create_only_fields(),
         )
         return subnode, created, changed
 
