@@ -34,6 +34,10 @@ from formkit_ninja.fracrank import keys_between
 #: already-existing column on already-existing rows, so there is nothing to materialise.
 BATCH = 2000
 
+#: How many disagreeing rows ``--verify`` names. The count is the finding; the samples
+#: are for whoever goes looking.
+SAMPLES = 10
+
 
 class Command(BaseCommand):
     help = "Seed SeparatedSubmission.repeater_rank from the existing repeater_order (#74)"
@@ -44,9 +48,16 @@ class Command(BaseCommand):
             action="store_true",
             help="Report what would be seeded without persisting any changes.",
         )
+        parser.add_argument(
+            "--verify",
+            action="store_true",
+            help=("Check that the rank reproduces the stored repeater_order for every row, and exit non-zero if it does not. Writes nothing. This is the gate for dropping the column."),
+        )
 
     def handle(self, *args, **options):
         dry_run: bool = options["dry_run"]
+        if options["verify"]:
+            return self._verify()
 
         # `repeater_order` is nullable and Postgres sorts NULLs last ascending; `pk`
         # breaks the remaining ties so the seeded order is deterministic rather than
@@ -87,3 +98,44 @@ class Command(BaseCommand):
                 SeparatedSubmission.objects.bulk_update(pending[start : start + BATCH], ["repeater_rank"])
 
         self.stdout.write(self.style.SUCCESS(f"Seeded {len(pending)} row(s) across {len(groups) - skipped} group(s); {skipped} group(s) already ranked."))
+
+    def _verify(self) -> None:
+        """Assert that ``repeater_order`` carries nothing the rank does not.
+
+        Reports rows in three buckets, because they mean different things:
+
+        * **unranked** — the backfill has not covered this row. Not a disagreement; a
+          gap. Seed it and verify again.
+        * **mismatched** — the rank orders this row differently from the stored index.
+          This is the finding. It means either the seed did not run on that group, or
+          something has written one of the two since.
+
+        A run over zero rows is reported as proving nothing rather than as success. A
+        verifier that returns green on an empty table is how a check gets trusted for
+        years without ever having run.
+        """
+        rows = SeparatedSubmission.objects.filter(repeater_parent__isnull=False).with_repeater_order().values_list("pk", "repeater_order", "derived_repeater_order", "repeater_rank")
+
+        total = unranked = 0
+        mismatched: list[tuple] = []
+        for pk, stored, derived, rank in rows.iterator(chunk_size=2000):
+            total += 1
+            if not rank:
+                unranked += 1
+                continue
+            if stored != derived:
+                mismatched.append((pk, stored, derived))
+
+        if total == 0:
+            self.stdout.write(self.style.WARNING("No repeater rows: nothing was compared, so this proves nothing."))
+            raise SystemExit(1)
+
+        if unranked or mismatched:
+            for pk, stored, derived in mismatched[:SAMPLES]:
+                self.stderr.write(self.style.ERROR(f"  {pk}: stored repeater_order={stored}, rank gives {derived}"))
+            if len(mismatched) > SAMPLES:
+                self.stderr.write(self.style.ERROR(f"  ... and {len(mismatched) - SAMPLES} more"))
+            self.stderr.write(self.style.ERROR(f"{len(mismatched)} of {total} row(s) disagree with the stored index; {unranked} row(s) are not ranked yet. Do not drop repeater_order."))
+            raise SystemExit(1)
+
+        self.stdout.write(self.style.SUCCESS(f"All {total} repeater row(s) ranked, and the rank reproduces repeater_order exactly. The column carries nothing the rank does not."))

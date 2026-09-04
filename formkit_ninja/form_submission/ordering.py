@@ -167,3 +167,44 @@ def document_order_key(row) -> tuple:
         order or 0,
         str(row.pk),
     )
+
+
+# --------------------------------------------------------------------------- #
+# Retiring the array index
+# --------------------------------------------------------------------------- #
+
+
+def repeater_order_expression():
+    """``repeater_order`` computed from the rank, as a database expression.
+
+    The array index is not information — it is the rank's position within its sibling
+    group, counted. This says so in SQL, which is what makes dropping the stored column
+    a change of representation rather than a loss:
+
+        ROW_NUMBER() OVER (PARTITION BY repeater_parent, repeater_key ORDER BY rank) - 1
+
+    Zero-based to match the stored column, and NULL for a root row, which has no siblings
+    to be an index within — again matching what the splitter stored.
+
+    Verified equal to the stored column for every row by
+    ``backfill_repeater_ranks --verify``. That equality is the whole argument for
+    removing the column, so it is checked against real data rather than reasoned about.
+
+    Django only, not part of the pure core above — it is imported lazily by the queryset
+    method that uses it, so this module stays importable without an app registry.
+    """
+    from django.db.models import Case, F, IntegerField, Value, When, Window
+    from django.db.models.functions import RowNumber
+
+    return Case(
+        # A root row's parent is NULL, and PARTITION BY would gather every root in the
+        # table into one group and number them. The stored column was NULL for these.
+        When(repeater_parent__isnull=True, then=Value(None)),
+        default=Window(
+            expression=RowNumber(),
+            partition_by=[F("repeater_parent_id"), F("repeater_key")],
+            order_by=[F("repeater_rank").asc(nulls_last=True), F("pk").asc()],
+        )
+        - Value(1),
+        output_field=IntegerField(),
+    )
