@@ -345,6 +345,22 @@ class SeparatedSubmission(models.Model):
     )
     repeater_parent = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="repeater_set")
     repeater_order = models.IntegerField(null=True, blank=True, help_text="The original order of a repeater in the JSON")
+    #: A base-62 fractional index (``formkit_ninja.fracrank``) giving this row a position
+    #: that can be changed without touching the rows either side of it. ``db_collation="C"``
+    #: is load-bearing: the keys are compared as **bytes** in Python, and Postgres' default
+    #: en_US.UTF-8 collation is not byte order, so without it SQL and Python disagree about
+    #: order — silently. ``tests/test_fracrank_storage.py`` is the guard.
+    #:
+    #: Nullable, and null on every row until the backfill runs, so
+    #: ``in_document_order()`` falls back to ``repeater_order``. Never serialise it to a
+    #: JavaScript client: ``Number("a0V")`` is ``NaN``, which sorts the list arbitrarily
+    #: with no error.
+    repeater_rank = models.TextField(
+        null=True,
+        blank=True,
+        db_collation="C",
+        help_text="Fractional index position of this repeater row within its sibling group",
+    )
     submission = models.ForeignKey(
         Submission,
         help_text="The original submission.",
