@@ -126,14 +126,14 @@ class TestUnchangedResave:
         sub, _r0, _r1 = repeater_submission
 
         def snapshot():
-            rows = SeparatedSubmission.objects.filter(submission=sub).values("pk", "fields", "status", "form_type", "repeater_key", "repeater_order", "repeater_parent_id")
+            rows = SeparatedSubmission.objects.filter(submission=sub).values("pk", "fields", "status", "form_type", "repeater_key", "repeater_rank", "repeater_parent_id")
             return {
                 str(r["pk"]): (
                     json.dumps(r["fields"], sort_keys=True),
                     r["status"],
                     r["form_type"],
                     r["repeater_key"],
-                    r["repeater_order"],
+                    r["repeater_rank"],
                     str(r["repeater_parent_id"]),
                 )
                 for r in rows
@@ -243,12 +243,15 @@ class TestPartialEdits:
         with capture_post_save() as seen:
             results = SeparatedSubmission.objects.from_submission(sub)
 
-        assert set(seen) == {str(a), str(b)}
+        # One row moved, so one row is rewritten. Before #74 this was both a and b,
+        # because the array index of each shifted; the rank is per-row, so only the
+        # row whose position the swap actually changed is touched.
+        assert len(seen) == 1
+        assert set(seen) <= {str(a), str(b)}
         changed = _changed(results)
-        assert changed[str(a)] is True and changed[str(b)] is True
         assert changed[str(c)] is False
-        # Orders actually swapped in storage.
-        assert _order(a) == 1 and _order(b) == 0 and _order(c) == 2
+        # The order actually swapped in storage.
+        assert _rank(b) < _rank(a) < _rank(c)
 
     def test_nested_deep_child_edit(self, nested_submission):
         sub, l1, c0, c1 = nested_submission
@@ -265,8 +268,9 @@ class TestPartialEdits:
         assert changed[str(sub.pk)] is False
 
 
-def _order(pk) -> int:
-    return SeparatedSubmission.objects.get(pk=pk).repeater_order
+def _rank(pk) -> str:
+    """A row's position. `repeater_order` is no longer stored (#74); the rank is."""
+    return SeparatedSubmission.objects.get(pk=pk).repeater_rank
 
 
 # --------------------------------------------------------------------------- #
@@ -370,7 +374,7 @@ class TestCreateAndReconcile:
             fields={"amount": 3},
             form_type="TestFormRepeater",
             repeater_key="repeater",
-            repeater_order=99,
+            repeater_rank="a9",
             repeater_parent=main,
         )
 

@@ -861,7 +861,10 @@ class SubmissionAdmin(admin.ModelAdmin):
 class SeparatedSubmissionAdmin(admin.ModelAdmin):
     """Admin for SeparatedSubmission model."""
 
-    list_display = ("short_id", "user", "created", "status", "form_type", "is_verified", "flagged", "repeater_key", "repeater_order")
+    # `repeater_order` is no longer a column (#74) and the admin changelist cannot sort
+    # on a per-row descriptor, so the position is not shown here. `repeater_key` groups
+    # the rows; the order within a group is `repeater_rank`.
+    list_display = ("short_id", "user", "created", "status", "form_type", "is_verified", "flagged", "repeater_key", "repeater_rank")
     list_filter = ("user", "status", "form_type", "repeater_key", "created")
     search_fields = ("id", "form_type", "user__username", "user__email", "repeater_key")
     readonly_fields = [f.name for f in SeparatedSubmission._meta.fields]

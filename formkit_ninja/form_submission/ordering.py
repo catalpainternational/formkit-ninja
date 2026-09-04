@@ -136,18 +136,16 @@ def _mint(
 #
 # 1. ``repeater_key`` — siblings are grouped per repeater before anything else, because
 #    a parent carrying two repeaters has two independent orderings.
-# 2. ``repeater_rank`` if the row has one, nulls last. A ranked row therefore precedes an
-#    unranked one. That only arises in a group that is *part* ranked, which is transient:
-#    the backfill ranks a group whole or not at all, and once the splitter is wired every
-#    new row is ranked as it is written.
-# 3. ``repeater_order``, nulls last — the array index, still written, and the only
-#    ordering any existing installation has until its backfill runs.
-# 4. ``pk`` — because the two above are both nullable and unconstrained, and a sort that
-#    is not total comes back in an order Postgres does not promise to keep stable.
+# 2. ``repeater_rank`` if the row has one, nulls last. Every row written since #74 has
+#    one, and the migration that dropped ``repeater_order`` refused to run until every
+#    row already in the database had one too — so an unranked row now means a writer
+#    that bypassed the splitter, not an un-migrated installation.
+# 3. ``pk`` — because the rank is nullable, and a sort that is not total comes back in
+#    an order Postgres does not promise to keep stable.
 
 #: ``order_by()`` arguments implementing the rule above. ``F`` expressions rather than
 #: ``"-field"`` strings because nulls-last has to be said explicitly.
-DOCUMENT_ORDER_SQL = ("repeater_key", "repeater_rank", "repeater_order", "pk")
+DOCUMENT_ORDER_SQL = ("repeater_key", "repeater_rank", "pk")
 
 
 def document_order_key(row) -> tuple:
@@ -156,17 +154,13 @@ def document_order_key(row) -> tuple:
     ``rank or None`` rather than ``rank is None``: an empty string is not a valid order
     key (``fracrank.validate_key`` rejects it) and must sort with the unranked rows, not
     ahead of every real key at byte position zero.
+
+    Reads ``repeater_rank`` directly and never ``repeater_order``: the latter is now a
+    descriptor that runs a query, and asking it here would issue one per row of every
+    ``compose()`` — to obtain the position this function is in the middle of deciding.
     """
     rank = getattr(row, "repeater_rank", None) or None
-    order = row.repeater_order
-    return (
-        row.repeater_key or "",
-        rank is None,
-        rank or "",
-        order is None,
-        order or 0,
-        str(row.pk),
-    )
+    return (row.repeater_key or "", rank is None, rank or "", str(row.pk))
 
 
 # --------------------------------------------------------------------------- #
@@ -179,32 +173,61 @@ def repeater_order_expression():
 
     The array index is not information — it is the rank's position within its sibling
     group, counted. This says so in SQL, which is what makes dropping the stored column
-    a change of representation rather than a loss:
+    a change of representation rather than a loss: how many siblings sort before me.
 
-        ROW_NUMBER() OVER (PARTITION BY repeater_parent, repeater_key ORDER BY rank) - 1
+    A correlated subquery rather than
+    ``ROW_NUMBER() OVER (PARTITION BY ... ORDER BY rank)``, which was the first version
+    and was wrong in a way that only showed up on a filtered queryset. A window function
+    is evaluated over *the rows the query returns*, so
+    ``.with_repeater_order().get(pk=x)`` numbered a result set of one and answered 0 for
+    every row in the table. A subquery counts against the whole table and is therefore
+    correct under any filter — including the single-row lookup a serializer does.
 
-    Zero-based to match the stored column, and NULL for a root row, which has no siblings
-    to be an index within — again matching what the splitter stored.
+    The price is a subquery per row instead of one partition sort. That is the right
+    trade for a compatibility shim: a consumer reaching for the retired index is
+    migrating, not optimising, and an index that is quietly wrong under a filter is
+    worse than a slow one. For rows in order, ``in_document_order()`` is the cheap path
+    and needs none of this.
 
-    Verified equal to the stored column for every row by
-    ``backfill_repeater_ranks --verify``. That equality is the whole argument for
-    removing the column, so it is checked against real data rather than reasoned about.
+    NULL ranks sort last, matching the ordering rule above. The sentinel is ``"\x7f"``,
+    which is above every base-62 digit under ``COLLATE "C"`` — the comparison has to be
+    total or a NULL-ranked row would count zero siblings and claim position 0.
 
-    Django only, not part of the pure core above — it is imported lazily by the queryset
+    Django only, not part of the pure core above — imported lazily by the queryset
     method that uses it, so this module stays importable without an app registry.
     """
-    from django.db.models import Case, F, IntegerField, Value, When, Window
-    from django.db.models.functions import RowNumber
+    from django.db.models import Case, Count, IntegerField, OuterRef, Q, Subquery, TextField, Value, When
+    from django.db.models.functions import Coalesce
 
-    return Case(
-        # A root row's parent is NULL, and PARTITION BY would gather every root in the
-        # table into one group and number them. The stored column was NULL for these.
-        When(repeater_parent__isnull=True, then=Value(None)),
-        default=Window(
-            expression=RowNumber(),
-            partition_by=[F("repeater_parent_id"), F("repeater_key")],
-            order_by=[F("repeater_rank").asc(nulls_last=True), F("pk").asc()],
+    from formkit_ninja.form_submission.models import SeparatedSubmission
+
+    def sortable(field):
+        """The rank with NULLs pushed to the end, as one comparable text expression.
+
+        ``output_field`` is explicit because ``Value("\x7f")`` infers ``CharField``
+        while the column is ``TextField``, and Django refuses to compare the two.
+        """
+        return Coalesce(field, Value("\x7f"), output_field=TextField())
+
+    mine = sortable(OuterRef("repeater_rank"))
+
+    earlier_siblings = (
+        SeparatedSubmission.objects.filter(
+            repeater_parent_id=OuterRef("repeater_parent_id"),
+            repeater_key=OuterRef("repeater_key"),
         )
-        - Value(1),
+        .annotate(_sort=sortable("repeater_rank"))
+        .filter(Q(_sort__lt=mine) | Q(_sort=mine, pk__lt=OuterRef("pk")))
+        .order_by()
+        .values("repeater_parent_id")
+        .annotate(n=Count("pk"))
+        .values("n")
+    )
+
+    # A root row has no siblings and stored NULL; the correlated filter on a NULL parent
+    # matches nothing, so the subquery is NULL and Coalesce must not turn that into 0.
+    return Case(
+        When(repeater_parent__isnull=True, then=Value(None)),
+        default=Coalesce(Subquery(earlier_siblings, output_field=IntegerField()), Value(0)),
         output_field=IntegerField(),
     )
