@@ -16,6 +16,7 @@ from django.db import models, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from formkit_ninja.form_submission.compat import RepeaterOrderDescriptor, warn_on_write
 from formkit_ninja.form_submission.ordering import plan_ranks
 from formkit_ninja.form_submission.querysets import SeparatedSubmissionQuerySet, SubmissionQuerySet
 from formkit_ninja.form_submission.utils import (
@@ -43,22 +44,6 @@ def immediate_constraints():
             # errors which we'll catch in outer scope later
             c.execute("SET CONSTRAINTS ALL IMMEDIATE")
         yield
-
-
-#: Whether ``repeater_rank`` is the only position a repeater row has (#74).
-#:
-#: Off by default, and off is the safe reading: ``repeater_order`` — the array index —
-#: is what every existing consumer reads, so the library keeps maintaining it and a
-#: re-order keeps costing one write per row it passes. The rank is written either way,
-#: so a consumer can back-fill, verify and migrate its readers at its own pace.
-#:
-#: Turned on (``FORMKIT_NINJA_RANK_IS_AUTHORITATIVE = True`` in settings), ``repeater_order``
-#: is written when a row is created and never updated again. Ordering comes from the rank,
-#: and moving a row costs exactly one row write instead of one per position it passed —
-#: which is the entire point of the rank. The cost of turning it on is that
-#: ``repeater_order`` stops tracking the document: it keeps whatever index the row had when
-#: it was first split. Anything still reading it must move to ``in_document_order()`` or
-#: ``compose()`` first.
 
 
 class SubmissionField(models.JSONField):
@@ -174,7 +159,7 @@ def _normalize_json(value) -> str:
 class _SeparatedSubmissionManagerBase(models.Manager):
     """Base manager with custom creation methods for SeparatedSubmission."""
 
-    def _apply_defaults(self, pk, defaults: dict, *, force: bool, create_only: frozenset[str] = frozenset()) -> tuple[SeparatedSubmission, bool, bool]:
+    def _apply_defaults(self, pk, defaults: dict, *, force: bool) -> tuple[SeparatedSubmission, bool, bool]:
         """
         Change-aware upsert of one ``SeparatedSubmission`` row.
 
@@ -182,12 +167,6 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         ``.save()`` when the computed ``defaults`` actually differ from the
         stored row (or when ``force`` is set), so an unchanged row fires no
         ``post_save`` and no downstream projection cascade.
-
-        ``create_only`` names defaults that are written when the row is created and
-        then left alone. A field listed there cannot make a row look changed, which
-        is the point: see ``RANK_IS_AUTHORITATIVE`` in this module for the one
-        caller, and why a stored value nobody consults is better left where it is
-        than rewritten on every save.
 
         Returns ``(instance, created, changed)`` where ``changed`` reflects the
         real content diff, independent of ``force``.
@@ -199,8 +178,6 @@ class _SeparatedSubmissionManagerBase(models.Manager):
 
         changed = False
         for name, value in defaults.items():
-            if name in create_only:
-                continue
             field = cast(models.Field, SeparatedSubmission._meta.get_field(name))
             if field.is_relation:
                 stored = getattr(obj, field.attname)
@@ -218,8 +195,6 @@ class _SeparatedSubmissionManagerBase(models.Manager):
             # Forced re-touch: re-apply every default so the write matches the
             # old unconditional-upsert semantics (self-heals stale rows).
             for name, value in defaults.items():
-                if name in create_only:
-                    continue
                 setattr(obj, name, value)
 
         if changed or force:
@@ -302,13 +277,6 @@ class _SeparatedSubmissionManagerBase(models.Manager):
 
         return results
 
-    @staticmethod
-    def _create_only_fields() -> frozenset[str]:
-        """Which defaults are written once and then left alone — see ``RANK_IS_AUTHORITATIVE``."""
-        if getattr(settings, "FORMKIT_NINJA_RANK_IS_AUTHORITATIVE", False):
-            return frozenset({"repeater_order"})
-        return frozenset()
-
     def _plan_repeater_ranks(self, sub: Submission, root_pk: uuid.UUID) -> dict[str, str | None]:
         """The ``repeater_rank`` every child row should hold after this save.
 
@@ -369,11 +337,9 @@ class _SeparatedSubmissionManagerBase(models.Manager):
                 fields=form_fields,
                 repeater_parent=parent_obj,
                 repeater_key=repeater_name,
-                repeater_order=index,
                 repeater_rank=(ranks or {}).get(str(submission_key)),
             ),
             force=force,
-            create_only=self._create_only_fields(),
         )
         return subnode, created, changed
 
@@ -391,6 +357,14 @@ class SeparatedSubmission(models.Model):
     This represents a Submission broken down into the main
     submission instance and separate repeaters
     """
+
+    def __init__(self, *args, **kwargs):
+        # `repeater_order=` used to be a real field. Django would raise TypeError for it
+        # now — an unhelpful death for a value that had nowhere to go even before the
+        # drop, since the splitter recomputed it on every save.
+        if "repeater_order" in kwargs:
+            warn_on_write(kwargs.pop("repeater_order"))
+        super().__init__(*args, **kwargs)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
@@ -410,7 +384,11 @@ class SeparatedSubmission(models.Model):
         blank=True,
     )
     repeater_parent = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="repeater_set")
-    repeater_order = models.IntegerField(null=True, blank=True, help_text="The original order of a repeater in the JSON")
+    #: Removed as a column in #74 — it was the rank's position within the sibling group,
+    #: counted, and a dense index is what made moving one row cost a write per row it
+    #: passed. Still readable on an instance, and still annotatable onto a queryset by
+    #: `with_repeater_order()`; both warn. See `form_submission/compat.py`.
+    repeater_order = RepeaterOrderDescriptor()
     #: A base-62 fractional index (``formkit_ninja.fracrank``) giving this row a position
     #: that can be changed without touching the rows either side of it. ``db_collation="C"``
     #: is load-bearing: the keys are compared as **bytes** in Python, and Postgres' default

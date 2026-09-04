@@ -143,27 +143,28 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
 
     def with_repeater_order(self: _QS) -> _QS:
         """
-        Annotate each row with ``derived_repeater_order`` — the array index computed
-        from ``repeater_rank`` rather than stored.
+        Annotate each row with ``repeater_order`` — the array index computed from
+        ``repeater_rank`` rather than stored.
 
-        This is the migration path off ``repeater_order``, which is deprecated and will
-        be removed. Two uses:
+        The column of that name was removed in #74. The annotation deliberately keeps
+        it, so a queryset that reads the old index needs one added call and no other
+        change::
 
-        * **Verify before you commit.** The derived value equals the stored column for
-          every row once the ranks are seeded, and
-          ``backfill_repeater_ranks --verify`` checks exactly that. Run it against your
-          own data before you change any reader.
-        * **Read it instead of the column.** Anywhere you currently
-          ``.order_by("repeater_order")``, ``.filter(repeater_order=0)`` or
-          ``.values_list("repeater_order")``, do the same against
-          ``derived_repeater_order`` on a queryset that has been through this method.
+            SeparatedSubmission.objects.with_repeater_order().order_by("repeater_order")
+            SeparatedSubmission.objects.with_repeater_order().filter(repeater_order=0)
 
-        Note it is a window function, so it costs a partition sort. If all you want is
-        the rows in order, :meth:`in_document_order` is cheaper and says more.
+        Not applied to every queryset by default, which was the obvious design and is
+        wrong: a window function on ``get_queryset()`` reaches ``.update()``,
+        ``.delete()`` and ``bulk_update()``, none of which Django will run against a
+        windowed queryset. Without this call those references raise ``FieldError``,
+        which is the loud half of the migration and names the row it failed on.
+
+        It is a window function, so it costs a partition sort. If all you want is the
+        rows in order, :meth:`in_document_order` is cheaper and says more.
         """
         from formkit_ninja.form_submission.ordering import repeater_order_expression
 
-        return self.annotate(derived_repeater_order=repeater_order_expression())
+        return self.annotate(repeater_order=repeater_order_expression())
 
     def with_import_failure(self: _QS) -> _QS:
         """
