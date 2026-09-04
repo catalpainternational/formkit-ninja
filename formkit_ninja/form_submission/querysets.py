@@ -121,7 +121,49 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
         SeparatedSubmission.objects.with_import_failure()
         SeparatedSubmission.objects.with_unresolved_flags()
         SeparatedSubmission.objects.with_import_failure().with_unresolved_flags()
+        SeparatedSubmission.objects.filter(repeater_parent=row).in_document_order()
     """
+
+    def in_document_order(self: _QS) -> _QS:
+        """
+        Order sibling rows the way the document had them.
+
+        The rule — rank, then the legacy array index, then pk to make the sort total
+        — is defined once in :mod:`formkit_ninja.form_submission.ordering`; this is
+        its SQL form, and ``document_order_key`` is its Python form for callers
+        holding rows rather than a queryset.
+
+        Note this orders rows *within* each ``(repeater_parent, repeater_key)`` group.
+        Filter to one parent, or group the results yourself: ranks are only comparable
+        between siblings, and two rows under different parents may hold the same key.
+        """
+        from formkit_ninja.form_submission.ordering import DOCUMENT_ORDER_SQL
+
+        return self.order_by(*(models.F(field).asc(nulls_last=True) for field in DOCUMENT_ORDER_SQL))
+
+    def with_repeater_order(self: _QS) -> _QS:
+        """
+        Annotate each row with ``derived_repeater_order`` — the array index computed
+        from ``repeater_rank`` rather than stored.
+
+        This is the migration path off ``repeater_order``, which is deprecated and will
+        be removed. Two uses:
+
+        * **Verify before you commit.** The derived value equals the stored column for
+          every row once the ranks are seeded, and
+          ``backfill_repeater_ranks --verify`` checks exactly that. Run it against your
+          own data before you change any reader.
+        * **Read it instead of the column.** Anywhere you currently
+          ``.order_by("repeater_order")``, ``.filter(repeater_order=0)`` or
+          ``.values_list("repeater_order")``, do the same against
+          ``derived_repeater_order`` on a queryset that has been through this method.
+
+        Note it is a window function, so it costs a partition sort. If all you want is
+        the rows in order, :meth:`in_document_order` is cheaper and says more.
+        """
+        from formkit_ninja.form_submission.ordering import repeater_order_expression
+
+        return self.annotate(derived_repeater_order=repeater_order_expression())
 
     def with_import_failure(self: _QS) -> _QS:
         """

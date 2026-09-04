@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any, Iterable, TypeVar
 
 from django.db import models
 
+from formkit_ninja.form_submission.ordering import document_order_key
+
 if TYPE_CHECKING:
     from formkit_ninja.form_submission.models import SeparatedSubmission
 
@@ -227,6 +229,39 @@ def flatten(
     yield parent_key, parent_uuid, klone, index
 
 
+def sibling_groups(fields: dict[str, Any], key: uuid.UUID | str, form_type: str = "") -> dict[tuple[str, str], list[str]]:
+    """The repeater sibling groups one document describes, each in document order.
+
+    Keyed by ``(parent uuid, repeater key)`` — the group a rank is meaningful within —
+    and valued by the child uuids as strings. ``key`` is the submission's own key, which
+    is what a top-level repeater's rows hang from.
+
+    This is the supported way to ask a document that question. It is a thin walk over
+    :func:`flatten`, but it carries a rule that is otherwise only written down inside the
+    splitter: a top-level repeater's rows report ``parent_uuid=None``, because ``flatten``
+    takes the parent from the containing object's own ``uuid`` and a root document has no
+    ``uuid`` key — its identity is the submission key. ``_save_repeater_chunk`` resolves
+    that same ``None`` to the root row, whose pk *is* that key. A caller re-deriving the
+    grouping by hand has to know that or silently lose every top-level repeater.
+
+    Rows with no ``uuid`` are skipped: they were never stored, so no position describes
+    them (``compose`` documents the same loss).
+    """
+    if not isinstance(fields, dict):
+        return {}
+
+    ordered: dict[tuple[str, str], list[tuple[int, str]]] = {}
+    *children, _root = flatten(fields, [form_type], parent_uuid=key)
+    for path, parent_uuid, row, index in children:
+        child_uuid = row.get("uuid")
+        if not child_uuid or not path:
+            continue
+        target = str(parent_uuid) if parent_uuid else str(key)
+        ordered.setdefault((target, path[-1]), []).append((index, str(child_uuid)))
+
+    return {group: [child for _index, child in sorted(members)] for group, members in ordered.items()}
+
+
 def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
     """Inverse of flatten(): rebuild the nested document from a row tree.
 
@@ -292,12 +327,11 @@ def compose(rows: "Iterable[SeparatedSubmission]") -> dict:
             # the root's own "uuid" (if any) is never stripped, so only
             # children get theirs re-injected.
             doc["uuid"] = str(row.pk)
-        # repeater_order is nullable and unconstrained, so the sort must be made
-        # total and deterministic: NULLs last, ties broken on pk.
-        children = sorted(
-            by_parent.get(row.pk, []),
-            key=lambda c: (c.repeater_key, c.repeater_order is None, c.repeater_order or 0, str(c.pk)),
-        )
+        # Document order: rank first where a row has one, then the legacy array
+        # index, then pk to make the sort total — both columns are nullable and
+        # unconstrained. Defined once in `ordering.document_order_key`, whose SQL
+        # twin is `SeparatedSubmissionQuerySet.in_document_order`.
+        children = sorted(by_parent.get(row.pk, []), key=document_order_key)
         for child in children:
             bucket = doc.get(child.repeater_key)
             if bucket is None:

@@ -14,6 +14,7 @@ dependencies = [
     "django-pgtrigger==4.*",
     "rich",
     "django-pghistory==3.*",
+    "fractional-indexing>=0.1.3",
 ]
 
 [build-system]
@@ -67,6 +68,13 @@ python_version = "3.10"
 plugins = [
     'mypy_django_plugin.main'
     ]
+
+# `fractional-indexing` ships no py.typed marker. The seam in
+# `formkit_ninja/fracrank.py` is where its types stop mattering: everything past
+# that module is annotated `str | None`.
+[[tool.mypy.overrides]]
+module = "fractional_indexing"
+ignore_missing_imports = true
 
 [tool.django-stubs]
 django_settings_module = "testproject.settings"
