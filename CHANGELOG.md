@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Repeater rows have a position that can be changed on its own.** Moving one row in a
+  repeating section renumbers every row it passes, because the position is the array
+  index `repeater_order` and the splitter re-saves any row whose values changed.
+  Measured on a move-to-front: 4 rows rewritten out of 4, 8 out of 8, 32 out of 32, each
+  with a `post_save` that downstream cannot tell from an edit to the row's contents.
+
+  `SeparatedSubmission.repeater_rank` is a base-62 fractional index — a sortable string
+  with a key always available strictly between any two others — so a re-order can be one
+  row write. `formkit_ninja.fracrank` is the primitive, byte-compatible with the
+  `fractional-indexing` npm package and the `fracdex` Go package so a client could mint
+  a key locally and the backend would agree. The column is `db_collation="C"`, which is
+  load-bearing: under a linguistic collation SQL and Python transpose every
+  case-differing pair of keys, silently.
+
+- `SeparatedSubmissionQuerySet.in_document_order()` and
+  `formkit_ninja.form_submission.ordering.document_order_key` — one definition of the
+  ordering rule, in SQL and in Python. `compose()` now uses the latter rather than
+  spelling it out inline.
+
+- `sibling_groups(fields, key)` alongside `flatten`/`compose`: what repeater groups a
+  document describes and in what order. It carries the rule that was previously only
+  written inside the splitter — a top-level repeater's rows report `parent_uuid=None`
+  and resolve to the submission key.
+
+- `manage.py backfill_repeater_ranks` seeds existing rows from the order already on
+  screen, idempotent per sibling group, with `--dry-run`. `--verify` compares the rank
+  against the stored index for every row and exits non-zero unless they agree
+  everywhere — the gate for the removal below.
+
+- `SeparatedSubmissionQuerySet.with_repeater_order()` annotates the array index computed
+  from the rank rather than stored. It orders and filters like the column, so a reader
+  can be migrated before the column goes.
+
+### Deprecated
+
+- **`SeparatedSubmission.repeater_order` will be removed in the next major release.** It
+  holds the rank's position within its sibling group, counted, and nothing more —
+  `--verify` proves that against your own data. A dense array index is also what makes a
+  move cost a write per row it passes, so it cannot merely be supplemented.
+
+  To migrate: upgrade, run `backfill_repeater_ranks`, run it again with `--verify`, then
+  move readers to `with_repeater_order()` (same field name, one added call) or to
+  `in_document_order()` where you only want the rows in order.
+
+
 ## [3.3.0] - 2026-09-03
 
 ### Fixed
