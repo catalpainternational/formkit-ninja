@@ -5,24 +5,19 @@ The unit-level diff is covered in ``test_repeater_ordering.py``. These go throug
 cost being fixed is a cost in row writes and ``post_save`` signals, not in the return
 value of a pure function.
 
-There are two modes, and both are tested, because the saving is opt-in. By default
-``repeater_order`` is still maintained, so a move still renumbers every index it passes
-and still costs one write per row — the rank is written alongside, ready but not yet
-load-bearing. With ``FORMKIT_NINJA_RANK_IS_AUTHORITATIVE`` on, ``repeater_order`` is
-frozen at creation and a move costs one write.
+Measured on a move-to-front, before and after ``repeater_order`` was dropped::
 
-Measured on a move-to-front::
+    with the stored index:  4/4, 8/8, 32/32 rows rewritten
+    rank only:              1/4, 1/8,  1/32 rows rewritten
 
-    default mode:        4/4, 8/8, 32/32 rows rewritten
-    rank authoritative:  1/4, 1/8,  1/32 rows rewritten
-
-The default-mode number is the pre-existing behaviour, unchanged by this work.
+The first row of that table is why the column had to go rather than merely be
+supplemented: while a dense array index is maintained, every row a move passes has a
+genuinely changed value and the splitter is right to rewrite it.
 """
 
 import uuid
 
 import pytest
-from django.test import override_settings
 
 from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
 from formkit_ninja.form_submission.utils import compose
@@ -53,9 +48,8 @@ def stored_order(sub):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("n", [4, 8, 32])
-@override_settings(FORMKIT_NINJA_RANK_IS_AUTHORITATIVE=True)
 def test_moving_one_row_rewrites_one_row(n):
-    """The headline. Fails against the previous commit with n rows rewritten."""
+    """The headline. Fails with n rows rewritten while `repeater_order` is stored."""
     sub, ids = make(n)
     rows = sub.fields["repeater"]
     rows.insert(0, rows.pop())  # drag the last row to the top
@@ -68,32 +62,15 @@ def test_moving_one_row_rewrites_one_row(n):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("n", [4, 8, 32])
-def test_by_default_a_move_still_costs_one_write_per_row(n):
-    """Pinned deliberately, not conceded. Until a consumer opts in, `repeater_order`
-    is still maintained for it, and maintaining a dense array index is what costs the
-    writes. Ranks are written alongside and are already correct."""
-    sub, ids = make(n)
-    rows = sub.fields["repeater"]
-    rows.insert(0, rows.pop())
+def test_a_move_changes_nothing_at_all_on_an_unmoved_row():
+    """Why the column had to go, stated as a measurement.
 
-    with capture_post_save() as seen:
-        SeparatedSubmission.objects.from_submission(sub)
-
-    assert len(seen) == n
-    assert stored_order(sub) == [str(i) for i in [ids[-1], *ids[:-1]]]
-
-
-@pytest.mark.django_db
-def test_the_only_thing_a_move_changes_on_an_unmoved_row_is_the_legacy_index():
-    """Why the switch exists, stated as a measurement.
-
-    After a move, every row the user did not touch is byte-identical except for
-    `repeater_order`. Nothing else about those rows needs writing — so freezing that
-    one column is the whole of what turns n writes into one.
+    After a move, every row the user did not touch is byte-identical. While
+    `repeater_order` was stored this same test showed each of them differing by exactly
+    that one column — which is what made the splitter rewrite them.
     """
     sub, ids = make(4)
-    columns = ["fields", "repeater_key", "repeater_parent_id", "repeater_rank", "repeater_order"]
+    columns = ["fields", "repeater_key", "repeater_parent_id", "repeater_rank"]
 
     def snapshot():
         return {row.pk: {name: getattr(row, name) for name in columns} for row in SeparatedSubmission.objects.filter(repeater_parent__isnull=False)}
@@ -106,10 +83,7 @@ def test_the_only_thing_a_move_changes_on_an_unmoved_row_is_the_legacy_index():
 
     for pk in before:
         differing = {name for name in columns if before[pk][name] != after[pk][name]}
-        if pk == ids[-1]:
-            assert differing == {"repeater_order", "repeater_rank"}
-        else:
-            assert differing == {"repeater_order"}, f"row {pk} also changed {differing - {'repeater_order'}}"
+        assert differing == ({"repeater_rank"} if pk == ids[-1] else set()), f"row {pk} changed {differing}"
 
 
 @pytest.mark.django_db
@@ -165,12 +139,15 @@ def test_the_root_row_is_not_ranked():
 
 
 @pytest.mark.django_db
-def test_repeater_order_is_still_written():
-    """The array index stays. Consumers read it in production today, and this change
-    is not allowed to be the thing that breaks them."""
+def test_the_index_is_no_longer_stored_but_still_reads_back():
+    """The compatibility promise: the number a consumer used to read off the column is
+    still the number they get, computed."""
     sub, ids = make(3)
-    orders = dict(SeparatedSubmission.objects.filter(submission=sub).exclude(pk=sub.pk).values_list("pk", "repeater_order"))
+
+    orders = dict(SeparatedSubmission.objects.with_repeater_order().exclude(pk=sub.pk).values_list("pk", "repeater_order"))
+
     assert [orders[i] for i in ids] == [0, 1, 2]
+    assert "repeater_order" not in {field.name for field in SeparatedSubmission._meta.get_fields()}
 
 
 @pytest.mark.django_db
@@ -215,7 +192,7 @@ def test_nested_repeaters_are_ranked_within_their_own_parent():
 
     # Reordering the inner rows moves one row, not the outer one.
     sub.fields["level1"][0]["level2"].reverse()
-    with override_settings(FORMKIT_NINJA_RANK_IS_AUTHORITATIVE=True), capture_post_save() as seen:
+    with capture_post_save() as seen:
         SeparatedSubmission.objects.from_submission(sub)
     # Either of the two swapped rows is a minimal answer; the outer row is not touched
     # at all, which is the claim — a nested re-order does not reach up the tree.
@@ -248,7 +225,6 @@ def test_inserting_a_row_does_not_renumber_the_rows_after_it():
 
 
 @pytest.mark.django_db
-@override_settings(FORMKIT_NINJA_RANK_IS_AUTHORITATIVE=True)
 def test_removing_a_row_leaves_its_siblings_ranks_alone():
     sub, ids = make(5)
     before = dict(SeparatedSubmission.objects.filter(repeater_parent__isnull=False).values_list("pk", "repeater_rank"))
@@ -317,12 +293,14 @@ def test_in_document_order_agrees_with_compose():
 
 
 @pytest.mark.django_db
-def test_unranked_rows_still_order_by_the_legacy_index():
-    """Every existing installation, until its backfill runs. `in_document_order`
-    must fall back rather than returning heap order."""
+def test_unranked_rows_fall_back_to_pk_rather_than_heap_order():
+    """The migration refuses to drop the column while unranked rows exist, so a row
+    without a rank is now one written by something that bypassed the splitter. There is
+    no document order left to recover — but the answer must be the same on every read,
+    which is what the pk tie-break in the ordering rule is for."""
     sub, ids = make(4)
     SeparatedSubmission.objects.filter(submission=sub).update(repeater_rank=None)
 
     from_sql = list(SeparatedSubmission.objects.filter(repeater_parent__isnull=False).in_document_order().values_list("pk", flat=True))
-    assert [str(pk) for pk in from_sql] == [str(i) for i in ids]
-    assert stored_order(sub) == [str(i) for i in ids]
+    assert [str(pk) for pk in from_sql] == sorted(str(i) for i in ids)
+    assert stored_order(sub) == [str(pk) for pk in from_sql]

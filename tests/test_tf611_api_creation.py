@@ -541,7 +541,7 @@ class TestTF611APICreation:
         assert repeater_subs.count() == 2, f"Expected 2 repeater items, got {repeater_subs.count()}"
 
         for sub in repeater_subs:
-            print(f"  ✓ Repeater SeparatedSubmission: {sub.form_type} (order: {sub.repeater_order})")
+            print(f"  ✓ Repeater SeparatedSubmission: {sub.form_type} (rank: {sub.repeater_rank})")
             # Form type should be the PascalCase combination
             assert "Repeaterprojectoutput" in sub.form_type or "repeaterProjectOutput" in sub.form_type.lower()
 
@@ -557,7 +557,7 @@ class TestTF611APICreation:
         print("✓ Main submission fields are correct")
 
         # Check repeater fields
-        for sub in repeater_subs.order_by("repeater_order"):
+        for sub in repeater_subs.with_repeater_order().order_by("repeater_order"):
             fields = sub.fields
             # Fields should not include 'uuid' (it's extracted)
             assert "output" in fields
