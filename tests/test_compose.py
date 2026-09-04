@@ -148,16 +148,23 @@ class TestRootUuid:
 
 
 # --------------------------------------------------------------------------- #
-# repeater_order is nullable and unconstrained (#48 hazard 5)
+# repeater_rank is nullable and unconstrained (#48 hazard 5, #74)
 # --------------------------------------------------------------------------- #
 @pytest.mark.django_db
 class TestDeterministicOrdering:
-    def test_null_and_duplicate_orders_are_total_and_stable(self):
-        """NULL orders sort last, ties break on pk, and input order is irrelevant."""
+    def test_null_and_duplicate_ranks_are_total_and_stable(self):
+        """NULL ranks sort last, ties break on pk, and input order is irrelevant.
+
+        The hazard moved with the column but did not go away: `repeater_rank` is
+        nullable and carries no uniqueness constraint either, so a writer that bypasses
+        the splitter can still produce duplicates and NULLs. The splitter itself cannot
+        — `plan_ranks` mints into disjoint intervals — but bulk `.update()`, an import,
+        or a partial restore can, and `compose()` must still return one stable order.
+        """
         sub = Submission.objects.create(form_type="TestForm", fields={"field": "value"})
         root = SeparatedSubmission.objects.get(pk=sub.pk)
         pks = sorted(uuid.uuid4() for _ in range(3))
-        for pk, order in zip(pks, [None, 0, 0]):
+        for pk, rank in zip(pks, [None, "a0", "a0"]):
             SeparatedSubmission.objects.create(
                 pk=pk,
                 submission=sub,
@@ -165,13 +172,13 @@ class TestDeterministicOrdering:
                 fields={"amount": str(pk)},
                 form_type="TestFormRepeater",
                 repeater_key="repeater",
-                repeater_order=order,
+                repeater_rank=rank,
                 repeater_parent=root,
             )
 
         rows = list(_rows_of(sub))
         composed = compose(rows)
-        # The two order-0 rows in pk order, then the NULL-order row last.
+        # The two rows sharing rank "a0" in pk order, then the unranked row last.
         assert [c["uuid"] for c in composed["repeater"]] == [str(pks[1]), str(pks[2]), str(pks[0])]
         # Iteration order of the input must not matter.
         assert compose(reversed(rows)) == composed
@@ -262,7 +269,7 @@ class TestReparentedRows:
             fields={"name": "orphaned"},
             form_type="TestFormLevel1Level2",
             repeater_key="level2",  # a nested key, but its parent row is gone
-            repeater_order=0,
+            repeater_rank="a0",
             repeater_parent=root,  # ...so it was re-parented to the root
         )
         composed = compose(_rows_of(sub))
@@ -376,7 +383,7 @@ class TestReachability:
             fields={"n": "a"},
             form_type="TestFormRepeater",
             repeater_key="repeater",
-            repeater_order=0,
+            repeater_rank="a0",
             repeater_parent=root,
         )
         b = SeparatedSubmission.objects.create(
@@ -386,7 +393,7 @@ class TestReachability:
             fields={"n": "b"},
             form_type="TestFormRepeater",
             repeater_key="repeater",
-            repeater_order=0,
+            repeater_rank="a0",
             repeater_parent=a,
         )
         # Close the loop: a's parent becomes b, so neither is reachable from the root.
@@ -427,7 +434,7 @@ class TestKeyCollision:
             fields={"n": 1},
             form_type="TestFormX",
             repeater_key=key,
-            repeater_order=0,
+            repeater_rank="a0",
             repeater_parent=root,
         )
 
@@ -514,7 +521,7 @@ class TestNonDictFields:
             fields={"n": 1},
             form_type="TestFormX",
             repeater_key="repeater",
-            repeater_order=0,
+            repeater_rank="a0",
             repeater_parent=root,
         )
 

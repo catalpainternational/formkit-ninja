@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-09-05
+
+### Removed
+
+- **`SeparatedSubmission.repeater_order` is no longer a column** (migration
+  `0052_drop_repeater_order`). It held the rank's position within its sibling group,
+  counted, and a dense array index is what made moving one row cost a write per row it
+  passed. Measured on a move-to-front, before and after:
+
+      with the stored index:  4/4, 8/8, 32/32 rows rewritten
+      rank only:              1/4, 1/8,  1/32 rows rewritten
+
+  The migration refuses to run while any repeater row is unranked, or while a rank
+  orders a group differently from the stored index, and names the remedy. Run
+  `backfill_repeater_ranks` and `backfill_repeater_ranks --verify` on the previous
+  release first — the seeding command is not in this one, because after this migration
+  there is nothing left to seed from.
+
+  Reads keep working:
+
+  - `row.repeater_order` returns the same number, computed, with a
+    `RepeaterOrderDeprecationWarning`. It costs a query per row; `-W error::formkit_ninja.form_submission.compat.RepeaterOrderDeprecationWarning`
+    in a test run turns the migration into a list of call sites.
+  - `.order_by("repeater_order")`, `.filter(repeater_order=0)` and
+    `.values_list("repeater_order")` work on a queryset that has been through
+    `.with_repeater_order()` — same field name, one added call. Without it they raise
+    `FieldError`, which is deliberate: the annotation is not applied by default because
+    a window expression on `get_queryset()` reaches `.update()`, `.delete()` and
+    `bulk_update()`, which Django will not run against one.
+  - `SeparatedSubmission(repeater_order=…)` is accepted and discarded with a warning
+    rather than raising `TypeError`. The value had nowhere to go before the drop either
+    — the splitter recomputed it on every save.
+
+  `FORMKIT_NINJA_RANK_IS_AUTHORITATIVE` is gone with the column it controlled.
+
 ## [3.4.0] - 2026-09-05
 
 ### Added
