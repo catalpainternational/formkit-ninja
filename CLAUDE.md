@@ -33,6 +33,41 @@ Gotchas we've hit:
   write and must not "fix". Scope the check to what you touched, or
   `git clean -fdx tests/parser/fixtures` first.
 
+## Naming
+
+**Boring names.** Pick the name a reader can guess from a stack trace without opening the
+file: `depends_on`, not `prerequisite_specification`; `rules_that_depend_on()`, not
+`InvalidationRegistry.resolve()`. This project's domain words (submission, repeater, rank,
+split, schema node, flag) are the opposite of jargon — use them; it is invented abstraction
+that costs. A name that needs a sentence of explanation is doing the wrong job — rename it
+rather than document it. This matters most when replacing several special cases with one
+mechanism, which only pays off if the mechanism reads plainly.
+
+## Writing issues, PRs and commit messages
+
+**Two plain paragraphs.** An issue body, a PR body and a commit message body are each at
+most two paragraphs, written so someone who only reads the notification email gets the whole
+point. Say what is wrong or what changed, and what it means for a consumer. That is the
+deliverable.
+
+**Everything else goes in a comment.** Tables, measured counts, commit SHAs, coverage
+figures, mutation records, per-file reasoning — post them as a comment on the issue or PR,
+below the body. They are evidence for whoever verifies the work, not the summary for whoever
+reads it. A commit message has nowhere to put them, so they belong on its PR instead.
+
+**No jargon in the body.** Use the words a consumer would use, not the ones the code uses.
+`repeater_order` is "the old row numbering", `0052_drop_repeater_order` is "the step that
+removes it", `with_repeater_order()` is "asking for the position to be worked out". The
+domain words above are fine; identifiers and internal machinery are not. Save both for the
+comment, where precision is the job.
+
+The test: read the body alone. If it needs a glossary, or if the point arrives after the
+evidence, rewrite it.
+
+Both rules are the shared versions from
+[`team-skills/rules`](https://github.com/catalpainternational/team-skills/tree/main/rules);
+edit them there if the wording needs to change everywhere.
+
 ## `Submission.save()` does not split — the tests only look like it does
 
 `Submission.save()` does **not** derive `SeparatedSubmission` rows; a consumer
