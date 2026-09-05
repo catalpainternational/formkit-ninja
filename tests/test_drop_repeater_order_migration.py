@@ -140,10 +140,10 @@ def test_a_null_index_is_not_a_disagreement():
 def test_an_unranked_group_is_seeded_rather_than_refused():
     """The change that removes the second deployment.
 
-    Mutation watched: deleted the `bulk_update` call, leaving the plan unwritten. This test
-    went red on the empty `written` list, and
-    `test_a_group_left_unranked_after_seeding_is_reported` — which is the only other thing
-    that could have caught it — stayed green, because the plan is still counted as seeded.
+    Mutation watched: deleted the `bulk_update` call, leaving the plan computed but never
+    written. This test and the two other seeding tests went red on the empty `written` list;
+    the six that only assert the step *passes* stayed green, which is the point — "did not
+    raise" is not evidence that anything was seeded.
     """
     ids = [uuid.uuid4() for _ in range(3)]
     written = run([row(pk=ids[0], order=0, rank=None), row(pk=ids[1], order=1, rank=None), row(pk=ids[2], order=2, rank=None)])
