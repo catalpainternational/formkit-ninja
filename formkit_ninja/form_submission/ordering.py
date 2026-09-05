@@ -231,3 +231,42 @@ def repeater_order_expression():
         default=Coalesce(Subquery(earlier_siblings, output_field=IntegerField()), Value(0)),
         output_field=IntegerField(),
     )
+
+
+def document_position(row) -> int | None:
+    """This row's index in its repeater, as its **canonical document** gives it.
+
+    Use this, and not :func:`repeater_order_expression` or the queryset method over it,
+    anywhere that runs **while a document is being split** — a ``post_save`` receiver
+    projecting a row into a typed model, a producer appending it to a log.
+
+    Counting siblings only answers correctly once every sibling is in the table, and the
+    splitter writes a group in *reverse* rank order: the row it saves first holds the last
+    rank in the document. A projection running per row therefore sees itself as the
+    lowest-ranked row present and counts nought before it — **every time**. One consumer
+    took the counting route into a per-row projection and every value in a NOT NULL
+    ``ordinality`` column came out ``0``; the only reason it was caught is that a test
+    asserted the whole sequence rather than that the column was populated.
+
+    ``Submission.fields`` is canonical and already final when the split runs, so this is
+    right at any point during it. Costs one query for the document. Returns ``None`` for a
+    root row, and for a row the document does not mention — an orphan a reconcile has not
+    reached yet, which has no position; inventing 0 would put it first.
+    """
+    if getattr(row, "repeater_parent_id", None) is None:
+        return None
+
+    from formkit_ninja.form_submission.models import Submission
+    from formkit_ninja.form_submission.utils import sibling_groups
+
+    fields = Submission.objects.filter(pk=row.submission_id).values_list("fields", flat=True).first()
+    if not fields:
+        return None
+
+    members = sibling_groups(fields, row.submission_id).get((str(row.repeater_parent_id), row.repeater_key or ""))
+    if not members:
+        return None
+    try:
+        return members.index(str(row.pk))
+    except ValueError:
+        return None

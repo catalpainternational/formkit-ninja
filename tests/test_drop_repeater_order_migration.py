@@ -106,4 +106,30 @@ def test_the_message_names_the_remedy_and_the_one_way_door():
 
     message = str(excinfo.value)
     assert "backfill_repeater_ranks" in message
-    assert "nothing left to seed the ranks from" in message
+    assert "3.4.x" in message, "the remedy has to name the release that still has the command"
+    assert "this migration removes it" in message, "the one-way door has to be stated"
+    assert "Nothing has been changed by this attempt" in message, "a refusal in a deploy log is read by someone deciding whether the database is now half-migrated; say that it is not"
+
+
+def test_the_message_tells_a_skipped_upgrade_apart_from_a_half_finished_one():
+    """Two causes, two fixes, and a deploy log is where the difference has to be legible.
+
+    Every row unranked means this database came straight from a release older than 3.4.0
+    and never had the chance to seed. Some rows unranked means the seed ran and did not
+    finish. Before 4.0.1 both said the same thing, and the first — the likelier one, since
+    it is what skipping a release looks like — read as a mysterious partial failure.
+
+    Mutation watched: collapsed the two branches back to the single "N row(s) have no rank"
+    message. This test went red on the all-unranked case while
+    ``test_it_refuses_when_a_row_has_no_rank`` stayed green.
+    """
+    with pytest.raises(RuntimeError) as none_ranked:
+        run([row(rank=None), row(rank=None)])
+    assert "has not run here at all" in str(none_ranked.value)
+    assert "older than 3.4.0" in str(none_ranked.value)
+
+    with pytest.raises(RuntimeError) as partly_ranked:
+        run([row(rank="a0"), row(rank=None)])
+    message = str(partly_ranked.value)
+    assert "has not run here at all" not in message, "a half-finished seed is not a skipped upgrade"
+    assert "1 of 2 repeater row(s) have no rank" in message

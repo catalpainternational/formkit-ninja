@@ -202,3 +202,48 @@ def test_writes_still_work_because_the_annotation_is_opt_in():
     assert SeparatedSubmission.objects.filter(pk=ids[0]).update(status=Submission.Status.NEW) == 1
     SeparatedSubmission.objects.filter(pk=ids[0]).delete()
     assert not SeparatedSubmission.objects.filter(pk=ids[0]).exists()
+
+
+# --------------------------------------------------------------------------- #
+# The name 3.4.x had to use (4.0.1)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.django_db
+def test_the_annotation_answers_to_the_name_3_4_x_had_to_use():
+    """``derived_repeater_order`` is an alias for ``repeater_order`` on the annotation.
+
+    3.4.x could not call it ``repeater_order`` — the column of that name still existed and
+    Django refuses an annotation that collides with a field
+    (``ValueError: The annotation 'repeater_order' conflicts with a field on the model``).
+    3.4.x is also the release in which consumers were told to migrate their readers, so
+    every reader written in the transition window says ``derived_repeater_order``. Dropping
+    that name at the major would have broken precisely the people who upgraded early.
+
+    One expression, annotated twice — not a second mechanism, so the two cannot disagree.
+
+    Mutation watched: removed ``derived_repeater_order=expression`` from the annotate call.
+    This test went red with ``FieldError: Cannot resolve keyword 'derived_repeater_order'``,
+    and every other test in this file stayed green — none of them uses the old name.
+    """
+    sub = Submission.objects.create(
+        form_type="TestForm",
+        fields={"repeater": [{"uuid": str(uuid.uuid4()), "amount": k} for k in range(3)]},
+    )
+    SeparatedSubmission.objects.from_submission(sub)
+
+    rows = list(SeparatedSubmission.objects.filter(repeater_parent__isnull=False).with_repeater_order().values_list("pk", "repeater_order", "derived_repeater_order"))
+    assert rows, "no repeater rows were stored — this comparison would be vacuous"
+
+    for pk, current, legacy in rows:
+        assert current == legacy, f"the two names disagree for {pk}: {current} vs {legacy}"
+    assert sorted(current for _pk, current, _legacy in rows) == [0, 1, 2]
+
+    # And it must survive the shapes a real reader uses, not just a bare list.
+    one = SeparatedSubmission.objects.with_repeater_order().get(pk=rows[0][0])
+    assert one.derived_repeater_order == one.repeater_order
+    assert list(SeparatedSubmission.objects.filter(repeater_parent__isnull=False).with_repeater_order().order_by("derived_repeater_order").values_list("derived_repeater_order", flat=True)) == [
+        0,
+        1,
+        2,
+    ]
