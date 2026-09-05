@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.2] - 2026-09-05
+
+Tests only. No behaviour change, no schema change — the four branches below already did the
+right thing, nothing proved it.
+
+### Added
+
+- **Cover the three states `document_position` answers `None` for**: a submission whose
+  `fields` are empty, a submission that is gone, and a row naming a repeater the document
+  does not describe. None of these is exotic — a wiped document and a row the canonical
+  fields no longer mention are both states consumers have open issues about — and all three
+  matter more than they look, because the usual consumer writes
+  `document_position(row) or 0` into a NOT NULL ordinality column, so "no position" becomes
+  "first row".
+
+  One of these records a **correction**. `if not fields: return None` looks like the guard
+  that makes the empty-document case safe, and removing it changes nothing:
+  `sibling_groups` returns `{}` for both `None` and `{}` rather than raising, so the lookup
+  misses and the `if not members` guard produces the same answer. It is an early-out that
+  avoids walking a document that cannot answer. Both guards have to go before the tests
+  fail, and the docstring says so rather than claiming a mutation that did not happen.
+
+- **Cover the compatibility descriptor's two edges**: a root row read one-at-a-time (its
+  `None` must agree with the annotation's, or the same row answers differently depending on
+  how it was read), and class-level attribute access, which Django itself performs while
+  building querysets and which must neither warn nor touch the database.
+
+
 ## [4.0.1] - 2026-09-05
 
 The 3.4.1 corrections that still apply once the column is gone, plus the compatibility
