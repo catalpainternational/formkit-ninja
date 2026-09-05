@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`emit_submission()` — the decomposition of a submission, as a value.** New
+  `formkit_ninja/form_submission/emit.py` returns one frozen `Emission` per row of a
+  document: its identity, its parent, its answers, its position, and the stream path its
+  events belong on (`submission/tf611`, `submission/tf1321/repeaterprojectprogress`, nesting
+  as deep as the document does). It queries nothing — that is the point. A producer that
+  reads the rows it is about to write cannot be replayed, because on the second run those
+  rows already say something different.
+
+  `from_submission()` now walks those emissions instead of raw `flatten` tuples, so there is
+  **one** decomposition rather than two that could drift. Behaviour is unchanged and the
+  existing suite is the gate; `tests/test_emit.py` additionally asserts that the emitted row
+  set, primary keys, parents, form types and order match what the splitter stores.
+
+- **`ranking.apply_ranks()` — fractional positions computed from the document alone.** Pure,
+  and deliberately **not yet wired up**: it ships one release ahead of the migration that
+  starts writing `$rank` into canonical `fields`, so the mechanism can be reviewed and tested
+  before any data moves. Prior ranks are read from the *stored* document, never from the
+  incoming payload — a client that drops the key would otherwise re-mint every row, and one
+  that echoes a stale key would silently reorder someone's data.
+
+- **`reserved.py`** names the keys this library writes into a repeater row — `uuid`, and now
+  `$rank`. Three places have to agree on that set and each fails *silently* if it does not.
+
+### Fixed
+
+- **A repeater row carrying only bookkeeping is still an empty row.** `_skip_value` asked
+  whether a row's keys were *exactly* `{"uuid"}`; it now asks whether they are a subset of
+  the reserved set. With the old test, adding any second reserved key would have stopped
+  empty rows being dropped, and they would have begun materialising as real
+  `SeparatedSubmission` rows and typed rows downstream — silently, and only on the *second*
+  save, because `pre_validation` runs before the identity is minted, so a create looks fine
+  and the edit is what breaks.
+
+  `$rank` rather than `rank` or `_rank` deliberately: FormKit reserves `$` for schema
+  expressions, so no form input can ever be named `$rank` and the collision is impossible by
+  construction rather than merely unlikely.
+
+  **Consumers must add `$rank` to any "is this row empty?" check of their own** before taking
+  the release that starts minting it.
+
 ## [4.1.0] - 2026-09-06
 
 ### Changed
@@ -36,7 +78,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `manage.py backfill_repeater_ranks` on 3.4.x still works and is still the way to do the
   seeding ahead of time if you would rather. It is now optional rather than a precondition.
-
 
 ## [4.0.2] - 2026-09-05
 
