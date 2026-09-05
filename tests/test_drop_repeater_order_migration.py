@@ -45,6 +45,10 @@ class _Manager:
     def filter(self, **kwargs):
         return self
 
+    #: What the migration orders by. `F("repeater_order").asc(nulls_last=True)` stringifies,
+    #: so the clause is compared by its rendered form rather than by identity.
+    ORDERS = ("repeater_parent_id", "repeater_key", "OrderBy(F(repeater_order), descending=False)", "pk")
+
     def order_by(self, *args):
         """Sort the way the real queryset does: by stored index, nulls last, then pk.
 
@@ -55,12 +59,24 @@ class _Manager:
         does not sort, that mutation is invisible — checked, and it was: the mutation left all
         12 tests green until this method did the sorting the real query does.
         """
+        rendered = tuple(str(a) for a in args)
+        assert rendered == self.ORDERS, f"the migration now orders by {rendered}, but this stub sorts for {self.ORDERS}"
+        # The whole key, not just the index: grouping first is half of what the real
+        # `order_by` does, and sorting only by index would leave "drop repeater_parent_id
+        # and repeater_key from the clause" as a mutation nothing here could catch.
         return _Manager(
-            sorted(self._rows, key=lambda r: (r[3] is None, r[3] if r[3] is not None else 0, str(r[0]))),
+            sorted(self._rows, key=lambda r: (str(r[1]), str(r[2]), r[3] is None, r[3] if r[3] is not None else 0, str(r[0]))),
             self._written,
         )
 
+    #: The columns the migration selects, in the order it unpacks them. Asserted rather than
+    #: ignored: the step unpacks positionally, so swapping two names in its `values_list` and
+    #: two in the unpack would leave every test green while the real migration read the rank
+    #: as the index and seeded garbage. Checked — that mutation passed 12/12 before this.
+    SELECTS = ("pk", "repeater_parent_id", "repeater_key", "repeater_order", "repeater_rank")
+
     def values_list(self, *args):
+        assert args == self.SELECTS, f"the migration now selects {args}, but these tests build rows shaped {self.SELECTS}"
         return _Rows(self._rows)
 
     def bulk_update(self, objs, fields):
