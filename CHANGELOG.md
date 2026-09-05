@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-09-05
+
+The 3.4.1 corrections that still apply once the column is gone, plus the compatibility
+3.4.1 could not offer from its own side. No schema change; `0052` is unchanged except for
+what it says when it refuses.
+
+### Added
+
+- **`with_repeater_order()` now annotates `derived_repeater_order` as well as
+  `repeater_order`.** 3.4.x had to use the longer name, because the column of the shorter
+  one still existed and Django refuses an annotation that collides with a field. 3.4.x is
+  also the release in which consumers were told to migrate their readers — so readers
+  written in the transition window say `derived_repeater_order`, and dropping that name at
+  the major would have broken exactly the people who upgraded early. One expression,
+  annotated twice.
+
+- **`ordering.document_position(row)`** — see 3.4.1. The row's index as its canonical
+  document gives it, for anything running *while a document is being split*, where counting
+  siblings cannot answer: the splitter writes a group in reverse rank order, so a per-row
+  projection counts nought before itself every time. `compat.py` now says so where the
+  descriptor is documented, because "one query per access" understated it — mid-split the
+  answer is not expensive, it is wrong.
+
+### Changed
+
+- **`0052_drop_repeater_order` tells a skipped upgrade apart from a half-finished one.**
+  Every row unranked means the database came straight from a release older than 3.4.0 and
+  never had the chance to seed; some rows unranked means the seed ran and stopped. Those
+  have different fixes and read identically before. The message now names 3.4.x as the
+  release that still has the seeding command, says plainly that this release cannot seed
+  for you (the seeding reads the column this migration removes), and states that the
+  attempt changed nothing — the migration is transactional, and a refusal in a deploy log
+  is read by someone deciding whether the database is now half-migrated.
+
+### Note for upgraders
+
+- **`0052` drops `repeater_order` from `formkit_ninja_separatedsubmissionevent` as well as
+  from the row table**, so positions already recorded in pghistory go with it. The 4.0.0
+  notes described only the Python-level shapes, and the compatibility layer is a descriptor
+  — it cannot reach raw SQL. Anything that reads or writes those columns directly needs
+  changing before you take this; one consumer had a history-reconstruction step that named
+  `repeater_order` in an `INSERT` and found out at runtime.
+
+- **`backfill_repeater_ranks --verify` on 3.4.0 may report differences that never blocked
+  anything.** It compared the exact index; `0052` only requires each group to come back in
+  the same order. 3.4.1 separates the two. If you are still on 3.4.0 and `--verify` refuses
+  over rows whose *sequence* is fine, that is this bug and not your data.
+
+
 ## [4.0.0] - 2026-09-05
 
 ### Removed

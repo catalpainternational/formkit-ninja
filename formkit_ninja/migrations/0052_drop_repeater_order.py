@@ -41,7 +41,9 @@ def refuse_unless_every_row_is_ranked(apps, schema_editor):
 
     unranked = []
     groups = {}
+    total = 0
     for pk, parent_id, repeater_key, order, rank in rows.iterator(chunk_size=2000):
+        total += 1
         if not rank:
             unranked.append(pk)
         groups.setdefault((parent_id, repeater_key), []).append((pk, order))
@@ -65,14 +67,25 @@ def refuse_unless_every_row_is_ranked(apps, schema_editor):
 
     problems = []
     if unranked:
-        problems.append(f"{len(unranked)} repeater row(s) have no rank (first: {unranked[0]})")
+        # "Nothing is ranked" and "some rows are not" have different causes and different
+        # fixes, and the difference is the one a deploy log needs: the first means this
+        # installation came straight from a release older than 3.4.0 and never had the
+        # chance to seed, the second means the seed ran and did not finish.
+        if len(unranked) == total:
+            problems.append(
+                f"none of the {total} repeater row(s) have a rank, so the seeding step has not run here at all — this database has most likely come straight from a release older than 3.4.0"
+            )
+        else:
+            problems.append(f"{len(unranked)} of {total} repeater row(s) have no rank (first: {unranked[0]})")
     if disagreeing:
         problems.append(f"{len(disagreeing)} sibling group(s) are ordered differently by rank than by repeater_order (first: {disagreeing[0]})")
 
     raise RuntimeError(
-        "Refusing to drop repeater_order: " + "; ".join(problems) + ". Roll back to the previous release, run `manage.py backfill_repeater_ranks` "
-        "and then `manage.py backfill_repeater_ranks --verify`, and migrate again. After "
-        "this migration there is nothing left to seed the ranks from."
+        "Refusing to drop repeater_order: " + "; ".join(problems) + ". Install 3.4.x, run `manage.py backfill_repeater_ranks` and then "
+        "`manage.py backfill_repeater_ranks --verify`, and migrate again. This release cannot "
+        "seed them for you: the seeding reads repeater_order, and this migration removes it. "
+        "Nothing has been changed by this attempt — the migration is transactional, so the "
+        "database is exactly as it was."
     )
 
 

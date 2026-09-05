@@ -10,6 +10,13 @@ Three shapes of use, three answers:
 * ``row.repeater_order`` — still works. :class:`RepeaterOrderDescriptor` computes it on
   access and warns. One query per access, which is the honest price of asking a row
   about its siblings; a loop over rows should annotate instead.
+
+  **Not during a split.** Counting siblings only answers correctly once every sibling is
+  in the table, and the splitter writes a group in *reverse* rank order — so a
+  ``post_save`` projecting each row sees itself as the lowest-ranked row present and
+  counts nought before it, every time, in order, looking entirely healthy. One consumer
+  filled a NOT NULL ``ordinality`` column that way and got zeroes throughout. Inside a
+  split, ask the document: :func:`formkit_ninja.form_submission.ordering.document_position`.
 * ``.order_by("repeater_order")`` / ``.filter(repeater_order=0)`` /
   ``.values_list("repeater_order")`` — add ``.with_repeater_order()`` to the queryset
   and they work unchanged, because the annotation is named ``repeater_order``.
@@ -39,7 +46,7 @@ class RepeaterOrderDeprecationWarning(DeprecationWarning):
 
 
 #: The one place the replacement is named, so the message cannot drift from the API.
-GUIDANCE = "use .with_repeater_order() on the queryset, or .in_document_order() if you only want the rows in order"
+GUIDANCE = "use .with_repeater_order() on the queryset, .in_document_order() if you only want the rows in order, or ordering.document_position(row) if you are inside a split"
 
 
 class RepeaterOrderDescriptor:

@@ -159,12 +159,24 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
         windowed queryset. Without this call those references raise ``FieldError``,
         which is the loud half of the migration and names the row it failed on.
 
-        It is a window function, so it costs a partition sort. If all you want is the
-        rows in order, :meth:`in_document_order` is cheaper and says more.
+        It costs a subquery per row. If all you want is the rows in order,
+        :meth:`in_document_order` is cheaper and says more.
+
+        Annotated under **both** ``repeater_order`` and ``derived_repeater_order``; the
+        latter is the name 3.4.x had to use and is kept so readers migrated during that
+        window keep working.
         """
         from formkit_ninja.form_submission.ordering import repeater_order_expression
 
-        return self.annotate(repeater_order=repeater_order_expression())
+        expression = repeater_order_expression()
+        # Both names, deliberately. 3.4.x had to call this annotation
+        # ``derived_repeater_order``, because the column of the other name still existed and
+        # Django refuses an annotation that collides with a field. 3.4.x is also the release
+        # in which consumers were told to migrate their readers — so every reader written in
+        # the transition window says ``derived_repeater_order``, and dropping that name here
+        # would break exactly the people who did the work early. The old name is an alias,
+        # not a second mechanism: one expression, annotated twice.
+        return self.annotate(repeater_order=expression, derived_repeater_order=expression)
 
     def with_import_failure(self: _QS) -> _QS:
         """
