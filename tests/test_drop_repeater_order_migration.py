@@ -46,7 +46,19 @@ class _Manager:
         return self
 
     def order_by(self, *args):
-        return self
+        """Sort the way the real queryset does: by stored index, nulls last, then pk.
+
+        A no-op here would make the module blind to the defect it exists to catch. The step
+        reads groups in `repeater_order` sequence so it can mint keys in that sequence, and
+        then has to judge the result in *rank* order; judging it in the order it read would
+        compare a list against its own sorted form and pass unconditionally. With a stub that
+        does not sort, that mutation is invisible — checked, and it was: the mutation left all
+        12 tests green until this method did the sorting the real query does.
+        """
+        return _Manager(
+            sorted(self._rows, key=lambda r: (r[3] is None, r[3] if r[3] is not None else 0, str(r[0]))),
+            self._written,
+        )
 
     def values_list(self, *args):
         return _Rows(self._rows)
@@ -195,10 +207,15 @@ def test_it_refuses_when_the_rank_orders_a_group_differently():
     """Read in rank order, the stored indices must come back ascending. Here the rank puts
     the row stored at index 2 first, so the two sources disagree about the answer.
 
-    Mutation watched: sorted the group by the order it was read in (by `repeater_order`)
-    rather than by rank when checking. That compares a list against its own sorted form and
-    passes unconditionally — it was in the first draft of this change, and this test is what
-    caught it. Went red as "DID NOT RAISE".
+    Mutation watched: replaced the rank-ordered sort with the list as read (by
+    `repeater_order`), which compares a list against its own sorted form and passes
+    unconditionally. It was in the first draft of 4.1.0.
+
+    The first attempt at this record was **wrong**, and the correction is the useful part:
+    the mutation left all 12 tests green, because `_Manager.order_by` was a no-op and the
+    rows arrived in whatever order the test listed them. A stub that does not do the sorting
+    the real query does cannot see an ordering defect. `order_by` now sorts, and the mutation
+    goes red as "DID NOT RAISE".
     """
     with pytest.raises(RuntimeError, match="ordered differently"):
         run([row(order=2, rank="a0"), row(order=0, rank="a1"), row(order=1, rank="a2")])
