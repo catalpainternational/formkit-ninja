@@ -247,3 +247,59 @@ def test_the_annotation_answers_to_the_name_3_4_x_had_to_use():
         1,
         2,
     ]
+
+
+# --------------------------------------------------------------------------- #
+# The descriptor's own edges (4.0.2)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.django_db
+def test_a_root_row_read_through_the_descriptor_has_no_position():
+    """A root row's `repeater_order` is `None`, as the column was.
+
+    The descriptor's counting path has its own root-row guard, separate from the SQL
+    expression's. Both must agree, or the same row answers differently depending on whether
+    it was read one at a time or through an annotation — and the one-at-a-time path is what
+    a serializer does.
+
+    Mutation watched: removed `if instance.repeater_parent_id is None: return None` from
+    `RepeaterOrderDescriptor._compute`. This test went red — the root row counted itself
+    against every other root in the table and returned a number.
+    """
+    sub = Submission.objects.create(
+        form_type="TestForm",
+        fields={"repeater": [{"uuid": str(uuid.uuid4()), "amount": k} for k in range(2)]},
+    )
+    SeparatedSubmission.objects.from_submission(sub)
+    root = SeparatedSubmission.objects.get(pk=sub.pk)
+
+    with pytest.warns(RepeaterOrderDeprecationWarning):
+        assert root.repeater_order is None
+
+    annotated = SeparatedSubmission.objects.with_repeater_order().get(pk=sub.pk)
+    assert annotated.repeater_order is None, "the annotation and the descriptor disagree about a root row"
+
+
+def test_reading_the_attribute_on_the_class_gives_the_descriptor():
+    """`SeparatedSubmission.repeater_order` — no instance — must not blow up or warn.
+
+    Django itself does this while building querysets and checking model state, and so does
+    anything reflecting over the model. Returning the descriptor is the ordinary protocol;
+    the branch exists so that path does not fall through into counting a row that is not
+    there.
+
+    No `django_db` mark: this is class-level attribute access and must not need a database.
+
+    Mutation watched: removed `if instance is None: return self`. This test went red with
+    `AttributeError: 'NoneType' object has no attribute 'repeater_parent_id'`.
+    """
+    import warnings
+
+    from formkit_ninja.form_submission.compat import RepeaterOrderDescriptor
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RepeaterOrderDeprecationWarning)
+        attr = SeparatedSubmission.repeater_order
+
+    assert isinstance(attr, RepeaterOrderDescriptor)
