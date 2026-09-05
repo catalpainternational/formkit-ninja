@@ -157,11 +157,15 @@ def test_it_can_be_filtered_on():
 
 @pytest.mark.django_db
 def test_verify_passes_when_every_row_is_ranked_and_agrees(capsys):
+    """The clean case. Wording updated in 3.4.1: the verdict is now about the *order*
+    agreeing, not about the index being reproduced exactly — see
+    ``test_verify_passes_when_a_group_is_numbered_from_one_rather_than_zero`` in
+    ``test_backfill_repeater_ranks.py`` for why those are different questions."""
     make(5)
 
     call_command("backfill_repeater_ranks", verify=True)
 
-    assert "reproduces repeater_order exactly" in capsys.readouterr().out
+    assert "same order by rank as by repeater_order" in capsys.readouterr().out
 
 
 @pytest.mark.django_db
@@ -179,6 +183,13 @@ def test_verify_fails_on_an_unranked_row(capsys):
 
 @pytest.mark.django_db
 def test_verify_fails_when_the_rank_disagrees_with_the_column(capsys):
+    """Still blocking, and still for the right reason.
+
+    Moving the first row's index to 3 leaves the group reading ``3, 1, 2, 3`` in rank
+    order, which is not ascending — so this is an *ordering* disagreement, not merely a
+    different origin, and 3.4.1's narrower gate refuses it exactly as the old one did.
+    Only the message changed.
+    """
     sub, ids = make(4)
     # Something wrote one side and not the other — the case the gate exists for.
     SeparatedSubmission.objects.filter(pk=ids[0]).update(repeater_order=3)
@@ -187,7 +198,7 @@ def test_verify_fails_when_the_rank_disagrees_with_the_column(capsys):
         call_command("backfill_repeater_ranks", verify=True)
 
     err = capsys.readouterr().err
-    assert "disagree with the stored index" in err
+    assert "ordered differently by rank" in err
     assert "Do not drop repeater_order" in err
 
 
@@ -211,3 +222,66 @@ def test_verify_writes_nothing():
 
     assert seen == []
     assert dict(SeparatedSubmission.objects.values_list("pk", "repeater_rank")) == before
+
+
+# --------------------------------------------------------------------------- #
+# The shape the check and the defect both missed (3.4.1)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.django_db
+def test_the_index_is_right_on_a_filtered_queryset():
+    """The derived index must not depend on which rows the query happens to return.
+
+    3.4.0 computed it with ``ROW_NUMBER() OVER (PARTITION BY ...)``. A window function is
+    evaluated over the result set, so any query that does not return a whole sibling group
+    numbers whatever it got: ``.get(pk=x)`` numbered a set of one and answered 0 for every
+    row in the table.
+
+    Every other test in this module — and ``backfill_repeater_ranks --verify`` — reads
+    *all* repeater rows at once, which is the one shape a window function gets right. The
+    check and the defect shared a blind spot, so this pins the shapes they both skip: one
+    row, and a slice of a group.
+
+    Mutation watched: restored the window implementation
+    (``Window(RowNumber(), partition_by=[repeater_parent_id, repeater_key], order_by=rank)
+    - 1``). This test went red on the single-row lookup (0 != 3) while all 77 tests in
+    ``test_repeater_ordering.py``, ``test_repeater_rank_writes.py``,
+    ``test_backfill_repeater_ranks.py`` and the rest of this file stayed green.
+    """
+    _sub, ids = make(4)
+
+    whole_group = dict(SeparatedSubmission.objects.filter(repeater_parent__isnull=False).with_repeater_order().values_list("pk", "derived_repeater_order"))
+    assert sorted(whole_group.values()) == [0, 1, 2, 3], f"the unfiltered read is already wrong: {whole_group}"
+
+    # One row at a time — what a serializer does.
+    for row_id in ids:
+        one = SeparatedSubmission.objects.with_repeater_order().get(pk=row_id)
+        assert one.derived_repeater_order == whole_group[row_id], f"row {row_id} is index {whole_group[row_id]} when the group is read together but {one.derived_repeater_order} when read on its own"
+
+    # A slice of the group — what any ``.filter()`` narrower than a repeater does.
+    tail = dict(SeparatedSubmission.objects.filter(pk__in=ids[2:]).with_repeater_order().values_list("pk", "derived_repeater_order"))
+    assert tail == {ids[2]: 2, ids[3]: 3}, f"a partial read renumbered the rows it returned: {tail}"
+
+
+@pytest.mark.django_db
+def test_a_root_row_has_no_index_however_it_is_read():
+    """A root row's index is NULL, and that must survive the same narrowing.
+
+    The expression special-cases a NULL parent. Under the subquery that branch is the only
+    thing standing between a root row and ``Coalesce(NULL, 0)`` — which would report every
+    root as index 0 rather than as having no index, and roots outnumber repeater rows.
+
+    Mutation watched: dropped the ``When(repeater_parent__isnull=True, ...)`` branch. This
+    test went red ("the root row was given an index", 0 is not None) on the single-row read.
+    It is not the only thing that catches that one — an existing assertion in this file goes
+    red on it too — but it is the only one that reads a root row *on its own*, which is the
+    shape the rest of the module never uses.
+    """
+    sub, _ids = make(2)
+
+    root = SeparatedSubmission.objects.with_repeater_order().get(pk=sub.pk)
+    assert root.derived_repeater_order is None, "the root row was given an index"
+
+    both = dict(SeparatedSubmission.objects.with_repeater_order().values_list("pk", "derived_repeater_order"))
+    assert both[sub.pk] is None, "the root row was given an index when read alongside its children"

@@ -24,15 +24,9 @@ is neither reviewable nor re-runnable, and each installation needs to pick its o
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
-from django.db import transaction
-from django.db.models import F
 
 from formkit_ninja.form_submission.models import SeparatedSubmission
-from formkit_ninja.fracrank import keys_between
-
-#: Rows per ``bulk_update``. Safe here in a way it is not on a split: this writes one
-#: already-existing column on already-existing rows, so there is nothing to materialise.
-BATCH = 2000
+from formkit_ninja.form_submission.seeding import seed_repeater_ranks
 
 #: How many disagreeing rows ``--verify`` names. The count is the finding; the samples
 #: are for whoever goes looking.
@@ -59,83 +53,89 @@ class Command(BaseCommand):
         if options["verify"]:
             return self._verify()
 
-        # `repeater_order` is nullable and Postgres sorts NULLs last ascending; `pk`
-        # breaks the remaining ties so the seeded order is deterministic rather than
-        # heap order. The same rule `compose()` and `in_document_order()` apply.
-        rows = (
-            SeparatedSubmission.objects.filter(repeater_parent__isnull=False)
-            .order_by(
-                "repeater_parent_id",
-                "repeater_key",
-                F("repeater_order").asc(nulls_last=True),
-                "pk",
-            )
-            .values_list("pk", "repeater_parent_id", "repeater_key", "repeater_rank")
-        )
-
-        groups: dict[tuple, list[tuple]] = {}
-        for pk, parent_id, repeater_key, rank in rows.iterator(chunk_size=2000):
-            groups.setdefault((parent_id, repeater_key or ""), []).append((pk, rank))
-
-        pending: list[SeparatedSubmission] = []
-        skipped = 0
-        for members in groups.values():
-            if any(rank for _pk, rank in members):
-                skipped += 1
-                continue
-            for (pk, _rank), key in zip(members, keys_between(None, None, len(members))):
-                pending.append(SeparatedSubmission(pk=pk, repeater_rank=key))
-
-        if dry_run:
-            self.stdout.write(self.style.SUCCESS(f"Would seed {len(pending)} row(s) across {len(groups) - skipped} group(s); {skipped} group(s) already ranked (dry-run)."))
-            return
-
-        with transaction.atomic():
-            for start in range(0, len(pending), BATCH):
-                # `bulk_update` writes the column without loading or saving the rows, so
-                # no `post_save` fires and no downstream projection is rebuilt. Seeding a
-                # position nobody reads yet must not look like every row being edited.
-                SeparatedSubmission.objects.bulk_update(pending[start : start + BATCH], ["repeater_rank"])
-
-        self.stdout.write(self.style.SUCCESS(f"Seeded {len(pending)} row(s) across {len(groups) - skipped} group(s); {skipped} group(s) already ranked."))
+        result = seed_repeater_ranks(dry_run=dry_run)
+        verb = "Would seed" if dry_run else "Seeded"
+        suffix = " (dry-run)." if dry_run else "."
+        self.stdout.write(self.style.SUCCESS(f"{verb} {result['seeded']} row(s) across {result['groups']} group(s); {result['skipped_groups']} group(s) already ranked{suffix}"))
 
     def _verify(self) -> None:
-        """Assert that ``repeater_order`` carries nothing the rank does not.
+        """Report whether the ranks are ready for the column to be dropped.
 
-        Reports rows in three buckets, because they mean different things:
+        **Two questions, and only one of them blocks the drop.** They were conflated until
+        3.4.1, and the stricter one was documented as the gate, which sent at least one
+        consumer chasing a failure that could not have stopped anything:
 
-        * **unranked** — the backfill has not covered this row. Not a disagreement; a
-          gap. Seed it and verify again.
-        * **mismatched** — the rank orders this row differently from the stored index.
-          This is the finding. It means either the seed did not run on that group, or
-          something has written one of the two since.
+        * **Ordering (blocking).** Does the rank put each sibling group in the same order
+          the stored index does? This is what ``0052_drop_repeater_order`` actually checks,
+          and it deliberately tolerates gaps and offsets — the column was nullable and
+          unconstrained, and holes in it were never a fault. If this is clean, the drop will
+          run.
+        * **Exact index (advisory).** Does the rank reproduce the stored number itself? A
+          group numbered ``1, 2, 3`` rather than ``0, 1, 2`` fails this and passes the one
+          above. It is worth reporting, because after the drop those rows *will* be numbered
+          from zero and anything rendering the number to a person will show a different one.
+          It is not worth refusing over: the sequence is identical and the new number is the
+          one the splitter would write today.
 
-        A run over zero rows is reported as proving nothing rather than as success. A
-        verifier that returns green on an empty table is how a check gets trusted for
-        years without ever having run.
+        A third bucket, **unranked**, is a gap rather than a disagreement — seed it and
+        verify again.
+
+        Exits non-zero only on the blocking condition or on unranked rows. A run over zero
+        rows is reported as proving nothing rather than as success: a verifier that returns
+        green on an empty table is how a check gets trusted for years without ever having run.
         """
-        rows = SeparatedSubmission.objects.filter(repeater_parent__isnull=False).with_repeater_order().values_list("pk", "repeater_order", "derived_repeater_order", "repeater_rank")
+        rows = (
+            SeparatedSubmission.objects.filter(repeater_parent__isnull=False)
+            .with_repeater_order()
+            .values_list("pk", "repeater_parent_id", "repeater_key", "repeater_order", "derived_repeater_order", "repeater_rank")
+        )
 
         total = unranked = 0
-        mismatched: list[tuple] = []
-        for pk, stored, derived, rank in rows.iterator(chunk_size=2000):
+        offset_only: list[tuple] = []
+        groups: dict[tuple, list[tuple]] = {}
+        for pk, parent_id, repeater_key, stored, derived, rank in rows.iterator(chunk_size=2000):
             total += 1
             if not rank:
                 unranked += 1
                 continue
             if stored != derived:
-                mismatched.append((pk, stored, derived))
+                offset_only.append((pk, stored, derived))
+            groups.setdefault((parent_id, repeater_key or ""), []).append((derived, stored))
+
+        # The blocking question. Read each group in rank order and ask whether the stored
+        # indices come back ascending. NULL indices are dropped rather than sorted among the
+        # rest: a row with no index has no opinion about the order, and including it made a
+        # group of (NULL, 1) compare a 2-element list against a 1-element one and always fail.
+        disagreeing = []
+        for group, members in groups.items():
+            present = [stored for _derived, stored in sorted(members) if stored is not None]
+            if present != sorted(present):
+                disagreeing.append(group)
 
         if total == 0:
             self.stdout.write(self.style.WARNING("No repeater rows: nothing was compared, so this proves nothing."))
             raise SystemExit(1)
 
-        if unranked or mismatched:
-            for pk, stored, derived in mismatched[:SAMPLES]:
-                self.stderr.write(self.style.ERROR(f"  {pk}: stored repeater_order={stored}, rank gives {derived}"))
-            if len(mismatched) > SAMPLES:
-                self.stderr.write(self.style.ERROR(f"  ... and {len(mismatched) - SAMPLES} more"))
-            self.stderr.write(self.style.ERROR(f"{len(mismatched)} of {total} row(s) disagree with the stored index; {unranked} row(s) are not ranked yet. Do not drop repeater_order."))
+        if offset_only:
+            pk, stored, derived = offset_only[0]
+            self.stdout.write(
+                self.style.WARNING(
+                    f"{len(offset_only)} of {total} row(s) are numbered differently from the "
+                    f"stored index (first: {pk} stored {stored}, rank gives {derived}). This "
+                    "does NOT block the drop — the order is what matters, and it is checked "
+                    "separately below. After the drop these rows are numbered from zero, so "
+                    "anything showing the number to a person will show a different one."
+                )
+            )
+
+        if unranked or disagreeing:
+            for group in disagreeing[:SAMPLES]:
+                self.stderr.write(self.style.ERROR(f"  sibling group {group} is ordered differently by rank than by repeater_order"))
+            if len(disagreeing) > SAMPLES:
+                self.stderr.write(self.style.ERROR(f"  ... and {len(disagreeing) - SAMPLES} more"))
+            self.stderr.write(
+                self.style.ERROR(f"{len(disagreeing)} sibling group(s) are ordered differently by rank than by repeater_order; {unranked} row(s) are not ranked yet. Do not drop repeater_order.")
+            )
             raise SystemExit(1)
 
-        self.stdout.write(self.style.SUCCESS(f"All {total} repeater row(s) ranked, and the rank reproduces repeater_order exactly. The column carries nothing the rank does not."))
+        self.stdout.write(self.style.SUCCESS(f"All {total} repeater row(s) ranked, and every sibling group is in the same order by rank as by repeater_order. The column can be dropped."))

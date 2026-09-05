@@ -192,3 +192,86 @@ def test_the_next_ordinary_save_writes_nothing_after_a_backfill():
 
     assert seen == []
     assert ranks_of(sub) == seeded
+
+
+# --------------------------------------------------------------------------- #
+# What --verify is actually a gate for (3.4.1)
+# --------------------------------------------------------------------------- #
+
+
+def verify():
+    """Run ``--verify`` and return ``(exit_code, stdout, stderr)`` rather than raising."""
+    out, err = StringIO(), StringIO()
+    try:
+        call_command("backfill_repeater_ranks", verify=True, stdout=out, stderr=err)
+        code = 0
+    except SystemExit as exc:  # the command's own non-zero exit
+        code = exc.code
+    return code, out.getvalue(), err.getvalue()
+
+
+@pytest.mark.django_db
+def test_verify_passes_when_a_group_is_numbered_from_one_rather_than_zero():
+    """A 1-based sibling group must not fail verification.
+
+    This is the case that made ``--verify`` misleading before 3.4.1, and it is not
+    contrived: one consumer arrived here with 4,951 groups numbered from one, written by
+    something that stopped in April 2026. The old check compared the derived index to the
+    stored one and called all 6,905 rows a disagreement — printing "Do not drop
+    repeater_order" — while ``0052_drop_repeater_order`` would have run, and did.
+
+    The sequence is what matters and the sequence is identical; only the origin differs.
+    So this exits **zero**, and says so on stdout rather than stderr.
+
+    Mutation watched: restored the old comparison (``if stored != derived`` feeding the
+    blocking bucket). This test went red — exit 1 with "Do not drop repeater_order" — while
+    every other test in this file stayed green, which is exactly how the original shipped.
+    """
+    _sub, ids = make(3, unrank=False)
+    # Renumber the stored index 1..N, leaving the order alone.
+    for offset, row_id in enumerate(ids, start=1):
+        SeparatedSubmission.objects.filter(pk=row_id).update(repeater_order=offset)
+
+    code, out, err = verify()
+
+    assert code == 0, f"a 1-based group must not block the drop; stderr was: {err}"
+    assert "numbered differently" in out, f"the offset should still be reported, on stdout: {out!r}"
+    assert "does NOT block the drop" in out
+    assert "Do not drop repeater_order" not in err, "an advisory difference was reported as blocking"
+
+
+@pytest.mark.django_db
+def test_verify_fails_when_a_rank_orders_a_group_differently():
+    """The blocking condition: rank and stored index disagree about the *order*.
+
+    This is what ``0052_drop_repeater_order`` refuses on, and dropping the column here
+    would silently reorder someone's data.
+
+    Mutation watched: removed the `disagreeing` bucket from the failing condition, leaving
+    only `unranked`. This test went red (exit 0) while
+    ``test_verify_passes_when_a_group_is_numbered_from_one_rather_than_zero`` stayed green
+    — the pair is what distinguishes the two questions.
+    """
+    _sub, ids = make(3, unrank=False)
+    first, second = (SeparatedSubmission.objects.get(pk=i) for i in ids[:2])
+    first.repeater_rank, second.repeater_rank = second.repeater_rank, first.repeater_rank
+    SeparatedSubmission.objects.filter(pk=first.pk).update(repeater_rank=first.repeater_rank)
+    SeparatedSubmission.objects.filter(pk=second.pk).update(repeater_rank=second.repeater_rank)
+
+    code, _out, err = verify()
+
+    assert code == 1, "a group the rank orders differently must block the drop"
+    assert "ordered differently by rank" in err
+    assert "Do not drop repeater_order" in err
+
+
+@pytest.mark.django_db
+def test_verify_still_fails_on_an_unranked_row():
+    """A gap is not a disagreement, but it still blocks: 0052 refuses on unranked rows too."""
+    _sub, ids = make(3, unrank=False)
+    SeparatedSubmission.objects.filter(pk=ids[0]).update(repeater_rank=None)
+
+    code, _out, err = verify()
+
+    assert code == 1
+    assert "not ranked yet" in err
