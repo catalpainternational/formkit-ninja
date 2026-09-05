@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-09-05
+
+Corrections to 3.4.0, all found by the first consumer to take it through to 4.0.0. Nothing
+here changes the stored data or the migration graph.
+
+### Fixed
+
+- **`with_repeater_order()` was wrong on a filtered queryset.** It annotated
+  `ROW_NUMBER() OVER (PARTITION BY ...)`, and a window function is evaluated over *the rows
+  the query returns* — so `.with_repeater_order().get(pk=x)` numbered a result set of one
+  and answered `0` for every row in the table. Any `.filter()` narrower than a whole
+  repeater was renumbered the same way. It is now a correlated subquery, correct under any
+  filter. This matters more than an ordinary bug because 3.4.0 is the release in which
+  consumers are asked to migrate their readers onto this annotation; work verified against
+  the old one was verified against something broken.
+
+  The 3.4.0 docstring claimed the expression was "verified equal to the stored column for
+  every row by `backfill_repeater_ranks --verify`". That was true and it did not help:
+  `--verify` reads *every* repeater row, which is the one query shape a window function
+  gets right. The check and the defect shared a blind spot.
+
+- **`--verify` refused on differences that never blocked anything.** It compared the
+  derived index to the stored one exactly, and was documented as the gate for dropping the
+  column — but `0052_drop_repeater_order` checks something looser: that each sibling group
+  comes back in the *same order*, tolerating gaps and offsets, because the column was
+  nullable and unconstrained. A group numbered `1, 2, 3` rather than `0, 1, 2` failed
+  `--verify` and would have migrated cleanly. One consumer hit 4,951 such groups and was
+  told "Do not drop repeater_order" by a check that could not have stopped the drop.
+
+  `--verify` now reports the two separately: the ordering question is the verdict and exits
+  non-zero, the exact-index difference is an advisory on stdout. The advisory still matters
+  — after the drop those rows are numbered from zero, so anything rendering the number to a
+  person shows a different one — it just is not a refusal.
+
+### Added
+
+- **`ordering.document_position(row)` — the row's index as its canonical document gives
+  it.** Use it, and not the counting route, anywhere that runs *while a document is being
+  split*: a `post_save` projecting a row into a typed model, a producer appending it to a
+  log. Counting siblings only answers correctly once every sibling is in the table, and the
+  splitter writes a group in **reverse rank order** — so a per-row projection sees itself as
+  the lowest-ranked row present and counts nought before it, every time.
+
+  This is not hypothetical. A consumer routed a NOT NULL `ordinality` column through the
+  counting route and every value came out `0`; it was caught only because one test asserted
+  the whole sequence rather than that the column was populated. `test_document_position.py`
+  now pins both halves — that `document_position` is right mid-split, and that counting is
+  not.
+
+- **`form_submission.seeding.seed_repeater_ranks()`** — the seeding as an importable
+  function returning counts, so a consumer can run it from its own deploy machinery without
+  `call_command` and stdout parsing. Every installation has to run this exactly once between
+  this release and the one that drops the index, and "remember to run a command" does not
+  survive a staging restore. `manage.py backfill_repeater_ranks` is now a thin wrapper.
+
 ## [3.4.0] - 2026-09-05
 
 ### Added

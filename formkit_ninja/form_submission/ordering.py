@@ -178,33 +178,106 @@ def repeater_order_expression():
     """``repeater_order`` computed from the rank, as a database expression.
 
     The array index is not information — it is the rank's position within its sibling
-    group, counted. This says so in SQL, which is what makes dropping the stored column
-    a change of representation rather than a loss:
+    group, counted. This says so in SQL, which is what makes dropping the stored column a
+    change of representation rather than a loss: how many siblings sort before me.
 
-        ROW_NUMBER() OVER (PARTITION BY repeater_parent, repeater_key ORDER BY rank) - 1
+    A correlated subquery rather than
+    ``ROW_NUMBER() OVER (PARTITION BY ... ORDER BY rank)``, which is what 3.4.0 shipped and
+    was **wrong on a filtered queryset**. A window function is evaluated over *the rows the
+    query returns*, so ``.with_repeater_order().get(pk=x)`` numbered a result set of one and
+    answered 0 for every row in the table. A subquery counts against the whole table and is
+    therefore correct under any filter — including the single-row lookup a serializer does.
 
-    Zero-based to match the stored column, and NULL for a root row, which has no siblings
-    to be an index within — again matching what the splitter stored.
+    The 3.4.0 docstring claimed the expression was "verified equal to the stored column for
+    every row by ``backfill_repeater_ranks --verify``". That was true and it did not help:
+    ``--verify`` selects *every* repeater row, which is the one query shape a window
+    function gets right. The check and the defect shared a blind spot, which is why
+    ``test_the_index_is_right_on_a_filtered_queryset`` now pins the filtered shapes
+    specifically.
 
-    Verified equal to the stored column for every row by
-    ``backfill_repeater_ranks --verify``. That equality is the whole argument for
-    removing the column, so it is checked against real data rather than reasoned about.
+    The price is a subquery per row instead of one partition sort. That is the right trade
+    for something consumers are migrating onto: an index that is quietly wrong under a
+    filter is worse than a slow one. For rows in order, ``in_document_order()`` is the cheap
+    path and needs none of this.
 
-    Django only, not part of the pure core above — it is imported lazily by the queryset
-    method that uses it, so this module stays importable without an app registry.
+    NULL ranks sort last, matching the ordering rule above. The sentinel is ``"\x7f"``,
+    which is above every base-62 digit under ``COLLATE "C"`` — the comparison has to be
+    total or a NULL-ranked row would count zero siblings and claim position 0.
+
+    Django only, not part of the pure core above — imported lazily by the queryset method
+    that uses it, so this module stays importable without an app registry.
     """
-    from django.db.models import Case, F, IntegerField, Value, When, Window
-    from django.db.models.functions import RowNumber
+    from django.db.models import Case, Count, IntegerField, OuterRef, Q, Subquery, TextField, Value, When
+    from django.db.models.functions import Coalesce
 
-    return Case(
-        # A root row's parent is NULL, and PARTITION BY would gather every root in the
-        # table into one group and number them. The stored column was NULL for these.
-        When(repeater_parent__isnull=True, then=Value(None)),
-        default=Window(
-            expression=RowNumber(),
-            partition_by=[F("repeater_parent_id"), F("repeater_key")],
-            order_by=[F("repeater_rank").asc(nulls_last=True), F("pk").asc()],
+    from formkit_ninja.form_submission.models import SeparatedSubmission
+
+    def sortable(field):
+        """The rank with NULLs pushed to the end, as one comparable text expression.
+
+        ``output_field`` is explicit because ``Value("\x7f")`` infers ``CharField`` while
+        the column is ``TextField``, and Django refuses to compare the two.
+        """
+        return Coalesce(field, Value("\x7f"), output_field=TextField())
+
+    mine = sortable(OuterRef("repeater_rank"))
+
+    earlier_siblings = (
+        SeparatedSubmission.objects.filter(
+            repeater_parent_id=OuterRef("repeater_parent_id"),
+            repeater_key=OuterRef("repeater_key"),
         )
-        - Value(1),
+        .annotate(_sort=sortable("repeater_rank"))
+        .filter(Q(_sort__lt=mine) | Q(_sort=mine, pk__lt=OuterRef("pk")))
+        .order_by()
+        .values("repeater_parent_id")
+        .annotate(n=Count("pk"))
+        .values("n")
+    )
+
+    # A root row has no siblings and stored NULL; the correlated filter on a NULL parent
+    # matches nothing, so the subquery is NULL and Coalesce must not turn that into 0.
+    return Case(
+        When(repeater_parent__isnull=True, then=Value(None)),
+        default=Coalesce(Subquery(earlier_siblings, output_field=IntegerField()), Value(0)),
         output_field=IntegerField(),
     )
+
+
+def document_position(row) -> int | None:
+    """This row's index in its repeater, as its **canonical document** gives it.
+
+    Use this, and not :func:`repeater_order_expression` or the queryset method over it,
+    anywhere that runs **while a document is being split** — a ``post_save`` receiver
+    projecting a row into a typed model, a producer appending it to a log.
+
+    Counting siblings only answers correctly once every sibling is in the table, and the
+    splitter writes a group in *reverse* rank order: the row it saves first holds the last
+    rank in the document. A projection running per row therefore sees itself as the
+    lowest-ranked row present and counts nought before it — **every time**. One consumer
+    took the counting route into a per-row projection and every value in a NOT NULL
+    ``ordinality`` column came out ``0``; the only reason it was caught is that a test
+    asserted the whole sequence rather than that the column was populated.
+
+    ``Submission.fields`` is canonical and already final when the split runs, so this is
+    right at any point during it. Costs one query for the document. Returns ``None`` for a
+    root row, and for a row the document does not mention — an orphan a reconcile has not
+    reached yet, which has no position; inventing 0 would put it first.
+    """
+    if getattr(row, "repeater_parent_id", None) is None:
+        return None
+
+    from formkit_ninja.form_submission.models import Submission
+    from formkit_ninja.form_submission.utils import sibling_groups
+
+    fields = Submission.objects.filter(pk=row.submission_id).values_list("fields", flat=True).first()
+    if not fields:
+        return None
+
+    members = sibling_groups(fields, row.submission_id).get((str(row.repeater_parent_id), row.repeater_key or ""))
+    if not members:
+        return None
+    try:
+        return members.index(str(row.pk))
+    except ValueError:
+        return None
