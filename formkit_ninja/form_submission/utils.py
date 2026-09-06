@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Iterable, TypeVar
 from django.db import models
 
 from formkit_ninja.form_submission.ordering import document_order_key
+from formkit_ninja.form_submission.reserved import RESERVED_ROW_KEYS
 
 if TYPE_CHECKING:
     from formkit_ninja.form_submission.models import SeparatedSubmission
@@ -54,8 +55,15 @@ def _skip_value(v) -> bool:
     # Return on empty dict and list
     if isinstance(v, (dict, list)) and len(v) == 0:
         return True
-    # Return if a "UUID" is the only key in the dict
-    if isinstance(v, dict) and set(v.keys()) == {"uuid"}:
+    # Return if the dict carries nothing but this library's own bookkeeping —
+    # a repeater row with an identity and a position but no answers is an empty
+    # row. Spelled as a subset of RESERVED_ROW_KEYS rather than as the literal
+    # {"uuid"} it used to be: when `$rank` was added, an equality test here
+    # stopped recognising empty rows, and they began materialising as real
+    # SeparatedSubmission rows (and, downstream, as typed rows). That failure is
+    # silent, and it is second-save-only — `pre_validation` runs before the uuid
+    # is minted, so a create passes and the edit is what breaks.
+    if isinstance(v, dict) and set(v.keys()) <= RESERVED_ROW_KEYS:
         return True
     # Return if is a list and all elements are also 'skip values'
     return isinstance(v, list) and all((_skip_value(_i) for _i in v))

@@ -17,11 +17,11 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from formkit_ninja.form_submission.compat import RepeaterOrderDescriptor, warn_on_write
+from formkit_ninja.form_submission.emit import Emission, emit_submission
 from formkit_ninja.form_submission.ordering import plan_ranks
 from formkit_ninja.form_submission.querysets import SeparatedSubmissionQuerySet, SubmissionQuerySet
 from formkit_ninja.form_submission.utils import (
     ensure_repeater_uuid,
-    flatten,
     pre_validation,
     sibling_groups,
 )
@@ -215,10 +215,13 @@ class _SeparatedSubmissionManagerBase(models.Manager):
 
         Returns a list of ``(instance, created, changed)`` tuples.
         """
-        fields = list(flatten(sub.fields, [sub.form_type], parent_uuid=sub.pk))
-
-        # Save the top level first (last in flattening list)
-        root_data = fields[-1]
+        # One decomposition, shared with the event emitter. `emit_submission`
+        # returns the root first and then every repeater row parent-before-child,
+        # which is the order the writes below need and the order a replay will
+        # apply them in — so the rows a log produces and the rows a document
+        # produces cannot drift apart.
+        emissions = emit_submission(sub)
+        root = emissions[0]
 
         main, main_created, main_changed = self._apply_defaults(
             sub.pk,
@@ -227,7 +230,7 @@ class _SeparatedSubmissionManagerBase(models.Manager):
                 user=sub.user,
                 created=sub.created,
                 status=sub.status,
-                fields=root_data[2],  # The dict is the 3rd element
+                fields=root.fields,
                 form_type=sub.form_type,
             ),
             force=force,
@@ -247,12 +250,8 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         # ``written_pks`` and survives the orphan sweep.
         written_pks: set = {main.pk}
 
-        # Process repeaters. 'fields[:-1]' are the children.
-        # We reverse to process top-level children before deeper children (Top-Down)
-        repeater_data = reversed(fields[:-1])
-
-        for item_data in repeater_data:
-            res = self._save_repeater_chunk(main, item_data, ranks=ranks, force=force)  # type: ignore[arg-type]
+        for emission in emissions[1:]:
+            res = self.apply_emission(emission, main, rank=ranks.get(emission.row_id), force=force)
             if res:
                 results.append(res)
                 written_pks.add(res[0].pk)
@@ -297,51 +296,48 @@ class _SeparatedSubmissionManagerBase(models.Manager):
             planned.update(plan_ranks(now, stored))
         return planned
 
-    def _save_repeater_chunk(
-        self, main: SeparatedSubmission, data_tuple: tuple[list[str], uuid.UUID | str | None, dict, int], *, ranks: dict[str, str | None] | None = None, force: bool = False
-    ) -> tuple[SeparatedSubmission, bool, bool] | None:
-        """
-        Helper to save a single repeater item.
-        """
-        form_type_path, parent_uuid_val, form_fields, index = data_tuple
+    def apply_emission(self, emission: Emission, main: SeparatedSubmission, *, rank: str | None = None, force: bool = False) -> tuple[SeparatedSubmission, bool, bool] | None:
+        """Upsert the derived row one :class:`~formkit_ninja.form_submission.emit.Emission` describes.
 
-        # The repeater name is the last element in the form_type list
-        repeater_name = form_type_path[-1]
-        form_type_str = "".join(ft.capitalize() for ft in form_type_path)
-        submission_key = form_fields.pop("uuid", None)
-        if not submission_key:
-            warnings.warn(f"No Submission key (UUID) present in {form_fields} of {main}")
+        The projection half of the decomposition: ``emit_submission`` says what
+        rows a document contains, and this writes one of them. Splitting the two
+        is what lets the same rows be produced from a document today and from a
+        log later — the writing half does not care which.
+
+        Returns ``None`` for the root emission, which ``from_submission`` has
+        already written as the anchor every child hangs from.
+
+        ``rank`` is passed in rather than read off the emission because the
+        canonical document does not carry one yet; once it does, this argument
+        goes away and ``emission.rank`` is used directly.
+        """
+        if emission.is_root:
             return None
 
-        # Resolve parent
-        parent_obj = None
-        if parent_uuid_val:
-            if str(parent_uuid_val) == str(main.pk):
-                parent_obj = main
-            else:
-                try:
-                    parent_obj = SeparatedSubmission.objects.get(pk=parent_uuid_val)
-                except SeparatedSubmission.DoesNotExist:
-                    warnings.warn(f"Parent {parent_uuid_val} not found for {repeater_name}")
-                    parent_obj = main
-        else:
-            parent_obj = main
+        # Resolve parent. A child naming a parent that is not there is a damaged
+        # document, not a reason to lose the row: it is re-parented to the root
+        # and the fact is reported, which is what the splitter has always done.
+        parent_obj = main
+        if emission.parent_id and emission.parent_id != str(main.pk):
+            try:
+                parent_obj = SeparatedSubmission.objects.get(pk=emission.parent_id)
+            except SeparatedSubmission.DoesNotExist:
+                warnings.warn(f"Parent {emission.parent_id} not found for {emission.repeater_key}")
 
-        subnode, created, changed = self._apply_defaults(
-            submission_key,
+        return self._apply_defaults(
+            emission.row_id,
             dict(
                 status=main.status,
                 submission=main.submission,
-                form_type=form_type_str,
+                form_type=emission.form_type,
                 user=main.user,
-                fields=form_fields,
+                fields=emission.fields,
                 repeater_parent=parent_obj,
-                repeater_key=repeater_name,
-                repeater_rank=(ranks or {}).get(str(submission_key)),
+                repeater_key=emission.repeater_key,
+                repeater_rank=rank,
             ),
             force=force,
         )
-        return subnode, created, changed
 
 
 # Combine custom manager methods with queryset annotation methods
