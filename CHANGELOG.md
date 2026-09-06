@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-09-06
+
+### Changed
+
+- **Upgrading no longer takes two deployments.** `0052_drop_repeater_order` now seeds the
+  ranks it needs instead of refusing for want of them, so a database can go from any earlier
+  release to this one in a single `migrate`.
+
+  The old sequence existed for a real reason and was solved in the wrong place. The seed
+  reads `repeater_order`, that migration removes it, and the seeding command ships in 3.4.x
+  — so the work had to happen before the drop, and "before the drop" was implemented as "a
+  previous deployment". It only ever needed to be *the line above*. Every installation was
+  paying a second deployment for an ordering constraint that a single migration can satisfy
+  on its own.
+
+  Seeding inside a migration is otherwise the wrong instinct, and the docstring says why
+  this is the exception: no release after this one can do the work, so the choice was never
+  "migration or command", it was "one deployment or two".
+
+- **Two things still refuse, and they are the two a person has to look at.** A sibling group
+  holding a rank on *some* rows and not others — an interrupted seed, or a save that landed
+  mid-run — because filling the gaps and ignoring them both produce an order nobody chose.
+  And a rank that orders a group differently from the stored index, which is a contradiction
+  between two sources rather than an absence, and picking one silently would reorder
+  somebody's data. Both name the offending group, and both say the database is unchanged,
+  which is the question a stopped deploy actually raises.
+
+- `manage.py backfill_repeater_ranks` on 3.4.x still works and is still the way to do the
+  seeding ahead of time if you would rather. It is now optional rather than a precondition.
+
+
 ## [4.0.2] - 2026-09-05
 
 Tests only. No behaviour change, no schema change — the four branches below already did the
