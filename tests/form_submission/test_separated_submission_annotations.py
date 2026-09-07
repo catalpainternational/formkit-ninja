@@ -166,3 +166,50 @@ class TestSepSubCombinedAnnotations:
         assert result.has_import_failure is True
         assert result.has_unresolved_flags is True
         assert len(result.unresolved_flags_json) == 1
+
+
+@pytest.mark.django_db
+class TestATieStillHasALatest:
+    """Two attempts recorded at the same instant must still resolve to the later one.
+
+    `created` defaults to `timezone.now` evaluated in Python, so a pass that writes two
+    records can give them the same value — measured here, not assumed.
+
+    **These pin the outcome, not the mechanism, and cannot tell the two apart.** Two
+    things deliver it: the `-pk` in `querysets._latest_import_success`, and
+    `sepsubimport_latest_idx`, which is ordered `(submission, created DESC, id DESC)` and
+    hands the planner the same tie already broken. Measured: dropping either alone leaves
+    these green, dropping both turns all three red. Named for what they hold rather than
+    for a clause they cannot isolate.
+    """
+
+    def _tied_pair(self, row: SeparatedSubmission, *, first: bool, second: bool) -> None:
+        instant = timezone.now()
+        SeparatedSubmissionImport.objects.create(submission=row, success=first, message="first", created=instant)
+        SeparatedSubmissionImport.objects.create(submission=row, success=second, message="second", created=instant)
+
+    def test_the_row_written_second_wins_a_tie(self, separated_submission: SeparatedSubmission) -> None:
+        """Failure then success at the same instant reads as succeeded."""
+        self._tied_pair(separated_submission, first=False, second=True)
+        result = SeparatedSubmission.objects.with_import_failure().get(pk=separated_submission.pk)
+        assert result.latest_import_success is True
+        assert result.has_import_failure is False
+
+    def test_a_tie_the_other_way_round_reads_as_failed(self, separated_submission: SeparatedSubmission) -> None:
+        """The mirror, so the test cannot pass by always answering the same way."""
+        self._tied_pair(separated_submission, first=True, second=False)
+        result = SeparatedSubmission.objects.with_import_failure().get(pk=separated_submission.pk)
+        assert result.latest_import_success is False
+        assert result.has_import_failure is True
+
+    def test_the_submission_level_annotation_breaks_the_tie_the_same_way(self, separated_submission: SeparatedSubmission) -> None:
+        """The two annotations share one expression, so they cannot disagree here.
+
+        They are separate methods on separate querysets and were separate copies of the
+        rule; a consumer's docstring said they must agree and nothing checked it.
+        """
+        from formkit_ninja.form_submission.models import Submission
+
+        self._tied_pair(separated_submission, first=False, second=True)
+        parent = Submission.objects.with_import_failure().get(pk=separated_submission.submission_id)
+        assert parent.has_import_failure is False

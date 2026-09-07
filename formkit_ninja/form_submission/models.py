@@ -466,6 +466,20 @@ class SeparatedSubmissionImport(models.Model):
     success = models.BooleanField()
     message = models.TextField()
 
+    class Meta:
+        indexes = [
+            # Both readers of this table ask one question — the most recent attempt for a
+            # row — and until now the only index was the implicit one on the foreign key,
+            # so answering it meant sorting every attempt that row has ever had. The
+            # columns are in the order the query wants them, tiebreak included; see
+            # `querysets._latest_import_success`, which is the only place that ordering is
+            # written.
+            models.Index(
+                fields=["submission", "-created", "-id"],
+                name="sepsubimport_latest_idx",
+            ),
+        ]
+
     def __str__(self) -> str:
         status = "ok" if self.success else "fail"
         msg = self.message or ""

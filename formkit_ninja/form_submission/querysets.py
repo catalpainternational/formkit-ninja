@@ -33,6 +33,35 @@ def _unresolved_flags(outer_ref_path: str) -> Exists:
     return Exists(Flag.objects.filter(**{outer_ref_path: OuterRef("pk")}, resolved_at__isnull=True))
 
 
+def _latest_import_success() -> Subquery:
+    """Whether the most recent import attempt on a ``SeparatedSubmission`` succeeded.
+
+    Written once because it was written twice, in two spellings, with a docstring in a
+    consumer asserting the pair must agree "or the banner and the repair sweep would
+    disagree about which submissions are broken". Nothing checked that they did.
+
+    ``OuterRef("pk")`` is the ``SeparatedSubmission`` in both callers — directly for
+    :class:`SeparatedSubmissionQuerySet`, and inside the correlated subquery over sibling
+    rows for :class:`SubmissionQuerySet` — so one expression serves both.
+
+    **The tiebreak matters and the index currently hides that.** ``created`` defaults to
+    ``timezone.now`` evaluated in Python, so two records written in one pass can carry the
+    same instant — measured, not assumed. Ordering by it alone then leaves the answer to the
+    plan, and "did this import fail?" can differ between queries over unchanged data. Both
+    earlier copies ordered by ``-created`` alone.
+
+    Measured on Postgres with ``sepsubimport_latest_idx`` in place: removing ``-pk`` changes
+    nothing, because that index is itself ordered ``(submission, created DESC, id DESC)`` and
+    the planner reads the tie out of it. Removing **both** turns the tests below red. So the
+    clause is redundant here and is kept anyway: it is what makes the ordering total without
+    depending on an index existing, being chosen, or being the same shape on another
+    backend. The index is for speed; this is for the answer.
+    """
+    from formkit_ninja.form_submission.models import SeparatedSubmissionImport
+
+    return Subquery(SeparatedSubmissionImport.objects.filter(submission=OuterRef("pk")).order_by("-created", "-pk").values("success")[:1])
+
+
 class SubmissionQuerySet(models.QuerySet):
     """
     Custom queryset for Submission with annotation helpers.
@@ -50,16 +79,10 @@ class SubmissionQuerySet(models.QuerySet):
         ``True`` when **any** related SeparatedSubmission has a latest
         SeparatedSubmissionImport where ``success=False``.
         """
-        from formkit_ninja.form_submission.models import (
-            SeparatedSubmission,
-            SeparatedSubmissionImport,
-        )
-
-        # Latest import result per SeparatedSubmission
-        latest_import_success = SeparatedSubmissionImport.objects.filter(submission=OuterRef("pk")).order_by("-created").values("success")[:1]
+        from formkit_ninja.form_submission.models import SeparatedSubmission
 
         # SeparatedSubmissions whose latest import failed
-        failed_subs = SeparatedSubmission.objects.filter(submission=OuterRef("pk")).annotate(latest_success=Subquery(latest_import_success)).filter(latest_success=False)
+        failed_subs = SeparatedSubmission.objects.filter(submission=OuterRef("pk")).annotate(latest_success=_latest_import_success()).filter(latest_success=False)
 
         return self.annotate(has_import_failure=Exists(failed_subs))
 
@@ -188,20 +211,8 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
         """
         from django.db.models import BooleanField
 
-        from formkit_ninja.form_submission.models import SeparatedSubmissionImport
-
-        # Subquery: success of the latest import for this SeparatedSubmission (no nesting,
-        # so OuterRef("pk") correctly refers to SeparatedSubmission.id / UUID).
-        latest_success = (
-            SeparatedSubmissionImport.objects.filter(
-                submission=OuterRef("pk"),
-            )
-            .order_by("-created")
-            .values("success")[:1]
-        )
-
         return self.annotate(
-            latest_import_success=Subquery(latest_success),
+            latest_import_success=_latest_import_success(),
         ).annotate(
             has_import_failure=Case(
                 When(latest_import_success=False, then=Value(True)),
