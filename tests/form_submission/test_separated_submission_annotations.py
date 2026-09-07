@@ -172,15 +172,19 @@ class TestSepSubCombinedAnnotations:
 class TestATieStillHasALatest:
     """Two attempts recorded at the same instant must still resolve to the later one.
 
-    `created` defaults to `timezone.now` evaluated in Python, so a pass that writes two
-    records can give them the same value — measured here, not assumed.
+    These write `created` explicitly, which is how the tie actually arises — a sweep reusing
+    one `timezone.now()` across a batch, or a fixture load. The field default does not tie
+    on a clock this fine; see `querysets._latest_import_success`.
 
-    **These pin the outcome, not the mechanism, and cannot tell the two apart.** Two
-    things deliver it: the `-pk` in `querysets._latest_import_success`, and
-    `sepsubimport_latest_idx`, which is ordered `(submission, created DESC, id DESC)` and
-    hands the planner the same tie already broken. Measured: dropping either alone leaves
-    these green, dropping both turns all three red. Named for what they hold rather than
-    for a clause they cannot isolate.
+    **They pin the outcome, and are blind to the clause being absent.** Two things deliver
+    the answer: the `-pk` in `_latest_import_success`, and `sepsubimport_latest_idx`, which
+    is ordered `(submission, created DESC, id DESC)` and hands the planner the tie already
+    broken. Measured **with `--create-db`**: dropping either alone leaves these green,
+    dropping both turns all three red. The flag is part of the measurement, not noise — on
+    a database reused from before migration 0053 the index is absent whatever the model
+    says, and dropping the clause turns them red for that reason instead. They are not blind to a *wrong* clause — reversing `-pk` to `pk` turns them
+    red with the index in place. `test_the_ordering_is_total_in_the_sql` below is what
+    isolates the clause itself.
     """
 
     def _tied_pair(self, row: SeparatedSubmission, *, first: bool, second: bool) -> None:
@@ -201,6 +205,18 @@ class TestATieStillHasALatest:
         result = SeparatedSubmission.objects.with_import_failure().get(pk=separated_submission.pk)
         assert result.latest_import_success is False
         assert result.has_import_failure is True
+
+    def test_the_ordering_is_total_in_the_sql(self) -> None:
+        """The tiebreak is in the query, whatever the planner or an index would do anyway.
+
+        The three behavioural tests above cannot see this clause removed, because the index
+        supplies the same order. This one reads the SQL, so it needs no database, no plan
+        and no index — and it goes red the moment `-pk` is deleted. Added because claiming
+        the mechanism could not be isolated was a line too early.
+        """
+        sql = str(SeparatedSubmission.objects.with_import_failure().query)
+        assert '"created" DESC' in sql, sql
+        assert '"id" DESC' in sql, sql
 
     def test_the_submission_level_annotation_breaks_the_tie_the_same_way(self, separated_submission: SeparatedSubmission) -> None:
         """The two annotations share one expression, so they cannot disagree here.

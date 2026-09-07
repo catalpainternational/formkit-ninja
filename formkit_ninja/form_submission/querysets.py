@@ -36,19 +36,27 @@ def _unresolved_flags(outer_ref_path: str) -> Exists:
 def _latest_import_success() -> Subquery:
     """Whether the most recent import attempt on a ``SeparatedSubmission`` succeeded.
 
-    Written once because it was written twice, in two spellings, with a docstring in a
-    consumer asserting the pair must agree "or the banner and the repair sweep would
-    disagree about which submissions are broken". Nothing checked that they did.
+    Written once because it was written twice, in two spellings, with nothing asserting the
+    two agreed. Issue #86 is the argument: when they drift, the banner telling someone their
+    form failed and the tool that repairs failed forms disagree about which submissions are
+    broken.
 
     ``OuterRef("pk")`` is the ``SeparatedSubmission`` in both callers — directly for
     :class:`SeparatedSubmissionQuerySet`, and inside the correlated subquery over sibling
     rows for :class:`SubmissionQuerySet` — so one expression serves both.
 
-    **The tiebreak matters and the index currently hides that.** ``created`` defaults to
-    ``timezone.now`` evaluated in Python, so two records written in one pass can carry the
-    same instant — measured, not assumed. Ordering by it alone then leaves the answer to the
-    plan, and "did this import fail?" can differ between queries over unchanged data. Both
-    earlier copies ordered by ``-created`` alone.
+    **The tiebreak matters, and not for the reason it first appears to.** Ordering by
+    ``created`` alone leaves the answer to the plan whenever two records share an instant,
+    and "did this import fail?" can then differ between queries over unchanged data. Both
+    earlier copies ordered that way.
+
+    The tie does **not** come from the field default, which was the first explanation here
+    and is wrong. Measured on this machine: 20,000 instances constructed back to back gave
+    zero adjacent ties, because building a model costs more than the clock's tick — while
+    bare ``timezone.now()`` in a loop ties about a third of the time. So the default is
+    safe on a clock this fine, and the tie arrives when a **caller supplies** ``created``:
+    a sweep reusing one ``timezone.now()`` across a batch, a data migration, a fixture load.
+    A coarser platform clock would reopen the default path too.
 
     Measured on Postgres with ``sepsubimport_latest_idx`` in place: removing ``-pk`` changes
     nothing, because that index is itself ordered ``(submission, created DESC, id DESC)`` and
