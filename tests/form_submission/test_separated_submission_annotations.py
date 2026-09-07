@@ -182,9 +182,11 @@ class TestATieStillHasALatest:
     broken. Measured **with `--create-db`**: dropping either alone leaves these green,
     dropping both turns all three red. The flag is part of the measurement, not noise — on
     a database reused from before migration 0053 the index is absent whatever the model
-    says, and dropping the clause turns them red for that reason instead. They are not blind to a *wrong* clause — reversing `-pk` to `pk` turns them
-    red with the index in place. `test_the_ordering_is_total_in_the_sql` below is what
-    isolates the clause itself.
+    says, and dropping the clause turns them red for that reason instead.
+
+    They are not blind to a *wrong* clause: reversing `-pk` to `pk` turns them red with the
+    index in place. It is the clause's absence they cannot see, and
+    `test_the_ordering_is_total_in_the_sql` below is what isolates that.
     """
 
     def _tied_pair(self, row: SeparatedSubmission, *, first: bool, second: bool) -> None:
@@ -215,14 +217,18 @@ class TestATieStillHasALatest:
         the mechanism could not be isolated was a line too early.
         """
         sql = str(SeparatedSubmission.objects.with_import_failure().query)
-        assert '"created" DESC' in sql, sql
-        assert '"id" DESC' in sql, sql
+        # Scoped to the correlated subquery rather than the whole statement: a future
+        # `Meta.ordering` of `["-created"]` on this model would otherwise satisfy these
+        # assertions with the tiebreak gone.
+        subquery = sql[sql.index("SELECT U0.") : sql.index("LIMIT 1")]
+        assert '"created" DESC' in subquery, sql
+        assert '"id" DESC' in subquery, sql
 
     def test_the_submission_level_annotation_breaks_the_tie_the_same_way(self, separated_submission: SeparatedSubmission) -> None:
         """The two annotations share one expression, so they cannot disagree here.
 
         They are separate methods on separate querysets and were separate copies of the
-        rule; a consumer's docstring said they must agree and nothing checked it.
+        rule, and nothing asserted they agreed — which is what issue #86 is about.
         """
         from formkit_ninja.form_submission.models import Submission
 
