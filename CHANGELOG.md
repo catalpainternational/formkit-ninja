@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-09-08
+
 ### Added
 
 - **`emit_submission()` — the decomposition of a submission, as a value.** New
