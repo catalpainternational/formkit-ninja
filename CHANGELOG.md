@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`schema_emit` — a form's schema, described as a snapshot and a list of changes.** New
+  `formkit_ninja/schema_emit.py` does for a form's definition what `emit_submission()` does for
+  its answers. `snapshot_schema()` gives the whole form as one value, which is what a form's
+  stream starts with: the old audit history is too incomplete to rebuild a form from, and the
+  links between nodes were never recorded at all. `emit_schema()` compares the form with how it
+  was last recorded and returns one `SchemaChange` per node added, changed, moved or removed. A
+  reorder is a move and a deletion is a removal, so both are values in their own right — the two
+  changes the related-nodes change stream cannot carry today (#68, #69). Each value carries its
+  node's parent and position, so `apply_schema_events()` rebuilds the tree from the stream alone.
+
+  Nodes are keyed by the path of names from the form's root, never by id: node ids differ
+  between environments, and a name on its own is reused across forms and groups. A node with no
+  name takes its place among its unnamed siblings. Every value is plain JSON, with a `total=False`
+  record type for each. Like the submission emitter it reads only the tree it is handed and
+  imports no stream library: `SchemaStreamSink` is a structural type, so a consumer passes in
+  its own store. Provisional (Tier 2) until a consumer has used it.
+
 ## [4.3.0] - 2026-09-10
 
 ### Added
