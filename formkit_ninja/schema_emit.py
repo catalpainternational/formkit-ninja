@@ -5,29 +5,36 @@ for answers. A form's definition — its nodes, their properties, their order �
 turned into frozen values that can be appended to a log, compared with an
 earlier reading, or replayed next to the answers that were given against it.
 
-**Keyed by path, never by id.** A node is identified by the names from the form's
-root down to it: ``("TF_6_1_1", "projectoutput", "district")``. Node UUIDs differ
-between environments, so they cannot be the key. A name alone is not unique
-either — the same name is reused in different forms and different groups — but a
-name is unique among its siblings, since that is where its answer is filed, so
-the path is.
+**Keyed the way FormKit files answers, never by id.** Node UUIDs differ between
+environments, so they cannot be the key. A node's key is the names of its
+*named* ancestors plus its own name: ``("TF_6_1_1", "projectoutput",
+"district")``. That is where FormKit files the answer, so the key means the same
+thing everywhere. Unnamed wrappers — an ``$el`` around some fields, an unnamed
+``$formkit`` group — are transparent: they add no segment, exactly as they add no
+level to the answers. Wrapping a field, unwrapping it, or moving it between two
+wrappers leaves its key alone.
 
-A node with no name (a text node, a heading, an unnamed wrapper) is keyed by its
-place among its *unnamed* siblings: ``$0`` is the first unnamed child of its
-parent, ``$1`` the second. Counting only unnamed siblings means moving named
-fields around them leaves their keys alone; only swapping two unnamed siblings
-with each other changes which is which, and that reads as their content changing.
-No stored answer is filed under an unnamed node, so nothing depends on it. ``$``
+An unnamed node still needs a key of its own. It takes ``$0``, ``$1``… counted in
+document order among the unnamed nodes of its nearest named ancestor. ``$``
 cannot start a FormKit name, so the two kinds of key cannot collide.
+
+Because wrappers are transparent, one name can appear twice in one named scope —
+radio and select variants of a question in alternative wrappers, say. FormKit
+files both under one answer key. The first, in document order, keeps the plain
+name; later ones are keyed ``name~2``, ``name~3``. Two *siblings* sharing a name
+are a broken form and are refused.
+
+**Structure travels with each node.** A node carries its parent's key and its
+position among its siblings, so the wrappers — which are not in the key — are
+still rebuilt on replay. The tables that link nodes together keep no history, so
+this is the only place the form's structure is recorded.
 
 **Two kinds of event.** A :class:`SchemaSnapshot` is the whole form as it stands,
 and is what a form's stream starts with — the old audit history is not complete
-enough to rebuild a form from, and the links between nodes were never recorded at
-all. A :class:`SchemaChange` is one node added, changed, moved or removed. A
-reorder is a ``"moved"`` change and a deletion is a ``"removed"`` change, so
-neither needs a surviving database row to be seen (#68, #69). Each carries its
-node's parent (in its path) and its position, so the stream alone can rebuild the
-tree at any point: see :func:`apply_schema_events`.
+enough to rebuild a form from. A :class:`SchemaChange` is one node added,
+changed, moved or removed. A reorder is a ``"moved"`` change and a deletion is a
+``"removed"`` change, so neither needs a surviving database row to be seen (#68,
+#69). :func:`apply_schema_events` folds a stream back into the tree.
 
 **No transport.** Like the submission emitter this module imports no stream
 library and performs no I/O. :class:`SchemaStreamSink` names the one method a
@@ -42,7 +49,7 @@ writes the migration, and will be a separate field when it arrives.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterable, Literal, Mapping, Protocol, Sequence, TypedDict, Union
 
 from django.core.serializers.json import DjangoJSONEncoder
@@ -58,14 +65,15 @@ ChangeKind = Literal["added", "changed", "moved", "removed"]
 #: Which kind of schema event a record is.
 EventKind = Literal["schema_snapshot", "schema_change"]
 
-#: A node's identity: the names from the form's root down to it, root included.
-NodePath = tuple[str, ...]
+#: A node's identity: its named ancestors' names, then its own name or ``$n``.
+NodeKey = tuple[str, ...]
 
 
 class SchemaNodeRecord(TypedDict, total=False):
-    """A :class:`SchemaNode` as JSON."""
+    """A :class:`SchemaNode` as JSON. ``parent`` is absent for a top-level node."""
 
-    path: list[str]
+    key: list[str]
+    parent: list[str]
     position: int
     props: dict[str, Any]
 
@@ -85,7 +93,7 @@ class SchemaChangeRecord(TypedDict, total=False):
     event: Literal["schema_change"]
     change: ChangeKind
     form_type: str
-    path: list[str]
+    key: list[str]
     before: SchemaNodeRecord
     after: SchemaNodeRecord
 
@@ -95,32 +103,39 @@ class SchemaNode:
     """One node of a form, as it stands.
 
     ``props`` is the node's own FormKit properties — ``$formkit``, ``label``,
-    ``options``, validation and so on — without its children, which are nodes of
-    their own. Every value in it is already a JSON value. A text node, which has
-    no properties, carries its text as ``{"text": ...}``.
+    ``options``, validation and so on — without its list of children, which are
+    nodes of their own. Every value in it is already a JSON value. A text node
+    carries its text as ``{"text": ...}``.
 
-    ``position`` is the node's index among all its siblings. It is kept apart from
+    ``parent`` is the key of the node it sits inside, wrapper or not, and
+    ``position`` its index among that node's children. They are kept apart from
     ``props`` so a reorder does not read as an edit.
     """
 
-    path: NodePath
+    key: NodeKey
+    parent: NodeKey | None
     position: int
     props: Mapping[str, Any]
 
     @property
-    def parent_path(self) -> NodePath | None:
-        return self.path[:-1] or None
-
-    @property
     def name(self) -> str:
-        return self.path[-1]
+        return self.key[-1]
 
     def to_record(self) -> SchemaNodeRecord:
-        return {"path": list(self.path), "position": self.position, "props": dict(self.props)}
+        record: SchemaNodeRecord = {"key": list(self.key), "position": self.position, "props": dict(self.props)}
+        if self.parent is not None:
+            record["parent"] = list(self.parent)
+        return record
 
     @classmethod
     def from_record(cls, record: SchemaNodeRecord) -> SchemaNode:
-        return cls(path=tuple(record["path"]), position=record["position"], props=record.get("props", {}))
+        parent = record.get("parent")
+        return cls(
+            key=tuple(record["key"]),
+            parent=tuple(parent) if parent is not None else None,
+            position=record["position"],
+            props=record.get("props", {}),
+        )
 
 
 @dataclass(frozen=True)
@@ -154,24 +169,26 @@ class SchemaChange:
 
     - ``"added"``: ``before`` is ``None``.
     - ``"removed"``: ``after`` is ``None``. This is how a deletion is recorded.
-    - ``"moved"``: only ``position`` differs. This is how a reorder is recorded.
+    - ``"moved"``: only ``parent`` or ``position`` differs. This is how a
+      reorder is recorded, and how a field moving between wrappers is.
       Removing a node moves the siblings after it up, so they are moves too.
-    - ``"changed"``: ``props`` differ; ``position`` may differ too.
+    - ``"changed"``: ``props`` differ; ``parent`` and ``position`` may too.
 
-    A node moved under a different parent has a different path, and so reads as
-    removed at the old path and added at the new one. That is deliberate: answers
-    are filed by path, so to a stored answer it *is* a different question.
+    A field moved into a different *named* group has a different key, and so
+    reads as removed at the old key and added at the new one. That is
+    deliberate: answers are filed by key, so to a stored answer it *is* a
+    different question.
     """
 
     stream_path: str
     form_type: str
     change: ChangeKind
-    path: NodePath
+    key: NodeKey
     before: SchemaNode | None
     after: SchemaNode | None
 
     def to_record(self) -> SchemaChangeRecord:
-        record: SchemaChangeRecord = {"event": "schema_change", "change": self.change, "form_type": self.form_type, "path": list(self.path)}
+        record: SchemaChangeRecord = {"event": "schema_change", "change": self.change, "form_type": self.form_type, "key": list(self.key)}
         if self.before is not None:
             record["before"] = self.before.to_record()
         if self.after is not None:
@@ -186,7 +203,7 @@ class SchemaChange:
             stream_path=schema_stream_path(record["form_type"]),
             form_type=record["form_type"],
             change=record["change"],
-            path=tuple(record["path"]),
+            key=tuple(record["key"]),
             before=SchemaNode.from_record(before) if before is not None else None,
             after=SchemaNode.from_record(after) if after is not None else None,
         )
@@ -208,7 +225,8 @@ class SchemaStreamSink(Protocol):
 
     Structural: a store that has this method qualifies without importing or
     inheriting anything from this package, and this package imports nothing of
-    the store's. The shape is a stream path and the encoded event.
+    the store's. The shape is a stream path, the encoded event, and whatever
+    options the store takes.
     """
 
     def append(self, path: str, data: bytes, options: Any = None) -> Any: ...
@@ -218,8 +236,8 @@ def schema_stream_path(form_type: str) -> str:
     """Where a form's schema events live: ``schema/tf611``.
 
     One stream per form rather than one per node, so a replay can merge it with
-    that form's answers (``submission/tf611``) and see each schema change at the
-    point it happened.
+    that form's answers (see :func:`formkit_ninja.form_submission.emit.stream_path`)
+    and see each schema change at the point it happened.
     """
     return f"{SCHEMA_PREFIX}/{slug(form_type)}"
 
@@ -229,8 +247,22 @@ def _json_safe(value: Any) -> Any:
     return json.loads(json.dumps(value, cls=DjangoJSONEncoder))
 
 
+def _child_list(node: Mapping[str, Any]) -> Sequence[Any] | None:
+    """A node's children when they are a list of nodes, else ``None``.
+
+    ``children`` can also be a single string or a conditional mapping; those are
+    not nodes of their own and stay in the node's props.
+    """
+    children = node.get("children")
+    if isinstance(children, Sequence) and not isinstance(children, str):
+        return children
+    return None
+
+
 def _props(node: Mapping[str, Any]) -> dict[str, Any]:
-    props = {k: v for k, v in node.items() if k != "children"}
+    props = dict(node)
+    if _child_list(node) is not None:
+        props.pop("children")
     # Stored nodes spell the FormKit type both ways; `FormKitSchemaNode.save`
     # renames one to the other, but not every tree has been through it.
     if "formkit" in props and "$formkit" not in props:
@@ -238,42 +270,56 @@ def _props(node: Mapping[str, Any]) -> dict[str, Any]:
     return _json_safe(props)
 
 
+@dataclass
+class _Scope:
+    """The nearest named ancestor: where names and unnamed keys are counted."""
+
+    key: NodeKey
+    unnamed: int = 0
+    names: dict[str, int] = field(default_factory=dict)
+
+
 def schema_nodes(tree: Mapping[str, Any] | Sequence[Any]) -> list[SchemaNode]:
     """Every node in ``tree``, parents before their children, siblings in order.
 
     ``tree`` is a form as nested FormKit dicts: the root node's
     ``get_node_values(recursive=True)``, or a list of top-level nodes such as
-    ``FormKitSchema.get_schema_values(recursive=True)`` yields. Building that tree
-    is where the database is read; this function only reads the tree.
+    ``FormKitSchema.get_schema_values(recursive=True)`` yields. A string among a
+    node's children is a text node. Building that tree is where the database is
+    read; this function only reads the tree.
 
-    Raises ``ValueError`` when two siblings share a name, since their answers
-    would be filed under the same key.
+    Raises ``ValueError`` when two siblings share a name, since that form is
+    broken whichever answer it keeps.
     """
     nodes: list[SchemaNode] = []
 
-    def walk(siblings: Sequence[Any], parent: NodePath) -> None:
-        seen: set[str] = set()
-        unnamed = 0
-        for position, node in enumerate(siblings):
-            name = node.get("name") if isinstance(node, Mapping) else None
-            if not (isinstance(name, str) and name):
-                name = f"${unnamed}"
-                unnamed += 1
-            elif name in seen:
-                raise ValueError(f"Two nodes under {'/'.join(parent) or 'the root'} are both named {name!r}")
-            seen.add(name)
-            path = (*parent, name)
-            if isinstance(node, Mapping):
-                props = _props(node)
-                children = node.get("children")
+    def walk(siblings: Sequence[Any], parent: NodeKey | None, scope: _Scope) -> None:
+        sibling_names: set[str] = set()
+        for position, item in enumerate(siblings):
+            raw = item.get("name") if isinstance(item, Mapping) else None
+            if isinstance(raw, str) and raw:
+                if raw in sibling_names:
+                    raise ValueError(f"Two nodes under {'/'.join(parent or ()) or 'the root'} are both named {raw!r}")
+                sibling_names.add(raw)
+                seen = scope.names[raw] = scope.names.get(raw, 0) + 1
+                key: NodeKey = (*scope.key, raw if seen == 1 else f"{raw}~{seen}")
+                inner = _Scope(key)
             else:
-                props = {"text": _json_safe(node)}
-                children = None
-            nodes.append(SchemaNode(path=path, position=position, props=props))
-            if isinstance(children, Sequence) and not isinstance(children, str):
-                walk(children, path)
+                key = (*scope.key, f"${scope.unnamed}")
+                scope.unnamed += 1
+                inner = scope  # an unnamed node is transparent to what it holds
 
-    walk([tree] if isinstance(tree, Mapping) else tree, ())
+            if isinstance(item, Mapping):
+                props = _props(item)
+                children = _child_list(item)
+            else:
+                props = {"text": _json_safe(item)}
+                children = None
+            nodes.append(SchemaNode(key=key, parent=parent, position=position, props=props))
+            if children is not None:
+                walk(children, key, inner)
+
+    walk([tree] if isinstance(tree, Mapping) else tree, None, _Scope(()))
     return nodes
 
 
@@ -285,26 +331,30 @@ def snapshot_schema(tree: Mapping[str, Any] | Sequence[Any], form_type: str) -> 
 def diff_schema(before: Iterable[SchemaNode], after: Iterable[SchemaNode], form_type: str) -> list[SchemaChange]:
     """One change per node that differs between two readings of the same form.
 
-    Removals come first, deepest first, so a child is removed before its parent.
-    Then additions, edits and moves, parents before children. An unchanged form
+    Removals come first, children before their parents. Then additions, edits
+    and moves, parents before children. The order depends only on the two
+    readings, so the same pair always gives the same list. An unchanged form
     returns an empty list: editing one field of thirty is one change, not thirty.
     """
-    old = {n.path: n for n in before}
-    new = {n.path: n for n in after}
+    old = {n.key: n for n in before}
+    new = {n.key: n for n in after}
     stream = schema_stream_path(form_type)
 
-    def change(kind: ChangeKind, path: NodePath) -> SchemaChange:
-        return SchemaChange(stream_path=stream, form_type=form_type, change=kind, path=path, before=old.get(path), after=new.get(path))
+    def change(kind: ChangeKind, key: NodeKey) -> SchemaChange:
+        return SchemaChange(stream_path=stream, form_type=form_type, change=kind, key=key, before=old.get(key), after=new.get(key))
 
-    changes = [change("removed", path) for path in sorted(old.keys() - new.keys(), key=len, reverse=True)]
-    for path, node in new.items():
-        prior = old.get(path)
+    # The old reading lists parents before children, so walking it backwards
+    # puts every child before its parent. A set difference would do the same
+    # job, but its order depends on string hashing, which varies by process.
+    changes = [change("removed", key) for key in reversed(old) if key not in new]
+    for key, node in new.items():
+        prior = old.get(key)
         if prior is None:
-            changes.append(change("added", path))
+            changes.append(change("added", key))
         elif prior.props != node.props:
-            changes.append(change("changed", path))
-        elif prior.position != node.position:
-            changes.append(change("moved", path))
+            changes.append(change("changed", key))
+        elif (prior.parent, prior.position) != (node.parent, node.position):
+            changes.append(change("moved", key))
     return changes
 
 
@@ -317,26 +367,48 @@ def apply_schema_events(events: Iterable[SchemaEvent], nodes: Iterable[SchemaNod
     """Fold ``events`` onto ``nodes``: the form as it stood after them.
 
     A snapshot replaces everything before it; a change adds, replaces or drops
-    one node. Replaying a form's stream from its first snapshot rebuilds the
-    whole tree at that point, without the tables that link nodes together, which
-    keep no history. Nodes come back parents first, siblings in order.
+    one node. The tree is rebuilt from each node's parent and position, so the
+    wrappers come back too. Nodes are returned parents first, siblings in order
+    — the same order :func:`schema_nodes` gives.
     """
-    by_path = {n.path: n for n in nodes}
+    by_key = {n.key: n for n in nodes}
     for event in events:
         if isinstance(event, SchemaSnapshot):
-            by_path = {n.path: n for n in event.nodes}
+            by_key = {n.key: n for n in event.nodes}
         elif event.after is None:
-            by_path.pop(event.path, None)
+            by_key.pop(event.key, None)
         else:
-            by_path[event.path] = event.after
+            by_key[event.key] = event.after
 
-    def order(node: SchemaNode) -> tuple[int, ...]:
-        return tuple(by_path[node.path[: i + 1]].position if node.path[: i + 1] in by_path else -1 for i in range(len(node.path)))
+    children: dict[NodeKey | None, list[SchemaNode]] = {}
+    for node in by_key.values():
+        children.setdefault(node.parent, []).append(node)
 
-    return sorted(by_path.values(), key=order)
+    ordered: list[SchemaNode] = []
+
+    def visit(parent: NodeKey | None) -> None:
+        for node in sorted(children.get(parent, []), key=lambda n: (n.position, n.key)):
+            ordered.append(node)
+            visit(node.key)
+
+    visit(None)
+    # A node whose parent is gone cannot be placed; keep it rather than lose it.
+    placed = {n.key for n in ordered}
+    ordered += sorted((n for n in by_key.values() if n.key not in placed), key=lambda n: n.key)
+    return ordered
 
 
-def append_schema_events(sink: SchemaStreamSink, events: Iterable[SchemaEvent]) -> None:
-    """Append each event to its form's stream, encoded as JSON."""
+def encode_schema_event(event: SchemaEvent) -> bytes:
+    """An event as the bytes a store keeps. Keys are sorted, so the same event
+    is the same bytes however the tree it came from happened to order them."""
+    return json.dumps(event.to_record(), sort_keys=True).encode()
+
+
+def append_schema_events(sink: SchemaStreamSink, events: Iterable[SchemaEvent], options: Any = None) -> None:
+    """Append each event to its form's stream, encoded as JSON.
+
+    ``options`` goes to the store untouched with every append — it is where a
+    consumer says who made the change. This module does not look inside it.
+    """
     for event in events:
-        sink.append(event.stream_path, json.dumps(event.to_record()).encode())
+        sink.append(event.stream_path, encode_schema_event(event), options)
