@@ -23,9 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ancestors, then their own. Node ids differ between environments, and a name on its own is
   reused across forms and groups. Unnamed wrappers add nothing to that key, so wrapping a field
   or moving it between wrappers leaves its key alone; the wrappers are still rebuilt, because
-  every node also records its parent and position. A node with no name is numbered among the
-  unnamed nodes of its nearest named ancestor, and heading text is a node of its own, so
-  renaming a heading is one change. Every value is plain JSON with a `total=False` record type,
+  every node also records its parent and position. A node with no name is keyed by its kind —
+  its element tag, `text`, or its FormKit type — numbered within that kind under its nearest
+  named ancestor, so inserting a heading does not renumber the wrappers around it. Heading text
+  is a node of its own, so renaming a heading is one change. Every value is plain JSON with a `total=False` record type,
   and encodes to the same bytes every time. Like the submission emitter it reads only the tree
   it is handed and imports no stream library: `SchemaStreamSink` is a structural type, so a
   consumer passes in its own store, along with whatever options say who made the change.

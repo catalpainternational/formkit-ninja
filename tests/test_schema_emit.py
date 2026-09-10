@@ -69,12 +69,18 @@ class TestKeys:
 
     def test_an_unnamed_wrapper_adds_no_segment_to_what_it_holds(self):
         [root, wrapper, field] = schema_nodes(_tree(_wrap(_field("a"))))
-        assert (wrapper.key, field.key) == ((FORM, "$0"), (FORM, "a"))
+        assert (wrapper.key, field.key) == ((FORM, "$div0"), (FORM, "a"))
         assert field.parent == wrapper.key, "the wrapper is still the field's parent in the tree"
 
-    def test_unnamed_nodes_are_counted_in_document_order_across_wrappers(self):
-        tree = _tree("Some heading", _field("a"), {"$el": "p", "children": ["x"]})
-        assert _keys(tree) == [(FORM,), (FORM, "$0"), (FORM, "a"), (FORM, "$1"), (FORM, "$2")]
+    def test_unnamed_nodes_are_numbered_within_their_kind_across_wrappers(self):
+        tree = _tree("Some heading", _field("a"), {"$el": "p", "children": ["x"]}, "Footer")
+        assert _keys(tree) == [(FORM,), (FORM, "$text0"), (FORM, "a"), (FORM, "$p0"), (FORM, "$text1"), (FORM, "$text2")]
+
+    def test_a_tag_ending_in_a_digit_is_separated_from_its_number(self):
+        assert _keys([{"$el": "h2"}, {"$el": "h2"}]) == [("$h2_0",), ("$h2_1",)]
+
+    def test_an_unnamed_formkit_node_is_keyed_by_its_type_in_either_spelling(self):
+        assert _keys([{"$formkit": "group"}, {"formkit": "group"}]) == [("$group0",), ("$group1",)]
 
     def test_one_name_in_two_groups_is_two_keys(self):
         """Names are reused across groups in real forms; the named ancestor tells them apart."""
@@ -168,7 +174,7 @@ class TestChanges:
         assert [(c.change, c.after.props["label"] if c.after else None) for c in changes] == [("changed", "new")]
 
     def test_changing_heading_text_is_one_change(self):
-        assert _changes(_tree("Budget", _field("a")), _tree("Costs", _field("a"))) == [("changed", (FORM, "$0"))]
+        assert _changes(_tree("Budget", _field("a")), _tree("Costs", _field("a"))) == [("changed", (FORM, "$text0"))]
 
     def test_moving_a_field_between_wrappers_is_a_move(self):
         before = _tree(_wrap(_field("a"), _field("b")), _wrap())
@@ -176,13 +182,23 @@ class TestChanges:
         assert ("moved", (FORM, "a")) in _changes(before, after)
         assert not {kind for kind, key in _changes(before, after) if key == (FORM, "a")} & {"added", "removed"}
 
-    def test_inserting_a_heading_before_a_wrapper_keeps_the_fields_keys(self):
+    def test_inserting_a_heading_before_a_wrapper_adds_only_the_heading(self):
+        """The wrapper keeps its key and the fields keep their keys and parents.
+
+        The wrapper does move from first to second place, and says so: a
+        position is an index among siblings, so that one move is the honest
+        record rather than noise."""
         before = _tree(_wrap(_field("a"), _field("b")))
-        after = _tree("Heading", _wrap(_field("a"), _field("b")))
-        assert {(FORM, "a"), (FORM, "b")} <= set(_keys(after))
-        changes = _changes(before, after)
-        assert [kind for kind, _ in changes].count("added") == 1
-        assert not {kind for kind, key in changes if key in {(FORM, "a"), (FORM, "b")}} & {"added", "removed"}
+        after = _tree({"$el": "h2", "children": "Heading"}, _wrap(_field("a"), _field("b")))
+        assert _changes(before, after) == [("added", (FORM, "$h2_0")), ("moved", (FORM, "$div0"))]
+
+    def test_inserting_a_div_before_a_div_renumbers_the_divs(self):
+        """Two nodes of one kind do renumber each other: the new div takes
+        ``$div0``, the old one becomes ``$div1``, and its field moves with it."""
+        before = _tree(_wrap(_field("a")))
+        after = _tree(_wrap(_field("b")), _wrap(_field("a")))
+        assert _keys(after) == [(FORM,), (FORM, "$div0"), (FORM, "b"), (FORM, "$div1"), (FORM, "a")]
+        assert _changes(before, after) == [("added", (FORM, "b")), ("added", (FORM, "$div1")), ("moved", (FORM, "a"))]
 
     def test_moving_into_another_named_group_is_a_removal_and_an_addition(self):
         changes = set(_changes(_tree(_field("a"), _group("g")), _tree(_group("g", _field("a")))))
@@ -203,6 +219,8 @@ REPLAYS = {
     "insert an unnamed sibling": (_tree("First", _field("a")), _tree("First", "Inserted", _field("a"))),
     "insert a wrapper": (_tree(_field("a"), _field("b")), _tree(_wrap(_field("a")), _field("b"))),
     "insert a heading before a wrapper": (_tree(_wrap(_field("a"))), _tree("Heading", _wrap(_field("a")))),
+    "insert an h2 before a wrapper": (_tree(_wrap(_field("a"))), _tree({"$el": "h2", "children": "Hi"}, _wrap(_field("a")))),
+    "insert a div before a div": (_tree(_wrap(_field("a"))), _tree(_wrap(_field("b")), _wrap(_field("a")))),
     "move a field between wrappers": (_tree(_wrap(_field("a"), _field("b")), _wrap()), _tree(_wrap(_field("b")), _wrap(_field("a")))),
     "rename a heading": (_tree("Budget", _field("a")), _tree("Costs", _field("a"))),
 }
@@ -319,7 +337,7 @@ class TestFromTheModels:
         heading = models.FormKitSchemaNode.objects.create(node_type="text", text_content="Budget")
         models.NodeChildren.objects.create(parent=root, child=heading, order=-1)
         nodes = {n.key: n for n in schema_nodes(self._read(root))}
-        assert nodes[(FORM, "$0")].props == {"text": "Budget"}
+        assert nodes[(FORM, "$text0")].props == {"text": "Budget"}
 
     def test_emitting_queries_nothing(self, django_assert_num_queries):
         root, _ = self._form()

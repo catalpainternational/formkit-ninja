@@ -14,9 +14,14 @@ thing everywhere. Unnamed wrappers — an ``$el`` around some fields, an unnamed
 level to the answers. Wrapping a field, unwrapping it, or moving it between two
 wrappers leaves its key alone.
 
-An unnamed node still needs a key of its own. It takes ``$0``, ``$1``… counted in
-document order among the unnamed nodes of its nearest named ancestor. ``$``
-cannot start a FormKit name, so the two kinds of key cannot collide.
+An unnamed node still needs a key of its own. It takes its kind — its element
+tag, ``text``, or its FormKit type — numbered in document order among unnamed
+nodes of the same kind under its nearest named ancestor: ``$div0``, ``$text1``,
+``$h2_0`` (an underscore when the tag ends in a digit). Counting within a kind
+means inserting a heading leaves the wrappers around it, and everything in them,
+with the keys and parents they had; only a node of the same kind renumbers the
+ones after it. ``$`` cannot start a FormKit name, so the two kinds of key cannot
+collide.
 
 Because wrappers are transparent, one name can appear twice in one named scope —
 radio and select variants of a question in alternative wrappers, say. FormKit
@@ -275,8 +280,20 @@ class _Scope:
     """The nearest named ancestor: where names and unnamed keys are counted."""
 
     key: NodeKey
-    unnamed: int = 0
+    unnamed: dict[str, int] = field(default_factory=dict)
     names: dict[str, int] = field(default_factory=dict)
+
+
+def _kind(item: Any) -> str:
+    """What an unnamed node is, for its key: its element tag, ``text``, or its
+    FormKit type in either spelling."""
+    if not isinstance(item, Mapping):
+        return "text"
+    for prop in ("$el", "$formkit", "formkit", "$cmp"):
+        value = item.get(prop)
+        if isinstance(value, str) and value:
+            return value
+    return "node"
 
 
 def schema_nodes(tree: Mapping[str, Any] | Sequence[Any]) -> list[SchemaNode]:
@@ -305,8 +322,9 @@ def schema_nodes(tree: Mapping[str, Any] | Sequence[Any]) -> list[SchemaNode]:
                 key: NodeKey = (*scope.key, raw if seen == 1 else f"{raw}~{seen}")
                 inner = _Scope(key)
             else:
-                key = (*scope.key, f"${scope.unnamed}")
-                scope.unnamed += 1
+                kind = _kind(item)
+                n = scope.unnamed[kind] = scope.unnamed.get(kind, -1) + 1
+                key = (*scope.key, f"${kind}_{n}" if kind[-1].isdigit() else f"${kind}{n}")
                 inner = scope  # an unnamed node is transparent to what it holds
 
             if isinstance(item, Mapping):
