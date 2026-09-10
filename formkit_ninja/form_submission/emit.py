@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, replace
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
 from formkit_ninja.form_submission.reserved import RANK_KEY, UUID_KEY
 from formkit_ninja.form_submission.utils import flatten
@@ -51,6 +51,12 @@ class Emission:
     ``fields`` carries the user's answers only; identity and position travel as
     ``row_id`` and ``rank`` rather than inside the payload, so re-ordering a row
     does not read as a content change.
+
+    It is typed as a ``Mapping`` because an emission owns its answers and nothing
+    should write through them. The dict is already the emission's own — ``flatten``
+    deep-copies, so popping the bookkeeping keys during construction never reaches
+    the caller's document — but ``dict`` invited a consumer to mutate a value that
+    reads as frozen, and ``frozen=True`` does not stop that.
     """
 
     stream_path: str
@@ -58,7 +64,7 @@ class Emission:
     row_id: str
     parent_id: str | None
     repeater_key: str | None
-    fields: dict
+    fields: Mapping[str, Any]
     rank: str | None
 
     @property

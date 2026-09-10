@@ -1,6 +1,6 @@
 [project]
 name = "formkit-ninja"
-version = "4.2.0"
+version = "4.3.0"
 description = "A Django-Ninja backend to specify FormKit schemas"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
@@ -42,6 +42,10 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["formkit_ninja"]
+# PEP 561: ship the marker, or every annotation in this package is invisible to a
+# consumer's type checker. Listed explicitly rather than relying on the default
+# include so that deleting it is a visible diff rather than a silent regression.
+artifacts = ["formkit_ninja/py.typed"]
 
 [tool.ruff]
 line-length = 200

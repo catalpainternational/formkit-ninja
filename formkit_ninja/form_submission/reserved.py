@@ -25,6 +25,8 @@ its own is a live domain term in at least one consumer.
 
 from __future__ import annotations
 
+from typing import Any, Literal, Mapping
+
 #: The row's position within its sibling group, as a base-62 fractional index
 #: (:mod:`formkit_ninja.fracrank`). Canonical: ``SeparatedSubmission.repeater_rank``
 #: is a projection of this, not the other way round.
@@ -37,7 +39,13 @@ UUID_KEY = "uuid"
 #: subset of this set carries no answers.
 RESERVED_ROW_KEYS = frozenset({UUID_KEY, RANK_KEY})
 
+#: The same set, for annotating a parameter that may only be one of these keys.
+#: The frozenset above stays the runtime consumer — this is the static half, and
+#: neither replaces the other: a `Literal` cannot be tested with `in`, and a
+#: frozenset cannot reject a wrong string before it is written.
+ReservedKey = Literal["uuid", "$rank"]
 
-def strip_reserved(row: dict) -> dict:
+
+def strip_reserved(row: Mapping[str, Any]) -> dict[str, Any]:
     """``row`` without the bookkeeping keys — the user's answers alone."""
     return {k: v for k, v in row.items() if k not in RESERVED_ROW_KEYS}
