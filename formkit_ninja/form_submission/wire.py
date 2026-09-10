@@ -16,6 +16,14 @@ supports.
 no producer would make every consumer invent a value, which is fabrication. Its reading when
 absent — "recorded before versions existed" — is the consumer's to apply.
 
+**An absent key and a key set to ``None`` are different events, and must stay different.** A key
+is present if and only if the producer supplied it: ``parent_submission=None`` says "this row has
+no parent", while no ``parent_submission`` key says only that nobody said. A consumer that
+collapses the two — dropping ``None`` values to tidy an event, or reading ``.get(key)`` as though
+absence meant ``None`` — changes what the log records. A ``TypedDict`` cannot express "present iff
+supplied", so a producer should enforce it at run time, for example with a sentinel default
+rather than ``None``.
+
 A declaration nothing reads catches nothing, so :data:`CONTENT_EVENT_KEYS` is the runtime
 membership test beside the static type. Neither replaces the other.
 """
@@ -51,7 +59,7 @@ class ContentEvent(ContentEventRequired, total=False):
     A consumer adds its own keys by subclassing::
 
         class PartisipaContentEvent(ContentEvent, total=False):
-            project_id: str | None
+            project_id: int | None
             user_id: int | None
 
     Keys inherited as required stay required in the subclass; totality is per class.
