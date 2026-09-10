@@ -18,7 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   another parent, and any key it does not recognise). Set `FORMKIT_NINJA_SCHEMA_EDIT_POLICY` to
   a dotted path to `(root_node, node, edit_class, request) -> bool` and the node API
   (create/update, delete, reorder) and the node admin ask it first; a refused edit is a 403, or
-  a form error in the admin, that names the fields and says to use a migration.
+  a form error in the admin, that names the fields and says to use a migration. Deleting from
+  the admin, one node or several with "delete selected", is asked about node by node; if any
+  is refused, nothing is deleted and the admin says why. The option and option-group admin
+  pages are not covered yet: option groups are shared across forms and need their own design.
 
   **Off by default.** With the setting unset nothing is classified and nothing is refused, so
   an application that does not opt in sees no change. Which forms are protected is the

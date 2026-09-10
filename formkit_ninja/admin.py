@@ -9,9 +9,11 @@ from typing import Any
 import django.core.exceptions
 import pghistory.admin
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.contrib.admin.utils import quote, unquote
 from django.contrib.auth.base_user import AbstractBaseUser
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponseRedirect
+from django.urls import reverse
 from django.utils import timezone
 
 # Import admin modules to register them
@@ -616,6 +618,40 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
         return [NodeChildrenInline, NodeParentsInline] if obj else []
+
+    def _refused_deletes(self, request: HttpRequest, nodes) -> list[models.FormKitSchemaNode]:
+        """The nodes the schema edit policy will not let this request delete (a delete is a meaning change)."""
+        if get_schema_edit_policy() is None:
+            return []
+        return [node for node in nodes if not schema_edit_allowed(node.get_root(), node, "meaning", request)]
+
+    def delete_view(self, request, object_id, extra_context=None):
+        """Refuse, with a message and back on the change page, a delete the policy does not allow."""
+        if get_schema_edit_policy() is not None:
+            obj = self.get_object(request, unquote(object_id))
+            if obj is not None and self._refused_deletes(request, [obj]):
+                self.message_user(request, refusal_message("meaning", deleted=True), messages.ERROR)
+                opts = self.opts
+                change_url = reverse(f"admin:{opts.app_label}_{opts.model_name}_change", args=(quote(obj.pk),), current_app=self.admin_site.name)
+                return HttpResponseRedirect(change_url)
+        return super().delete_view(request, object_id, extra_context)
+
+    def get_actions(self, request):
+        """With a policy configured, "delete selected" deletes nothing if the policy refuses any of the nodes."""
+        actions = super().get_actions(request)
+        if get_schema_edit_policy() is not None and "delete_selected" in actions:
+            delete_selected, name, description = actions["delete_selected"]
+
+            def delete_selected_if_allowed(modeladmin, request, queryset):
+                refused = modeladmin._refused_deletes(request, queryset)
+                if refused:
+                    names = ", ".join(str(node) for node in refused)
+                    modeladmin.message_user(request, f"{refusal_message('meaning', deleted=True)}. Nothing was deleted; refused: {names}", messages.ERROR)
+                    return None
+                return delete_selected(modeladmin, request, queryset)
+
+            actions["delete_selected"] = (delete_selected_if_allowed, name, description)
+        return actions
 
     def get_fieldsets(self, request: HttpRequest, obj: models.FormKitSchemaNode | None = None):
         if not obj:

@@ -153,6 +153,53 @@ def test_without_a_policy_a_reorder_goes_through(admin_client: Client, form):
 # The admin
 
 
+def _admin_delete(client: Client, node):
+    return client.post(reverse("admin:formkit_ninja_formkitschemanode_delete", args=[node.pk]), {"post": "yes"}, follow=True)
+
+
+def _admin_bulk_delete(client: Client, *nodes):
+    data = {"action": "delete_selected", "_selected_action": [str(n.pk) for n in nodes], "post": "yes"}
+    return client.post(reverse("admin:formkit_ninja_formkitschemanode_changelist"), data, follow=True)
+
+
+def _messages(response) -> list[str]:
+    return [str(m) for m in response.context["messages"]]
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_admin_refuses_a_single_delete(admin_client: Client, form):
+    group, age, _ = form
+    response = _admin_delete(admin_client, age)
+    assert response.status_code == HTTPStatus.OK
+    assert any("removes a field" in m for m in _messages(response))
+    age.refresh_from_db()
+    assert age.is_active
+    root, node, edit_class, _request = CALLS[-1]
+    assert (root, node, edit_class) == (group, age, "meaning")
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_admin_refuses_a_bulk_delete_and_deletes_nothing(admin_client: Client, form):
+    _, age, town = form
+    response = _admin_bulk_delete(admin_client, age, town)
+    assert response.status_code == HTTPStatus.OK
+    assert any("Nothing was deleted" in m for m in _messages(response))
+    for node in (age, town):
+        node.refresh_from_db()
+        assert node.is_active
+    assert {call[1] for call in CALLS} == {age, town}
+
+
+@pytest.mark.parametrize("delete", [_admin_delete, _admin_bulk_delete])
+def test_without_a_policy_admin_deletes_go_through(admin_client: Client, form, delete):
+    _, age, _ = form
+    response = delete(admin_client, age)
+    assert response.status_code == HTTPStatus.OK
+    age.refresh_from_db()
+    assert not age.is_active
+    assert CALLS == []
+
+
 def _form_data(form) -> dict:
     """What the change page would post back untouched."""
     data = {}
