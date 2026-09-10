@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 import operator
 from functools import reduce
@@ -24,6 +25,15 @@ from formkit_ninja.form_submission.models import (
     SeparatedSubmissionImport,
     Submission,
     SubmissionFile,
+)
+from formkit_ninja.schema_edits import (
+    EditClass,
+    get_schema_edit_policy,
+    link_edit_snapshot,
+    meaning_keys,
+    node_edit_snapshot,
+    refusal_message,
+    schema_edit_allowed,
 )
 from formkit_ninja.utils import short_uuid
 
@@ -375,12 +385,105 @@ class FormKitComponentForm(FormKitBaseForm):
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
 
-class NodeChildrenInline(admin.TabularInline):
+class SchemaEditPolicyFormMixin(forms.ModelForm):
+    """
+    Asks the schema edit policy (``FORMKIT_NINJA_SCHEMA_EDIT_POLICY``) about a node form's
+    edit before it is saved, and refuses it as a form error when the policy says no.
+
+    ``FormKitSchemaNodeAdmin.get_form`` mixes this in only when a policy is configured.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def _post_clean(self) -> None:
+        super()._post_clean()  # type: ignore[misc]
+        if get_schema_edit_policy() is None or self.errors:
+            return
+        instance = self.instance
+        changed: list[str] = []
+        edit_class: EditClass
+        if instance._state.adding:
+            root, node, edit_class = instance, None, "meaning"
+        else:
+            # self.instance already carries the submitted columns; read the stored node afresh.
+            stored = models.FormKitSchemaNode.objects.get(pk=instance.pk)
+            preview = copy.deepcopy(instance)
+            if isinstance(self, JSONMappingMixin):
+                self.save_json_fields(preview)
+            preview.sync_promoted_props()
+            # An empty html id field is pre-filled with the node's own pk (the attribute
+            # fallback in JSONMappingMixin._populate_form_fields), so the first admin save of a
+            # node without one writes it. That is the form's doing, not the editor's.
+            stored_node = stored.node if isinstance(stored.node, dict) else {}
+            if isinstance(preview.node, dict) and "id" not in stored_node and str(preview.node.get("id")) == str(stored.pk):
+                preview.node.pop("id")
+            changed = meaning_keys(node_edit_snapshot(stored), node_edit_snapshot(preview))
+            edit_class = "meaning" if changed else "presentational"
+            root, node = stored.get_root(), stored
+        if not schema_edit_allowed(root, node, edit_class, self.schema_edit_request):
+            self.add_error(None, refusal_message(edit_class, changed, created=node is None))
+
+
+class SchemaEditPolicyFormSet(forms.BaseInlineFormSet):
+    """
+    Asks the schema edit policy about the parent/child links edited in an inline. Adding or
+    removing a link, or pointing one at another node, is a meaning change; changing only the
+    order is presentational.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def clean(self) -> None:
+        super().clean()
+        if get_schema_edit_policy() is None or self.instance is None or self.instance.pk is None:
+            return
+        changed: set[str] = set()
+        touched = False
+        for form in self.forms:
+            cleaned = getattr(form, "cleaned_data", None)
+            if cleaned is None:
+                continue
+            deleting = bool(self.can_delete and cleaned.get("DELETE"))
+            if not deleting and not form.has_changed():
+                continue
+            touched = True
+            initial = form.initial
+            before = None if form.instance._state.adding else link_edit_snapshot(initial.get("parent"), initial.get("child"), initial.get("order"))
+            after = None
+            if not deleting:
+                parent = cleaned.get("parent", initial.get("parent"))
+                child = cleaned.get("child", initial.get("child"))
+                after = link_edit_snapshot(getattr(parent, "pk", parent), getattr(child, "pk", child), cleaned.get("order"))
+            if before is None or after is None:
+                changed.add("child" if self.fk.name == "parent" else "parent")
+            else:
+                changed.update(meaning_keys(before, after, allowed={"order"}, nested={}))
+        if not touched:
+            return
+        edit_class: EditClass = "meaning" if changed else "presentational"
+        if not schema_edit_allowed(self.instance.get_root(), self.instance, edit_class, self.schema_edit_request):
+            raise forms.ValidationError(refusal_message(edit_class, sorted(changed)))
+
+
+class SchemaEditPolicyInlineMixin:
+    """
+    Gives an inline's formset the request, for the schema edit policy. The inline sets
+    ``formset = SchemaEditPolicyFormSet`` itself.
+    """
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)  # type: ignore[misc]
+        formset.schema_edit_request = request
+        return formset
+
+
+class NodeChildrenInline(SchemaEditPolicyInlineMixin, admin.TabularInline):
     """
     Nested HTML elements
     """
 
     model = models.NodeChildren
+    formset = SchemaEditPolicyFormSet
     fields = ("child", "order", "track_change")
     ordering = ("order",)
     readonly_fields = ("track_change",)
@@ -388,12 +491,13 @@ class NodeChildrenInline(admin.TabularInline):
     extra = 0
 
 
-class NodeParentsInline(admin.TabularInline):
+class NodeParentsInline(SchemaEditPolicyInlineMixin, admin.TabularInline):
     """
     Nested HTML elements
     """
 
     model = models.NodeChildren
+    formset = SchemaEditPolicyFormSet
     fields = ("parent", "order", "track_change")
     ordering = ("order",)
     readonly_fields = ("track_change", "parent")
@@ -639,6 +743,12 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             return format_html('<div style="color: red;">Error generating JSON preview: {}</div>', str(e))
 
     def get_form(self, request: HttpRequest, obj: Any | None = None, change: bool = False, **kwargs: Any) -> type[forms.ModelForm[Any]]:
+        form = self._get_node_form(request, obj, **kwargs)
+        if get_schema_edit_policy() is None:
+            return form
+        return type(form.__name__, (SchemaEditPolicyFormMixin, form), {"schema_edit_request": request, "__module__": form.__module__})
+
+    def _get_node_form(self, request: HttpRequest, obj: Any | None = None, **kwargs: Any) -> type[forms.ModelForm[Any]]:
         if not obj:
             return NewFormKitForm
         try:

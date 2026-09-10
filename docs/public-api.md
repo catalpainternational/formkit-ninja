@@ -37,6 +37,15 @@ exact-minor pin if you do.
 - `parser` — the code-generation toolchain. It generates a consumer's own modules, so its
   output shape is the real coupling, not its call signatures.
 - `api` — the HTTP schemas and the router. These move with django-ninja.
+- `schema_edits` — `classify_node_edit`, `classify_link_edit`, `meaning_keys`,
+  `node_edit_snapshot`, `PRESENTATIONAL_KEYS`, and the `FORMKIT_NINJA_SCHEMA_EDIT_POLICY`
+  setting. The classifier says whether an edit to a form is *presentational* (a label, help
+  text, an icon, sibling order) or changes what stored answers *mean* (anything else, including
+  keys it has never seen). The setting is a dotted path to a callable
+  `(root_node, node, edit_class, request) -> bool`, asked before every edit through the API
+  and the admin; `node` is `None` for a new node, and a refused edit is a 403 or a form error.
+  Unset, the default, nothing is checked. Which forms to protect is the application's call;
+  the allowlist may grow in a minor release, but only in the direction of allowing more.
 
 ## Tier 3 — Internal
 

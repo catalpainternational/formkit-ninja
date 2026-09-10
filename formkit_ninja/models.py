@@ -515,6 +515,25 @@ class FormKitSchemaNode(UuidIdModel):
             if key := self.node.get("name"):
                 check_valid_django_id(key)
 
+        self.sync_promoted_props()
+
+        # Resolve code generation defaults if not set
+        self.resolve_code_generation_defaults()
+
+        return super().save(*args, **kwargs)
+
+    def sync_promoted_props(self) -> None:
+        """
+        Reconcile the promoted columns (icon, min, addLabel, ...) with the node JSON
+        and ``additional_props``, as ``save()`` does just before writing.
+
+        Split out of ``save()`` so an edit can be previewed on an unsaved copy and
+        compared with what is stored (see ``formkit_ninja.schema_edits``).
+        """
+        # rename `formkit` to `$formkit`
+        if isinstance(self.node, dict) and "formkit" in self.node:
+            self.node.update({"$formkit": self.node.pop("formkit")})
+
         # Auto-promote common props from both 'additional_props' and 'node'
         for source in (self.additional_props, self.node):
             if not isinstance(source, dict):
@@ -581,11 +600,6 @@ class FormKitSchemaNode(UuidIdModel):
 
         if isinstance(self.additional_props, dict) and isinstance(self.node, dict):
             self.additional_props = strip_stale_recognised_props(self.additional_props, self.node)
-
-        # Resolve code generation defaults if not set
-        self.resolve_code_generation_defaults()
-
-        return super().save(*args, **kwargs)
 
     def resolve_code_generation_defaults(self, force=False):
         """
@@ -761,6 +775,14 @@ class FormKitSchemaNode(UuidIdModel):
             if len(ancestors) > 20:  # Safety limit
                 break
         return ancestors
+
+    def get_root(self) -> "FormKitSchemaNode":
+        """
+        Return the top of this node's tree: the first ancestor from ``get_ancestors``,
+        or this node itself when it has no parent.
+        """
+        ancestors = self.get_ancestors()
+        return ancestors[0] if ancestors else self
 
     def get_node_path(self, recursive=True) -> list[formkit_schema.Node | str]:
         """
