@@ -38,6 +38,7 @@ nav:
       - Options: options.md
       - Admin: admin.md
   - API:
+      - What is public: public-api.md
       - Classes: classes.md
 
 

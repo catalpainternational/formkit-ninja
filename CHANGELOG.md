@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-09-10
+
+### Added
+
+- **`py.typed` — this package now declares that it is typed.** Every annotation here has
+  always been there and none of it was visible to a consumer: under PEP 561 a package without
+  the marker is treated as untyped, so a consumer's type checker silently inferred `Any` for
+  `Emission`, `emit_submission`, and everything else on the seam. Shipping one empty file makes
+  the existing annotations count.
+
+  **This can surface new findings in a consumer that runs a type checker.** Nothing about the
+  runtime changed — what changed is that mistakes which were always there are now reported. A
+  consumer that pins this release and sees new errors is seeing its first honest reading, not a
+  regression.
+
+- **`reserved.ReservedKey`** — the reserved-row-key set as a `Literal`, for annotating a
+  parameter that may only be one of those keys. `RESERVED_ROW_KEYS` stays as the runtime
+  membership test; neither replaces the other, since a `Literal` cannot be tested with `in` and
+  a frozenset cannot reject a wrong string before it is written.
+
+- **[What is public](docs/public-api.md)** — a three-tier statement of what consumers may rely
+  on, matching the shape rakaia uses so the two libraries can be read the same way. There was
+  no such statement before, which is how a consumer came to import a private manager base.
+
+### Changed
+
+- **`Emission.fields` is now typed `Mapping[str, Any]` rather than `dict`.** An emission owns
+  its answers and nothing should write through them. The dict was already the emission's own —
+  `flatten` deep-copies, so popping the bookkeeping keys during construction never reached the
+  caller's document — but `dict` invited a consumer to mutate a value that reads as frozen, and
+  `frozen=True` does not stop that. Runtime behaviour is unchanged; a consumer that was mutating
+  `emission.fields` will now be told so.
+
+- **`RepeaterOrderDescriptor` declares what it returns.** The removed `repeater_order` attribute
+  was enforced only by a runtime warning; a type checker inferred the descriptor object for
+  every read, so a correct use looked like an error and a wrong one went unreported. An
+  `@overload` pair now distinguishes class-level access (which really does return the
+  descriptor, because Django does that while building querysets) from instance access, which is
+  `int | None`.
+
+- `strip_reserved` accepts any `Mapping` and returns `dict[str, Any]`, rather than bare `dict`
+  in both positions.
+
+
 ## [4.2.0] - 2026-09-08
 
 ### Added

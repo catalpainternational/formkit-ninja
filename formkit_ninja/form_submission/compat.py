@@ -34,6 +34,10 @@ method call to fix it.
 from __future__ import annotations
 
 import warnings
+from typing import TYPE_CHECKING, overload
+
+if TYPE_CHECKING:
+    from formkit_ninja.form_submission.models import SeparatedSubmission
 
 
 class RepeaterOrderDeprecationWarning(DeprecationWarning):
@@ -60,6 +64,18 @@ class RepeaterOrderDescriptor:
     """
 
     _CACHE = "_repeater_order_annotated"
+
+    # The overloads are what make the removal visible to a type checker as well as
+    # at run time. Without them a checker infers the *descriptor* for every read,
+    # so `sub.repeater_order + 1` is an error nobody asked for while a genuinely
+    # wrong use goes unreported. Class-level access really does return the
+    # descriptor — Django does that while building querysets — so the two cases
+    # are different types, which is exactly what an overload pair is for.
+    @overload
+    def __get__(self, instance: None, owner: type | None = ...) -> RepeaterOrderDescriptor: ...
+
+    @overload
+    def __get__(self, instance: SeparatedSubmission, owner: type | None = ...) -> int | None: ...
 
     def __get__(self, instance, owner=None):
         if instance is None:
