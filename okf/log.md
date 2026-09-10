@@ -13,5 +13,5 @@
 * **Note**: three changes were in review when this was written and are described here only as
   pending: #91 (the schema as a stream of change values), #92 (the content-event wire type) and
   #93 (an application policy for schema edits). Update the concept pages when each merges.
-* **Note**: nothing checks this bundle yet. rakaia's has a test that fails when an example has
-  no page; the equivalent here would check that every name a concept page cites still exists.
+* **Note**: `tests/test_okf_bundle.py` checks every identifier in the Public API sections and
+  every internal link, and its first run caught a cited method that had been removed.

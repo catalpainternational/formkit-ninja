@@ -28,7 +28,9 @@ there is one decomposition rather than two that could drift.
 * `Submission` — the canonical document (`fields`, `form_type`, `status`), tracked by
   pghistory.
 * `SeparatedSubmission` — one derived row; `SeparatedSubmission.objects.from_submission()`
-  writes them; `to_model()` hydrates a consumer's typed model.
+  writes them. Populating the consumer's own typed models from these rows is the consumer's
+  job, done in its signal receivers. The library's own hydration method was removed in the
+  signals rework, though `docs/submission_architecture.md` still describes it.
 * `form_submission.utils` — `flatten`, `compose`, `sibling_groups`, `get_repeaters`,
   `pre_validation`. Tier 1.
 
