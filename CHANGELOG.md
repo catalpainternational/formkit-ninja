@@ -19,12 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   changes the related-nodes change stream cannot carry today (#68, #69). Each value carries its
   node's parent and position, so `apply_schema_events()` rebuilds the tree from the stream alone.
 
-  Nodes are keyed by the path of names from the form's root, never by id: node ids differ
-  between environments, and a name on its own is reused across forms and groups. A node with no
-  name takes its place among its unnamed siblings. Every value is plain JSON, with a `total=False`
-  record type for each. Like the submission emitter it reads only the tree it is handed and
-  imports no stream library: `SchemaStreamSink` is a structural type, so a consumer passes in
-  its own store. Provisional (Tier 2) until a consumer has used it.
+  Nodes are keyed the way FormKit files answers, never by id: the names of their named
+  ancestors, then their own. Node ids differ between environments, and a name on its own is
+  reused across forms and groups. Unnamed wrappers add nothing to that key, so wrapping a field
+  or moving it between wrappers leaves its key alone; the wrappers are still rebuilt, because
+  every node also records its parent and position. A node with no name is numbered among the
+  unnamed nodes of its nearest named ancestor, and heading text is a node of its own, so
+  renaming a heading is one change. Every value is plain JSON with a `total=False` record type,
+  and encodes to the same bytes every time. Like the submission emitter it reads only the tree
+  it is handed and imports no stream library: `SchemaStreamSink` is a structural type, so a
+  consumer passes in its own store, along with whatever options say who made the change.
+  Provisional (Tier 2) until a consumer has used it.
 
 ## [4.3.0] - 2026-09-10
 
