@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-09-11
+
 ### Added
 
 - **The application can name a form's schema stream, and replay one form from a shared
