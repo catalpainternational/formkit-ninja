@@ -44,6 +44,11 @@ exact-minor pin if you do.
 - `parser` — the code-generation toolchain. It generates a consumer's own modules, so its
   output shape is the real coupling, not its call signatures.
 - `api` — the HTTP schemas and the router. These move with django-ninja.
+- `form_submission.wire` — `ContentEvent`, `ContentEventRequired`, `CONTENT_EVENT_KEYS`,
+  `REQUIRED_CONTENT_EVENT_KEYS`: the part of a content event this library can vouch for, for a
+  consumer to subclass. Provisional only until a consumer appends events with it; after that
+  it moves to Tier 1, because an event in a log is permanent and a key renamed here would stop
+  matching every event already written.
 
 ## Tier 3 — Internal
 
