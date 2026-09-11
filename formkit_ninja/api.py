@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import re
@@ -18,6 +19,14 @@ from pydantic import BaseModel, validator
 
 from formkit_ninja import formkit_schema, models
 from formkit_ninja.notifications import get_default_notifier
+from formkit_ninja.schema_edits import (
+    EditClass,
+    get_schema_edit_policy,
+    meaning_keys,
+    node_edit_snapshot,
+    refusal_message,
+    schema_edit_allowed,
+)
 from formkit_ninja.schema_props import merge_additional_props_under, strip_stale_recognised_props
 
 logger = logging.getLogger(__name__)
@@ -310,6 +319,10 @@ def delete_node(request, node_id: UUID):
     try:
         with transaction.atomic():
             node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
+            if get_schema_edit_policy() is not None and not schema_edit_allowed(node.get_root(), node, "meaning", request):
+                error_response = FormKitErrors()
+                error_response.errors.append(refusal_message("meaning", deleted=True))
+                return HTTPStatus.FORBIDDEN, error_response
             node.delete()
             # node.refresh_from_db()
             objects: models.NodeQS = cast(models.NodeQS, models.FormKitSchemaNode.objects)
@@ -449,13 +462,22 @@ class FormKitNodeIn(Schema):
         keep_untouched = (cached_property,)
 
 
-def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict | None = None):
+class SchemaEditRefused(Exception):
+    """The configured schema edit policy refused this edit; the message says why."""
+
+
+def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict | None = None, request: HttpRequest | None = None):
     """
     Create or update a child node from API payload.
 
     Args:
         payload: Validated FormKitNodeIn payload (only recognized fields)
         raw_payload_dict: Optional raw payload dict with all fields including unrecognized ones
+        request: Passed to the schema edit policy, when one is configured
+
+    Raises:
+        SchemaEditRefused: a schema edit policy is configured and refused the edit. Nothing
+            is written in that case.
     """
     parent, parent_errors = payload.parent
     child = payload.child
@@ -473,6 +495,16 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
 
     if child.is_active is False:
         return None, ["This node has already been deleted and cannot be edited"]
+
+    # With a schema edit policy configured, the edit is applied to a copy first so it can be
+    # compared with what is stored; the stored node is only touched once the policy allows it.
+    check_policy = get_schema_edit_policy() is not None
+    stored = child
+    is_create = child._state.adding
+    before = None
+    if check_policy:
+        before = None if is_create else node_edit_snapshot(stored)
+        child = copy.deepcopy(stored)
 
     values = payload.dict(
         by_alias=True,
@@ -532,6 +564,19 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
             child.label = label
 
     child.node_type = "formkit"
+
+    if check_policy:
+        child.sync_promoted_props()
+        changed = [] if is_create else meaning_keys(before, node_edit_snapshot(child))
+        if parent and not is_create and not models.NodeChildren.objects.filter(parent=parent, child=stored).exists():
+            changed.append("parent")
+        edit_class: EditClass = "meaning" if is_create or changed else "presentational"
+        if parent:
+            root = parent.get_root()
+        else:
+            root = child if is_create else stored.get_root()
+        if not schema_edit_allowed(root, None if is_create else stored, edit_class, request):
+            raise SchemaEditRefused(refusal_message(edit_class, changed, created=is_create))
 
     with transaction.atomic():
         child.save()
@@ -618,7 +663,11 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
         pass
 
     try:
-        child, errors = create_or_update_child_node(payload, raw_payload_dict)
+        try:
+            child, errors = create_or_update_child_node(payload, raw_payload_dict, request=request)
+        except SchemaEditRefused as refused:
+            error_response.errors.append(str(refused))
+            return HTTPStatus.FORBIDDEN, error_response
         if errors:
             # Flatten errors if it's a list
             if isinstance(errors, list):
@@ -687,6 +736,14 @@ def reorder_node_children(request, response: HttpResponse, payload: NodeChildren
     if payload.latest_change is None:
         error_response.errors.append("latest_change is required.")
         return HTTPStatus.BAD_REQUEST, error_response
+
+    # Reordering siblings is presentational. The policy is still asked, so an application
+    # can lock a form against every edit if it wants to.
+    if get_schema_edit_policy() is not None:
+        parent = models.FormKitSchemaNode.objects.filter(pk=payload.parent_id).first()
+        if parent is not None and not schema_edit_allowed(parent.get_root(), parent, "presentational", request):
+            error_response.errors.append(refusal_message("presentational"))
+            return HTTPStatus.FORBIDDEN, error_response
 
     try:
         with transaction.atomic():
