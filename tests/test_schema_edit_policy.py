@@ -7,6 +7,7 @@ from http import HTTPStatus
 
 import pytest
 from django.contrib import admin
+from django.contrib.admin.utils import quote
 from django.test import Client, RequestFactory, override_settings
 from django.urls import reverse
 
@@ -229,3 +230,52 @@ def test_admin_refuses_dropping_a_validator(form, admin_user):
     assert bound.non_field_errors() == ["This form already holds answers, so this change must be made in a migration: it changes what stored answers mean (field: validation)"]
     age.refresh_from_db()
     assert age.node["validation"] == "required"
+
+
+def _change_page_data(response) -> tuple[dict, str]:
+    """What an admin change page would post back untouched, and the node inline's prefix."""
+    data: dict = {}
+    node_prefix = ""
+    forms_on_page = [response.context["adminform"].form]
+    for inline in response.context["inline_admin_formsets"]:
+        formset = inline.formset
+        if formset.model is models.FormKitSchemaNode:
+            node_prefix = formset.prefix
+        forms_on_page.append(formset.management_form)
+        forms_on_page.extend(formset.forms)
+    for page_form in forms_on_page:
+        for bound in page_form:
+            value = bound.value()
+            if value is None or value is False:
+                continue
+            data[bound.html_name] = "on" if value is True else value
+    return data, node_prefix
+
+
+@pytest.mark.parametrize("policy", [POLICY, None])
+def test_option_group_node_inline_asks_the_policy_about_node_type(admin_client: Client, form, policy):
+    _, age, _ = form
+    group = models.OptionGroup.objects.create(group="Towns")
+    age.option_group = group
+    age.save()
+    url = reverse("admin:formkit_ninja_optiongroup_change", args=[quote(group.pk)])
+
+    with override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=policy):
+        data, prefix = _change_page_data(admin_client.get(url))
+        data[f"{prefix}-0-node_type"] = "$el"
+        data[f"{prefix}-0-description"] = "Where you live"
+        response = admin_client.post(url, data)
+
+    age.refresh_from_db()
+    if policy:
+        assert response.status_code == HTTPStatus.OK
+        [node_formset] = [i.formset for i in response.context["inline_admin_formsets"] if i.formset.model is models.FormKitSchemaNode]
+        [error] = node_formset.non_form_errors()
+        # An element node also renders an "$el" key, so both are named.
+        assert error.endswith("it changes what stored answers mean (field: $el, node_type)")
+        assert (age.node_type, age.description) == ("$formkit", None)
+        assert CALLS[-1][1:3] == (age, "meaning")
+    else:
+        assert response.status_code == HTTPStatus.FOUND
+        assert (age.node_type, age.description) == ("$el", "Where you live")
+        assert CALLS == []

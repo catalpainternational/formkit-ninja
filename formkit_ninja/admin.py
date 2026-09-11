@@ -507,12 +507,57 @@ class NodeParentsInline(SchemaEditPolicyInlineMixin, admin.TabularInline):
     extra = 0
 
 
-class NodeInline(admin.StackedInline):
+class SchemaEditPolicyNodeFormSet(forms.BaseInlineFormSet):
+    """
+    Asks the schema edit policy about each node edited, added or deleted in a node inline,
+    classified the same way as ``FormKitSchemaNodeAdmin``'s form. If the policy refuses any of
+    them the formset is invalid, so the admin saves nothing.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def clean(self) -> None:
+        super().clean()
+        if get_schema_edit_policy() is None:
+            return
+        refusals: list[str] = []
+        for form in self.forms:
+            cleaned = getattr(form, "cleaned_data", None)
+            if cleaned is None:
+                continue
+            deleting = bool(self.can_delete and cleaned.get("DELETE"))
+            if not deleting and not form.has_changed():
+                continue
+            instance = form.instance
+            changed: list[str] = []
+            edit_class: EditClass = "meaning"
+            if instance._state.adding:
+                if deleting:
+                    continue
+                root, node = instance, None
+            else:
+                # form.instance already carries the submitted columns; read the stored node afresh.
+                stored = models.FormKitSchemaNode.objects.get(pk=instance.pk)
+                if not deleting:
+                    preview = copy.deepcopy(instance)
+                    preview.sync_promoted_props()
+                    changed = meaning_keys(node_edit_snapshot(stored), node_edit_snapshot(preview))
+                    edit_class = "meaning" if changed else "presentational"
+                root, node = stored.get_root(), stored
+            if not schema_edit_allowed(root, node, edit_class, self.schema_edit_request):
+                message = refusal_message(edit_class, changed, created=node is None, deleted=deleting)
+                refusals.append(f"{node or instance}: {message}")
+        if refusals:
+            raise forms.ValidationError(refusals)
+
+
+class NodeInline(SchemaEditPolicyInlineMixin, admin.StackedInline):
     """
     Nodes related to Option Groups
     """
 
     model = models.FormKitSchemaNode
+    formset = SchemaEditPolicyNodeFormSet
     fields = ("label", "node_type", "description")
     extra = 0
 
