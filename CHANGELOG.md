@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The application can name a form's schema stream, and replay one form from a shared
+  stream (#101).** `append_schema_events()` takes an optional `stream_path=` that sends the
+  whole batch to that path instead of the one each event derives from its form type, since the
+  application writing the log owns its stream names (Shared ADR-0007). `apply_schema_events()`
+  takes an optional `form_type=` that replays only that form's events. Streams are shared in
+  practice: `FF_1_1` and `FF_11` both slug to `schema/ff11`. Without `form_type`, a stream
+  holding events for two different forms now raises `ValueError` instead of letting one form's
+  snapshot silently replace the other's; a single-form stream replays exactly as before.
+
 - **`schema_emit` — a form's schema, described as a snapshot and a list of changes.** New
   `formkit_ninja/schema_emit.py` does for a form's definition what `emit_submission()` does for
   its answers. `snapshot_schema()` gives the whole form as one value, which is what a form's

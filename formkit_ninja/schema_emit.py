@@ -381,7 +381,7 @@ def emit_schema(tree: Mapping[str, Any] | Sequence[Any], form_type: str, *, prio
     return _diff_schema(prior, schema_nodes(tree), form_type)
 
 
-def apply_schema_events(events: Iterable[SchemaEvent]) -> list[SchemaNode]:
+def apply_schema_events(events: Iterable[SchemaEvent], *, form_type: str | None = None) -> list[SchemaNode]:
     """Fold ``events``: the form as it stood after them.
 
     A snapshot replaces everything before it; a change adds, replaces or drops
@@ -389,13 +389,29 @@ def apply_schema_events(events: Iterable[SchemaEvent]) -> list[SchemaNode]:
     wrappers come back too. Nodes are returned parents first, siblings in order
     — the same order :func:`schema_nodes` gives.
 
+    One stream can hold more than one form: form keys that differ only in
+    punctuation or case slug alike (``FF_1_1`` and ``FF_11`` are both
+    ``schema/ff11``), and the application may put forms on a stream it names
+    itself. Pass ``form_type`` to replay only that form's events and skip the
+    rest. With no ``form_type``, every event must belong to one form; events for
+    two different forms raise ``ValueError``, since folding them together would
+    let one form's snapshot replace the other's.
+
     A node whose parent never appears raises ``ValueError``. This module's own
     changes cannot produce one, but a stream read back from a store need not have
     come from them — it may be truncated, or start without a snapshot — and a
     node with no parent has no place in the tree to put it.
     """
     by_key: dict[NodeKey, SchemaNode] = {}
+    seen: str | None = None
     for event in events:
+        if form_type is not None:
+            if event.form_type != form_type:
+                continue
+        elif seen is None:
+            seen = event.form_type
+        elif event.form_type != seen:
+            raise ValueError(f"schema events for two forms, {seen!r} and {event.form_type!r}: pass form_type to replay one of them")
         if isinstance(event, SchemaSnapshot):
             by_key = {n.key: n for n in event.nodes}
         elif event.after is None:
@@ -428,11 +444,18 @@ def encode_schema_event(event: SchemaEvent) -> bytes:
     return json.dumps(event.to_record(), sort_keys=True).encode()
 
 
-def append_schema_events(sink: SchemaStreamSink, events: Iterable[SchemaEvent], options: Any = None) -> None:
+def append_schema_events(sink: SchemaStreamSink, events: Iterable[SchemaEvent], options: Any = None, *, stream_path: str | None = None) -> None:
     """Append each event to its form's stream, encoded as JSON.
+
+    By default each event goes to the path it carries, :func:`schema_stream_path`
+    of its form type. That path is only a default: the application writing the
+    log owns its stream names (Shared ADR-0007), so ``stream_path`` appends every
+    event in this batch to that path instead. Each event still names its
+    ``form_type``, so :func:`apply_schema_events` can pick one form back out of a
+    shared stream.
 
     ``options`` goes to the store untouched with every append — it is where a
     consumer says who made the change. This module does not look inside it.
     """
     for event in events:
-        sink.append(event.stream_path, encode_schema_event(event), options)
+        sink.append(stream_path if stream_path is not None else event.stream_path, encode_schema_event(event), options)
