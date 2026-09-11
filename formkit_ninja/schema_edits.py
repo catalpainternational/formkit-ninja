@@ -260,3 +260,196 @@ def refusal_message(edit_class: EditClass, keys: Iterable[str] = (), *, created:
     else:
         reason = "the application does not allow even presentational edits to this form here"
     return f"This form already holds answers, so this change must be made in a migration: {reason}"
+
+
+# Option lists
+# ------------
+#
+# An option group is shared: one list can back fields in several forms. A stored answer holds
+# an option's ``value`` (``FormKitSchemaNode.node_options`` renders it as the option's value),
+# and ``object_id`` says which row of the source table that value came from. Changing either,
+# moving the option to another group, or deleting it changes what stored answers mean in every
+# form using the group, so the policy is asked about each such form and the strictest wins: if
+# any refuses, the edit is refused. Its position in the list (``order``) and its labels and
+# translations (``OptionLabel``) are presentational. Adding an option is always allowed: no
+# stored answer can point at a value that did not exist, so the policy is not asked.
+
+# The ``Option`` columns an edit may change and stay presentational.
+OPTION_PRESENTATIONAL_KEYS: frozenset[str] = frozenset({"order"})
+
+
+def option_edit_snapshot(option: Any) -> dict[str, Any]:
+    """An ``Option`` as a mapping for ``classify_option_edit``. Makes no queries."""
+    return {"value": option.value, "object_id": option.object_id, "group": option.group_id, "order": option.order}
+
+
+def classify_option_edit(before: Mapping[str, Any] | None, after: Mapping[str, Any] | None) -> EditClass:
+    """
+    Classify one ``Option``'s edit (snapshots from ``option_edit_snapshot``). Deleting it
+    (``None`` after) is ``"meaning"``; so is changing ``value``, ``object_id`` or ``group``.
+    Adding one (``None`` before) is ``"presentational"``, as is changing only ``order``.
+    """
+    if after is None:
+        return "meaning"
+    if before is None:
+        return "presentational"
+    return "meaning" if meaning_keys(before, after, OPTION_PRESENTATIONAL_KEYS, nested={}) else "presentational"
+
+
+def forms_using_option_group(group_id: Any) -> list[tuple[FormKitSchemaNode, FormKitSchemaNode]]:
+    """
+    Every ``(root, node)`` whose ``node`` uses the option group: each node whose
+    ``option_group`` is the group, soft-deleted ones included (their answers are still stored),
+    with the top of its tree from ``get_root()``.
+    """
+    from formkit_ninja.models import FormKitSchemaNode
+
+    if group_id is None:
+        return []
+    return [(node.get_root(), node) for node in FormKitSchemaNode.objects.filter(option_group_id=group_id).order_by("pk")]
+
+
+def option_group_edit_refusals(group_id: Any, edit_class: EditClass, request: HttpRequest | None) -> list[FormKitSchemaNode]:
+    """
+    The roots of the forms whose policy refuses this edit to the option group; empty means
+    allowed. The strictest user wins: one refusal is enough. Always empty when no policy is
+    configured, or when no form uses the group.
+    """
+    if get_schema_edit_policy() is None:
+        return []
+    refused: list[FormKitSchemaNode] = []
+    for root, node in forms_using_option_group(group_id):
+        if not schema_edit_allowed(root, node, edit_class, request) and root not in refused:
+            refused.append(root)
+    return refused
+
+
+def option_refusal_message(edit_class: EditClass, refused: Iterable[Any], keys: Iterable[str] = (), *, deleted: bool = False) -> str:
+    """The plain-words reason given to an editor whose change to an option list was refused."""
+    forms = ", ".join(str(getattr(root, "label", None) or root) for root in refused)
+    if deleted:
+        reason = "it removes an option, which changes what stored answers mean"
+    elif edit_class == "meaning":
+        named = ", ".join(keys)
+        reason = f"it changes what stored answers mean (field: {named})" if named else "it changes what stored answers mean"
+    else:
+        reason = "the application does not allow even presentational edits to this option list here"
+    return f"This option list is used by a form that already holds answers ({forms}), so this change must be made in a migration: {reason}"
+
+
+# Form components
+# ---------------
+#
+# A ``FormKitSchema`` is a form as a whole: it renders the nodes linked to it by
+# ``FormComponents`` rows, in their ``order``. Adding or removing a link, or pointing one at
+# another node or another schema, changes which nodes a form is made of, so it is a meaning
+# change. Changing only its ``order``, or its ``label`` (the admin's own name for the row, which
+# is never rendered), is presentational. The forms affected are the linked node's own tree (its
+# ``get_root()``) and every root the schema links, before and after the edit; the policy is
+# asked about each, and one refusal refuses the edit.
+
+# The ``FormComponents`` columns an edit may change and stay presentational.
+COMPONENT_PRESENTATIONAL_KEYS: frozenset[str] = frozenset({"order", "label"})
+
+
+def component_edit_snapshot(component: Any) -> dict[str, Any]:
+    """A ``FormComponents`` row as a mapping for ``classify_component_edit``. Makes no queries."""
+    schema_id, node_id = component.schema_id, component.node_id
+    return {
+        "schema": str(schema_id) if schema_id is not None else None,
+        "node": str(node_id) if node_id is not None else None,
+        "order": component.order,
+        "label": component.label,
+    }
+
+
+def classify_component_edit(before: Mapping[str, Any] | None, after: Mapping[str, Any] | None) -> EditClass:
+    """
+    Classify an edit to one ``FormComponents`` row (snapshots from ``component_edit_snapshot``).
+    Adding or removing it (``None`` on one side), or changing its ``schema`` or ``node``, is
+    ``"meaning"``; changing only ``order`` or ``label`` is ``"presentational"``.
+    """
+    if before is None or after is None:
+        return "meaning"
+    return "meaning" if meaning_keys(before, after, COMPONENT_PRESENTATIONAL_KEYS, nested={}) else "presentational"
+
+
+def forms_linked_by_component(before: Mapping[str, Any] | None, after: Mapping[str, Any] | None) -> list[tuple[FormKitSchemaNode, FormKitSchemaNode]]:
+    """
+    Every ``(root, node)`` a ``FormComponents`` edit touches, one per root: the linked node
+    (before and after) with its ``get_root()``, and each other node linked to the schema (before
+    and after) with its ``get_root()``, paired with the node being linked or unlinked. Empty
+    when neither side links a node, since a row with no node adds nothing to a form.
+    """
+    from formkit_ninja.models import FormKitSchemaNode
+
+    sides = [side for side in (before, after) if side is not None]
+    node_ids = [side["node"] for side in sides if side.get("node")]
+    if not node_ids:
+        return []
+    linked = {str(node.pk): node for node in FormKitSchemaNode.objects.filter(pk__in=node_ids)}
+    pairs = [(linked[node_id].get_root(), linked[node_id]) for node_id in node_ids if node_id in linked]
+    changed = linked.get(node_ids[-1])
+    schema_ids = [side["schema"] for side in sides if side.get("schema")]
+    if changed is not None and schema_ids:
+        members = FormKitSchemaNode.objects.filter(formcomponents__schema_id__in=schema_ids).exclude(pk__in=node_ids).distinct().order_by("pk")
+        pairs.extend((member.get_root(), changed) for member in members)
+    seen: set[Any] = set()
+    unique: list[tuple[FormKitSchemaNode, FormKitSchemaNode]] = []
+    for root, node in pairs:
+        if root.pk not in seen:
+            seen.add(root.pk)
+            unique.append((root, node))
+    return unique
+
+
+def component_edit_refusals(
+    before: Mapping[str, Any] | None,
+    after: Mapping[str, Any] | None,
+    edit_class: EditClass,
+    request: HttpRequest | None,
+) -> list[FormKitSchemaNode]:
+    """
+    The roots whose policy refuses this ``FormComponents`` edit; empty means allowed. One
+    refusal is enough. Always empty when no policy is configured.
+    """
+    if get_schema_edit_policy() is None:
+        return []
+    return [root for root, node in forms_linked_by_component(before, after) if not schema_edit_allowed(root, node, edit_class, request)]
+
+
+def schema_delete_refusals(schema_id: Any, request: HttpRequest | None) -> list[FormKitSchemaNode]:
+    """
+    The roots whose policy refuses deleting a whole ``FormKitSchema``, which removes every
+    ``FormComponents`` link it has: a meaning change for the ``get_root()`` of each node it
+    links, each root asked once. Empty means allowed; always empty with no policy configured.
+    """
+    from formkit_ninja.models import FormKitSchemaNode
+
+    if get_schema_edit_policy() is None:
+        return []
+    refused: list[FormKitSchemaNode] = []
+    asked: set[Any] = set()
+    for node in FormKitSchemaNode.objects.filter(formcomponents__schema_id=schema_id).distinct().order_by("pk"):
+        root = node.get_root()
+        if root.pk in asked:
+            continue
+        asked.add(root.pk)
+        if not schema_edit_allowed(root, node, "meaning", request):
+            refused.append(root)
+    return refused
+
+
+def component_refusal_message(edit_class: EditClass, refused: Iterable[Any], keys: Iterable[str] = (), *, created: bool = False, deleted: bool = False) -> str:
+    """The plain-words reason given to an editor whose change to a form's components was refused."""
+    forms = ", ".join(str(getattr(root, "label", None) or root) for root in refused)
+    if created:
+        reason = "it adds a node to the form, which changes what stored answers mean"
+    elif deleted:
+        reason = "it removes a node from the form, which changes what stored answers mean"
+    elif edit_class == "meaning":
+        named = ", ".join(keys)
+        reason = f"it changes what stored answers mean (field: {named})" if named else "it changes what stored answers mean"
+    else:
+        reason = "the application does not allow even presentational edits to this form here"
+    return f"This form already holds answers ({forms}), so this change must be made in a migration: {reason}"

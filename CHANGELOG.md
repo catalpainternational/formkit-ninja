@@ -55,12 +55,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a form error in the admin, that names the fields and says to use a migration. Deleting from
   the admin, one node or several with "delete selected", is asked about node by node; if any
   is refused, nothing is deleted and the admin says why. The node list on the option-group page
-  is covered. Not covered yet: editing the options themselves, and linking a top-level node to a
-  schema from the schema and form-components pages (#99).
+  is covered. The options themselves, and linking a top-level node to a schema from the schema
+  and form-components pages (and deleting a whole schema), are covered separately, below.
 
   **Off by default.** With the setting unset nothing is classified and nothing is refused, so
   an application that does not opt in sees no change. Which forms are protected is the
   application's decision, not this package's (Shared ADR-0006).
+
+- **Option lists are covered by the same policy (#94).** An option group is shared, so an
+  edit to one of its options asks the policy about every form node whose `option_group` is that
+  group (with its `get_root()`), and the strictest wins: if any refuses, the edit is refused.
+  Changing an option's stored `value`, its `object_id` or its group, or deleting it, is
+  *meaning*; its order and its labels and translations are *presentational* and still
+  asked about as that; adding an option is always allowed and asks nobody. Enforced in the
+  option, option-group and option-label admins: save, inline edits, single delete and "delete
+  selected". Options written by the importers (`SchemaImportService.import_options`,
+  `OptionGroup.copy_table`, `import_forms`) are not checked. New in `schema_edits`:
+  `classify_option_edit`, `option_edit_snapshot`, `forms_using_option_group`,
+  `option_group_edit_refusals`.
+
+- **Which nodes make up a form is covered by the same policy.** A `FormKitSchema` renders the
+  nodes its `FormComponents` rows link, so adding, removing or re-pointing one of those links
+  (another node, or another schema) is *meaning*; changing only its order or its label is
+  *presentational*. The policy is asked about the linked node's own form (its `get_root()`) and
+  every form the schema links, before and after; if any refuses, the edit is refused. Enforced
+  on the schema page's component inline and in the form components admin: save, single delete
+  and "delete selected". Deleting a whole schema from its admin, one or several, removes every
+  link it has, so it is *meaning* for every root the schema links, each asked once; if any
+  refuses, nothing is deleted. Links written by the importers and management commands
+  (`SchemaImportService`, `create_schema`, `add_schema_field`) are not checked. New in
+  `schema_edits`: `classify_component_edit`, `component_edit_snapshot`,
+  `forms_linked_by_component`, `component_edit_refusals`, `schema_delete_refusals`.
+  Deleting a node from the node admin also removes its links, but asks only the node's own
+  form, not every form a schema linking it renders.
 
 - `FormKitSchemaNode.get_root()` returns the top of a node's tree, and
   `FormKitSchemaNode.sync_promoted_props()` is the part of `save()` that reconciles the promoted
