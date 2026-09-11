@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 import operator
 from functools import reduce
@@ -8,9 +9,11 @@ from typing import Any
 import django.core.exceptions
 import pghistory.admin
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.contrib.admin.utils import quote, unquote
 from django.contrib.auth.base_user import AbstractBaseUser
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponseRedirect
+from django.urls import reverse
 from django.utils import timezone
 
 # Import admin modules to register them
@@ -24,6 +27,15 @@ from formkit_ninja.form_submission.models import (
     SeparatedSubmissionImport,
     Submission,
     SubmissionFile,
+)
+from formkit_ninja.schema_edits import (
+    EditClass,
+    get_schema_edit_policy,
+    link_edit_snapshot,
+    meaning_keys,
+    node_edit_snapshot,
+    refusal_message,
+    schema_edit_allowed,
 )
 from formkit_ninja.utils import short_uuid
 
@@ -375,12 +387,105 @@ class FormKitComponentForm(FormKitBaseForm):
     _json_fields = {"node": ("if_condition", "then_condition", "else_condition")}
 
 
-class NodeChildrenInline(admin.TabularInline):
+class SchemaEditPolicyFormMixin(forms.ModelForm):
+    """
+    Asks the schema edit policy (``FORMKIT_NINJA_SCHEMA_EDIT_POLICY``) about a node form's
+    edit before it is saved, and refuses it as a form error when the policy says no.
+
+    ``FormKitSchemaNodeAdmin.get_form`` mixes this in only when a policy is configured.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def _post_clean(self) -> None:
+        super()._post_clean()  # type: ignore[misc]
+        if get_schema_edit_policy() is None or self.errors:
+            return
+        instance = self.instance
+        changed: list[str] = []
+        edit_class: EditClass
+        if instance._state.adding:
+            root, node, edit_class = instance, None, "meaning"
+        else:
+            # self.instance already carries the submitted columns; read the stored node afresh.
+            stored = models.FormKitSchemaNode.objects.get(pk=instance.pk)
+            preview = copy.deepcopy(instance)
+            if isinstance(self, JSONMappingMixin):
+                self.save_json_fields(preview)
+            preview.sync_promoted_props()
+            # An empty html id field is pre-filled with the node's own pk (the attribute
+            # fallback in JSONMappingMixin._populate_form_fields), so the first admin save of a
+            # node without one writes it. That is the form's doing, not the editor's.
+            stored_node = stored.node if isinstance(stored.node, dict) else {}
+            if isinstance(preview.node, dict) and "id" not in stored_node and str(preview.node.get("id")) == str(stored.pk):
+                preview.node.pop("id")
+            changed = meaning_keys(node_edit_snapshot(stored), node_edit_snapshot(preview))
+            edit_class = "meaning" if changed else "presentational"
+            root, node = stored.get_root(), stored
+        if not schema_edit_allowed(root, node, edit_class, self.schema_edit_request):
+            self.add_error(None, refusal_message(edit_class, changed, created=node is None))
+
+
+class SchemaEditPolicyFormSet(forms.BaseInlineFormSet):
+    """
+    Asks the schema edit policy about the parent/child links edited in an inline. Adding or
+    removing a link, or pointing one at another node, is a meaning change; changing only the
+    order is presentational.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def clean(self) -> None:
+        super().clean()
+        if get_schema_edit_policy() is None or self.instance is None or self.instance.pk is None:
+            return
+        changed: set[str] = set()
+        touched = False
+        for form in self.forms:
+            cleaned = getattr(form, "cleaned_data", None)
+            if cleaned is None:
+                continue
+            deleting = bool(self.can_delete and cleaned.get("DELETE"))
+            if not deleting and not form.has_changed():
+                continue
+            touched = True
+            initial = form.initial
+            before = None if form.instance._state.adding else link_edit_snapshot(initial.get("parent"), initial.get("child"), initial.get("order"))
+            after = None
+            if not deleting:
+                parent = cleaned.get("parent", initial.get("parent"))
+                child = cleaned.get("child", initial.get("child"))
+                after = link_edit_snapshot(getattr(parent, "pk", parent), getattr(child, "pk", child), cleaned.get("order"))
+            if before is None or after is None:
+                changed.add("child" if self.fk.name == "parent" else "parent")
+            else:
+                changed.update(meaning_keys(before, after, allowed={"order"}, nested={}))
+        if not touched:
+            return
+        edit_class: EditClass = "meaning" if changed else "presentational"
+        if not schema_edit_allowed(self.instance.get_root(), self.instance, edit_class, self.schema_edit_request):
+            raise forms.ValidationError(refusal_message(edit_class, sorted(changed)))
+
+
+class SchemaEditPolicyInlineMixin:
+    """
+    Gives an inline's formset the request, for the schema edit policy. The inline sets
+    ``formset = SchemaEditPolicyFormSet`` itself.
+    """
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)  # type: ignore[misc]
+        formset.schema_edit_request = request
+        return formset
+
+
+class NodeChildrenInline(SchemaEditPolicyInlineMixin, admin.TabularInline):
     """
     Nested HTML elements
     """
 
     model = models.NodeChildren
+    formset = SchemaEditPolicyFormSet
     fields = ("child", "order", "track_change")
     ordering = ("order",)
     readonly_fields = ("track_change",)
@@ -388,12 +493,13 @@ class NodeChildrenInline(admin.TabularInline):
     extra = 0
 
 
-class NodeParentsInline(admin.TabularInline):
+class NodeParentsInline(SchemaEditPolicyInlineMixin, admin.TabularInline):
     """
     Nested HTML elements
     """
 
     model = models.NodeChildren
+    formset = SchemaEditPolicyFormSet
     fields = ("parent", "order", "track_change")
     ordering = ("order",)
     readonly_fields = ("track_change", "parent")
@@ -401,12 +507,57 @@ class NodeParentsInline(admin.TabularInline):
     extra = 0
 
 
-class NodeInline(admin.StackedInline):
+class SchemaEditPolicyNodeFormSet(forms.BaseInlineFormSet):
+    """
+    Asks the schema edit policy about each node edited, added or deleted in a node inline,
+    classified the same way as ``FormKitSchemaNodeAdmin``'s form. If the policy refuses any of
+    them the formset is invalid, so the admin saves nothing.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def clean(self) -> None:
+        super().clean()
+        if get_schema_edit_policy() is None:
+            return
+        refusals: list[str] = []
+        for form in self.forms:
+            cleaned = getattr(form, "cleaned_data", None)
+            if cleaned is None:
+                continue
+            deleting = bool(self.can_delete and cleaned.get("DELETE"))
+            if not deleting and not form.has_changed():
+                continue
+            instance = form.instance
+            changed: list[str] = []
+            edit_class: EditClass = "meaning"
+            if instance._state.adding:
+                if deleting:
+                    continue
+                root, node = instance, None
+            else:
+                # form.instance already carries the submitted columns; read the stored node afresh.
+                stored = models.FormKitSchemaNode.objects.get(pk=instance.pk)
+                if not deleting:
+                    preview = copy.deepcopy(instance)
+                    preview.sync_promoted_props()
+                    changed = meaning_keys(node_edit_snapshot(stored), node_edit_snapshot(preview))
+                    edit_class = "meaning" if changed else "presentational"
+                root, node = stored.get_root(), stored
+            if not schema_edit_allowed(root, node, edit_class, self.schema_edit_request):
+                message = refusal_message(edit_class, changed, created=node is None, deleted=deleting)
+                refusals.append(f"{node or instance}: {message}")
+        if refusals:
+            raise forms.ValidationError(refusals)
+
+
+class NodeInline(SchemaEditPolicyInlineMixin, admin.StackedInline):
     """
     Nodes related to Option Groups
     """
 
     model = models.FormKitSchemaNode
+    formset = SchemaEditPolicyNodeFormSet
     fields = ("label", "node_type", "description")
     extra = 0
 
@@ -512,6 +663,40 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
 
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
         return [NodeChildrenInline, NodeParentsInline] if obj else []
+
+    def _refused_deletes(self, request: HttpRequest, nodes) -> list[models.FormKitSchemaNode]:
+        """The nodes the schema edit policy will not let this request delete (a delete is a meaning change)."""
+        if get_schema_edit_policy() is None:
+            return []
+        return [node for node in nodes if not schema_edit_allowed(node.get_root(), node, "meaning", request)]
+
+    def delete_view(self, request, object_id, extra_context=None):
+        """Refuse, with a message and back on the change page, a delete the policy does not allow."""
+        if get_schema_edit_policy() is not None:
+            obj = self.get_object(request, unquote(object_id))
+            if obj is not None and self._refused_deletes(request, [obj]):
+                self.message_user(request, refusal_message("meaning", deleted=True), messages.ERROR)
+                opts = self.opts
+                change_url = reverse(f"admin:{opts.app_label}_{opts.model_name}_change", args=(quote(obj.pk),), current_app=self.admin_site.name)
+                return HttpResponseRedirect(change_url)
+        return super().delete_view(request, object_id, extra_context)
+
+    def get_actions(self, request):
+        """With a policy configured, "delete selected" deletes nothing if the policy refuses any of the nodes."""
+        actions = super().get_actions(request)
+        if get_schema_edit_policy() is not None and "delete_selected" in actions:
+            delete_selected, name, description = actions["delete_selected"]
+
+            def delete_selected_if_allowed(modeladmin, request, queryset):
+                refused = modeladmin._refused_deletes(request, queryset)
+                if refused:
+                    names = ", ".join(str(node) for node in refused)
+                    modeladmin.message_user(request, f"{refusal_message('meaning', deleted=True)}. Nothing was deleted; refused: {names}", messages.ERROR)
+                    return None
+                return delete_selected(modeladmin, request, queryset)
+
+            actions["delete_selected"] = (delete_selected_if_allowed, name, description)
+        return actions
 
     def get_fieldsets(self, request: HttpRequest, obj: models.FormKitSchemaNode | None = None):
         if not obj:
@@ -639,6 +824,12 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             return format_html('<div style="color: red;">Error generating JSON preview: {}</div>', str(e))
 
     def get_form(self, request: HttpRequest, obj: Any | None = None, change: bool = False, **kwargs: Any) -> type[forms.ModelForm[Any]]:
+        form = self._get_node_form(request, obj, **kwargs)
+        if get_schema_edit_policy() is None:
+            return form
+        return type(form.__name__, (SchemaEditPolicyFormMixin, form), {"schema_edit_request": request, "__module__": form.__module__})
+
+    def _get_node_form(self, request: HttpRequest, obj: Any | None = None, **kwargs: Any) -> type[forms.ModelForm[Any]]:
         if not obj:
             return NewFormKitForm
         try:

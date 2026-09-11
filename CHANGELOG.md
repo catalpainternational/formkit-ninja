@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An application can now stop form edits that change what stored answers mean.** Twice a
+  form's meaning was changed with no migration and no record: an admin edit dropped a validator
+  from two fields, and a shell fix was applied by hand. This stops the first kind; a hand-run
+  script bypasses it by design. New
+  `schema_edits.classify_node_edit` sorts an edit into *presentational* (label, help,
+  placeholder, title, icon, description, add-label, CSS classes, up/down controls, sibling
+  order) or *meaning* (everything else, including creating or deleting a field, moving it to
+  another parent, and any key it does not recognise). Set `FORMKIT_NINJA_SCHEMA_EDIT_POLICY` to
+  a dotted path to `(root_node, node, edit_class, request) -> bool` and the node API
+  (create/update, delete, reorder) and the node admin ask it first; a refused edit is a 403, or
+  a form error in the admin, that names the fields and says to use a migration. Deleting from
+  the admin, one node or several with "delete selected", is asked about node by node; if any
+  is refused, nothing is deleted and the admin says why. The node list on the option-group page
+  is covered. Not covered yet: editing the options themselves, and linking a top-level node to a
+  schema from the schema and form-components pages (#99).
+
+  **Off by default.** With the setting unset nothing is classified and nothing is refused, so
+  an application that does not opt in sees no change. Which forms are protected is the
+  application's decision, not this package's (Shared ADR-0006).
+
+- `FormKitSchemaNode.get_root()` returns the top of a node's tree, and
+  `FormKitSchemaNode.sync_promoted_props()` is the part of `save()` that reconciles the promoted
+  columns with the node JSON, split out so an edit can be previewed without saving it.
+
 - **`form_submission.wire` — the shape of a content event, as a type.** A consumer that appends
   one event per row to a log has, until now, built that event as an untyped dictionary, so a
   missing key went unnoticed until a replay found it. This declares the keys the decomposition
