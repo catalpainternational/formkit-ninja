@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`form_submission.wire` — the shape of a content event, as a type.** A consumer that appends
+  one event per row to a log has, until now, built that event as an untyped dictionary, so a
+  missing key went unnoticed until a replay found it. This declares the keys the decomposition
+  alone can vouch for — `submission`, `form_type` and `fields`, always; `parent_submission`,
+  `ordinality` and `schema_version`, when known — as a `TypedDict` a consumer subclasses to add
+  its own. `CONTENT_EVENT_KEYS` is the runtime check beside it.
+
+  `schema_version` is optional on purpose: nothing mints it yet, and a required key with no
+  producer would make every consumer invent a value. No stream library is imported.
+
 ## [4.3.0] - 2026-09-10
 
 ### Added
