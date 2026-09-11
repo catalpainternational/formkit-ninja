@@ -47,6 +47,12 @@ exact-minor pin if you do.
   Unset, the default, nothing is checked. Which forms to protect is the application's call;
   the allowlist may grow in a minor release, but only in the direction of allowing more.
 
+- `form_submission.wire` — `ContentEvent`, `ContentEventRequired`, `CONTENT_EVENT_KEYS`,
+  `REQUIRED_CONTENT_EVENT_KEYS`: the part of a content event this library can vouch for, for a
+  consumer to subclass. Provisional only until a consumer appends events with it; after that
+  it moves to Tier 1, because an event in a log is permanent and a key renamed here would stop
+  matching every event already written.
+
 ## Tier 3 — Internal
 
 No guarantees, may change or vanish in a patch: anything underscore-prefixed, the migrations,
