@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs: the stream-path helpers are a default, not a rule.** `stream_path` and
+  `reorder_stream_path` now say that the application writing to the log owns the names of its
+  streams, so a consumer may name them differently (Partisipa already stores ~95k events under
+  `submissions/<form>`). `slug` remains the one shared rule for spelling a form's name in a path,
+  and consumers should reuse it rather than keep a copy. No behaviour or constant changed.
+
 ## [4.3.0] - 2026-09-10
 
 ### Added

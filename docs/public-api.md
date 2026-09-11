@@ -18,7 +18,9 @@ change.
   table names, field names and the meaning of their values.
 - **The decomposition**: `form_submission.emit` — `Emission`, `emit_submission`,
   `emit_reorder`, `slug`, `stream_path`, `reorder_stream_path`, and the `SUBMISSION_PREFIX` /
-  `REORDER_PREFIX` constants.
+  `REORDER_PREFIX` constants. The path helpers are advisory defaults, since the application
+  that writes to the log owns its stream names; `slug` is the shared rule for spelling a form's
+  name inside a path.
 - **The reserved keys**: `form_submission.reserved` — `UUID_KEY`, `RANK_KEY`,
   `RESERVED_ROW_KEYS`, `ReservedKey`, `strip_reserved`.
 - **The document helpers**: `form_submission.utils` — `flatten`, `compose`, `sibling_groups`,

@@ -20,6 +20,13 @@ consumer takes the emissions, wraps each in whatever envelope it uses, and
 appends them. Keeping the dependency out means this library, the log
 implementation and the consumer can each be released without waiting on the
 other two.
+
+**Stream names are a default.** ``stream_path`` and ``reorder_stream_path`` say
+where this library would put each row's events, but the application that writes
+to the log owns the names of its streams. A consumer that already writes to a
+log may name them differently (Partisipa uses ``submissions/<form>``, not
+``submission/<form>``). The one rule that is shared is ``slug``: how a form's
+name is spelt inside a path.
 """
 
 from __future__ import annotations
@@ -94,6 +101,10 @@ def stream_path(form_type: str, repeater_path: Sequence[str] = ()) -> str:
     Nested repeaters extend the path rather than flattening into it, so a
     repeater's stream sits under the root it belongs to and depth costs nothing
     to represent.
+
+    This is an advisory default, not a rule. A consumer that already writes to a
+    log may name its streams differently, and should still build the form part
+    of the path with ``slug`` so the spelling cannot drift.
     """
     return "/".join([SUBMISSION_PREFIX, slug(form_type), *(slug(part) for part in repeater_path)])
 
@@ -105,6 +116,10 @@ def reorder_stream_path(form_type: str) -> str:
     group, and the group is already identified by ``parent_id`` plus
     ``repeater_key`` on the payload. One stream per root keeps the inventory a
     rebuild has to walk small.
+
+    Like ``stream_path``, this is an advisory default: a consumer that already
+    writes to a log may name its streams differently, and should still use
+    ``slug`` for the form part.
     """
     return f"{REORDER_PREFIX}/{slug(form_type)}"
 
