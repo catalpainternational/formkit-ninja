@@ -36,6 +36,16 @@ exact-minor pin if you do.
 - `form_submission.ordering` — `plan_ranks`, `document_position`, `document_order_key`.
 - `form_submission.ranking` — `harvest_ranks`, `apply_ranks`. `apply_ranks` is deliberately
   not wired up yet; it ships ahead of the migration that starts writing `$rank`.
+- `schema_emit` — a form's schema as values keyed the way FormKit files answers, never by id:
+  `SchemaNode`, `SchemaSnapshot`, `SchemaChange`, `SchemaEvent`, `NodeKey`, `ChangeKind`,
+  the `SchemaNodeRecord` / `SchemaSnapshotRecord` / `SchemaChangeRecord` JSON
+  shapes, `SchemaStreamSink`, `schema_nodes`, `snapshot_schema`, `emit_schema`,
+  `apply_schema_events`, `encode_schema_event`, `append_schema_events`,
+  `schema_event_from_record`, `schema_stream_path` and `SCHEMA_PREFIX`. Provisional until a consumer has used it; a schema
+  version will be added to it later. `append_schema_events(..., stream_path=)` lets the application name
+  the stream instead of using `schema_stream_path`, and `apply_schema_events(..., form_type=)`
+  replays one form from a stream shared by several (without it, two forms on one stream raise
+  `ValueError`).
 - `parser` — the code-generation toolchain. It generates a consumer's own modules, so its
   output shape is the real coupling, not its call signatures.
 - `api` — the HTTP schemas and the router. These move with django-ninja.

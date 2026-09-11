@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The application can name a form's schema stream, and replay one form from a shared
+  stream (#101).** `append_schema_events()` takes an optional `stream_path=` that sends the
+  whole batch to that path instead of the one each event derives from its form type, since the
+  application writing the log owns its stream names (Shared ADR-0007). `apply_schema_events()`
+  takes an optional `form_type=` that replays only that form's events. Streams are shared in
+  practice: `FF_1_1` and `FF_11` both slug to `schema/ff11`. Without `form_type`, a stream
+  holding events for two different forms now raises `ValueError` instead of letting one form's
+  snapshot silently replace the other's; a single-form stream replays exactly as before.
+
+- **`schema_emit` — a form's schema, described as a snapshot and a list of changes.** New
+  `formkit_ninja/schema_emit.py` does for a form's definition what `emit_submission()` does for
+  its answers. `snapshot_schema()` gives the whole form as one value, which is what a form's
+  stream starts with: the old audit history is too incomplete to rebuild a form from, and the
+  links between nodes were never recorded at all. `emit_schema()` compares the form with how it
+  was last recorded and returns one `SchemaChange` per node added, changed, moved or removed. A
+  reorder is a move and a deletion is a removal, so both are values in their own right — the two
+  changes the related-nodes change stream cannot carry today (#68, #69). Each value carries its
+  node's parent and position, so `apply_schema_events()` rebuilds the tree from the stream alone.
+
+  Nodes are keyed the way FormKit files answers, never by id: the names of their named
+  ancestors, then their own. Node ids differ between environments, and a name on its own is
+  reused across forms and groups. Unnamed wrappers add nothing to that key, so wrapping a field
+  or moving it between wrappers leaves its key alone, matching where stored submissions file
+  those fields. (FormKit gives an unnamed group a generated name, but answers are not stored
+  under it, so it never reaches a key.) The wrappers are still rebuilt, because
+  every node also records its parent and position. A node with no name is keyed by its kind —
+  its element tag, `text`, or its FormKit type — numbered within that kind under its nearest
+  named ancestor, so inserting a heading does not renumber the wrappers around it. Heading text
+  is a node of its own, so renaming a heading is one change. Every value is plain JSON with a `total=False` record type,
+  and encodes to the same bytes every time. Like the submission emitter it reads only the tree
+  it is handed and imports no stream library: `SchemaStreamSink` is a structural type, so a
+  consumer passes in its own store, along with whatever options say who made the change.
+  Provisional (Tier 2) until a consumer has used it.
 - **An application can now stop form edits that change what stored answers mean.** Twice a
   form's meaning was changed with no migration and no record: an admin edit dropped a validator
   from two fields, and a shell fix was applied by hand. This stops the first kind; a hand-run
