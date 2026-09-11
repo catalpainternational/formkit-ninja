@@ -8,6 +8,7 @@ presentational; adding an option is always allowed. With no policy set, nothing 
 from http import HTTPStatus
 
 import pytest
+from django.contrib.admin.utils import quote
 from django.test import Client, RequestFactory, override_settings
 from django.urls import reverse
 
@@ -126,6 +127,51 @@ def test_an_option_no_form_uses_can_be_deleted(shared, admin_client: Client):
     lonely = models.Option.objects.create(group=other, value="x", object_id=9)
     admin_client.post(reverse("admin:formkit_ninja_option_delete", args=[lonely.pk]), {"post": "yes"}, follow=True)
     assert not models.Option.objects.filter(pk=lonely.pk).exists()
+
+
+def _group_page(client: Client, group) -> tuple[str, dict, str]:
+    """The option-group change page's URL, what it would post back untouched, and the option inline's prefix."""
+    url = reverse("admin:formkit_ninja_optiongroup_change", args=[quote(group.pk)])
+    response = client.get(url)
+    data: dict = {}
+    prefix = ""
+    forms_on_page = [response.context["adminform"].form]
+    for inline in response.context["inline_admin_formsets"]:
+        formset = inline.formset
+        if formset.model is models.Option:
+            prefix = formset.prefix
+        forms_on_page.append(formset.management_form)
+        forms_on_page.extend(formset.forms)
+    for page_form in forms_on_page:
+        for bound in page_form:
+            value = bound.value()
+            if value is None or value is False:
+                continue
+            data[bound.html_name] = "on" if value is True else value
+    return url, data, prefix
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_the_group_page_refuses_deleting_an_option(shared, admin_client: Client):
+    """Mutation: returning at the top of OptionEditPolicyFormSet.clean deletes the option; red."""
+    group, red, _, protected, _ = shared
+    url, data, prefix = _group_page(admin_client, group)
+    data[f"{prefix}-0-DELETE"] = "on"
+    response = admin_client.post(url, data)
+    assert response.status_code == HTTPStatus.OK
+    [formset] = [i.formset for i in response.context["inline_admin_formsets"] if i.formset.model is models.Option]
+    assert any("(Protected)" in e for e in formset.non_form_errors())
+    assert models.Option.objects.filter(pk=red.pk).exists()
+    assert (protected[0], protected[1], "meaning") in CALLS
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_deleting_a_label_is_asked_as_presentational(shared, admin_client: Client):
+    """Mutation: OptionLabelAdmin._delete_group_ids returning [] asks nobody; red."""
+    _, _, label, protected, _ = shared
+    admin_client.post(reverse("admin:formkit_ninja_optionlabel_delete", args=[label.pk]), {"post": "yes"}, follow=True)
+    assert not models.OptionLabel.objects.filter(pk=label.pk).exists()
+    assert (protected[0], protected[1], "presentational") in CALLS
 
 
 # With no policy: exactly as before, and nobody is asked

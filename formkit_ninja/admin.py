@@ -1164,7 +1164,10 @@ class OptionGroupAdmin(OptionEditPolicyAdminMixin, admin.ModelAdmin):
         return 0
 
     def _delete_group_ids(self, obj) -> list[Any]:
-        """Deleting a group deletes its options."""
+        """
+        Deleting a group deletes its options. In practice this never refuses: a group any node
+        uses is protected by the node's foreign key, so a group that can be deleted has no forms.
+        """
         return [obj.pk]
 
 

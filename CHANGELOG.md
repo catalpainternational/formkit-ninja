@@ -32,8 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Option lists are covered by the same policy (#94).** An option group is shared, so an
   edit to one of its options asks the policy about every form node whose `option_group` is that
   group (with its `get_root()`), and the strictest wins: if any refuses, the edit is refused.
-  Changing an option's stored `value`, its `object_id` or its group, or deleting it (or its
-  group), is *meaning*; its order and its labels and translations are *presentational* and still
+  Changing an option's stored `value`, its `object_id` or its group, or deleting it, is
+  *meaning*; its order and its labels and translations are *presentational* and still
   asked about as that; adding an option is always allowed and asks nobody. Enforced in the
   option, option-group and option-label admins: save, inline edits, single delete and "delete
   selected". Options written by the importers (`SchemaImportService.import_options`,
@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`SchemaImportService`, `create_schema`, `add_schema_field`) are not checked. New in
   `schema_edits`: `classify_component_edit`, `component_edit_snapshot`,
   `forms_linked_by_component`, `component_edit_refusals`, `schema_delete_refusals`.
+  Deleting a node from the node admin also removes its links, but asks only the node's own
+  form, not every form a schema linking it renders.
 
 - `FormKitSchemaNode.get_root()` returns the top of a node's tree, and
   `FormKitSchemaNode.sync_promoted_props()` is the part of `save()` that reconciles the promoted
