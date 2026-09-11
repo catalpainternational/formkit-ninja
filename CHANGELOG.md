@@ -22,7 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Nodes are keyed the way FormKit files answers, never by id: the names of their named
   ancestors, then their own. Node ids differ between environments, and a name on its own is
   reused across forms and groups. Unnamed wrappers add nothing to that key, so wrapping a field
-  or moving it between wrappers leaves its key alone; the wrappers are still rebuilt, because
+  or moving it between wrappers leaves its key alone. (For an `$el` wrapper that matches how
+  FormKit files answers; an unnamed `$formkit` group gets a generated name that changes every
+  page load, so it is left out of the key deliberately.) The wrappers are still rebuilt, because
   every node also records its parent and position. A node with no name is keyed by its kind —
   its element tag, `text`, or its FormKit type — numbered within that kind under its nearest
   named ancestor, so inserting a heading does not renumber the wrappers around it. Heading text

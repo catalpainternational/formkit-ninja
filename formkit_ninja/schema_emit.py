@@ -9,10 +9,13 @@ earlier reading, or replayed next to the answers that were given against it.
 environments, so they cannot be the key. A node's key is the names of its
 *named* ancestors plus its own name: ``("TF_6_1_1", "projectoutput",
 "district")``. That is where FormKit files the answer, so the key means the same
-thing everywhere. Unnamed wrappers — an ``$el`` around some fields, an unnamed
-``$formkit`` group — are transparent: they add no segment, exactly as they add no
-level to the answers. Wrapping a field, unwrapping it, or moving it between two
-wrappers leaves its key alone.
+thing everywhere. Unnamed wrappers are transparent: they add no segment. For an
+``$el`` wrapper that is exactly what FormKit does — it adds no level to the
+answers. An unnamed ``$formkit`` group is different: FormKit files its children
+under a generated name like ``group_7``, from a counter that changes every time
+the page loads, so that name cannot be a key, and it is left out on purpose.
+Wrapping a field, unwrapping it, or moving it between two wrappers leaves its
+key alone.
 
 An unnamed node still needs a key of its own. It takes its kind — its element
 tag, ``text``, or its FormKit type — numbered in document order among unnamed
@@ -66,9 +69,6 @@ SCHEMA_PREFIX = "schema"
 
 #: What happened to one node between two readings of a form.
 ChangeKind = Literal["added", "changed", "moved", "removed"]
-
-#: Which kind of schema event a record is.
-EventKind = Literal["schema_snapshot", "schema_change"]
 
 #: A node's identity: its named ancestors' names, then its own name or ``$n``.
 NodeKey = tuple[str, ...]
@@ -346,7 +346,7 @@ def snapshot_schema(tree: Mapping[str, Any] | Sequence[Any], form_type: str) -> 
     return SchemaSnapshot(stream_path=schema_stream_path(form_type), form_type=form_type, nodes=tuple(schema_nodes(tree)))
 
 
-def diff_schema(before: Iterable[SchemaNode], after: Iterable[SchemaNode], form_type: str) -> list[SchemaChange]:
+def _diff_schema(before: Iterable[SchemaNode], after: Iterable[SchemaNode], form_type: str) -> list[SchemaChange]:
     """One change per node that differs between two readings of the same form.
 
     Removals come first, children before their parents. Then additions, edits
@@ -378,18 +378,23 @@ def diff_schema(before: Iterable[SchemaNode], after: Iterable[SchemaNode], form_
 
 def emit_schema(tree: Mapping[str, Any] | Sequence[Any], form_type: str, *, prior: Iterable[SchemaNode]) -> list[SchemaChange]:
     """The changes that take ``prior`` — the nodes as last recorded — to ``tree``."""
-    return diff_schema(prior, schema_nodes(tree), form_type)
+    return _diff_schema(prior, schema_nodes(tree), form_type)
 
 
-def apply_schema_events(events: Iterable[SchemaEvent], nodes: Iterable[SchemaNode] = ()) -> list[SchemaNode]:
-    """Fold ``events`` onto ``nodes``: the form as it stood after them.
+def apply_schema_events(events: Iterable[SchemaEvent]) -> list[SchemaNode]:
+    """Fold ``events``: the form as it stood after them.
 
     A snapshot replaces everything before it; a change adds, replaces or drops
     one node. The tree is rebuilt from each node's parent and position, so the
     wrappers come back too. Nodes are returned parents first, siblings in order
     — the same order :func:`schema_nodes` gives.
+
+    A node whose parent never appears raises ``ValueError``. This module's own
+    changes cannot produce one, but a stream read back from a store need not have
+    come from them — it may be truncated, or start without a snapshot — and a
+    node with no parent has no place in the tree to put it.
     """
-    by_key = {n.key: n for n in nodes}
+    by_key: dict[NodeKey, SchemaNode] = {}
     for event in events:
         if isinstance(event, SchemaSnapshot):
             by_key = {n.key: n for n in event.nodes}
@@ -410,9 +415,10 @@ def apply_schema_events(events: Iterable[SchemaEvent], nodes: Iterable[SchemaNod
             visit(node.key)
 
     visit(None)
-    # A node whose parent is gone cannot be placed; keep it rather than lose it.
     placed = {n.key for n in ordered}
-    ordered += sorted((n for n in by_key.values() if n.key not in placed), key=lambda n: n.key)
+    orphans = sorted(n.key for n in by_key.values() if n.key not in placed)
+    if orphans:
+        raise ValueError(f"schema stream is not a complete history: no parent for {orphans}")
     return ordered
 
 

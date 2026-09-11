@@ -36,8 +36,8 @@ exact-minor pin if you do.
   not wired up yet; it ships ahead of the migration that starts writing `$rank`.
 - `schema_emit` — a form's schema as values keyed the way FormKit files answers, never by id:
   `SchemaNode`, `SchemaSnapshot`, `SchemaChange`, `SchemaEvent`, `NodeKey`, `ChangeKind`,
-  `EventKind`, the `SchemaNodeRecord` / `SchemaSnapshotRecord` / `SchemaChangeRecord` JSON
-  shapes, `SchemaStreamSink`, `schema_nodes`, `snapshot_schema`, `diff_schema`, `emit_schema`,
+  the `SchemaNodeRecord` / `SchemaSnapshotRecord` / `SchemaChangeRecord` JSON
+  shapes, `SchemaStreamSink`, `schema_nodes`, `snapshot_schema`, `emit_schema`,
   `apply_schema_events`, `encode_schema_event`, `append_schema_events`,
   `schema_event_from_record`, `schema_stream_path` and `SCHEMA_PREFIX`. Provisional until a consumer has used it; a schema
   version will be added to it later.

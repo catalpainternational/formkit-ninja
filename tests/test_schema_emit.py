@@ -24,9 +24,9 @@ from formkit_ninja.schema_emit import (
     SchemaChange,
     SchemaEvent,
     SchemaNode,
+    _diff_schema,
     append_schema_events,
     apply_schema_events,
-    diff_schema,
     emit_schema,
     encode_schema_event,
     schema_event_from_record,
@@ -176,6 +176,16 @@ class TestChanges:
     def test_changing_heading_text_is_one_change(self):
         assert _changes(_tree("Budget", _field("a")), _tree("Costs", _field("a"))) == [("changed", (FORM, "$text0"))]
 
+    def test_an_edit_that_also_moves_is_a_change_carrying_the_new_place(self):
+        """Props are compared before position, so an edit plus a move is ``changed`` —
+        and ``after`` carries the new parent and position, which is what replay needs."""
+        before = _tree(_wrap(_field("a", label="old")), _wrap())
+        after = _tree(_wrap(), _wrap(_field("a", label="new")))
+        [change] = [c for c in emit_schema(after, FORM, prior=schema_nodes(before)) if c.key == (FORM, "a")]
+        assert change.change == "changed"
+        assert (change.before.parent, change.before.position) != (change.after.parent, change.after.position)
+        assert change.after.props["label"] == "new"
+
     def test_moving_a_field_between_wrappers_is_a_move(self):
         before = _tree(_wrap(_field("a"), _field("b")), _wrap())
         after = _tree(_wrap(_field("b")), _wrap(_field("a")))
@@ -206,8 +216,8 @@ class TestChanges:
 
     def test_additions_and_removals_mirror_each_other(self):
         one, two = schema_nodes(_tree(_field("a"))), schema_nodes(_tree(_field("b")))
-        assert {(c.change, c.key) for c in diff_schema(one, two, FORM)} == {("removed", (FORM, "a")), ("added", (FORM, "b"))}
-        assert {(c.change, c.key) for c in diff_schema(two, one, FORM)} == {("removed", (FORM, "b")), ("added", (FORM, "a"))}
+        assert {(c.change, c.key) for c in _diff_schema(one, two, FORM)} == {("removed", (FORM, "a")), ("added", (FORM, "b"))}
+        assert {(c.change, c.key) for c in _diff_schema(two, one, FORM)} == {("removed", (FORM, "b")), ("added", (FORM, "a"))}
 
 
 REPLAYS = {
@@ -247,6 +257,14 @@ class TestReplay:
             stream += emit_schema(tree, FORM, prior=prior)
             prior = schema_nodes(tree)
             assert apply_schema_events(stream) == prior
+
+    def test_a_stream_missing_a_parent_is_refused_not_guessed(self):
+        """A stream read back from a store need not be one this module wrote. A node
+        whose parent never appears has no place in the tree, so replay says so."""
+        added = emit_schema(_tree(_group("g", _field("x"))), FORM, prior=[])
+        truncated = [c for c in added if c.key != (FORM, "g")]
+        with pytest.raises(ValueError, match="no parent"):
+            apply_schema_events(truncated)
 
     def test_a_later_snapshot_replaces_what_came_before(self):
         stream: list[SchemaEvent] = [snapshot_schema(_tree(_field("a")), FORM), snapshot_schema(_tree(_field("b")), FORM)]
