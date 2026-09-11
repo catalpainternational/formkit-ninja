@@ -270,6 +270,32 @@ class TestReplay:
         stream: list[SchemaEvent] = [snapshot_schema(_tree(_field("a")), FORM), snapshot_schema(_tree(_field("b")), FORM)]
         assert apply_schema_events(stream) == schema_nodes(_tree(_field("b")))
 
+    def test_one_form_is_replayed_from_a_stream_shared_with_another(self):
+        """``FF_1_1`` and ``FF_11`` slug alike, so their events share ``schema/ff11``.
+        Each form's snapshot must not replace the other's on replay."""
+        one, two = "FF_1_1", "FF_11"
+        assert schema_stream_path(one) == schema_stream_path(two)
+        one_before, one_after = _tree(_field("a"), _field("b"), name=one), _tree(_field("b"), _wrap(_field("a")), name=one)
+        two_before, two_after = _tree(_group("g", _field("x")), name=two), _tree(_group("g"), _field("y", label="Y"), name=two)
+        stream: list[SchemaEvent] = [
+            snapshot_schema(one_before, one),
+            snapshot_schema(two_before, two),
+            *emit_schema(one_after, one, prior=schema_nodes(one_before)),
+            *emit_schema(two_after, two, prior=schema_nodes(two_before)),
+        ]
+        assert apply_schema_events(stream, form_type=one) == schema_nodes(one_after)
+        assert apply_schema_events(stream, form_type=two) == schema_nodes(two_after)
+        assert apply_schema_events(stream, form_type="SF_2_3") == []
+
+    def test_two_forms_with_no_form_type_are_refused_not_merged(self):
+        stream: list[SchemaEvent] = [snapshot_schema(_tree(_field("a"), name="FF_1_1"), "FF_1_1"), snapshot_schema(_tree(name="FF_11"), "FF_11")]
+        with pytest.raises(ValueError, match="two forms, 'FF_1_1' and 'FF_11'"):
+            apply_schema_events(stream)
+
+    def test_one_form_with_no_form_type_replays_as_before(self):
+        stream: list[SchemaEvent] = [snapshot_schema(_tree(_field("a")), FORM), *emit_schema(_tree(_field("b")), FORM, prior=schema_nodes(_tree(_field("a"))))]
+        assert apply_schema_events(stream) == apply_schema_events(stream, form_type=FORM) == schema_nodes(_tree(_field("b")))
+
 
 class TestJson:
     def test_every_event_survives_a_trip_through_json(self):
@@ -319,6 +345,14 @@ class TestSink:
         options = object()
         append_schema_events(store, [snapshot_schema(_field("a"), FORM)], options)
         assert store.appended[0][2] is options
+
+    def test_the_application_can_name_the_stream(self):
+        """The path helper is a default; the application writing the log owns the name."""
+        store = self._Store()
+        tree = _tree(_field("a"))
+        events: list[SchemaEvent] = [snapshot_schema(tree, FORM), *emit_schema(_tree(), FORM, prior=schema_nodes(tree))]
+        append_schema_events(store, events, "opts", stream_path="partisipa/schema/TF_6_1_1")
+        assert store.appended == [("partisipa/schema/TF_6_1_1", encode_schema_event(e), "opts") for e in events]
 
 
 @pytest.mark.django_db
