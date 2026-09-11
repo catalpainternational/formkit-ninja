@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-09-11
+
 ### Added
 
 - **`schema_emit` — a form's schema, described as a snapshot and a list of changes.** New
