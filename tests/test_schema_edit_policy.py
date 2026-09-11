@@ -86,6 +86,31 @@ def test_validation_change_is_refused_and_names_the_key(admin_client: Client, fo
 
 
 @override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_changing_a_promoted_column_through_the_api_is_refused(admin_client: Client, form):
+    """``min`` is a model column as well as a node key. The preview must re-sync the columns from
+    the edited node before comparing; a stale column would hide the change and let it through."""
+    group, _, _ = form
+    count = models.FormKitSchemaNode.objects.create(node_type="$formkit", label="Count", node={"$formkit": "number", "name": "count", "min": 0})
+    NodeChildren.objects.create(parent=group, child=count, order=3)
+    response = _update(admin_client, count, min=5)
+    assert response.status_code == HTTPStatus.FORBIDDEN, response.json()
+    assert "min" in response.json()["errors"][0]
+    count.refresh_from_db()
+    assert count.node["min"] == 0
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_moving_a_node_to_another_parent_through_the_api_is_refused(admin_client: Client, form):
+    group, _, town = form
+    other = models.FormKitSchemaNode.objects.create(node_type="$formkit", label="Other", node={"$formkit": "group", "name": "other"})
+    response = _update(admin_client, town, parent_id=str(other.pk))
+    assert response.status_code == HTTPStatus.FORBIDDEN, response.json()
+    assert response.json()["errors"][0].endswith("(field: parent)")
+    assert NodeChildren.objects.filter(parent=group, child=town).exists()
+    assert not NodeChildren.objects.filter(parent=other, child=town).exists()
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
 def test_create_is_refused(admin_client: Client, form):
     group, _, _ = form
     count = models.FormKitSchemaNode.objects.count()
@@ -279,3 +304,34 @@ def test_option_group_node_inline_asks_the_policy_about_node_type(admin_client: 
         assert response.status_code == HTTPStatus.FOUND
         assert (age.node_type, age.description) == ("$el", "Where you live")
         assert CALLS == []
+
+
+def _children_formset(response):
+    """The inline on a node's change page that lists its children."""
+    [formset] = [i.formset for i in response.context["inline_admin_formsets"] if i.formset.model is NodeChildren and i.formset.fk.name == "parent"]
+    return formset
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_admin_refuses_unlinking_a_child_and_saves_nothing(admin_client: Client, form):
+    group, _, _ = form
+    url = reverse("admin:formkit_ninja_formkitschemanode_change", args=[quote(group.pk)])
+    page = admin_client.get(url)
+    data, _ = _change_page_data(page)
+    data[f"{_children_formset(page).prefix}-0-DELETE"] = "on"
+    response = admin_client.post(url, data)
+    assert response.status_code == HTTPStatus.OK
+    [error] = _children_formset(response).non_form_errors()
+    assert error.endswith("(field: child)")
+    assert NodeChildren.objects.filter(parent=group).count() == 2
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_admin_allows_reordering_children(admin_client: Client, form):
+    group, _, _ = form
+    url = reverse("admin:formkit_ninja_formkitschemanode_change", args=[quote(group.pk)])
+    page = admin_client.get(url)
+    data, _ = _change_page_data(page)
+    data[f"{_children_formset(page).prefix}-0-order"] = "7"
+    response = admin_client.post(url, data)
+    assert response.status_code == HTTPStatus.FOUND, response.context and _children_formset(response).non_form_errors()

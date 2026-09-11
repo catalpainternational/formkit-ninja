@@ -42,8 +42,9 @@ exact-minor pin if you do.
   setting. The classifier says whether an edit to a form is *presentational* (a label, help
   text, an icon, sibling order) or changes what stored answers *mean* (anything else, including
   keys it has never seen). The setting is a dotted path to a callable
-  `(root_node, node, edit_class, request) -> bool`, asked before every edit through the API
-  and the admin; `node` is `None` for a new node, and a refused edit is a 403 or a form error.
+  `(root_node, node, edit_class, request) -> bool`, asked before every edit through the node
+  API and the node admin — not yet the schema and form-components pages (#99); `node` is
+  `None` for a new node, and a refused edit is a 403 or a form error.
   Unset, the default, nothing is checked. Which forms to protect is the application's call;
   the allowlist may grow in a minor release, but only in the direction of allowing more.
 

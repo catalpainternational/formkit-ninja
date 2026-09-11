@@ -103,6 +103,11 @@ def test_a_number_equals_its_string_form():
     assert classify_node_edit({**BASE, "min": 5}, {**BASE, "min": "6"}) == "meaning"
 
 
+def test_a_boolean_does_not_equal_its_string_form():
+    """Numbers equal their string form; booleans are kept distinct on purpose."""
+    assert classify_node_edit({**BASE, "readonly": True}, {**BASE, "readonly": "True"}) == "meaning"
+
+
 def test_additional_props_are_compared_key_by_key():
     before = {**BASE, "additional_props": {"icon": "a", "validationRules": "r"}}
     assert classify_node_edit(before, {**BASE, "additional_props": {"icon": "b", "validationRules": "r"}}) == "presentational"

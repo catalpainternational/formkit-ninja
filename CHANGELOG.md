@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **An application can now stop form edits that change what stored answers mean.** Twice a
-  form's meaning was changed through the editor with no migration and no record: an admin edit
-  dropped a validator from two fields, and a shell fix was applied by hand. New
+  form's meaning was changed with no migration and no record: an admin edit dropped a validator
+  from two fields, and a shell fix was applied by hand. This stops the first kind; a hand-run
+  script bypasses it by design. New
   `schema_edits.classify_node_edit` sorts an edit into *presentational* (label, help,
   placeholder, title, icon, description, add-label, CSS classes, up/down controls, sibling
   order) or *meaning* (everything else, including creating or deleting a field, moving it to
@@ -20,8 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (create/update, delete, reorder) and the node admin ask it first; a refused edit is a 403, or
   a form error in the admin, that names the fields and says to use a migration. Deleting from
   the admin, one node or several with "delete selected", is asked about node by node; if any
-  is refused, nothing is deleted and the admin says why. The option and option-group admin
-  pages are not covered yet: option groups are shared across forms and need their own design.
+  is refused, nothing is deleted and the admin says why. The node list on the option-group page
+  is covered. Not covered yet: editing the options themselves, and linking a top-level node to a
+  schema from the schema and form-components pages (#99).
 
   **Off by default.** With the setting unset nothing is classified and nothing is refused, so
   an application that does not opt in sees no change. Which forms are protected is the
