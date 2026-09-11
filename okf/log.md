@@ -15,3 +15,6 @@
   #93 (an application policy for schema edits). Update the concept pages when each merges.
 * **Note**: `tests/test_okf_bundle.py` checks every identifier in the Public API sections and
   every internal link, and its first run caught a cited method that had been removed.
+* **Update**: [Editing the schema](concepts/editing-the-schema.md) now describes the schema
+  edit policy as merged (#93, as f125fe01), and #99's extension of it to option lists, the
+  schema and form-components pages, and deleting a whole schema.

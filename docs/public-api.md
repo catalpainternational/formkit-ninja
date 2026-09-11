@@ -45,10 +45,21 @@ exact-minor pin if you do.
   text, an icon, sibling order) or changes what stored answers *mean* (anything else, including
   keys it has never seen). The setting is a dotted path to a callable
   `(root_node, node, edit_class, request) -> bool`, asked before every edit through the node
-  API and the node admin — not yet the schema and form-components pages (#99); `node` is
-  `None` for a new node, and a refused edit is a 403 or a form error.
+  API and the node admin, and on the option, schema and form-components admin pages as
+  described below; `node` is `None` for a new node, and a refused edit is a 403 or a form error.
   Unset, the default, nothing is checked. Which forms to protect is the application's call;
   the allowlist may grow in a minor release, but only in the direction of allowing more.
+  For option lists, `classify_option_edit` and `forms_using_option_group`: an edit to a
+  shared option asks the policy about every `(root, node)` using its group, and one refusal
+  refuses it. A changed or removed stored value is *meaning*, a label is *presentational*,
+  and adding an option is always allowed.
+  For the nodes a `FormKitSchema` is made of, `classify_component_edit` and
+  `forms_linked_by_component`: adding, removing or re-pointing a `FormComponents` link is
+  *meaning*, its order or label *presentational*, and the policy is asked about the linked
+  node's `get_root()` and every root the schema links; one refusal refuses it. Covered on the
+  schema page's component inline and in the form components admin (save, single delete and
+  "delete selected"). Deleting a whole schema from its admin (single or "delete selected") is
+  *meaning* for every root it links, via `schema_delete_refusals`.
 
 - `form_submission.wire` — `ContentEvent`, `ContentEventRequired`, `CONTENT_EVENT_KEYS`,
   `REQUIRED_CONTENT_EVENT_KEYS`: the part of a content event this library can vouch for, for a

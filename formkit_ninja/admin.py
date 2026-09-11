@@ -29,12 +29,23 @@ from formkit_ninja.form_submission.models import (
     SubmissionFile,
 )
 from formkit_ninja.schema_edits import (
+    COMPONENT_PRESENTATIONAL_KEYS,
+    OPTION_PRESENTATIONAL_KEYS,
     EditClass,
+    classify_component_edit,
+    classify_option_edit,
+    component_edit_refusals,
+    component_edit_snapshot,
+    component_refusal_message,
     get_schema_edit_policy,
     link_edit_snapshot,
     meaning_keys,
     node_edit_snapshot,
+    option_edit_snapshot,
+    option_group_edit_refusals,
+    option_refusal_message,
     refusal_message,
+    schema_delete_refusals,
     schema_edit_allowed,
 )
 from formkit_ninja.utils import short_uuid
@@ -254,17 +265,6 @@ class FormComponentsForm(forms.ModelForm):
         exclude = ()
 
 
-class FormKitSchemaComponentInline(admin.TabularInline):
-    model = models.FormComponents
-    readonly_fields = (
-        "node",
-        "created_by",
-        "updated_by",
-    )
-    ordering = ("order",)
-    extra = 0
-
-
 class FormKitNodeGroupForm(FormKitBaseForm):
     class Meta:
         model = models.FormKitSchemaNode
@@ -479,6 +479,54 @@ class SchemaEditPolicyInlineMixin:
         return formset
 
 
+class SchemaEditPolicyDeleteMixin:
+    """
+    For a ModelAdmin: with a schema edit policy configured, a single delete or "delete
+    selected" asks ``_delete_refusal`` first. If it returns a reason, nothing is deleted and
+    the admin says why. With no policy configured, deleting is exactly as before.
+    """
+
+    def _delete_refusal(self, request: HttpRequest, objs) -> tuple[str, list[str]] | None:
+        """``(reason, names of the refused objects)``, or ``None`` when the delete is allowed."""
+        raise NotImplementedError
+
+    def delete_view(self, request, object_id, extra_context=None):
+        """Refuse, with a message and back on the change page, a delete the policy does not allow."""
+        if get_schema_edit_policy() is not None:
+            obj = self.get_object(request, unquote(object_id))  # type: ignore[attr-defined]
+            refusal = self._delete_refusal(request, [obj]) if obj is not None else None
+            if refusal is not None:
+                self.message_user(request, refusal[0], messages.ERROR)  # type: ignore[attr-defined]
+                opts = self.opts  # type: ignore[attr-defined]
+                change_url = reverse(f"admin:{opts.app_label}_{opts.model_name}_change", args=(quote(obj.pk),), current_app=self.admin_site.name)  # type: ignore[attr-defined]
+                return HttpResponseRedirect(change_url)
+        return super().delete_view(request, object_id, extra_context)  # type: ignore[misc]
+
+    def get_actions(self, request):
+        """With a policy configured, "delete selected" deletes nothing if the policy refuses any of them."""
+        actions = super().get_actions(request)  # type: ignore[misc]
+        if get_schema_edit_policy() is not None and "delete_selected" in actions:
+            delete_selected, name, description = actions["delete_selected"]
+
+            def delete_selected_if_allowed(modeladmin, request, queryset):
+                refusal = modeladmin._delete_refusal(request, queryset)
+                if refusal is not None:
+                    reason, names = refusal
+                    modeladmin.message_user(request, f"{reason}. Nothing was deleted; refused: {', '.join(names)}", messages.ERROR)
+                    return None
+                return delete_selected(modeladmin, request, queryset)
+
+            actions["delete_selected"] = (delete_selected_if_allowed, name, description)
+        return actions
+
+
+def with_schema_edit_policy(form: type[forms.ModelForm[Any]], mixin: type, request: HttpRequest) -> type[forms.ModelForm[Any]]:
+    """``form`` with the policy ``mixin`` in front, when a policy is configured; otherwise ``form`` untouched."""
+    if get_schema_edit_policy() is None:
+        return form
+    return type(form.__name__, (mixin, form), {"schema_edit_request": request, "__module__": form.__module__})
+
+
 class NodeChildrenInline(SchemaEditPolicyInlineMixin, admin.TabularInline):
     """
     Nested HTML elements
@@ -562,6 +610,84 @@ class NodeInline(SchemaEditPolicyInlineMixin, admin.StackedInline):
     extra = 0
 
 
+def _component_edit(form: forms.ModelForm, deleting: bool = False) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """One ``FormComponents`` form's edit as ``(before, after)`` snapshots; ``None`` for a create or a delete."""
+    instance = form.instance
+    before = None if instance._state.adding else component_edit_snapshot(models.FormComponents.objects.get(pk=instance.pk))
+    after = None if deleting else component_edit_snapshot(instance)
+    return before, after
+
+
+def _component_refusal(before: dict[str, Any] | None, after: dict[str, Any] | None, request: HttpRequest | None) -> str | None:
+    """Why the policy refuses this ``FormComponents`` edit, or ``None`` when it is allowed."""
+    edit_class = classify_component_edit(before, after)
+    refused = component_edit_refusals(before, after, edit_class, request)
+    if not refused:
+        return None
+    keys = [] if before is None or after is None else meaning_keys(before, after, COMPONENT_PRESENTATIONAL_KEYS, nested={})
+    return component_refusal_message(edit_class, refused, keys, created=before is None, deleted=after is None)
+
+
+class ComponentEditPolicyFormMixin(forms.ModelForm):
+    """
+    Asks the policy about a ``FormComponents`` link before it is saved: of the linked node's
+    form and of every form the schema links. Refuses the edit as a form error if any refuses.
+    Mixed in by ``with_schema_edit_policy`` only when a policy is configured.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def _post_clean(self) -> None:
+        super()._post_clean()  # type: ignore[misc]
+        if get_schema_edit_policy() is None or self.errors:
+            return
+        refusal = _component_refusal(*_component_edit(self), self.schema_edit_request)
+        if refusal is not None:
+            self.add_error(None, refusal)
+
+
+class ComponentEditPolicyFormSet(forms.BaseInlineFormSet):
+    """
+    Asks the policy about each ``FormComponents`` link edited or deleted in the schema page's
+    inline. Removing a link is a meaning change; changing its order or label is presentational.
+    If the policy refuses any of them the formset is invalid, so the admin saves nothing.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def clean(self) -> None:
+        super().clean()
+        if get_schema_edit_policy() is None or self.instance is None or self.instance.pk is None:
+            return
+        refusals: list[str] = []
+        for form in self.forms:
+            cleaned = getattr(form, "cleaned_data", None)
+            if cleaned is None:
+                continue
+            deleting = bool(self.can_delete and cleaned.get("DELETE"))
+            if not deleting and not form.has_changed():
+                continue
+            if deleting and form.instance._state.adding:
+                continue
+            refusal = _component_refusal(*_component_edit(form, deleting=deleting), self.schema_edit_request)
+            if refusal is not None and refusal not in refusals:
+                refusals.append(refusal)
+        if refusals:
+            raise forms.ValidationError(refusals)
+
+
+class FormKitSchemaComponentInline(SchemaEditPolicyInlineMixin, admin.TabularInline):
+    model = models.FormComponents
+    formset = ComponentEditPolicyFormSet
+    readonly_fields = (
+        "node",
+        "created_by",
+        "updated_by",
+    )
+    ordering = ("order",)
+    extra = 0
+
+
 class SchemaLabelInline(admin.TabularInline):
     model = models.SchemaLabel
     extra = 0
@@ -609,7 +735,7 @@ NODE_CONFIG: dict[type | str, dict[str, Any]] = {
 
 
 @admin.register(models.FormKitSchemaNode)
-class FormKitSchemaNodeAdmin(admin.ModelAdmin):
+class FormKitSchemaNodeAdmin(SchemaEditPolicyDeleteMixin, admin.ModelAdmin):
     list_display = (
         "label",
         "title",
@@ -664,39 +790,12 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
     def get_inlines(self, request, obj: models.FormKitSchemaNode | None):
         return [NodeChildrenInline, NodeParentsInline] if obj else []
 
-    def _refused_deletes(self, request: HttpRequest, nodes) -> list[models.FormKitSchemaNode]:
-        """The nodes the schema edit policy will not let this request delete (a delete is a meaning change)."""
-        if get_schema_edit_policy() is None:
-            return []
-        return [node for node in nodes if not schema_edit_allowed(node.get_root(), node, "meaning", request)]
-
-    def delete_view(self, request, object_id, extra_context=None):
-        """Refuse, with a message and back on the change page, a delete the policy does not allow."""
-        if get_schema_edit_policy() is not None:
-            obj = self.get_object(request, unquote(object_id))
-            if obj is not None and self._refused_deletes(request, [obj]):
-                self.message_user(request, refusal_message("meaning", deleted=True), messages.ERROR)
-                opts = self.opts
-                change_url = reverse(f"admin:{opts.app_label}_{opts.model_name}_change", args=(quote(obj.pk),), current_app=self.admin_site.name)
-                return HttpResponseRedirect(change_url)
-        return super().delete_view(request, object_id, extra_context)
-
-    def get_actions(self, request):
-        """With a policy configured, "delete selected" deletes nothing if the policy refuses any of the nodes."""
-        actions = super().get_actions(request)
-        if get_schema_edit_policy() is not None and "delete_selected" in actions:
-            delete_selected, name, description = actions["delete_selected"]
-
-            def delete_selected_if_allowed(modeladmin, request, queryset):
-                refused = modeladmin._refused_deletes(request, queryset)
-                if refused:
-                    names = ", ".join(str(node) for node in refused)
-                    modeladmin.message_user(request, f"{refusal_message('meaning', deleted=True)}. Nothing was deleted; refused: {names}", messages.ERROR)
-                    return None
-                return delete_selected(modeladmin, request, queryset)
-
-            actions["delete_selected"] = (delete_selected_if_allowed, name, description)
-        return actions
+    def _delete_refusal(self, request: HttpRequest, objs) -> tuple[str, list[str]] | None:
+        """A delete is a meaning change: refuse it if the policy refuses any of the nodes."""
+        refused = [node for node in objs if not schema_edit_allowed(node.get_root(), node, "meaning", request)]
+        if not refused:
+            return None
+        return refusal_message("meaning", deleted=True), [str(node) for node in refused]
 
     def get_fieldsets(self, request: HttpRequest, obj: models.FormKitSchemaNode | None = None):
         if not obj:
@@ -824,10 +923,7 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
             return format_html('<div style="color: red;">Error generating JSON preview: {}</div>', str(e))
 
     def get_form(self, request: HttpRequest, obj: Any | None = None, change: bool = False, **kwargs: Any) -> type[forms.ModelForm[Any]]:
-        form = self._get_node_form(request, obj, **kwargs)
-        if get_schema_edit_policy() is None:
-            return form
-        return type(form.__name__, (SchemaEditPolicyFormMixin, form), {"schema_edit_request": request, "__module__": form.__module__})
+        return with_schema_edit_policy(self._get_node_form(request, obj, **kwargs), SchemaEditPolicyFormMixin, request)
 
     def _get_node_form(self, request: HttpRequest, obj: Any | None = None, **kwargs: Any) -> type[forms.ModelForm[Any]]:
         if not obj:
@@ -843,8 +939,21 @@ class FormKitSchemaNodeAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.FormKitSchema)
-class FormKitSchemaAdmin(admin.ModelAdmin):
+class FormKitSchemaAdmin(SchemaEditPolicyDeleteMixin, admin.ModelAdmin):
     form = FormKitSchemaForm
+
+    def _delete_refusal(self, request: HttpRequest, objs) -> tuple[str, list[str]] | None:
+        """Deleting a schema removes every node it links: refuse it if the policy of any of their forms refuses."""
+        refused_roots: list[Any] = []
+        refused_objs: list[str] = []
+        for obj in objs:
+            refused = schema_delete_refusals(obj.pk, request)
+            if refused:
+                refused_roots.extend(root for root in refused if root not in refused_roots)
+                refused_objs.append(str(obj))
+        if not refused_objs:
+            return None
+        return component_refusal_message("meaning", refused_roots, deleted=True), refused_objs
 
     def get_inlines(self, request, obj: models.FormKitSchema | None):
         """
@@ -871,7 +980,7 @@ class FormKitSchemaAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.FormComponents)
-class FormComponentsAdmin(admin.ModelAdmin):
+class FormComponentsAdmin(SchemaEditPolicyDeleteMixin, admin.ModelAdmin):
     list_display = (
         "label",
         "schema",
@@ -879,21 +988,147 @@ class FormComponentsAdmin(admin.ModelAdmin):
         "order",
     )
 
+    def get_form(self, request: HttpRequest, obj: Any | None = None, change: bool = False, **kwargs: Any) -> type[forms.ModelForm[Any]]:
+        return with_schema_edit_policy(super().get_form(request, obj, change=change, **kwargs), ComponentEditPolicyFormMixin, request)
 
-class OptionLabelInline(admin.TabularInline):
+    def _delete_refusal(self, request: HttpRequest, objs) -> tuple[str, list[str]] | None:
+        """Removing a link is a meaning change: refuse it if the policy of any form it touches refuses."""
+        refused_roots: list[Any] = []
+        refused_objs: list[str] = []
+        for obj in objs:
+            refused = component_edit_refusals(component_edit_snapshot(obj), None, "meaning", request)
+            if refused:
+                refused_roots.extend(root for root in refused if root not in refused_roots)
+                refused_objs.append(str(obj))
+        if not refused_objs:
+            return None
+        return component_refusal_message("meaning", refused_roots, deleted=True), refused_objs
+
+
+def _option_form_edit(form: forms.ModelForm, deleting: bool = False) -> tuple[EditClass, list[str], Any] | None:
+    """
+    One option or option-label form's edit as ``(class, meaning keys, group id)``, or ``None``
+    for adding an option, which is always allowed. An option's value, source id or group, or
+    deleting it, is a meaning change; its order, and any label or translation, presentational.
+    ``None`` too for any other model: the option-group page's own form (its name and content
+    type) is not an option edit, and the nodes on that page have their own check.
+    """
+    instance = form.instance
+    if not isinstance(instance, (models.Option, models.OptionLabel)):
+        return None
+    if isinstance(instance, models.OptionLabel):
+        return "presentational", [], instance.option.group_id if instance.option_id else None
+    before = None if instance._state.adding else option_edit_snapshot(models.Option.objects.get(pk=instance.pk))
+    after = None if deleting else option_edit_snapshot(instance)
+    edit_class = classify_option_edit(before, after)
+    if before is None and edit_class == "presentational":
+        return None
+    keys = [] if before is None or after is None else meaning_keys(before, after, OPTION_PRESENTATIONAL_KEYS, nested={})
+    return edit_class, keys, (before or after or {}).get("group")
+
+
+class OptionEditPolicyFormMixin(forms.ModelForm):
+    """
+    Asks the policy of every form using the option's group before an option or option label is
+    saved, and refuses the edit as a form error if any refuses. Mixed in by
+    ``with_schema_edit_policy`` only when a policy is configured.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def _post_clean(self) -> None:
+        super()._post_clean()  # type: ignore[misc]
+        if get_schema_edit_policy() is None or self.errors:
+            return
+        edit = _option_form_edit(self)
+        if edit is None:
+            return
+        edit_class, keys, group_id = edit
+        refused = option_group_edit_refusals(group_id, edit_class, self.schema_edit_request)
+        if refused:
+            self.add_error(None, option_refusal_message(edit_class, refused, keys))
+
+
+class OptionEditPolicyFormSet(forms.BaseInlineFormSet):
+    """
+    Asks the policy about the options (or option labels) edited, added or deleted in an inline,
+    group by group; if any form using a group refuses, nothing in the inline is saved.
+    """
+
+    schema_edit_request: HttpRequest | None = None
+
+    def clean(self) -> None:
+        super().clean()
+        if get_schema_edit_policy() is None or self.instance is None or self.instance.pk is None:
+            return
+        by_group: dict[Any, tuple[EditClass, set[str], bool]] = {}
+        for form in self.forms:
+            cleaned = getattr(form, "cleaned_data", None)
+            if cleaned is None:
+                continue
+            deleting = bool(self.can_delete and cleaned.get("DELETE"))
+            if not deleting and not form.has_changed():
+                continue
+            if deleting and form.instance._state.adding:
+                continue
+            edit = _option_form_edit(form, deleting=deleting)
+            if edit is None:
+                continue
+            edit_class, keys, group_id = edit
+            worst, all_keys, any_delete = by_group.get(group_id, ("presentational", set(), False))
+            if edit_class == "meaning":
+                worst = "meaning"
+            by_group[group_id] = (worst, all_keys | set(keys), any_delete or (deleting and isinstance(form.instance, models.Option)))
+        for group, (group_class, group_keys, deleted) in by_group.items():
+            refused = option_group_edit_refusals(group, group_class, self.schema_edit_request)
+            if refused:
+                raise forms.ValidationError(option_refusal_message(group_class, refused, sorted(group_keys), deleted=deleted and not group_keys))
+
+
+class OptionEditPolicyAdminMixin(SchemaEditPolicyDeleteMixin):
+    """The schema edit policy for the option, option-group and option-label admins: saves and deletes."""
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        return with_schema_edit_policy(super().get_form(request, obj, change=change, **kwargs), OptionEditPolicyFormMixin, request)  # type: ignore[misc]
+
+    def _delete_group_ids(self, obj) -> list[Any]:
+        raise NotImplementedError
+
+    _delete_class: EditClass = "meaning"
+
+    def _delete_refusal(self, request: HttpRequest, objs) -> tuple[str, list[str]] | None:
+        refused_roots: list[Any] = []
+        refused_objs: list[str] = []
+        asked: dict[Any, list[Any]] = {}
+        for obj in objs:
+            for group_id in self._delete_group_ids(obj):
+                if group_id not in asked:
+                    asked[group_id] = option_group_edit_refusals(group_id, self._delete_class, request)
+                if asked[group_id]:
+                    refused_roots.extend(root for root in asked[group_id] if root not in refused_roots)
+                    if str(obj) not in refused_objs:
+                        refused_objs.append(str(obj))
+        if not refused_objs:
+            return None
+        return option_refusal_message(self._delete_class, refused_roots, deleted=self._delete_class == "meaning"), refused_objs
+
+
+class OptionLabelInline(SchemaEditPolicyInlineMixin, admin.TabularInline):
     model = models.OptionLabel
+    formset = OptionEditPolicyFormSet
     extra = 0
 
 
-class OptionInline(admin.TabularInline):
+class OptionInline(SchemaEditPolicyInlineMixin, admin.TabularInline):
     model = models.Option
+    formset = OptionEditPolicyFormSet
     extra = 0
     fields = ("group", "object_id", "value", "order")
     readonly_fields = ("group", "object_id", "value")
 
 
 @admin.register(models.Option)
-class OptionAdmin(admin.ModelAdmin):
+class OptionAdmin(OptionEditPolicyAdminMixin, admin.ModelAdmin):
     list_display = (
         "object_id",
         "value",
@@ -909,9 +1144,13 @@ class OptionAdmin(admin.ModelAdmin):
     date_hierarchy = "last_updated"
     readonly_fields = ("group", "object_id", "value", "created_by", "updated_by")
 
+    def _delete_group_ids(self, obj) -> list[Any]:
+        """Deleting an option changes what answers mean in every form using its group."""
+        return [obj.group_id]
+
 
 @admin.register(models.OptionGroup)
-class OptionGroupAdmin(admin.ModelAdmin):
+class OptionGroupAdmin(OptionEditPolicyAdminMixin, admin.ModelAdmin):
     list_display = ("group", "content_type", "option_count")
     search_fields = ("group",)
     list_filter = ("content_type",)
@@ -924,9 +1163,13 @@ class OptionGroupAdmin(admin.ModelAdmin):
             return obj.option_set.count()
         return 0
 
+    def _delete_group_ids(self, obj) -> list[Any]:
+        """Deleting a group deletes its options."""
+        return [obj.pk]
+
 
 @admin.register(models.OptionLabel)
-class OptionLabelAdmin(admin.ModelAdmin):
+class OptionLabelAdmin(OptionEditPolicyAdminMixin, admin.ModelAdmin):
     list_display = (
         "label",
         "lang",
@@ -937,6 +1180,12 @@ class OptionLabelAdmin(admin.ModelAdmin):
     list_filter = ("lang", "option__group")
     list_select_related = ("option", "option__group")
     list_per_page = 50
+
+    # A label or translation is presentational: deleting one is still asked about, as that.
+    _delete_class: EditClass = "presentational"
+
+    def _delete_group_ids(self, obj) -> list[Any]:
+        return [obj.option.group_id]
 
 
 # NOTE: SeparatedSubmission and Submission are imported at the top of the file
