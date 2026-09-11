@@ -9,13 +9,13 @@ earlier reading, or replayed next to the answers that were given against it.
 environments, so they cannot be the key. A node's key is the names of its
 *named* ancestors plus its own name: ``("TF_6_1_1", "projectoutput",
 "district")``. That is where FormKit files the answer, so the key means the same
-thing everywhere. Unnamed wrappers are transparent: they add no segment. For an
-``$el`` wrapper that is exactly what FormKit does — it adds no level to the
-answers. An unnamed ``$formkit`` group is different: FormKit files its children
-under a generated name like ``group_7``, from a counter that changes every time
-the page loads, so that name cannot be a key, and it is left out on purpose.
-Wrapping a field, unwrapping it, or moving it between two wrappers leaves its
-key alone.
+thing everywhere. Unnamed wrappers — an ``$el`` around some fields, an unnamed
+``$formkit`` group — are transparent: they add no segment, because stored
+submissions file their children at the level of the nearest named ancestor.
+FormKit does give an unnamed group a generated name (``group_N``, from a counter
+that changes between renders), but that name is never what an answer is stored
+under, so it never reaches a key. Wrapping a field, unwrapping it, or moving it
+between two wrappers leaves its key alone.
 
 An unnamed node still needs a key of its own. It takes its kind — its element
 tag, ``text``, or its FormKit type — numbered in document order among unnamed
