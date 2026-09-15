@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-09-15
+
+Major because the package now requires **Pydantic v2 and django-ninja 1.x**.
+Installing this version forces both upgrades on the consuming project, and
+`ninja.Schema` subclasses in consumer code must move to v2 syntax. The
+`FormKitNodeFactory` change below is breaking on its own account.
+
+### Fixed
 
 - **`GET /api/formkit/options` no longer 500s when `settings.LANGUAGES` differs
   from tet/en/pt.** `label_tet`/`label_en`/`label_pt` were declared `str | None`
@@ -41,7 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NodeRegistry` explicitly invites — had its fields misfiled into
   `additional_props`. Now cached against the class set it was built from. (#71)
 
-
 - **Reordering a node's children is now visible to incremental clients, and
   `reorder_node_children` can actually succeed.** `NodeChildren.track_change`
   was stamped from its own Postgres sequence, `nodechildren_change_id`, which no
@@ -65,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   version — computed by one expression that both the endpoint and the token
   check now share.
 
-  Migration `0050` re-points the trigger and `setval`s the node sequence past any
+  Migration `0054` re-points the trigger and `setval`s the node sequence past any
   value already stored on a link row. **Existing rows are deliberately not
   re-stamped**: that would mark every relation as changed and force a full
   re-fetch on every client, and the `setval` is what makes it unnecessary.
@@ -98,6 +105,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   won: `_serialize` merges `additional_props` last. Field names and aliases are
   now resolved together by `formkit_schema.model_key_names`, shared with
   `schema_props`.
+
+- **`FormKitNodeFactory` no longer drops arbitrary props on its fast path.**
+  When a node's `$formkit` type was in the registry, the factory validated
+  against that class directly, which fills only declared fields — so every
+  unrecognised FormKit prop was silently discarded. The same input routed
+  through the fallback (`FormKitNode.parse_obj`) kept them. Both paths now
+  produce identical output.
+
+- **`FormKitNodeFactory` now uses the registry it was constructed with.**
+  `from_dict`/`from_json` were `staticmethod`s reading the module-level
+  `default_registry`, so a `NodeRegistry` passed to `__init__` was accepted and
+  then ignored.
+
+### Changed
+
+- **`FormKitNodeFactory.from_dict` and `.from_json` are instance methods.**
+  They were `staticmethod`s; call them on an instance
+  (`FormKitNodeFactory().from_dict(...)`) or use the new
+  `formkit_ninja.parser.node_factory.default_factory` singleton, which reads the
+  same `default_registry` the old staticmethods did. This is what makes the
+  constructor's `registry` argument meaningful. A call left in the old form fails
+  at runtime, not at import, with
+  `TypeError: FormKitNodeFactory.from_dict() missing 1 required positional argument: 'data'`.
+
+### Removed
+
+- **Unused Pydantic-v1-era leftovers in `formkit_schema`.** `HtmlAttrs`,
+  `ChildNodeType`, the empty `FormKitTypeDefinition` stub, and
+  `FormKitContextShape` (whose `_value` field v2 treats as a private attribute
+  and drops) had no references in the package, its tests, or its docs. The
+  blocks of commented-out `update_forward_refs()` calls went with them —
+  Pydantic v2 resolves these forward references lazily.
+
 ## [4.4.0] - 2026-09-11
 
 ### Added
@@ -527,18 +567,6 @@ what it says when it refuses.
   group-less option rather than serialised as `null`; grouped rows are
   unchanged. (#64)
 
-- **`FormKitNodeFactory` no longer drops arbitrary props on its fast path.**
-  When a node's `$formkit` type was in the registry, the factory validated
-  against that class directly, which fills only declared fields — so every
-  unrecognised FormKit prop was silently discarded. The same input routed
-  through the fallback (`FormKitNode.parse_obj`) kept them. Both paths now
-  produce identical output.
-
-- **`FormKitNodeFactory` now uses the registry it was constructed with.**
-  `from_dict`/`from_json` were `staticmethod`s reading the module-level
-  `default_registry`, so a `NodeRegistry` passed to `__init__` was accepted and
-  then ignored.
-
 - **A `$cmp` component node no longer stores its own discriminator a second
   time in `additional_props`.** `FormKitNode.parse_obj` carried a private copy
   of the structural-key set that listed `$el` and `$formkit` but omitted
@@ -551,22 +579,7 @@ what it says when it refuses.
   all along. No migration is required: existing rows carrying the stray key
   merge it back to the same value it already has.
 
-### Changed
-
-- **`FormKitNodeFactory.from_dict` and `.from_json` are instance methods.**
-  They were `staticmethod`s; call them on an instance
-  (`FormKitNodeFactory().from_dict(...)`) or use the new
-  `node_factory.default_factory` singleton. This is what makes the
-  constructor's `registry` argument meaningful.
-
 ### Removed
-
-- **Unused Pydantic-v1-era leftovers in `formkit_schema`.** `HtmlAttrs`,
-  `ChildNodeType`, the empty `FormKitTypeDefinition` stub, and
-  `FormKitContextShape` (whose `_value` field v2 treats as a private attribute
-  and drops) had no references in the package, its tests, or its docs. The
-  blocks of commented-out `update_forward_refs()` calls went with them —
-  Pydantic v2 resolves these forward references lazily.
 
 - **`formkit_schema.FormKitTagParser` has been removed.** It reversed a
   copy-pasted HTML `<formkit>` snippet back into schema nodes — a development
