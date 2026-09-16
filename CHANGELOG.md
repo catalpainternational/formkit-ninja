@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an application sends those and `import_monitoring` records them, which is how the
   import-status columns get their data.
 
+### Added
+
+- A check that every `formkit_ninja` import shown in `docs/` or in a repo-root guide
+  resolves against the module it is imported from, so a page cannot again tell a reader
+  to import something that does not exist. It reads import statements only: a method
+  call, a decorator or a claim made in prose is still invisible to it.
+
 ## [5.0.0] - 2026-09-17
 
 Major because the package now requires **Pydantic v2 and django-ninja 1.x**.
