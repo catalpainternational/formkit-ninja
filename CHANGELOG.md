@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [5.0.0] - 2026-09-15
+## [5.0.0] - 2026-09-17
 
 Major because the package now requires **Pydantic v2 and django-ninja 1.x**.
 Installing this version forces both upgrades on the consuming project, and
