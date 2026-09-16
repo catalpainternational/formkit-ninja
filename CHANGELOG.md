@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that re-running the split fires `post_save` on every derived row — the split is
   change-aware, so rebuilding by hand needs `force=True`.
 
+### Removed
+
+- **`form_submission.signals.submission_received`**, which nothing ever sent — not this
+  library and not any known consumer. `import_success` and `import_error` are unaffected:
+  an application sends those and `import_monitoring` records them, which is how the
+  import-status columns get their data.
+
 ## [5.0.0] - 2026-09-17
 
 Major because the package now requires **Pydantic v2 and django-ninja 1.x**.

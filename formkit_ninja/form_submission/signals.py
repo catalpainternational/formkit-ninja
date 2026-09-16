@@ -1,21 +1,21 @@
-"""
-Custom Django signals for form_submission app.
+"""Signals an application sends to record what its importer did.
 
-These signals allow other apps to react to form submission events
-without requiring direct imports from form_submission.
+These are a rendezvous point, not a notification this library emits. Only the
+application knows whether populating its own typed model from a
+``SeparatedSubmission`` succeeded, so the application sends these and
+:mod:`formkit_ninja.form_submission.import_monitoring` receives them and writes
+the ``SeparatedSubmissionImport`` row that the import-status queryset methods and
+the admin columns read.
+
+Sending them is optional; the split works either way.
 """
 
 from django.dispatch import Signal
 
-# Signal emitted when a Submission is created or updated
-# Provides: instance, created
-submission_received = Signal()
-
-
-# Signal emitted after a SeparatedSubmission is successfully imported to a model
-# Provides: instance, model_instance, was_created
+#: Sent by the application when its importer populated a model from a
+#: ``SeparatedSubmission``. Provides: ``instance``, ``model_instance``, ``was_created``.
 import_success = Signal()
 
-# Signal emitted when a SeparatedSubmission import fails
-# Provides: instance, error
+#: Sent by the application when its importer raised while doing so.
+#: Provides: ``instance``, ``error``.
 import_error = Signal()
