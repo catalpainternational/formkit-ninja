@@ -167,10 +167,11 @@ Comprehensive test suite for all new commands.
 - Input fields become model fields
 - Relationships are automatically created
 
-**Automatic Signal Handling**
-- `signals.py` contains handlers for `separated_submission_created`
-- Handlers automatically call `to_model()` on SeparatedSubmission
-- Data flows from JSON → Submission → SeparatedSubmission → Django Models
+**Signal Handling (yours to wire)**
+- Your app connects a `post_save` receiver on `Submission` that calls
+  `SeparatedSubmission.objects.from_submission(instance)` — the library does not
+- Populating your own Django models from those rows is your importer's job
+- Data flows from JSON → Submission → SeparatedSubmission → your Django models
 
 **Code Generation**
 - Uses existing `CodeGenerator` infrastructure
@@ -263,13 +264,14 @@ field_name = node_data.get("name")
 
 ### Signal Handler Pattern
 ```python
-@receiver(separated_submission_created)
-def handle_separated_submission(sender, instance, created, **kwargs):
-    """Automatically populate Django models from submissions."""
-    model_instance, was_created = instance.to_model(models_module=models)
-    if model_instance:
-        logger.info(f"Populated {model_instance.__class__.__name__}")
+@receiver(post_save, sender=Submission)
+def split_submission(sender, instance, **kwargs):
+    """Derive the SeparatedSubmission rows. Nothing does this until you wire it."""
+    SeparatedSubmission.objects.from_submission(instance)
 ```
+
+See [docs/submission_architecture.md](docs/submission_architecture.md) for the whole
+arrangement, including how to record import outcomes.
 
 ## Future Enhancements
 

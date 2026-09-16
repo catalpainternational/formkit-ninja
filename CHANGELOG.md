@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The submission architecture page now describes what the code does.** It had told a
+  reader to connect a `separated_submission_created` signal, import an
+  `auto_populate_model` handler and call `SeparatedSubmission.to_model()`. All three were
+  real once and all three were deleted together in the February 2026 signals re-work; the
+  page was never updated to match, so for seven months anyone following it got an
+  `ImportError` on their first line. The page now documents the arrangement that actually
+  works: your `post_save` receiver derives the rows, and your importer sends
+  `import_success` / `import_error` for the library to record. It also no longer claims
+  that re-running the split fires `post_save` on every derived row — the split is
+  change-aware, so rebuilding by hand needs `force=True`.
+
 ## [5.0.0] - 2026-09-17
 
 Major because the package now requires **Pydantic v2 and django-ninja 1.x**.

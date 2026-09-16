@@ -1,140 +1,53 @@
 # Submission Architecture
 
-This document explains the "Passive Signal-Based Architecture" used by `formkit-ninja` for handling form submissions, data normalization, and model population.
+How a submitted document becomes rows, and where an application hooks into that.
 
 ## Concept
 
-`formkit-ninja` decouples **Data Ingestion** (receiving JSON) from **Model Population** (saving to Django tables). This ensures that:
+`formkit-ninja` separates **storing** a submission from **deriving** anything out of it.
+A `Submission` row is the canonical document: it is saved first, saved whole, and saved
+even if everything downstream fails. Deriving `SeparatedSubmission` rows from it, and
+populating an application's own typed tables from those, happen afterwards and are the
+application's call.
 
-1.  **Data Safety**: Raw data is always saved, even if the final model processing fails.
-2.  **Flexibility**: You can decide *when* and *how* to process the data (e.g. via Celery, or after specific validation).
-3.  **Extensibility**: You can hook into the process to add custom logic (like linking projects or sending notifications) without patching the library.
-
-### Architecture Diagram
+This is what makes the split safe to re-run, and what lets an application decide *when*
+it happens — inline, in a task queue, or in a management command.
 
 ```mermaid
 graph TD
-    classDef generic fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef signal fill:#fff3e0,stroke:#ff6f00,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef lib fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
     classDef app fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
 
-    Client[FormKit Client] -->|JSON| Submission[Submission]
-    Submission -->|your post_save receiver calls from_submission| Separated[SeparatedSubmission]
-    
-    subgraph "FormKit Ninja Core"
-        Submission:::generic
-        Separated:::generic
+    Client[FormKit client] -->|JSON| Submission[Submission]
+
+    subgraph "formkit-ninja"
+        Submission:::lib
+        Separated[SeparatedSubmission]:::lib
+        Monitor[import_monitoring]:::lib
     end
 
-    Separated -.->|Signal: separated_submission_created| Listener[App Listener]:::signal
-    
-    subgraph "Your App (e.g. ida_forms)"
-        Listener -->|Call to_model| Logic{Custom Logic?}
-        Logic -->|Yes| Link[Link Projects / Notify]:::app
-        Logic -->|No| Save[Save Model]:::app
+    subgraph "Your application"
+        Receiver[your post_save receiver]:::app
+        Importer[your importer]:::app
+        Model[your typed model]:::app
     end
 
-    Save -->|Update| DjangoModel[Django Model (MyForm)]:::app
+    Submission -->|post_save| Receiver
+    Receiver -->|from_submission| Separated
+    Separated --> Importer
+    Importer --> Model
+    Importer -.->|import_success / import_error| Monitor
 ```
 
----
-
-## How-To Guide
-
-### 1. Wiring Up the Default Handler
-
-By default, `formkit-ninja` does **not** automatically populate your models. You must explicitly connect the handler in your application.
-
-**In your app's `apps.py`:**
-
-```python
-from django.apps import AppConfig
-
-class MyAppConfig(AppConfig):
-    name = 'my_app'
-
-    def ready(self):
-        # 1. Import the signal and the default handler
-        from formkit_ninja.form_submission.signals import separated_submission_created
-        from formkit_ninja.form_submission.handlers import auto_populate_model
-        
-        # 2. Connect them
-        separated_submission_created.connect(auto_populate_model)
-```
-
-With this configuration, every time a submission is received, `formkit-ninja` will attempt to populate the corresponding Django model immediately.
-
-### 2. Customizing the Flow
-
-If you need to perform actions *after* the model is saved (like linking it to a project), or if you want to handle errors differently, you should write your own handler.
-
-**In `my_app/signals.py`:**
-
-```python
-from django.dispatch import receiver
-from formkit_ninja.form_submission.signals import separated_submission_created
-import logging
-
-logger = logging.getLogger(__name__)
-
-@receiver(separated_submission_created)
-def handle_custom_import(sender, instance, created, **kwargs):
-    """
-    Custom handler for FormKit submissions.
-    """
-    try:
-        # 1. Trigger the standard population
-        model_instance, was_created = instance.to_model()
-        
-        if model_instance:
-            # 2. Add your custom logic here
-            print(f"Successfully saved {model_instance}!")
-            
-            # Example: Link to a Project
-            # project = Project.objects.get(...)
-            # model_instance.project = project
-            # model_instance.save()
-            
-    except Exception as e:
-        logger.error(f"Failed to process submission {instance.id}: {e}")
-        # Optionally: Trigger an alert or retry mechanism
-```
-
-Don't forget to import this signal file in your `apps.py` `ready()` method!
-
----
-
-## Reference
-
-### Signals
-
-All signals are available in `formkit_ninja.form_submission.signals`.
-
-| Signal | Emitted When | Arguments |
-|r---|---|---|
-| `submission_received` | A raw `Submission` is created/updated. | `instance`, `created` |
-| `separated_submission_created` | A `SeparatedSubmission` row (including repeaters) is saved. | `instance`, `created` |
-| `import_success` | Model import completes successfully. | `instance`, `model_instance`, `was_created` |
-| `import_error` | Model import raises an exception. | `instance`, `error` |
-
-### `SeparatedSubmission.to_model()`
-
-```python
-def to_model(self, models_module=None) -> tuple[models.Model | None, bool]:
-```
-
--   **Description**: Attempts to find a matching Django model for the submission's `form_type` and populates it with `fields`.
--   **Arguments**:
-    -   `models_module` (Optional): A python module object to search for the model class. Useful for testing or when models are dynamic.
--   **Returns**: `(model_instance, created_boolean)` or `(None, False)` if no model is found.
+Everything inside the library box is provided. Everything in the application box is
+yours to write — including the arrow that starts the split.
 
 ---
 
 ## Wiring the split
 
-`Submission.save()` does **not** derive `SeparatedSubmission` rows. Stage 1 and 2
-below only happen when something calls `from_submission()`, and wiring that is
-your application's job:
+`Submission.save()` does **not** derive `SeparatedSubmission` rows. Nothing derives them
+until you connect a receiver:
 
 ```python
 # yourapp/signals.py
@@ -149,85 +62,149 @@ def split_submission(sender, instance, **kwargs):
     SeparatedSubmission.objects.from_submission(instance)
 ```
 
-Connect it from your `AppConfig.ready()` (importing the module is enough) so it
-is live for every save path — API, admin, shell, management commands.
+Connect it from your `AppConfig.ready()` — importing the module is enough — so it is live
+for every save path: API, admin, shell and management commands.
 
-Why the library does not do this itself: it used to, from inside `save()` and
-*after* `post_save` had already fired. An application that ran its own split
-from a `post_save` receiver — the arrangement documented here — therefore split
-every submission twice, and any work it did after its own split could be undone
-by the library's second pass. See issue #57.
+**Why the library does not do this itself.** It used to, from inside `save()` and *after*
+`post_save` had already fired. An application running its own split from a `post_save`
+receiver — the arrangement documented here — therefore split every submission twice, and
+any work it did after its own split could be undone by the library's second pass. See
+issue #57.
 
 Two consequences worth knowing:
 
-- **Nothing splits until you wire it.** A submission saved with no receiver
-  connected is stored correctly but has no derived rows, and the derived-model
-  endpoints will show nothing for it.
-- **Orphan reconciliation rides on the split.** `from_submission()` sweeps rows
-  that no longer exist in canonical fields, so that self-healing only runs as
-  often as your receiver does. The `reconcile_separated_submissions` management
-  command is the out-of-band sweep.
+- **Nothing splits until you wire it.** A submission saved with no receiver connected is
+  stored correctly but has no derived rows, and the derived-model endpoints will show
+  nothing for it. There is no error and no warning; the tables are simply empty.
+- **Orphan reconciliation rides on the split.** `from_submission()` sweeps rows that no
+  longer exist in the canonical fields, so that self-healing only runs as often as your
+  receiver does. The `reconcile_separated_submissions` management command is the
+  out-of-band sweep.
 
 ---
 
-## Data Transition: JSON to Django Model
+## Recording import outcomes
 
-The transition from a raw JSON payload to a strongly-typed Django model row happens in three distinct stages.
+The library declares two signals and records what they carry. It does not send them —
+**your importer does**, because only your code knows whether populating your model
+succeeded.
 
-### Stage 1: Decomposition (`flatten`)
-When a submission is received, its JSON payload is recursively traversed. Every group and repeater is assigned a stable UUID if one doesn't exist.
-- **Input**: Nested JSON object.
-- **Output**: A flat list of tuples containing `(path, uuid, data, order)`.
+| Signal | You send it when | Arguments |
+|---|---|---|
+| `import_success` | Your importer populated a typed model from a `SeparatedSubmission`. | `sender`, `instance`, `model_instance`, `was_created` |
+| `import_error` | Your importer raised while doing so. | `sender`, `instance`, `error` |
 
-### Stage 2: Normalization (`SeparatedSubmission`)
-The flat list is saved into the `SeparatedSubmission` table. This creates a "generic" representation of your data.
-- **Root Node**: One row where `repeater_key` is null.
-- **Child Nodes**: Multiple rows where `repeater_parent` links to the root (or another repeater).
-
-### Stage 3: Hydration (`to_model()`)
-This is the "Glue" layer. `formkit-ninja` uses the `submission` field in your concrete model as the anchor for data population.
-
-#### Requirement: The `submission` link
-For `to_model()` to work, your generated Django model must have a field named `submission` that links to `SeparatedSubmission`.
+They live in `formkit_ninja.form_submission.signals`. `import_monitoring` receives both
+and writes a `SeparatedSubmissionImport` row, which is what
+`SeparatedSubmission.objects.with_import_failure()` and the admin's import-status columns
+read.
 
 ```python
-# Typically configured in DatabaseNodePath / CodeGenerationConfig:
-# Node Name: submission, Django Type: OneToOneField, to: formkit_ninja.models.SeparatedSubmission
+# yourapp/importer.py
+from formkit_ninja.form_submission import signals as formkit_signals
+
+
+def import_row(separated_submission):
+    try:
+        model_instance, was_created = populate_my_model(separated_submission)
+    except Exception as exc:
+        formkit_signals.import_error.send(
+            sender=separated_submission.__class__,
+            instance=separated_submission,
+            error=exc,
+        )
+        raise
+    formkit_signals.import_success.send(
+        sender=separated_submission.__class__,
+        instance=separated_submission,
+        model_instance=model_instance,
+        was_created=was_created,
+    )
+```
+
+Sending them is optional. Skip it and the split still works; you just lose the
+import-status surface.
+
+---
+
+## Populating your own models
+
+The library has no hydration method. It deliberately does not know the shape of your
+tables, so mapping a `SeparatedSubmission` onto your model is code you write — typically
+in the receiver that reacts to the row being created, calling your importer as above.
+
+The generated code from `generate_code` gives your models a `submission` one-to-one link
+back to `SeparatedSubmission`, which is the anchor to populate against:
+
+```python
 submission = models.OneToOneField(
-    "formkit_ninja.SeparatedSubmission", 
-    on_delete=models.CASCADE, 
-    primary_key=True
+    "formkit_ninja.SeparatedSubmission",
+    on_delete=models.CASCADE,
+    primary_key=True,
+    related_name="+",
 )
 ```
 
-#### The `to_model` Execution Logic:
-1.  **Lookup**: It finds the Django Model class matching the `form_type` string.
-2.  **Mapping**: It copies values from the `fields` JSON column to the model's columns.
-3.  **Linking**:
-    -   It maps `instance.pk` (the UUID) to `MyModel.submission_id`.
-    -   If the model has an `ordinality` field, it populates it from `repeater_order`.
-4.  **Persistence**: It calls `update_or_create(submission_id=..., defaults=data)`.
-
-This design ensures that your final typed tables and the generic `SeparatedSubmission` table always stay in sync via a 1:1 relationship on their Primary Key.
+Keying on that link is what keeps your typed table and the generic table in step: one row
+each, sharing a primary key, so re-running the split updates rather than duplicates.
 
 ---
 
-## Tutorial: Manual Ingestion Script
+## Decomposition, in three stages
 
-If you want to re-process submissions manually (e.g. from a management command), handling the flow is straightforward.
+### Stage 1 — Flatten
+
+The JSON document is walked recursively. Every group and repeating section is given a
+stable UUID if it does not already carry one.
+
+- **In**: the nested document.
+- **Out**: a flat sequence of rows, each knowing its path, its identity, its answers and
+  its position.
+
+### Stage 2 — Normalise
+
+Those rows are written as `SeparatedSubmission` records: one root row where
+`repeater_key` is null, and one row per repeat, each pointing at its parent through
+`repeater_parent`.
+
+Identity comes from the document, never minted here — which is what lets the same
+document replay to the same primary keys years later.
+
+### Stage 3 — Populate
+
+Your importer turns each row into a row of your own, as above.
+
+The same decomposition is also available as frozen values that touch no database, through
+`emit_submission`, for appending to a durable log. `from_submission` walks the same
+emissions, so there is one decomposition rather than two that could drift.
+
+---
+
+## Re-processing by hand
 
 ```python
-from formkit_ninja.models import Submission, SeparatedSubmission
+from formkit_ninja.form_submission.models import SeparatedSubmission, Submission
+
 
 def reprocess_all():
-    # 1. Get all raw submissions
-    for sub in Submission.objects.all():
-        print(f"Processing {sub.pk}...")
-        
-        # 2. Separate them (Normalizes JSON -> Rows)
-        # Note: This will Trigger 'separated_submission_created' signals 
-        # if you have listeners connected!
-        items = SeparatedSubmission.objects.from_submission(sub)
-        
-        print(f" -> Created {len(items)} normalized rows.")
+    for submission in Submission.objects.all():
+        rows = SeparatedSubmission.objects.from_submission(submission, force=True)
+        print(f"{submission.pk}: {len(rows)} rows")
 ```
+
+`from_submission` is idempotent on identity — re-running it updates the same rows rather
+than creating new ones — and sweeps rows the document no longer contains.
+
+**`force=True` is what makes re-processing do anything.** By default the split is
+change-aware: a derived row whose computed values are identical to what is already stored
+is not re-saved, so no `post_save` fires for it and no downstream work runs. That is the
+behaviour you want on an ordinary save, and exactly the wrong one here — re-processing an
+unchanged document without `force` walks every submission and fires nothing. Pass it when
+you are rebuilding, and leave it off in the receiver that reacts to a live edit.
+
+---
+
+## See also
+
+- [What is public](public-api.md) — which of these names you may rely on, and at what tier.
+- `okf/concepts/submission-decomposition.md` — the same ground, written for agents.
