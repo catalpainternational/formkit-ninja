@@ -74,6 +74,14 @@ exact-minor pin if you do.
   "delete selected"). Deleting a whole schema from its admin (single or "delete selected") is
   *meaning* for every root it links, via `schema_delete_refusals`.
 
+- `form_submission.signals` — `import_success` and `import_error`. A rendezvous point,
+  not something this library sends: the application sends them when its own importer
+  succeeds or fails, and `import_monitoring` receives them and writes the
+  `SeparatedSubmissionImport` row that the import-status queryset methods and admin
+  columns read. Provisional because the set may still change: `submission_received`,
+  which nothing ever sent, has been removed from it — see `CHANGELOG.md` for the release
+  that carries the removal.
+
 - `form_submission.wire` — `ContentEvent`, `ContentEventRequired`, `CONTENT_EVENT_KEYS`,
   `REQUIRED_CONTENT_EVENT_KEYS`: the part of a content event this library can vouch for, for a
   consumer to subclass. Provisional only until a consumer appends events with it; after that
