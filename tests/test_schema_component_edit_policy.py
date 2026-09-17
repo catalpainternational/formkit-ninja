@@ -14,6 +14,7 @@ from django.test import Client, override_settings
 from django.urls import reverse
 
 from formkit_ninja import models
+from tests.helpers.admin_pages import get_page, messages
 
 POLICY = "tests.test_schema_component_edit_policy.protect_one_form"
 CALLS: list[tuple] = []
@@ -50,22 +51,7 @@ def schemas(db):
 def _schema_page(client: Client, schema) -> tuple[str, dict, str]:
     """The schema change page's URL, what it would post back untouched, and the component inline's prefix."""
     url = reverse("admin:formkit_ninja_formkitschema_change", args=[quote(schema.pk)])
-    response = client.get(url)
-    data: dict = {}
-    prefix = ""
-    forms_on_page = [response.context["adminform"].form]
-    for inline in response.context["inline_admin_formsets"]:
-        formset = inline.formset
-        if formset.model is models.FormComponents:
-            prefix = formset.prefix
-        forms_on_page.append(formset.management_form)
-        forms_on_page.extend(formset.forms)
-    for page_form in forms_on_page:
-        for bound in page_form:
-            value = bound.value()
-            if value is None or value is False:
-                continue
-            data[bound.html_name] = "on" if value is True else value
+    data, prefix = get_page(client, url, models.FormComponents)
     return url, data, prefix
 
 
@@ -125,10 +111,6 @@ def _form_errors(response) -> list[str]:
     return list(response.context["adminform"].form.non_field_errors())
 
 
-def _messages(response) -> list[str]:
-    return [str(m) for m in response.context["messages"]]
-
-
 @override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
 def test_admin_refuses_linking_a_node_into_a_protected_schema(schemas, admin_client: Client):
     held, _, _, protected, spare = schemas
@@ -183,7 +165,7 @@ def test_admin_allows_a_reorder(schemas, admin_client: Client):
 def test_admin_refuses_a_single_delete(schemas, admin_client: Client):
     _, _, link, _, _ = schemas
     response = admin_client.post(reverse("admin:formkit_ninja_formcomponents_delete", args=[quote(link.pk)]), {"post": "yes"}, follow=True)
-    assert any("removes a node from the form" in m and "(Protected)" in m for m in _messages(response))
+    assert any("removes a node from the form" in m and "(Protected)" in m for m in messages(response))
     assert models.FormComponents.objects.filter(pk=link.pk).exists()
 
 
@@ -193,7 +175,7 @@ def test_admin_refuses_a_bulk_delete_and_deletes_nothing(schemas, admin_client: 
     loose = models.FormComponents.objects.create(schema=empty, node=spare, order=1)
     data = {"action": "delete_selected", "_selected_action": [str(link.pk), str(loose.pk)], "post": "yes"}
     response = admin_client.post(reverse("admin:formkit_ninja_formcomponents_changelist"), data, follow=True)
-    assert any("Nothing was deleted" in m for m in _messages(response))
+    assert any("Nothing was deleted" in m for m in messages(response))
     assert models.FormComponents.objects.filter(pk__in=[link.pk, loose.pk]).count() == 2
 
 
@@ -204,10 +186,13 @@ def test_admin_refuses_a_bulk_delete_and_deletes_nothing(schemas, admin_client: 
 def test_schema_admin_refuses_a_single_delete(schemas, admin_client: Client):
     held, _, link, protected, _ = schemas
     response = admin_client.post(reverse("admin:formkit_ninja_formkitschema_delete", args=[quote(held.pk)]), {"post": "yes"}, follow=True)
-    assert any("removes a node from the form" in m and "(Protected)" in m for m in _messages(response))
+    assert any("removes a node from the form" in m and "(Protected)" in m for m in messages(response))
     assert models.FormKitSchema.objects.filter(pk=held.pk).exists()
     assert models.FormComponents.objects.filter(pk=link.pk).exists()
-    assert CALLS == [(protected, protected, "meaning")]
+    # One call, about the form — not about a particular node. Which of the two nodes is named
+    # depends on the order of two random UUIDs, so asserting it would be a flaky test.
+    [(asked_root, _node, asked_class)] = CALLS
+    assert (asked_root, asked_class) == (protected, "meaning")
 
 
 @override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
@@ -215,7 +200,7 @@ def test_schema_admin_refuses_a_bulk_delete_and_deletes_nothing(schemas, admin_c
     held, empty, link, _, _ = schemas
     data = {"action": "delete_selected", "_selected_action": [str(held.pk), str(empty.pk)], "post": "yes"}
     response = admin_client.post(reverse("admin:formkit_ninja_formkitschema_changelist"), data, follow=True)
-    assert any("Nothing was deleted; refused: Held" in m for m in _messages(response))
+    assert any("Nothing was deleted; refused: Held" in m for m in messages(response))
     assert models.FormKitSchema.objects.filter(pk__in=[held.pk, empty.pk]).count() == 2
     assert models.FormComponents.objects.filter(pk=link.pk).exists()
 
@@ -261,3 +246,26 @@ def test_without_a_policy_admin_deletes_go_through(schemas, admin_client: Client
     admin_client.post(reverse("admin:formkit_ninja_formcomponents_changelist"), data, follow=True)
     assert not models.FormComponents.objects.filter(pk=loose.pk).exists()
     assert CALLS == []
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_a_schema_holding_two_nodes_of_one_form_asks_that_form_once(schemas, admin_client: Client):
+    """Deleting the schema removes both links, but it is one form and one answer.
+
+    Mutation: drop the `if root.pk in asked: continue` from `schema_delete_refusals` and the
+    policy is asked twice and the form named twice in the refusal; red on both counts.
+    """
+    held, _, _, protected, _ = schemas
+    second = models.FormKitSchemaNode.objects.create(node_type="$formkit", label="Age", node={"$formkit": "text", "name": "age"})
+    models.NodeChildren.objects.create(parent=protected, child=second, order=2)
+    models.FormComponents.objects.create(schema=held, node=second, order=2)
+
+    response = admin_client.post(reverse("admin:formkit_ninja_formkitschema_delete", args=[quote(held.pk)]), {"post": "yes"}, follow=True)
+
+    # One call, about the form — not about a particular node. Which of the two nodes is
+    # named depends on the order of two random UUIDs, so asserting it would be flaky.
+    [(asked_root, _node, asked_class)] = CALLS
+    assert (asked_root, asked_class) == (protected, "meaning")
+    [refusal] = [m for m in messages(response) if "already holds answers" in m]
+    assert refusal.count("Protected") == 1
+    assert models.FormKitSchema.objects.filter(pk=held.pk).exists()

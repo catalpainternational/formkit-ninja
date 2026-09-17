@@ -14,6 +14,7 @@ from django.urls import reverse
 
 from formkit_ninja import models
 from formkit_ninja.admin import OptionEditPolicyFormMixin, OptionForm, with_schema_edit_policy
+from tests.helpers.admin_pages import get_page, messages
 
 POLICY = "tests.test_option_edit_policy.protect_one_form"
 CALLS: list[tuple] = []
@@ -55,10 +56,6 @@ def _option_form(admin_user, option=None, **changes):
     data = {"group": "colours", "value": "red", "object_id": 1, "order": 1} if option else {"group": "colours"}
     data.update(changes)
     return form_class(data=data, instance=option)
-
-
-def _messages(response) -> list[str]:
-    return [str(m) for m in response.context["messages"]]
 
 
 @override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
@@ -106,7 +103,7 @@ def test_a_label_change_is_allowed_and_asked_as_presentational(shared, admin_cli
 def test_admin_refuses_a_single_delete(shared, admin_client: Client):
     _, red, _, _, _ = shared
     response = admin_client.post(reverse("admin:formkit_ninja_option_delete", args=[red.pk]), {"post": "yes"}, follow=True)
-    assert any("removes an option" in m and "(Protected)" in m for m in _messages(response))
+    assert any("removes an option" in m and "(Protected)" in m for m in messages(response))
     assert models.Option.objects.filter(pk=red.pk).exists()
 
 
@@ -117,12 +114,13 @@ def test_admin_refuses_a_bulk_delete_and_deletes_nothing(shared, admin_client: C
     lonely = models.Option.objects.create(group=other, value="x", object_id=9)
     data = {"action": "delete_selected", "_selected_action": [str(red.pk), str(lonely.pk)], "post": "yes"}
     response = admin_client.post(reverse("admin:formkit_ninja_option_changelist"), data, follow=True)
-    assert any("Nothing was deleted" in m for m in _messages(response))
+    assert any("Nothing was deleted" in m for m in messages(response))
     assert models.Option.objects.filter(pk__in=[red.pk, lonely.pk]).count() == 2
 
 
 @override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
-def test_an_option_no_form_uses_can_be_deleted(shared, admin_client: Client):
+def test_an_option_no_form_uses_can_be_deleted(db, admin_client: Client):
+    """No `shared` fixture: the point is an option group nothing points at."""
     other = models.OptionGroup.objects.create(group="unused")
     lonely = models.Option.objects.create(group=other, value="x", object_id=9)
     admin_client.post(reverse("admin:formkit_ninja_option_delete", args=[lonely.pk]), {"post": "yes"}, follow=True)
@@ -132,22 +130,7 @@ def test_an_option_no_form_uses_can_be_deleted(shared, admin_client: Client):
 def _group_page(client: Client, group) -> tuple[str, dict, str]:
     """The option-group change page's URL, what it would post back untouched, and the option inline's prefix."""
     url = reverse("admin:formkit_ninja_optiongroup_change", args=[quote(group.pk)])
-    response = client.get(url)
-    data: dict = {}
-    prefix = ""
-    forms_on_page = [response.context["adminform"].form]
-    for inline in response.context["inline_admin_formsets"]:
-        formset = inline.formset
-        if formset.model is models.Option:
-            prefix = formset.prefix
-        forms_on_page.append(formset.management_form)
-        forms_on_page.extend(formset.forms)
-    for page_form in forms_on_page:
-        for bound in page_form:
-            value = bound.value()
-            if value is None or value is False:
-                continue
-            data[bound.html_name] = "on" if value is True else value
+    data, prefix = get_page(client, url, models.Option)
     return url, data, prefix
 
 
@@ -192,3 +175,22 @@ def test_without_a_policy_a_delete_goes_through(shared, admin_client: Client):
     admin_client.post(reverse("admin:formkit_ninja_option_delete", args=[red.pk]), {"post": "yes"}, follow=True)
     assert not models.Option.objects.filter(pk=red.pk).exists()
     assert CALLS == []
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_a_form_using_the_group_twice_is_named_once_in_the_refusal(shared, admin_user):
+    """One form, two fields off the same list: asked per field, named once in the message.
+
+    Mutation: drop `and root not in refused` from `option_group_edit_refusals` and the protected
+    form is listed twice in the refusal; red.
+    """
+    group, red, _, protected, _ = shared
+    second = models.FormKitSchemaNode.objects.create(node_type="$formkit", label="Second colour", node={"$formkit": "select", "name": "colour2"}, option_group=group)
+    models.NodeChildren.objects.create(parent=protected[0], child=second, order=2)
+
+    form = _option_form(admin_user, red, value="crimson")
+
+    assert not form.is_valid()
+    [message] = form.non_field_errors()
+    assert message.count("Protected") == 1
+    assert len([call for call in CALLS if call[0] == protected[0]]) == 2
