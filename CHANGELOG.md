@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **`SchemaNode.name`.** It returned the last segment of a node's key and nothing called it —
+  not this package, not its tests, not the one consumer using the schema stream. It is removed
+  rather than left as an untested piece of public surface; `node.key[-1]` is what it did.
+
 ### Changed
+
+- **Some of the tests for the form-editing guard could not fail, and are replaced (#106).** One
+  took the list of safe edits it was meant to police from the code under test, so widening that
+  list made the test agree rather than object — proved by adding "remove a validator" to the
+  list and watching it grow a passing case. Another declared an event valid and then checked
+  only that it survived being written out and read back, which is true of any data. The guard on
+  shared option lists and on the nodes a form is built from is now checked directly as well as
+  through the admin screens, so repointing an option at a different source row, or a form at a
+  different node, is classified in a test; the message someone gets when their form is frozen
+  completely is read; and `tests/test_wire.py` is type-checked, which is where the content-event
+  shape is actually enforced.
 
 - **The submission architecture page now describes what the code does.** It had told a
   reader to connect a `separated_submission_created` signal, import an

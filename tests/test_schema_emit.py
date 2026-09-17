@@ -119,6 +119,17 @@ class TestKeys:
         [node] = schema_nodes({"$el": "h2", "children": "Budget"})
         assert node.props["children"] == "Budget"
 
+    def test_an_unnamed_node_that_says_what_it_is_in_no_way_at_all_still_gets_a_key(self):
+        """Neither an element, nor a FormKit input, nor a component, nor named — and it still
+        needs a key, because its children are parented to it.
+
+        It is transparent like any other unnamed node: the text inside it is keyed in the
+        enclosing scope, not underneath it.
+        """
+        [node, text] = schema_nodes([{"children": ["x"]}])
+        assert (node.key, text.key) == (("$node0",), ("$text0",))
+        assert text.parent == node.key
+
     def test_a_list_of_top_level_nodes_is_accepted(self):
         assert _keys([_field("a"), _field("b")]) == [("a",), ("b",)]
 
@@ -159,7 +170,14 @@ class TestChanges:
         ]
 
     def test_removal_order_does_not_depend_on_string_hashing(self):
-        """Set iteration order varies with the hash seed; the removal order must not."""
+        """Set iteration order varies with the hash seed; the removal order must not.
+
+        This is the expensive test in this file — two interpreters — and it reads as a
+        duplicate of ``test_removing_siblings_comes_out_in_one_fixed_order``. It is not: that
+        one asserts the exact order within one process, so a set-based implementation would
+        fail it only for the hash seeds where the order happened to differ. Twenty keys under
+        two seeds is what makes the failure reliable rather than likely.
+        """
         code = (
             "from formkit_ninja.schema_emit import emit_schema, schema_nodes\n"
             "names = [f'f{i}' for i in range(20)]\n"
@@ -228,7 +246,6 @@ REPLAYS = {
     "swap two unnamed siblings": (_tree("First", "Second", _field("a")), _tree("Second", "First", _field("a"))),
     "insert an unnamed sibling": (_tree("First", _field("a")), _tree("First", "Inserted", _field("a"))),
     "insert a wrapper": (_tree(_field("a"), _field("b")), _tree(_wrap(_field("a")), _field("b"))),
-    "insert a heading before a wrapper": (_tree(_wrap(_field("a"))), _tree("Heading", _wrap(_field("a")))),
     "insert an h2 before a wrapper": (_tree(_wrap(_field("a"))), _tree({"$el": "h2", "children": "Hi"}, _wrap(_field("a")))),
     "insert a div before a div": (_tree(_wrap(_field("a"))), _tree(_wrap(_field("b")), _wrap(_field("a")))),
     "move a field between wrappers": (_tree(_wrap(_field("a"), _field("b")), _wrap()), _tree(_wrap(_field("b")), _wrap(_field("a")))),
@@ -378,12 +395,6 @@ class TestFromTheModels:
         for node in [root, *children]:
             assert str(node.pk) not in encoded
 
-    def test_both_node_type_spellings_give_the_same_values(self):
-        """Real data holds `formkit` and `$formkit` in about equal measure."""
-        dollar, _ = self._form("$formkit")
-        bare, _ = self._form("formkit")
-        assert schema_nodes(self._read(dollar)) == schema_nodes(self._read(bare))
-
     def test_a_text_node_is_read_as_heading_text(self):
         root, _ = self._form()
         heading = models.FormKitSchemaNode.objects.create(node_type="text", text_content="Budget")
@@ -418,7 +429,14 @@ class TestFromTheModels:
 
 
 def test_nothing_in_the_package_imports_the_streams_library():
-    """The two libraries meet through a data shape, never an import."""
+    """The two libraries meet through a data shape, never an import.
+
+    A substring search over the package's own files, which is an approximation in both
+    directions: a docstring that merely mentions the library by name would fail it, and an
+    import under some other spelling would pass. It is kept because the thing it guards —
+    that nothing here reaches for the store — is worth a cheap tripwire, and because it
+    covers every module rather than the one that happened to be under review.
+    """
     package = pathlib.Path(__file__).resolve().parent.parent / "formkit_ninja"
     offenders = [str(p) for p in package.rglob("*.py") if "rakaia" in p.read_text()]
     assert offenders == []

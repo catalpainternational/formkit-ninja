@@ -122,10 +122,6 @@ class SchemaNode:
     position: int
     props: Mapping[str, Any]
 
-    @property
-    def name(self) -> str:
-        return self.key[-1]
-
     def to_record(self) -> SchemaNodeRecord:
         record: SchemaNodeRecord = {"key": list(self.key), "position": self.position, "props": dict(self.props)}
         if self.parent is not None:
