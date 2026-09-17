@@ -16,7 +16,7 @@ repos:
         types: [python]
         require_serial: true
         pass_filenames: false
-        args: ["formkit_ninja"]
+        args: ["formkit_ninja", "tests/test_wire.py"]
       - id: check-formatting
         name: Check formatting
         entry: uv run ruff format --check

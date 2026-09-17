@@ -113,4 +113,6 @@ Always use `FormKitNodeFactory.from_dict()` or `FormKitNodeFactory.from_json()` 
 ## CI Tooling Notes
 
 - Prefer `uv run ruff check .`, `uv run ruff format .`, `uv run mypy .`, and `uv run pytest` for local checks.
-- Pre-commit runs `uv run mypy formkit_ninja` (source-only). Full-tree mypy includes test fixtures that currently report errors.
+- Pre-commit runs `uv run mypy formkit_ninja tests/test_wire.py`. `tests/test_wire.py` is there because the
+  content-event shape it pins is a `TypedDict`, which nothing checks at run time. Full-tree mypy includes test
+  fixtures that currently report errors.

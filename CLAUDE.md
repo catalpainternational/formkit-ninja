@@ -13,7 +13,7 @@ the other gates) before you commit:
 ```bash
 uv run ruff format formkit_ninja tests testproject   # auto-format — CI runs this with --check
 uv run ruff check formkit_ninja tests testproject    # lint
-uv run mypy formkit_ninja                            # type check
+uv run mypy formkit_ninja tests/test_wire.py         # type check
 uv run pytest                                        # tests (needs Postgres — see below)
 ```
 

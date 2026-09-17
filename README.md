@@ -260,7 +260,7 @@ uv run ruff check .
    ```bash
    uv run ruff format --check .
    uv run ruff check .
-   uv run mypy formkit_ninja
+   uv run mypy formkit_ninja tests/test_wire.py
    ```
 
 4. **Test Driven Development (TDD):**
