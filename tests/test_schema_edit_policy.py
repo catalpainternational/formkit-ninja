@@ -14,6 +14,8 @@ from django.urls import reverse
 from formkit_ninja import models
 from formkit_ninja.admin import FormKitSchemaNodeAdmin
 from formkit_ninja.models import NodeChildren
+from formkit_ninja.schema_edits import get_schema_edit_policy, schema_edit_allowed
+from tests.helpers.admin_pages import messages, page_data
 
 POLICY = "tests.test_schema_edit_policy.presentational_only"
 CALLS: list[tuple] = []
@@ -188,16 +190,12 @@ def _admin_bulk_delete(client: Client, *nodes):
     return client.post(reverse("admin:formkit_ninja_formkitschemanode_changelist"), data, follow=True)
 
 
-def _messages(response) -> list[str]:
-    return [str(m) for m in response.context["messages"]]
-
-
 @override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
 def test_admin_refuses_a_single_delete(admin_client: Client, form):
     group, age, _ = form
     response = _admin_delete(admin_client, age)
     assert response.status_code == HTTPStatus.OK
-    assert any("removes a field" in m for m in _messages(response))
+    assert any("removes a field" in m for m in messages(response))
     age.refresh_from_db()
     assert age.is_active
     root, node, edit_class, _request = CALLS[-1]
@@ -209,7 +207,7 @@ def test_admin_refuses_a_bulk_delete_and_deletes_nothing(admin_client: Client, f
     _, age, town = form
     response = _admin_bulk_delete(admin_client, age, town)
     assert response.status_code == HTTPStatus.OK
-    assert any("Nothing was deleted" in m for m in _messages(response))
+    assert any("Nothing was deleted" in m for m in messages(response))
     for node in (age, town):
         node.refresh_from_db()
         assert node.is_active
@@ -257,26 +255,6 @@ def test_admin_refuses_dropping_a_validator(form, admin_user):
     assert age.node["validation"] == "required"
 
 
-def _change_page_data(response) -> tuple[dict, str]:
-    """What an admin change page would post back untouched, and the node inline's prefix."""
-    data: dict = {}
-    node_prefix = ""
-    forms_on_page = [response.context["adminform"].form]
-    for inline in response.context["inline_admin_formsets"]:
-        formset = inline.formset
-        if formset.model is models.FormKitSchemaNode:
-            node_prefix = formset.prefix
-        forms_on_page.append(formset.management_form)
-        forms_on_page.extend(formset.forms)
-    for page_form in forms_on_page:
-        for bound in page_form:
-            value = bound.value()
-            if value is None or value is False:
-                continue
-            data[bound.html_name] = "on" if value is True else value
-    return data, node_prefix
-
-
 @pytest.mark.parametrize("policy", [POLICY, None])
 def test_option_group_node_inline_asks_the_policy_about_node_type(admin_client: Client, form, policy):
     _, age, _ = form
@@ -286,7 +264,7 @@ def test_option_group_node_inline_asks_the_policy_about_node_type(admin_client: 
     url = reverse("admin:formkit_ninja_optiongroup_change", args=[quote(group.pk)])
 
     with override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=policy):
-        data, prefix = _change_page_data(admin_client.get(url))
+        data, prefix = page_data(admin_client.get(url), models.FormKitSchemaNode)
         data[f"{prefix}-0-node_type"] = "$el"
         data[f"{prefix}-0-description"] = "Where you live"
         response = admin_client.post(url, data)
@@ -317,7 +295,7 @@ def test_admin_refuses_unlinking_a_child_and_saves_nothing(admin_client: Client,
     group, _, _ = form
     url = reverse("admin:formkit_ninja_formkitschemanode_change", args=[quote(group.pk)])
     page = admin_client.get(url)
-    data, _ = _change_page_data(page)
+    data, _ = page_data(page)  # the children inline is addressed through _children_formset below
     data[f"{_children_formset(page).prefix}-0-DELETE"] = "on"
     response = admin_client.post(url, data)
     assert response.status_code == HTTPStatus.OK
@@ -331,7 +309,19 @@ def test_admin_allows_reordering_children(admin_client: Client, form):
     group, _, _ = form
     url = reverse("admin:formkit_ninja_formkitschemanode_change", args=[quote(group.pk)])
     page = admin_client.get(url)
-    data, _ = _change_page_data(page)
+    data, _ = page_data(page)  # the children inline is addressed through _children_formset below
     data[f"{_children_formset(page).prefix}-0-order"] = "7"
     response = admin_client.post(url, data)
     assert response.status_code == HTTPStatus.FOUND, response.context and _children_formset(response).non_form_errors()
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=None)
+def test_the_policy_gate_allows_everything_when_no_policy_is_configured():
+    """The library's own default, asserted directly.
+
+    Every caller guards on `get_schema_edit_policy()` before reaching here, so no test that
+    drives the admin or the API arrives at this line. It is the documented behaviour of a
+    public function, and the guard callers rely on.
+    """
+    assert get_schema_edit_policy() is None
+    assert schema_edit_allowed(root_node=None, node=None, edit_class="meaning", request=None) is True
