@@ -122,7 +122,7 @@ jobs:
 
       - name: Type check with mypy
         run: |
-          uv run mypy formkit_ninja
+          uv run mypy formkit_ninja tests/test_wire.py
 
   test:
     name: Test Suite (pytest)
