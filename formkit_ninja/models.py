@@ -1105,4 +1105,36 @@ class SchemaDescription(models.Model):
         return f"{self.label} ({self.lang})" if self.label else f"schema={self.schema_id} lang={self.lang}"
 
 
+class SchemaVersion(models.Model):
+    """
+    One version of one form, minted by a migration (#108, Shared ADR-0006).
+
+    A form's version counts 1, 2, 3 and says which reading of the form an
+    answer was given against. A form with no row here is at version 1; each
+    row is the next number, written by :class:`~formkit_ninja.schema_version.MintSchemaVersion`
+    in the migration that changed what the form's answers mean. Nothing else
+    writes here: the admin is read-only and there is no API.
+
+    ``form_type`` is the exact string on ``Submission.form_type`` and on
+    content events, not the stream slug: two forms can share a schema stream
+    and still count separately.
+    """
+
+    form_type = models.CharField(max_length=128, help_text="The form this version belongs to, spelled as on Submission.form_type")
+    version = models.PositiveIntegerField(help_text="2 for the first mint; a form never minted is at 1")
+    migration = models.CharField(max_length=255, help_text="The migration that minted this version")
+    minted_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["form_type", "version"]
+        constraints = [
+            models.UniqueConstraint(fields=["form_type", "version"], name="schemaversion_one_row_per_version"),
+            # Version 1 is implicit — "never minted" — so no row may claim it.
+            models.CheckConstraint(check=Q(version__gte=2), name="schemaversion_minted_from_2"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.form_type} v{self.version}"
+
+
 # Import submission models to register them with the app

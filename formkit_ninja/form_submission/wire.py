@@ -12,9 +12,11 @@ and must be built from JSON primitives. Optional keys are declared with ``total=
 inheritance rather than ``NotRequired``, so the module works on every Python this package
 supports.
 
-``schema_version`` is declared optional on purpose. Nothing mints it yet, and a required key with
-no producer would make every consumer invent a value, which is fabrication. Its reading when
-absent — "recorded before versions existed" — is the consumer's to apply.
+``schema_version`` is declared optional on purpose. A migration mints it
+(:mod:`formkit_ninja.schema_version`) and the consumer stamps it on the events it writes; events
+written before that carry no key, and making it required would make every consumer invent a
+value for them, which is fabrication. Its reading when absent — "recorded before versions
+existed" — is the consumer's to apply.
 
 **An absent key and a key set to ``None`` are different events, and must stay different.** A key
 is present if and only if the producer supplied it: ``parent_submission=None`` says "this row has
@@ -69,8 +71,9 @@ class ContentEvent(ContentEventRequired, total=False):
     parent_submission: str | None
     #: The row's order within the split, for consumers whose rows carry one.
     ordinality: int | None
-    #: The version of the form this row was answered against. Optional until a producer stamps
-    #: it; absent means "recorded before versions existed".
+    #: The version of the form this row was answered against, from
+    #: :func:`formkit_ninja.schema_version.current_schema_versions`. Absent means "recorded before
+    #: versions existed".
     schema_version: int
 
 
