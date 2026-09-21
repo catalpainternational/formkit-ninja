@@ -22,6 +22,9 @@ A consumer mints a version in its own migration, next to the data changes::
 and reads it back with :func:`current_schema_version` or, for a batch of events,
 :func:`current_schema_versions`. A form never minted is at version 1.
 
+To put a mint on the form's schema stream, pass the form's ``SchemaVersion``
+rows to :func:`formkit_ninja.schema_emit.emit_schema_versions`.
+
 **Reversing a mint.** Unapplying the migration deletes the version it minted,
 and refuses when a later version exists — the count must not skip. A migration
 that minted nothing on this database (applied with ``--fake``) unapplies as a
@@ -30,7 +33,10 @@ no-op.
 Events already stamped with the removed version are then ahead of the registry,
 and an upcaster chain asked to read them fails by name. That failure is the
 intended one: those events were written against a reading of the form that no
-longer exists, and nothing should guess what they meant.
+longer exists, and nothing should guess what they meant. The same goes for the
+schema stream: a version already appended to it stays there, so minting that
+number again from another migration puts nothing new on the stream — the stream
+keeps the first migration's name and time. Unmint only what was never published.
 """
 
 from __future__ import annotations
@@ -87,7 +93,8 @@ class MintSchemaVersion(Operation):
     """A migration operation: give ``form_type`` its next version.
 
     ``migration`` names the migration doing it — pass ``__name__`` — and is
-    recorded with the version, so each version says where it came from. It is an ordinary argument, so the operation survives
+    recorded with the version, so a schema stream can say where each version
+    came from. It is an ordinary argument, so the operation survives
     ``squashmigrations``.
 
     The migration using this must depend on formkit_ninja's

@@ -49,16 +49,20 @@ library and performs no I/O. :class:`SchemaStreamSink` names the one method a
 store has to have; the consumer supplies the store. The functions here read the
 tree they are given and query nothing, so a replay produces the same values.
 
-Not here yet: a schema *version*. A change here says what happened to a node, not
-whether it alters what a stored answer means. That judgement belongs to whoever
-writes the migration, and will be a separate field when it arrives.
+**A third event: a version minted.** A change here says what happened to a node,
+not whether it alters what a stored answer means. That judgement belongs to
+whoever writes the migration, which mints the form's next version
+(:mod:`formkit_ninja.schema_version`). :func:`emit_schema_versions` turns those
+mints into :class:`SchemaVersionMinted` events, and :func:`schema_version_after`
+reads the version back from a stream. A form never minted is at version 1 and
+has no such event, so its stream is exactly what it was before versions existed.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Literal, Mapping, Protocol, Sequence, TypedDict, Union
+from typing import Any, Iterable, Iterator, Literal, Mapping, Protocol, Sequence, TypedDict, Union
 
 from django.core.serializers.json import DjangoJSONEncoder
 
@@ -101,6 +105,16 @@ class SchemaChangeRecord(TypedDict, total=False):
     key: list[str]
     before: SchemaNodeRecord
     after: SchemaNodeRecord
+
+
+class SchemaVersionMintedRecord(TypedDict):
+    """A :class:`SchemaVersionMinted` as JSON."""
+
+    event: Literal["schema_version_minted"]
+    form_type: str
+    version: int
+    migration: str
+    minted_at: str
 
 
 @dataclass(frozen=True)
@@ -210,14 +224,52 @@ class SchemaChange:
         )
 
 
+@dataclass(frozen=True)
+class SchemaVersionMinted:
+    """A form moved to its next version: a migration changed what its answers mean.
+
+    ``minted_at`` is when the migration ran, as ISO-8601 — not when this event
+    was appended, which may be later. An answer recorded without a version is
+    read against the version in force at its time, so a store that keeps its
+    own event time should take it from here.
+    """
+
+    stream_path: str
+    form_type: str
+    version: int
+    migration: str
+    minted_at: str
+
+    def to_record(self) -> SchemaVersionMintedRecord:
+        return {
+            "event": "schema_version_minted",
+            "form_type": self.form_type,
+            "version": self.version,
+            "migration": self.migration,
+            "minted_at": self.minted_at,
+        }
+
+    @classmethod
+    def from_record(cls, record: SchemaVersionMintedRecord) -> SchemaVersionMinted:
+        return cls(
+            stream_path=schema_stream_path(record["form_type"]),
+            form_type=record["form_type"],
+            version=record["version"],
+            migration=record["migration"],
+            minted_at=record["minted_at"],
+        )
+
+
 #: Anything that can appear on a form's schema stream.
-SchemaEvent = Union[SchemaSnapshot, SchemaChange]
+SchemaEvent = Union[SchemaSnapshot, SchemaChange, SchemaVersionMinted]
 
 
-def schema_event_from_record(record: SchemaSnapshotRecord | SchemaChangeRecord) -> SchemaEvent:
-    """Read back either kind of event, by its ``event`` key."""
+def schema_event_from_record(record: SchemaSnapshotRecord | SchemaChangeRecord | SchemaVersionMintedRecord) -> SchemaEvent:
+    """Read back any kind of event, by its ``event`` key."""
     if record.get("event") == "schema_snapshot":
         return SchemaSnapshot.from_record(record)  # type: ignore[arg-type]
+    if record.get("event") == "schema_version_minted":
+        return SchemaVersionMinted.from_record(record)  # type: ignore[arg-type]
     return SchemaChange.from_record(record)  # type: ignore[arg-type]
 
 
@@ -377,6 +429,58 @@ def emit_schema(tree: Mapping[str, Any] | Sequence[Any], form_type: str, *, prio
     return _diff_schema(prior, schema_nodes(tree), form_type)
 
 
+class MintedVersion(Protocol):
+    """What :func:`emit_schema_versions` reads from a version: a ``SchemaVersion`` row has it."""
+
+    form_type: str
+    version: int
+    migration: str
+    minted_at: Any
+
+
+def emit_schema_versions(minted: Iterable[MintedVersion], *, prior_version: int = 1) -> list[SchemaVersionMinted]:
+    """The versions in ``minted`` that the stream has not recorded yet, oldest first.
+
+    ``minted`` is a form's ``SchemaVersion`` rows; ``prior_version`` is what the
+    stream already says, from :func:`schema_version_after`. A form never minted
+    gives no events, so its stream stays exactly as it was.
+    """
+    return [
+        SchemaVersionMinted(
+            stream_path=schema_stream_path(row.form_type),
+            form_type=row.form_type,
+            version=row.version,
+            migration=row.migration,
+            minted_at=_json_safe(row.minted_at),
+        )
+        for row in sorted(minted, key=lambda row: row.version)
+        if row.version > prior_version
+    ]
+
+
+def _one_form(events: Iterable[SchemaEvent], form_type: str | None) -> Iterator[SchemaEvent]:
+    """``events`` for one form: only ``form_type``'s when given, else all of them,
+    refusing a stream that turns out to hold two forms."""
+    seen: str | None = None
+    for event in events:
+        if form_type is not None:
+            if event.form_type != form_type:
+                continue
+        elif seen is None:
+            seen = event.form_type
+        elif event.form_type != seen:
+            raise ValueError(f"schema events for two forms, {seen!r} and {event.form_type!r}: pass form_type to replay one of them")
+        yield event
+
+
+def schema_version_after(events: Iterable[SchemaEvent], *, form_type: str | None = None) -> int:
+    """The form's version after ``events``: the highest one minted, or 1 if none was.
+
+    ``form_type`` picks one form from a shared stream, as for :func:`apply_schema_events`.
+    """
+    return max((e.version for e in _one_form(events, form_type) if isinstance(e, SchemaVersionMinted)), default=1)
+
+
 def apply_schema_events(events: Iterable[SchemaEvent], *, form_type: str | None = None) -> list[SchemaNode]:
     """Fold ``events``: the form as it stood after them.
 
@@ -393,21 +497,18 @@ def apply_schema_events(events: Iterable[SchemaEvent], *, form_type: str | None 
     two different forms raise ``ValueError``, since folding them together would
     let one form's snapshot replace the other's.
 
+    A version event changes no node and is skipped here; read it with
+    :func:`schema_version_after`.
+
     A node whose parent never appears raises ``ValueError``. This module's own
     changes cannot produce one, but a stream read back from a store need not have
     come from them — it may be truncated, or start without a snapshot — and a
     node with no parent has no place in the tree to put it.
     """
     by_key: dict[NodeKey, SchemaNode] = {}
-    seen: str | None = None
-    for event in events:
-        if form_type is not None:
-            if event.form_type != form_type:
-                continue
-        elif seen is None:
-            seen = event.form_type
-        elif event.form_type != seen:
-            raise ValueError(f"schema events for two forms, {seen!r} and {event.form_type!r}: pass form_type to replay one of them")
+    for event in _one_form(events, form_type):
+        if isinstance(event, SchemaVersionMinted):
+            continue
         if isinstance(event, SchemaSnapshot):
             by_key = {n.key: n for n in event.nodes}
         elif event.after is None:

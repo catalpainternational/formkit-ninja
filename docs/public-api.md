@@ -41,12 +41,13 @@ exact-minor pin if you do.
 - `form_submission.ranking` — `harvest_ranks`, `apply_ranks`. `apply_ranks` is deliberately
   not wired up yet; it ships ahead of the migration that starts writing `$rank`.
 - `schema_emit` — a form's schema as values keyed the way FormKit files answers, never by id:
-  `SchemaNode`, `SchemaSnapshot`, `SchemaChange`, `SchemaEvent`, `NodeKey`, `ChangeKind`,
-  the `SchemaNodeRecord` / `SchemaSnapshotRecord` / `SchemaChangeRecord` JSON
-  shapes, `SchemaStreamSink`, `schema_nodes`, `snapshot_schema`, `emit_schema`,
-  `apply_schema_events`, `encode_schema_event`, `append_schema_events`,
-  `schema_event_from_record`, `schema_stream_path` and `SCHEMA_PREFIX`. Provisional until a consumer has used it; a schema
-  version will be added to it later. `append_schema_events(..., stream_path=)` lets the application name
+  `SchemaNode`, `SchemaSnapshot`, `SchemaChange`, `SchemaVersionMinted`, `SchemaEvent`,
+  `NodeKey`, `ChangeKind`, `MintedVersion`, the `SchemaNodeRecord` / `SchemaSnapshotRecord` /
+  `SchemaChangeRecord` / `SchemaVersionMintedRecord` JSON shapes, `SchemaStreamSink`,
+  `schema_nodes`, `snapshot_schema`, `emit_schema`, `emit_schema_versions`,
+  `apply_schema_events`, `schema_version_after`, `encode_schema_event`, `append_schema_events`,
+  `schema_event_from_record`, `schema_stream_path` and `SCHEMA_PREFIX`. Provisional until a
+  consumer has used it. `append_schema_events(..., stream_path=)` lets the application name
   the stream instead of using `schema_stream_path`, and `apply_schema_events(..., form_type=)`
   replays one form from a stream shared by several (without it, two forms on one stream raise
   `ValueError`).
