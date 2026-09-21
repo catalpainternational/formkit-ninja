@@ -226,6 +226,19 @@ Installing this version forces both upgrades on the consuming project, and
 
 ### Changed
 
+- **Importing this package no longer loosens Pydantic for the whole application.** *(Added
+  after release; this entry was missing when 5.0.0 shipped.)* Up to 4.x, importing
+  `formkit_ninja` set `arbitrary_types_allowed` on every Pydantic model in the process, including
+  the application's own. A model that declares a field of a type Pydantic cannot validate — a
+  Django model, a queryset, an arbitrary class — may have worked only because of that, and now
+  fails when its module is imported ("Unable to generate pydantic-core schema"). Give such a model
+  its own `model_config = ConfigDict(arbitrary_types_allowed=True)`, or a proper type. Importing
+  every schema module once is enough to find them all.
+- **Decimals reach the wire as strings.** *(Added after release.)* Under Pydantic 2 and
+  django-ninja 1, a `Decimal` field — including those in the code generator's `schemas.py` and
+  `schemas_in.py` templates — is serialised as `"12.50"`, not `12.5`, so the amount keeps its
+  precision. Code that reads these values from the API and does arithmetic or comparisons on them
+  must parse them as numbers first, or it will join or compare them as text.
 - **`FormKitNodeFactory.from_dict` and `.from_json` are instance methods.**
   They were `staticmethod`s; call them on an instance
   (`FormKitNodeFactory().from_dict(...)`) or use the new
