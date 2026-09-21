@@ -235,3 +235,21 @@ class TestATieStillHasALatest:
         self._tied_pair(separated_submission, first=False, second=True)
         parent = Submission.objects.with_import_failure().get(pk=separated_submission.submission_id)
         assert parent.has_import_failure is False
+
+
+@pytest.mark.django_db
+class TestRequestOnlyFlagsAreNotSubmissionFlags:
+    """A flag on a request that was never stored belongs to no submission (issue #109)."""
+
+    def test_they_do_not_mark_a_submission_flagged(self, separated_submission: SeparatedSubmission) -> None:
+        Flag.objects.create(request_key="refused", flag_type="locality_refused", message="m")
+        row = SeparatedSubmission.objects.with_unresolved_flags().get(pk=separated_submission.pk)
+        assert row.has_unresolved_flags is False
+        assert row.unresolved_flags_json is None
+
+    def test_they_do_not_reach_the_flag_list_of_a_flagged_submission(self, separated_submission: SeparatedSubmission) -> None:
+        Flag.objects.create(separated_submission=separated_submission, flag_type="stored", message="m")
+        Flag.objects.create(request_key="refused", flag_type="locality_refused", message="m")
+        row = SeparatedSubmission.objects.with_unresolved_flags().get(pk=separated_submission.pk)
+        assert row.has_unresolved_flags is True
+        assert [f["flag_type"] for f in row.unresolved_flags_json] == ["stored"]

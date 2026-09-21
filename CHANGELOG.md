@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking: `flag.separated_submission` can be `None` (#109).** It was always set; a flag on a
+  request that was never stored has none. Code that follows it on every flag, rather than
+  through a submission's own flags, needs to allow for that.
+
 - **Some of the tests for the form-editing guard could not fail, and are replaced (#106).** One
   took the list of safe edits it was meant to police from the code under test, so widening that
   list made the test agree rather than object — proved by adding "remove a validator" to the
@@ -46,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A flag can be about a request that was never stored (#109).** A consumer that refuses a
+  request (say, a new report from someone outside their area) can now raise a flag on it, so it
+  reaches the same review queue as every other problem. `Flag.request_key` holds the consumer's
+  own id for the request; `Flag.separated_submission` is now optional, and a flag must have one or
+  the other, or both. Flags that name only a request belong to no submission, so they never mark
+  a submission as flagged.
 - A check that every `formkit_ninja` import shown in `docs/` or in a repo-root guide
   resolves against the module it is imported from, so a page cannot again tell a reader
   to import something that does not exist. It reads import statements only: a method

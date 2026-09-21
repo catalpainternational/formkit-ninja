@@ -468,3 +468,65 @@ class TestFlaggedChangelistQuery:
         parent = Submission.objects.with_unresolved_flags().get(pk=separated_submission.submission_id)
         assert parent.has_unresolved_flags is True
         assert parent.unresolved_flags_json == [{"flag_type": "r", "message": "m", "severity": "error"}]
+
+
+@pytest.mark.django_db
+class TestFlagOnARequest:
+    """A flag can point at a request that was never stored (issue #109)."""
+
+    def test_a_refused_request_has_a_flag_without_a_submission(self) -> None:
+        flag = Flag.objects.create(request_key="9f1c-refused", flag_type="locality_refused", message="m")
+        flag.refresh_from_db()
+        assert flag.separated_submission_id is None
+        assert str(flag) == "locality_refused on request 9f1c-refused"
+
+    def test_a_held_request_names_both(self, separated_submission: SeparatedSubmission) -> None:
+        flag = Flag.objects.create(separated_submission=separated_submission, request_key="9f1c-held", flag_type="held", message="m")
+        assert list(separated_submission.quality_flags.all()) == [flag]
+        assert str(flag) == f"held on separated submission {separated_submission.pk}"
+
+    def test_one_request_can_carry_several_flags(self) -> None:
+        Flag.objects.create(request_key="same", flag_type="a", message="m")
+        Flag.objects.create(request_key="same", flag_type="b", message="m")
+        assert Flag.objects.filter(request_key="same").count() == 2
+
+    def test_a_flag_about_nothing_is_rejected(self) -> None:
+        with pytest.raises(IntegrityError):
+            Flag.objects.create(flag_type="r", message="m")
+
+    def test_an_empty_request_key_does_not_name_a_request(self) -> None:
+        with pytest.raises(IntegrityError):
+            Flag.objects.create(request_key="", flag_type="r", message="m")
+
+    def test_the_admin_form_says_why_a_flag_about_nothing_is_refused(self) -> None:
+        admin = FlagAdmin(Flag, AdminSite())
+        form_class = admin.get_form(RequestFactory().get("/"))
+        form = form_class(data={"flag_type": "r", "message": "m", "severity": "warning"})
+        assert not form.is_valid()
+        assert form.errors["__all__"] == ["A flag needs a separated submission, a request key, or both."]
+
+    def test_the_unresolved_index_leaves_out_request_only_flags(self) -> None:
+        """The index serves the per-submission lookups, which never see request-only flags."""
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT indexdef FROM pg_indexes WHERE indexname = 'flag_unresolved_by_sepsub_idx'")
+            (indexdef,) = cursor.fetchone()
+        assert "separated_submission_id IS NOT NULL" in indexdef
+        assert "resolved_at IS NULL" in indexdef
+
+    def test_request_keys_are_indexed_for_exact_lookup(self) -> None:
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT indexdef FROM pg_indexes WHERE indexname = 'flag_request_key_idx'")
+            (indexdef,) = cursor.fetchone()
+        assert indexdef.endswith("USING btree (request_key)")
+
+    def test_changelist_finds_a_flag_by_its_request(self, separated_submission: SeparatedSubmission) -> None:
+        wanted = Flag.objects.create(request_key="find-me", flag_type="a", message="m")
+        Flag.objects.create(separated_submission=separated_submission, flag_type="b", message="m")
+        admin = FlagAdmin(Flag, AdminSite())
+        request = RequestFactory().get("/")
+        found, _ = admin.get_search_results(request, Flag.objects.all(), "find-me")
+        assert list(found) == [wanted]

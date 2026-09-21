@@ -1424,6 +1424,7 @@ class AssignedToMeFilter(admin.SimpleListFilter):
 class FlagAdmin(admin.ModelAdmin):
     list_display = (
         "separated_submission",
+        "request_key",
         "flag_type",
         "severity",
         "is_resolved",
@@ -1442,7 +1443,7 @@ class FlagAdmin(admin.ModelAdmin):
         AssignedToMeFilter,
         ("assigned_to", admin.RelatedOnlyFieldListFilter),
     )
-    search_fields = ("flag_type", "message", "separated_submission__id")
+    search_fields = ("flag_type", "message", "separated_submission__id", "request_key")
     readonly_fields = ("created", "resolved_by", "created_by", "assigned_at")
     date_hierarchy = "created"
     raw_id_fields = ("separated_submission", "assigned_to")
