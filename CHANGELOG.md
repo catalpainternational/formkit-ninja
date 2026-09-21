@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-09-21
+
+Major because three things a consumer could rely on are gone or changed:
+`SchemaNode.name` is removed, the `submission_received` signal is removed, and
+**`Flag.separated_submission` can now be `None`** — code that follows it on every flag has to
+allow for that. Upgrading runs two migrations, `0055_flag_request_key` and `0056_flag_params`;
+both only add columns and relax a constraint, so existing rows need no backfill.
+
 ### Removed
 
 - **`SchemaNode.name`.** It returned the last segment of a node's key and nothing called it —
