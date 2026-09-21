@@ -110,7 +110,7 @@ class SubmissionQuerySet(models.QuerySet):
         Annotate each Submission with:
 
         - ``has_unresolved_flags`` (bool) — True if any unresolved Flag exists
-        - ``unresolved_flags_json`` (JSON array) — ``[{"flag_type", "message", "severity"}, ...]``
+        - ``unresolved_flags_json`` (JSON array) — ``[{"flag_type", "message", "severity", "params"}, ...]``
           Ordered by flag ``created`` descending (newest first). When there are no
           unresolved flags, ``unresolved_flags_json`` is ``None`` (not ``[]``).
 
@@ -131,6 +131,7 @@ class SubmissionQuerySet(models.QuerySet):
                         flag_type="flag_type",
                         message="message",
                         severity="severity",
+                        params="params",
                     ),
                     ordering="-created",
                 )
@@ -245,7 +246,7 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
         Annotate each SeparatedSubmission with:
 
         - ``has_unresolved_flags`` (bool) — True if any unresolved Flag exists
-        - ``unresolved_flags_json`` (JSON array) — ``[{"flag_type", "message", "severity"}, ...]``
+        - ``unresolved_flags_json`` (JSON array) — ``[{"flag_type", "message", "severity", "params"}, ...]``
           Ordered by flag ``created`` descending (newest first). When there are no
           unresolved flags, ``unresolved_flags_json`` is ``None`` (not ``[]``).
 
@@ -266,6 +267,7 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
                         flag_type="flag_type",
                         message="message",
                         severity="severity",
+                        params="params",
                     ),
                     ordering="-created",
                 )

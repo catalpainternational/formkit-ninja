@@ -504,6 +504,10 @@ class Flag(models.Model):
     flag that also names a request. A consumer that needs a request to outlive
     its row keeps its own record of the request, or puts the flag on a row that
     outlives the change.
+
+    ``params`` holds the values a flag's message refers to (e.g. the id of a
+    colliding submission), so ``message`` can stay fixed, translatable text.
+    Its keys belong to whichever rule wrote the flag.
     """
 
     SEVERITY_CHOICES = [
@@ -531,6 +535,11 @@ class Flag(models.Model):
         help_text="Code identifying the rule that created this flag (e.g. workers_project_mismatch)",
     )
     message = models.TextField(help_text="User-facing message for this flag")
+    params = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Values the message refers to, keyed by the rule that wrote the flag",
+    )
     severity = models.CharField(
         max_length=16,
         choices=SEVERITY_CHOICES,
