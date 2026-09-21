@@ -27,6 +27,10 @@ change.
   `get_repeaters`, `pre_validation`.
 - **The lifecycle vocabulary**: `Submission.Status`, and `Flag.severity`'s choices.
 - **The schema types**: `formkit_schema` — the node classes and the two discriminated unions.
+- **The schema version** (#108): `schema_version` — `MintSchemaVersion`, `current_schema_version`,
+  `current_schema_versions`, `UnknownFormTypeWarning` — and the `SchemaVersion` model. A
+  consumer's migrations import `MintSchemaVersion` and must keep importing it for as long as
+  they exist, so its name, module and arguments are fixed.
 
 ## Tier 2 — Provisional
 

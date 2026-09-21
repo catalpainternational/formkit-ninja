@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Each form has a schema version, and only a migration moves it (#108).** A version says which
+  reading of a form an answer was given against, so old answers can be replayed correctly after
+  a form changes what its answers mean. A form counts 1, 2, 3 on its own; one never changed is at
+  1. A consumer puts `MintSchemaVersion("TF_6_1_1", migration=__name__)` in the migration that
+  changes the form, depending on this package's `0057_schemaversion`, and stamps
+  `current_schema_versions(...)` on the events it writes. Unapplying that migration removes the
+  version again, and refuses if a later one exists. The admin lists versions and cannot edit
+  them.
 ## [6.0.0] - 2026-09-21
 
 Major because three things a consumer could rely on are gone or changed:

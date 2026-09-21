@@ -1191,6 +1191,24 @@ class OptionLabelAdmin(OptionEditPolicyAdminMixin, admin.ModelAdmin):
         return [obj.option.group_id]
 
 
+@admin.register(models.SchemaVersion)
+class SchemaVersionAdmin(admin.ModelAdmin):
+    """Read-only: only a migration mints a version (Shared ADR-0006)."""
+
+    list_display = ("form_type", "version", "migration", "minted_at")
+    list_filter = ("form_type",)
+    search_fields = ("form_type", "migration")
+
+    def has_add_permission(self, request) -> bool:
+        return False
+
+    def has_change_permission(self, request, obj=None) -> bool:
+        return False
+
+    def has_delete_permission(self, request, obj=None) -> bool:
+        return False
+
+
 # NOTE: SeparatedSubmission and Submission are imported at the top of the file
 
 
