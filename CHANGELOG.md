@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `current_schema_versions(...)` on the events it writes. Unapplying that migration removes the
   version again, and refuses if a later one exists. The admin lists versions and cannot edit
   them.
+- **A new version reaches the form's schema stream.** `emit_schema_versions` turns the new
+  versions into `SchemaVersionMinted` events carrying the time they were minted, and
+  `schema_version_after` reads the version back from a stream. A form never versioned produces
+  no such event, so every existing schema stream stays byte-for-byte the same. `SchemaEvent` now
+  includes the new event, so code that handles every kind of schema event should expect it;
+  `apply_schema_events` already skips it. A reader still on 6.0 cannot parse the new event, so
+  upgrade whatever reads a schema stream before anything writes a version to it.
+
 ## [6.0.0] - 2026-09-21
 
 Major because three things a consumer could rely on are gone or changed:

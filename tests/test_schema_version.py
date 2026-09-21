@@ -1,13 +1,16 @@
 """A form's schema version: counted per form, minted only by a migration (#108).
 
-What a later change could quietly break: a form never minted reads as 1; each
-mint is the next number, per
-exact ``form_type``; unminting refuses to open a gap; and the operation
-survives being written into a migration file.
+What a later change could quietly break: a form never minted reads as 1 and
+leaves its schema stream exactly as it was; each mint is the next number, per
+exact ``form_type``; unminting refuses to open a gap; the operation survives
+being written into a migration file; and a mint reaches the stream carrying the
+time it was minted, which is what an unversioned answer is resolved by.
 """
 
 from __future__ import annotations
 
+import datetime as dt
+import json
 import warnings
 
 import pytest
@@ -23,6 +26,17 @@ from django.test import RequestFactory
 from formkit_ninja import models
 from formkit_ninja.admin import SchemaVersionAdmin
 from formkit_ninja.form_submission.models import Submission
+from formkit_ninja.schema_emit import (
+    SchemaSnapshot,
+    SchemaVersionMinted,
+    apply_schema_events,
+    emit_schema,
+    emit_schema_versions,
+    encode_schema_event,
+    schema_event_from_record,
+    schema_version_after,
+    snapshot_schema,
+)
 from formkit_ninja.schema_version import (
     MintSchemaVersion,
     UnknownFormTypeWarning,
@@ -204,3 +218,67 @@ class TestAdmin:
         admin = SchemaVersionAdmin(models.SchemaVersion, AdminSite())
         request = RequestFactory().get("/")
         assert (admin.has_add_permission(request), admin.has_change_permission(request), admin.has_delete_permission(request)) == (False, False, False)
+
+
+def _row(version: int, *, form_type: str = FORM, minted_at: dt.datetime | None = None) -> models.SchemaVersion:
+    return models.SchemaVersion(
+        form_type=form_type,
+        version=version,
+        migration=f"consumer.01{version:02}",
+        minted_at=minted_at or dt.datetime(2026, 9, 1, 12, version, tzinfo=dt.timezone.utc),
+    )
+
+
+TREE = {"$formkit": "group", "name": FORM, "children": [{"$formkit": "text", "name": "district"}]}
+
+
+class TestOnTheStream:
+    def test_a_form_never_minted_has_no_version_events_so_its_stream_is_unchanged(self) -> None:
+        assert emit_schema_versions([]) == []
+
+    def test_only_versions_the_stream_has_not_recorded_are_emitted_oldest_first(self) -> None:
+        events = emit_schema_versions([_row(4), _row(2), _row(3)], prior_version=2)
+        assert [e.version for e in events] == [3, 4]
+
+    def test_a_version_event_carries_when_it_was_minted_not_when_it_was_emitted(self) -> None:
+        (event,) = emit_schema_versions([_row(2, minted_at=dt.datetime(2026, 9, 1, 8, 30, tzinfo=dt.timezone.utc))])
+        assert event.minted_at == "2026-09-01T08:30:00Z"
+        assert event.migration == "consumer.0102"
+
+    def test_a_version_event_survives_a_trip_through_json(self) -> None:
+        (event,) = emit_schema_versions([_row(2)])
+        assert schema_event_from_record(json.loads(encode_schema_event(event))) == event
+
+    def test_the_stream_says_which_version_the_form_is_at(self) -> None:
+        stream = [snapshot_schema(TREE, FORM), *emit_schema_versions([_row(2), _row(3)])]
+        assert schema_version_after(stream) == 3
+        assert schema_version_after([snapshot_schema(TREE, FORM)]) == 1
+
+    def test_a_shared_stream_gives_each_form_its_own_version(self) -> None:
+        stream = [*emit_schema_versions([_row(2, form_type="FF_1_1")]), snapshot_schema(TREE, "FF_11")]
+        assert schema_version_after(stream, form_type="FF_1_1") == 2
+        assert schema_version_after(stream, form_type="FF_11") == 1
+        with pytest.raises(ValueError, match="two forms"):
+            schema_version_after(stream)
+
+    def test_a_version_event_leaves_the_replayed_tree_alone(self) -> None:
+        snapshot = snapshot_schema(TREE, FORM)
+        assert apply_schema_events([snapshot, *emit_schema_versions([_row(2)])]) == list(snapshot.nodes)
+
+    def test_producing_the_next_events_from_a_stream_and_the_live_form(self) -> None:
+        """The loop a consumer runs after each deploy: node changes, then new versions."""
+        stream: list = [snapshot_schema(TREE, FORM)]
+        rows = [_row(2)]
+        stream += [*emit_schema(TREE, FORM, prior=apply_schema_events(stream)), *emit_schema_versions(rows, prior_version=schema_version_after(stream))]
+        assert [type(e) for e in stream] == [SchemaSnapshot, SchemaVersionMinted]
+        # Run again with nothing new: nothing more is emitted.
+        again = [*emit_schema(TREE, FORM, prior=apply_schema_events(stream)), *emit_schema_versions(rows, prior_version=schema_version_after(stream))]
+        assert again == []
+
+
+@pytest.mark.django_db
+@pytest.mark.no_split_on_save
+def test_minted_rows_go_straight_onto_the_stream(state, known_form) -> None:
+    _mint(FORM, "consumer.0100_a", state)
+    (event,) = emit_schema_versions(models.SchemaVersion.objects.filter(form_type=FORM))
+    assert (event.form_type, event.version, event.migration, event.stream_path) == (FORM, 2, "consumer.0100_a", "schema/tf611")
