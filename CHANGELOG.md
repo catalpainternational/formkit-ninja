@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-09-22
+
+Minor because everything here is new: each form now has a schema version that only a migration
+can move (#108), and a new version reaches the form's schema stream. Upgrading runs one
+migration, `0057_schemaversion`, which only adds a table. Upgrade whatever reads a schema stream
+before anything writes a version to it — a 6.0 reader cannot parse the new event.
+
 ### Added
 
 - **Each form has a schema version, and only a migration moves it (#108).** A version says which
