@@ -463,11 +463,11 @@ class TestFlaggedChangelistQuery:
 
         row = SeparatedSubmission.objects.with_unresolved_flags().get(pk=separated_submission.pk)
         assert row.has_unresolved_flags is True
-        assert row.unresolved_flags_json == [{"flag_type": "r", "message": "m", "severity": "error"}]
+        assert row.unresolved_flags_json == [{"flag_type": "r", "message": "m", "severity": "error", "params": {}}]
 
         parent = Submission.objects.with_unresolved_flags().get(pk=separated_submission.submission_id)
         assert parent.has_unresolved_flags is True
-        assert parent.unresolved_flags_json == [{"flag_type": "r", "message": "m", "severity": "error"}]
+        assert parent.unresolved_flags_json == [{"flag_type": "r", "message": "m", "severity": "error", "params": {}}]
 
 
 @pytest.mark.django_db
@@ -530,3 +530,23 @@ class TestFlagOnARequest:
         request = RequestFactory().get("/")
         found, _ = admin.get_search_results(request, Flag.objects.all(), "find-me")
         assert list(found) == [wanted]
+
+
+@pytest.mark.django_db
+class TestFlagParams:
+    """``params`` carries the values a fixed, translatable message refers to."""
+
+    def test_a_flag_written_without_params_starts_empty(self, separated_submission: SeparatedSubmission) -> None:
+        flag = Flag.objects.create(separated_submission=separated_submission, flag_type="r", message="m")
+        flag.refresh_from_db()
+        assert flag.params == {}
+
+    def test_params_come_back_as_written(self) -> None:
+        params = {"colliding_submission": "0b6d-uuid", "count": 2, "nested": {"ok": True}}
+        flag = Flag.objects.create(request_key="k", flag_type="r", message="m", params=params)
+        flag.refresh_from_db()
+        assert flag.params == params
+
+    def test_the_admin_shows_params_but_does_not_edit_them(self) -> None:
+        admin = FlagAdmin(Flag, AdminSite())
+        assert "params" in admin.get_readonly_fields(RequestFactory().get("/"))

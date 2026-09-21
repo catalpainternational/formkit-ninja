@@ -112,18 +112,20 @@ class TestSepSubWithUnresolvedFlags:
         assert len(result.unresolved_flags_json) == 2
 
     def test_json_structure(self, separated_submission: SeparatedSubmission) -> None:
-        """JSON entries have flag_type, message, severity keys."""
+        """JSON entries have flag_type, message, severity and params keys."""
         Flag.objects.create(
             separated_submission=separated_submission,
             flag_type="mismatch",
             message="Workers do not match",
             severity="error",
+            params={"worker": "w-17"},
         )
         result = SeparatedSubmission.objects.with_unresolved_flags().get(pk=separated_submission.pk)
         entry = result.unresolved_flags_json[0]
         assert entry["flag_type"] == "mismatch"
         assert entry["message"] == "Workers do not match"
         assert entry["severity"] == "error"
+        assert entry["params"] == {"worker": "w-17"}
 
     def test_unresolved_flags_ordering_newest_first(self, separated_submission: SeparatedSubmission) -> None:
         """unresolved_flags_json is ordered by flag created descending (newest first)."""

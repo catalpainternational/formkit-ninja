@@ -56,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   own id for the request; `Flag.separated_submission` is now optional, and a flag must have one or
   the other, or both. Flags that name only a request belong to no submission, so they never mark
   a submission as flagged.
+- **`Flag.params`** holds the values a flag's message refers to, such as the id of a colliding
+  submission, so the message itself can stay fixed, translatable text. It defaults to `{}`, and
+  the `unresolved_flags_json` annotation now includes it.
+
 - A check that every `formkit_ninja` import shown in `docs/` or in a repo-root guide
   resolves against the module it is imported from, so a page cannot again tell a reader
   to import something that does not exist. It reads import statements only: a method

@@ -1444,7 +1444,7 @@ class FlagAdmin(admin.ModelAdmin):
         ("assigned_to", admin.RelatedOnlyFieldListFilter),
     )
     search_fields = ("flag_type", "message", "separated_submission__id", "request_key")
-    readonly_fields = ("created", "resolved_by", "created_by", "assigned_at")
+    readonly_fields = ("created", "resolved_by", "created_by", "assigned_at", "params")
     date_hierarchy = "created"
     raw_id_fields = ("separated_submission", "assigned_to")
     list_select_related = ("separated_submission", "assigned_to", "created_by")
