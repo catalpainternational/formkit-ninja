@@ -492,6 +492,18 @@ class Flag(models.Model):
     administrators. Used to surface data-quality issues (e.g. mismatched worker
     data between forms). One separated submission can have multiple flags
     (different rule types).
+
+    A flag can also point at a request the consumer recorded but did not store
+    (issue #109): a refused new report has no submission to sit on, so it
+    carries only ``request_key``. A request held back from an existing
+    submission sets both. ``request_key`` is the consumer's own id for the
+    request and is never interpreted here.
+
+    A flag with a separated submission is deleted with it, including by the
+    split's cleanup of repeater rows a later edit dropped, and including a
+    flag that also names a request. A consumer that needs a request to outlive
+    its row keeps its own record of the request, or puts the flag on a row that
+    outlives the change.
     """
 
     SEVERITY_CHOICES = [
@@ -503,7 +515,15 @@ class Flag(models.Model):
     separated_submission = models.ForeignKey(
         SeparatedSubmission,
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="quality_flags",
+    )
+    request_key = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text="The consumer's id for the request this flag is about, when there is one",
     )
     flag_type = models.CharField(
         max_length=64,
@@ -562,6 +582,15 @@ class Flag(models.Model):
                 check=models.Q(assigned_to__isnull=True) | models.Q(assigned_at__isnull=False),
                 name="flag_assigned_to_has_assigned_at",
             ),
+            # A flag has to be about something: a stored submission, a
+            # request, or both. An empty key does not count as naming a
+            # request. Both halves of the key test are needed: a CHECK passes
+            # when it evaluates to NULL, and ``NULL > ''`` is NULL.
+            models.CheckConstraint(
+                check=models.Q(separated_submission__isnull=False) | models.Q(request_key__isnull=False, request_key__gt=""),
+                name="flag_has_submission_or_request",
+                violation_error_message="A flag needs a separated submission, a request key, or both.",
+            ),
         ]
         indexes = [
             # Every submission changelist page now runs the
@@ -570,12 +599,17 @@ class Flag(models.Model):
             # unresolved rows, which is the only half the subquery looks at.
             models.Index(
                 fields=["separated_submission"],
-                condition=models.Q(resolved_at__isnull=True),
+                condition=models.Q(resolved_at__isnull=True, separated_submission__isnull=False),
                 name="flag_unresolved_by_sepsub_idx",
             ),
+            # Exact lookups by the consumer's request id. A plain index, not
+            # ``db_index=True``, which would add a LIKE-pattern index nothing uses.
+            models.Index(fields=["request_key"], name="flag_request_key_idx"),
         ]
 
     def __str__(self) -> str:
+        if self.separated_submission_id is None:
+            return f"{self.flag_type} on request {self.request_key}"
         return f"{self.flag_type} on separated submission {self.separated_submission_id}"
 
     @property
