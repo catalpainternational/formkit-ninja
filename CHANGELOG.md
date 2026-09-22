@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.1] - 2026-09-22
+
+A patch: the API document is valid OpenAPI again, so strict tools such as openapi-typescript 7
+accept it (#115). No migrations; nothing about validating or reading nodes changes.
+
 ### Fixed
 
 - **The API document is valid OpenAPI again (#115).** The node types nest one discriminated union
