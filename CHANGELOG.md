@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The API document is valid OpenAPI again (#115).** The node types nest one discriminated union
+  inside another, and under Pydantic 2 that wrote a discriminator mapping entry as a whole schema,
+  where OpenAPI allows only a `$ref`. Strict tools refused the document, and openapi-typescript 7
+  crashed on it. The entry is now left out: every node type is still listed, the inner union keeps
+  its own discriminator, and validating or serialising a node is unchanged. A test now checks the
+  document with a strict OpenAPI validator. Consumers that commit a generated OpenAPI file will see
+  that entry disappear when they regenerate.
+
 ## [6.1.0] - 2026-09-22
 
 Minor because everything here is new: each form now has a schema version that only a migration

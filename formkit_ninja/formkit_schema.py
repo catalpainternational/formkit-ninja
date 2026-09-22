@@ -372,6 +372,27 @@ class FormKitSchemaComponent(FormKitSchemaProps):
 
 Model = TypeVar("Model", bound="BaseModel")
 
+
+class _OpenAPIMappingsAreRefs:
+    """Keep a nested discriminated union's JSON schema valid OpenAPI (#115).
+
+    ``Node`` is discriminated on ``node_type``, and its ``"formkit"`` case is
+    itself a union discriminated on ``$formkit``. For a case with no ``$ref`` of
+    its own, Pydantic 2 writes the whole case schema into
+    ``discriminator.mapping``, where OpenAPI allows only a ``$ref`` string, so
+    strict tools refuse the document. The entry is dropped: every node type is
+    still listed in ``oneOf``, and the inner union keeps its own discriminator.
+    Validation is untouched — this only changes the JSON schema.
+    """
+
+    def __get_pydantic_json_schema__(self, core_schema: Any, handler: Any) -> dict[str, Any]:
+        json_schema = handler(core_schema)
+        mapping = json_schema.get("discriminator", {}).get("mapping")
+        if mapping:
+            json_schema["discriminator"]["mapping"] = {tag: ref for tag, ref in mapping.items() if isinstance(ref, str)}
+        return json_schema
+
+
 Node: TypeAlias = Annotated[
     Union[
         FormKitSchemaFormKit,
@@ -380,6 +401,7 @@ Node: TypeAlias = Annotated[
         FormKitSchemaCondition,
     ],
     Field(discriminator="node_type"),
+    _OpenAPIMappingsAreRefs(),
 ]
 
 NODE_TYPE = Literal["condition", "formkit", "element", "component"]
