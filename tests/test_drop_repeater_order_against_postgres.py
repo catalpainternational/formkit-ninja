@@ -41,6 +41,34 @@ def _migrate(target):
     return executor.loader.project_state([target]).apps
 
 
+@pytest.fixture(autouse=True, scope="module")
+def _leave_the_database_migrated(django_db_blocker):
+    """Put the schema back at the latest migration when this module is done.
+
+    These tests migrate the *real* test database backwards to 0051 and forwards
+    to 0052, and nothing put it back, so the schema stays several migrations old
+    for the rest of the session.
+
+    **Nothing currently depends on this, and the reasons are both incidental.**
+    ``transaction=True`` modules are ordered last, so little runs afterwards;
+    and a reused database re-runs ``migrate`` when the next session starts, so
+    the damage does not survive either. Gutting this fixture leaves the suite
+    green — measured. It is kept because neither of those is a property this
+    module arranged or controls, and the failure it would produce names the
+    wrong file: a later test reading a column added after 0052 fails with
+    ``column ... does not exist``, which says nothing about the test that
+    actually broke it. The restore keeps the cost inside the module that pays
+    it.
+    """
+    yield
+    # ``django_db_blocker`` because a module-scoped fixture is outside the
+    # per-test database access this plugin grants.
+    with django_db_blocker.unblock():
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes("formkit_ninja"))
+
+
 def _columns(table):
     with connection.cursor() as cursor:
         cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = %s", [table])

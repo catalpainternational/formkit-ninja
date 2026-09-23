@@ -152,3 +152,46 @@ def bump_sequence_value(value_field: str = "track_change", sequence_name: str = 
         operation=pgtrigger.Update | pgtrigger.Insert,
         func=f"""NEW."{value_field}" = nextval('{sequence_name}'); RETURN NEW;""",
     )
+
+
+#: The table that records when each group's child list last changed. Named here
+#: rather than derived, because the trigger below is SQL against another model's
+#: table and Django's ``{meta.db_table}`` only names the model it is attached to.
+CHILD_LIST_CHANGE_TABLE = "formkit_ninja_nodechildrenchange"
+
+
+def bump_child_list_version(sequence_name: str = NODE_CHANGE_ID):
+    """Stamp a group's child list whenever one of its links is written or removed.
+
+    The published version of a parent's child list used to be inferred from the
+    link rows that still existed, which meant removing the newest link *lowered*
+    it — and a client syncing from a watermark never heard about the removal
+    (#69). A row that has been deleted cannot carry the version of its own
+    deletion, so the version lives beside the list instead of inside it.
+
+    ``AFTER`` because it writes another table and does not alter the row. Both
+    the old and the new parent are stamped, so moving a link between two groups
+    is published to each of them. The insert is an upsert: one row per group,
+    no growth, nothing to sweep.
+    """
+    stamp = f"""
+        INSERT INTO {CHILD_LIST_CHANGE_TABLE} (parent_id, track_change)
+        VALUES (%s, nextval('{sequence_name}'))
+        ON CONFLICT (parent_id) DO UPDATE SET track_change = EXCLUDED.track_change;
+    """
+    return pgtrigger.Trigger(
+        name="version_child_list",
+        when=pgtrigger.After,
+        operation=pgtrigger.Insert | pgtrigger.Update | pgtrigger.Delete,
+        func=pgtrigger.Func(
+            f"""
+                IF TG_OP <> 'INSERT' THEN
+                    {stamp.replace("%s", 'OLD."parent_id"')}
+                END IF;
+                IF TG_OP <> 'DELETE' AND (TG_OP = 'INSERT' OR NEW."parent_id" IS DISTINCT FROM OLD."parent_id") THEN
+                    {stamp.replace("%s", 'NEW."parent_id"')}
+                END IF;
+                RETURN NULL;
+            """
+        ),
+    )

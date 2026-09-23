@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Deleting a field from a form now reaches devices that already have it (#69).** A device asks
+  "what has changed since I last looked?" with a version number. Removing a field moved that
+  number *backwards*, so the device was never told, and went on showing the field. Nothing
+  anywhere reported a fault: ask the server fresh and its answer was correct. A form's version is
+  now recorded beside its list of fields instead of being worked out from the fields that remain,
+  so removing one moves it forward like any other change. A form whose last field is removed is
+  published as empty rather than dropping out of the answer altogether.
+
+  The device was only ever wrong about the removal itself, and only until the next change of any
+  kind to that form — versions only ever count upwards, so nothing after the removal was lost. A
+  form that is never touched again is the one that stays wrong, on every device that had it.
+  Upgrading does not repair those: the migration gives each form the version it already
+  published, so no device is told of a change that did not happen, which also means none is told
+  about the removals it slept through. **If that matters to you, force a full re-fetch of the
+  form structure once** in the release that adopts this. Adds one table and one migration;
+  nothing about how fields are stored or read changes, and asking a form for its fields is
+  unaffected.
+
+  Two smaller changes come with it, both about a form whose fields have *all* been removed. Such
+  a form is now listed when you ask which forms have changed, where before it was missing even
+  from a full fetch — it is listed with an empty field list, which is the point. And asking for
+  its version now answers with a number where it used to answer with nothing, so re-ordering it
+  is refused on a stale token rather than refused always.
+
 ## [6.1.1] - 2026-09-22
 
 A patch: the API document is valid OpenAPI again, so strict tools such as openapi-typescript 7

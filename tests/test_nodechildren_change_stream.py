@@ -230,3 +230,265 @@ def test_children_of_a_protected_node_can_still_be_reordered(db):
 
     assert _published(parent) > before
     assert list(models.NodeChildren.objects.filter(parent=parent).order_by("order").values_list("child_id", flat=True)) == [b.id, a.id]
+
+
+# ---------------------------------------------------------------------------
+# Defect 3: a deleted child must reach an incremental client too (issue #69)
+# ---------------------------------------------------------------------------
+
+
+def test_unlinking_a_child_moves_the_published_watermark_forward(parent_with_children):
+    """
+    Deleting a field from a form must not move the form's version backwards.
+
+    ``latest_change`` used to be a maximum over the link rows that survived, so
+    deleting the newest link lowered it, and a device syncing from its own
+    watermark was never told. Nothing reported a fault: asked fresh, the server
+    answered correctly.
+
+    What this does *not* claim, because it measures false: that later edits were
+    skipped too. Versions come from one ever-increasing sequence, so any change
+    after the removal exceeds a number the device already holds and reaches it —
+    carrying the corrected list. Pinned by
+    ``test_a_version_only_ever_goes_up``. The loss is the removal itself, until
+    the next change of any kind; a form never touched again stays wrong forever.
+    """
+    parent, _a, b = parent_with_children
+    before = _published(parent)
+
+    b.delete()
+
+    assert _published(parent) > before
+
+
+def test_a_deletion_is_returned_to_a_client_syncing_from_its_watermark(parent_with_children):
+    """The end-to-end form: the delta must carry the shortened child list."""
+    parent, a, b = parent_with_children
+    before = _published(parent)
+
+    b.delete()
+    delta = list(models.NodeChildren.objects.aggregate_changes_table(latest_change=before))
+
+    assert [row.parent for row in delta] == [parent.id]
+    assert delta[0].children == [a.id]
+
+
+def test_successive_unlinks_never_move_the_watermark_backwards(db):
+    """
+    Measured on the reported data, the published value fell with every unlink —
+    ``[45954, 45953, 45952]``. Each of those is a form a device was not told
+    about; the falling is what this pins, not a compounding drift, which
+    ``test_a_version_only_ever_goes_up`` shows does not happen.
+    """
+    parent = _node("p", "group")
+    children = [_node(name) for name in ("a", "b", "c", "d")]
+    for order, child in enumerate(children, start=1):
+        models.NodeChildren.objects.create(parent=parent, child=child, order=order)
+
+    seen = [_published(parent)]
+    for child in reversed(children[1:]):
+        child.delete()
+        seen.append(_published(parent))
+
+    assert seen == sorted(seen), seen
+    assert len(set(seen)) == len(seen), seen
+
+
+def test_a_deleted_child_is_gone_from_the_list_the_api_serves(admin_client: Client, parent_with_children):
+    """
+    Over HTTP, with the token read the way a client reads it: the parent must
+    appear in the delta, and its children must no longer name the deleted node.
+    """
+    parent, a, b = parent_with_children
+    served = admin_client.get(reverse("api-1.0.0:get_related_nodes")).json()
+    before = next(r for r in served if r["parent"] == str(parent.id))["latest_change"]
+
+    b.delete()
+
+    after = admin_client.get(reverse("api-1.0.0:get_related_nodes")).json()
+    row = next(r for r in after if r["parent"] == str(parent.id))
+    assert row["children"] == [str(a.id)]
+    assert row["latest_change"] > before
+
+
+def test_unlinking_under_a_protected_node_still_moves_the_watermark(db):
+    """
+    The same constraint that ruled out bumping the parent node's version for a
+    reorder applies to a deletion: a protected group's child list must still be
+    able to shrink, and the change must still be published.
+    """
+    parent = _node("protected_group", "group", protected=True)
+    a, b = _node("a"), _node("b")
+    models.NodeChildren.objects.create(parent=parent, child=a, order=1)
+    models.NodeChildren.objects.create(parent=parent, child=b, order=2)
+    before = _published(parent)
+
+    b.delete()
+
+    assert _published(parent) > before
+    assert list(models.NodeChildren.objects.filter(parent=parent).values_list("child_id", flat=True)) == [a.id]
+
+
+def test_removing_the_last_child_still_reaches_the_client(db):
+    """
+    An emptied group must be published as empty, not vanish from the delta.
+
+    This is the case a plain tombstone gets wrong. The client replaces a
+    parent's child list with whatever the delta carries and never deletes a
+    parent it does not hear about, so a group that drops out of the response
+    keeps its old list on every device that already had it.
+    """
+    parent = _node("p", "group")
+    only = _node("only")
+    models.NodeChildren.objects.create(parent=parent, child=only, order=1)
+    before = _published(parent)
+
+    only.delete()
+
+    assert _published(parent) > before
+    delta = list(models.NodeChildren.objects.aggregate_changes_table(latest_change=before))
+    assert [row.parent for row in delta] == [parent.id]
+    assert delta[0].children == []
+
+
+def test_an_emptied_group_reaches_the_client_over_http_saying_it_is_empty(admin_client: Client, db):
+    """
+    The same case as above, read the way a client reads it.
+
+    The test above asks the manager, which is what the note at the top of this
+    file warns against: it is how the reorder defect hid. The value has to
+    survive serialisation as well, and an empty list is exactly the value a
+    response is most likely to drop on the way out — so the one case the fix
+    exists for is the one a Python-side assertion cannot vouch for.
+    """
+    parent = _node("p", "group")
+    only = _node("only")
+    models.NodeChildren.objects.create(parent=parent, child=only, order=1)
+    served = admin_client.get(reverse("api-1.0.0:get_related_nodes")).json()
+    before = next(r for r in served if r["parent"] == str(parent.id))["latest_change"]
+
+    only.delete()
+
+    after = admin_client.get(reverse("api-1.0.0:get_related_nodes")).json()
+    row = next(r for r in after if r["parent"] == str(parent.id))
+    assert "children" in row, f"an emptied group must say so, not omit the key: {row}"
+    assert row["children"] == []
+    assert row["latest_change"] > before
+
+
+# ---------------------------------------------------------------------------
+# The relation itself must keep meaning what it meant (issue #69)
+# ---------------------------------------------------------------------------
+
+
+def test_a_deleted_field_is_gone_from_every_way_of_asking(parent_with_children):
+    """
+    Removing a field must remove it from the relation, not merely from one view.
+
+    An earlier attempt kept the link row and marked it removed, which made the
+    published list right and left ``FormKitSchemaNode.children`` — a public
+    attribute that joins the link table directly — still serving the deleted
+    field. Every way of asking has to agree, so all four are pinned here.
+    """
+    parent, a, b = parent_with_children
+
+    b.delete()
+
+    assert [node.label for node in parent.children.all()] == ["a"]
+    assert [link.child.label for link in parent.parent.all()] == ["a"]
+    assert [child["name"] for child in parent.get_node_values(recursive=True)["children"]] == ["a"]
+    assert list(models.NodeChildren.objects.filter(parent=parent).values_list("child_id", flat=True)) == [a.id]
+
+
+def test_editing_the_group_itself_moves_its_published_version(parent_with_children):
+    """One of the three things a form's version is the greatest of."""
+    parent, _a, _b = parent_with_children
+    before = _published(parent)
+
+    parent.label = "renamed"
+    parent.save()
+
+    assert _published(parent) > before
+
+
+def test_editing_a_field_moves_the_form_s_published_version(parent_with_children):
+    """The second of the three: a child's own version counts toward its parent's."""
+    parent, a, _b = parent_with_children
+    before = _published(parent)
+
+    a.label = "renamed"
+    a.save()
+
+    assert _published(parent) > before
+
+
+def test_moving_a_field_to_another_group_is_published_to_both(db):
+    """
+    Both groups changed, so both must be told — the one that lost the field and
+    the one that gained it. Only the first is stamped from the row as it was;
+    the second needs its own branch.
+
+    The field is moved to the *end* of the target on purpose. Landing it among
+    the existing fields makes the sibling-renumbering trigger rewrite their rows,
+    and each of those writes stamps the target as a side effect — which hides
+    whether the branch under test does anything. Appending shifts no sibling, so
+    the only thing that can stamp the target is the branch itself.
+    """
+    source, target = _node("source", "group"), _node("target", "group")
+    moved = _node("moved")
+    models.NodeChildren.objects.create(parent=source, child=moved, order=1)
+    models.NodeChildren.objects.create(parent=target, child=_node("kept"), order=1)
+    source_before, target_before = _published(source), _published(target)
+
+    models.NodeChildren.objects.filter(parent=source, child=moved).update(parent=target, order=99)
+
+    assert _published(source) > source_before
+    assert _published(target) > target_before
+    delta = {row.parent: row.children for row in models.NodeChildren.objects.aggregate_changes_table(latest_change=source_before)}
+    assert delta[source.id] == []
+    assert moved.id in delta[target.id]
+
+
+def test_a_version_only_ever_goes_up(parent_with_children):
+    """
+    Why a missed change is never compounded by a later one.
+
+    Every version — a group's, a field's, a child list's — is drawn from one
+    ever-increasing sequence, so any later change exceeds a number a device is
+    already holding. A device that missed the removal still hears about the next
+    change of any kind, and hears it with the corrected list. What it cannot do
+    is hear about a removal that is never followed by anything.
+    """
+    parent, a, b = parent_with_children
+    seen = [_published(parent)]
+
+    b.delete()
+    seen.append(_published(parent))
+    a.label = "renamed"
+    a.save()
+    seen.append(_published(parent))
+    models.NodeChildren.objects.create(parent=parent, child=_node("c"), order=3)
+    seen.append(_published(parent))
+
+    assert seen == sorted(seen), seen
+    assert len(set(seen)) == len(seen), seen
+
+
+def test_a_change_to_the_group_alone_reaches_a_syncing_client(parent_with_children):
+    """
+    The delta, not just the number: a form edited without touching its fields.
+
+    ``aggregate_changes_table`` used to test the group's own version separately
+    as well as through the greatest-of. The separate test can never match a row
+    the greatest-of missed, so it was dropped — this pins the case it was there
+    for, which nothing else reached.
+    """
+    parent, a, b = parent_with_children
+    before = _published(parent)
+
+    parent.label = "renamed"
+    parent.save()
+
+    delta = list(models.NodeChildren.objects.aggregate_changes_table(latest_change=before))
+    assert [row.parent for row in delta] == [parent.id]
+    assert delta[0].children == [a.id, b.id]

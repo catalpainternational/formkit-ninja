@@ -101,6 +101,12 @@ exact-minor pin if you do.
   here, and whoever reads that failure should establish which side moved before looking for
   one.
 
+- `NodeChildrenChange` — a row per node that has, or ever had, a child list, recording when it
+  last changed, written
+  only by a database trigger. Read it if you are reimplementing the incremental sync, but
+  treat the *value* as opaque: it is comparable against the versions on nodes and link rows
+  and against nothing else. Never write it; the trigger owns it.
+
 ## Tier 3 — Internal
 
 No guarantees, may change or vanish in a patch: anything underscore-prefixed, the migrations,

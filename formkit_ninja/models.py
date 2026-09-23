@@ -10,10 +10,10 @@ import pghistory
 import pgtrigger
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.postgres.aggregates import ArrayAgg
+from django.contrib.postgres.expressions import ArraySubquery
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import Q
+from django.db.models import F, OuterRef, Q, Subquery
 from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
 from django.utils import timezone
@@ -253,39 +253,47 @@ class NodeChildrenManager(models.Manager):
         endpoint it was for — every well-behaved reorder got a 409 (issue #68).
 
         ``latest_change`` is the greatest of three: the parent node's version,
-        the greatest child node's version, and the greatest version of the link
-        rows themselves. That last one is what makes a *reorder* — which changes
-        no node row, only ``NodeChildren.order`` — visible to an incremental
-        client. All three are now stamped from ``formkitschemanode_change_id``,
-        so they are comparable; before, the link rows had a private sequence and
-        a reorder simply never moved the published watermark.
+        the greatest child node's version, and the version of the child list
+        itself. That last one is what makes a *reorder* — which changes no node
+        row, only ``NodeChildren.order`` — visible to an incremental client, and
+        it is also what makes a *removal* visible, which the link rows cannot
+        say for themselves (#69). All three are stamped from
+        ``formkitschemanode_change_id``, so they are comparable.
+
+        Driven by ``NodeChildrenChange`` rather than by the link rows, because a
+        group whose last child is removed has no link rows left. Grouping over
+        those would drop it from the response entirely, and a client that
+        replaces a list it is told about — but never deletes a parent it is not
+        told about — would keep the old children forever. The row outlives the
+        last link and carries the group out as an empty list.
+
+        Deleting the *group* is a different case and not one this fixes: the row
+        goes with the links, so the group stops being published rather than
+        being published empty. That is what happens today as well.
         """
-        qs = self.get_queryset()
+        qs = NodeChildrenChange.objects.all()
         if parent_id is not None:
             qs = qs.filter(parent_id=parent_id)
-        return (
-            # ``.values("parent")`` yields the FK's stored id under the key
-            # ``parent`` — the name the API serialises and documents (see
-            # ``NodeChildrenOut``); ``parent_id`` would name it the other way.
-            qs.values("parent")
-            .annotate(
-                children=ArrayAgg("child", ordering="order"),
-            )
-            .annotate(Max("child__track_change"))
-            .annotate(Max("track_change"))
-            .annotate(
-                latest_change=Greatest(
-                    "child__track_change__max",
-                    "parent__track_change",
-                    "track_change__max",
-                )
-            )
+        links = NodeChildren.objects.filter(parent=OuterRef("parent_id"))
+        # ``parent`` needs no annotation here: it is this model's own primary
+        # key, and it is the name the API serialises and documents (see
+        # ``NodeChildrenOut``).
+        return qs.annotate(
+            children=ArraySubquery(links.order_by("order").values("child_id")),
+            latest_change=Greatest(
+                F("track_change"),
+                F("parent__track_change"),
+                Subquery(links.values("parent").annotate(m=Max("child__track_change")).values("m")),
+            ),
         )
 
     def aggregate_changes_table(self, latest_change: int | None = None):
         values = self._changes_qs()
         if latest_change:
-            values = values.filter(Q(latest_change__gt=latest_change) | Q(parent__track_change__gt=latest_change))
+            # One term only: ``latest_change`` is a ``Greatest`` that already
+            # includes the parent node's own version, so a second test against
+            # that version can never match a row the first one missed.
+            values = values.filter(latest_change__gt=latest_change)
         return values.values_list("parent", "latest_change", "children", named=True)
 
     def latest_change(self, parent_id=None):
@@ -302,9 +310,9 @@ class NodeChildrenManager(models.Manager):
         is the published value now, not the bare ``Max(NodeChildren.track_change)``
         it used to be; the old value was on a sequence no endpoint exposed.
         """
-        # ``max`` rather than ``.first()``: this queryset aggregates, and Django
-        # refuses ``.first()`` on an unordered aggregate. Scoped by ``parent_id``
-        # it yields at most one row, so the two agree.
+        # ``max`` rather than ``.first()``: unscoped, this returns a row per
+        # parent in no particular order, so the first is not the greatest.
+        # Scoped by ``parent_id`` it yields at most one row, so the two agree.
         tokens = self._changes_qs(parent_id).values_list("latest_change", flat=True)
         return max(tokens, default=None)
 
@@ -334,6 +342,9 @@ class NodeChildren(models.Model):
             # values from two different sequences cannot be compared. See #68
             # and ``NodeChildrenManager._changes_qs``.
             triggers.bump_sequence_value(sequence_name=triggers.NODE_CHANGE_ID),
+            # Removing a link must *raise* the parent's published version, and a
+            # deleted row cannot carry one — see ``NodeChildrenChange``.
+            triggers.bump_child_list_version(),
         ]
         ordering = (
             "parent_id",
@@ -345,6 +356,45 @@ class NodeChildren(models.Model):
     def __str__(self) -> str:
         # Use parent_id/child_id (stored on row) to avoid N+1.
         return f"parent={self.parent_id} → child={self.child_id} order={self.order}"
+
+
+class NodeChildrenChange(models.Model):
+    """When a node's child list last changed — one row per parent that ever had one.
+
+    The published version of a child list has to move forward when a child is
+    *removed*, and the link rows cannot say so: the row that would carry the
+    version is the one that has gone (#69). Inferring the version from the rows
+    that survived meant deleting the newest link lowered it, so a device asking
+    "what has changed since I last looked?" was never told about the removal.
+    Nothing after it was lost — every version comes from one ever-increasing
+    sequence, so the next change of any kind exceeds the number the device
+    holds and reaches it, carrying the corrected list. The form that stays
+    wrong is the one never touched again.
+
+    Keeping the removed rows instead was tried and rejected. It made a link row
+    mean something new — "a link, or the memory of one" — and every reader
+    written against the old meaning had to be found and changed, including
+    ``FormKitSchemaNode.children``, which joins the link table directly and
+    belongs to consumers. Recording the version beside the list leaves the link
+    table meaning exactly what it always meant.
+
+    Written only by ``version_child_list`` on ``NodeChildren``; nothing in
+    Python inserts or updates it. One row per parent, upserted, so it never
+    grows past the number of groups and there is nothing to sweep. The value is
+    drawn from the same sequence as the node and link versions, so all three are
+    comparable — a client syncing "the schema" orders them against each other.
+    """
+
+    parent = models.OneToOneField(
+        "FormKitSchemaNode",
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="child_list_change",
+    )
+    track_change = models.BigIntegerField()
+
+    def __str__(self) -> str:
+        return f"parent={self.parent_id} track_change={self.track_change}"
 
 
 class NodeQS(models.QuerySet):
