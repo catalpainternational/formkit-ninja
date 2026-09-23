@@ -109,7 +109,12 @@ class NodeChildrenOut(Schema):
     """
 
     parent: UUID
-    children: list[UUID] = []
+    #: Required, with no default on purpose. The route serialises with
+    #: ``exclude_defaults``, so a default of ``[]`` would drop the key from the
+    #: response for exactly the group that has none left — and a client that
+    #: replaces the lists it is handed, but never touches a list it hears
+    #: nothing about, would keep showing the deleted field (#69).
+    children: list[UUID]
     latest_change: int | None = None
 
 
