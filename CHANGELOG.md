@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.2] - 2026-09-23
+
+A fix: deleting a field from a form now reaches devices that already have the form (#69).
+Upgrading runs one migration, `0058_nodechildrenchange_nodechildren_version_child_list`, which
+adds a table and gives every existing form the version it has already published. Nothing about
+how fields are stored or read changes. Devices that missed a removal before the upgrade are not
+repaired by it, so force one full re-fetch of the form structure if that matters. A group's
+field list is now always present in the related-nodes answer, even when it is empty, so
+regenerate any committed OpenAPI file. Not backported to 5.x.
+
 ### Fixed
 
 - **Deleting a field from a form now reaches devices that already have it (#69).** A device asks
