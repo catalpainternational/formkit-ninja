@@ -93,6 +93,14 @@ exact-minor pin if you do.
   it moves to Tier 1, because an event in a log is permanent and a key renamed here would stop
   matching every event already written.
 
+  Promoting it is a promise about *this* package and nothing else. The store a consumer
+  appends to keeps its own tiers, on its own schedule, and the two need not agree — this
+  package imports no stream library, and `tests/test_schema_emit.py` fails if one ever appears. The
+  downstream example that proves the contract sits below both, which is what it is for: a
+  change in either turns it red. So a red run there is not on its own evidence of a fault
+  here, and whoever reads that failure should establish which side moved before looking for
+  one.
+
 ## Tier 3 — Internal
 
 No guarantees, may change or vanish in a patch: anything underscore-prefixed, the migrations,
