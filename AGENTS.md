@@ -97,6 +97,47 @@ The cross-repo state itself — version table, what each host runs, the shared
 ADRs — lives in `joshbrooks/shared` and is gated by `just check` there. Treat it
 the same way: a starting point to re-measure from, never an answer to quote.
 
+## Add a fact
+
+When something new has to be recorded, put it beside the existing data rather
+than changing what existing data means. A meaning is depended on by every reader
+ever written against it, including readers in repositories you can neither find
+nor fix — and a redefinition does not announce itself as breakage, it announces
+itself as health. The list still looks plausible; the dashboard simply stops
+matching; the absent record reads as nothing having gone wrong.
+
+Three questions before you start:
+
+- **Can a reader tell, from the record alone, which meaning was intended?** If
+  answering needs the date it was written, the redefinition has already failed.
+- **Can you name the migration — a file and a date?** If you cannot, you are
+  adding a field, not changing a meaning.
+- **Is this store a cache, or the only copy?** A cache costs a re-fetch. The only
+  copy is unrecoverable, and a device holding it is not a stale reader but a
+  stale *writer*: it comes back online and submits under the old meaning, after
+  the migration you thought had finished.
+
+Three signs you are already paying: the fix ships with an audit ("find every
+reader of X" is the design stating its price); the guard sits in a consumer,
+where it can only defend its own reads; the same hunk fails review twice — look
+at the fixture, and on the third time at the design. Expect the right design to
+be **smaller**.
+
+Issue #69 needed to record when a group's child list last changed. The first
+attempt kept removed link rows so one could carry the version of its own
+removal, which changed "a row exists" from *this field is in this form* to *…or
+used to be*. Three review rounds each found the next reader one layer further
+out, ending at `FormKitSchemaNode.children` — a public attribute Django builds
+from the link table itself, which `docs/public-api.md` puts in Tier 1 and no
+in-package fix could reach. Recording the version in its own table left every
+reader untouched, and the diff fell from 407 insertions to 266.
+
+In an append-only store you may not redefine at all, only supersede — and
+superseding is honest only if the record carries a marker saying which reading
+applies. `schema_version` is that marker, and its "absent means recorded before
+versions existed" is the honest form: it records that nobody said, rather than
+inventing a value for events written before anyone was counting.
+
 ## Tests assert from the caller's position
 
 A test must obtain its inputs the way a real client does — over HTTP, from the
