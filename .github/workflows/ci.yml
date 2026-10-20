@@ -125,8 +125,15 @@ jobs:
           uv run mypy formkit_ninja tests/test_wire.py
 
   test:
-    name: Test Suite (pytest)
+    name: Test Suite (pytest, Django ${{ matrix.django }})
     runs-on: ubuntu-latest
+
+    # Both LTS lines the Django pin allows. uv.lock resolves 5.2; the 4.2 leg
+    # installs 4.2 over it and runs without re-syncing.
+    strategy:
+      fail-fast: false
+      matrix:
+        django: ["4.2", "5.2"]
 
     services:
       postgres:
@@ -163,7 +170,7 @@ jobs:
           path: |
             ~/.cache/uv
             .venv
-          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          key: ${{ runner.os }}-uv-django${{ matrix.django }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-
 
@@ -186,6 +193,11 @@ jobs:
         run: |
           uv run playwright install --with-deps chromium
 
+      - name: Install Django ${{ matrix.django }}
+        run: |
+          uv pip install "django~=${{ matrix.django }}.0"
+          uv run --no-sync python -c "import django; print('Django version:', django.get_version()); assert django.get_version().startswith('${{ matrix.django }}.'), 'wrong Django installed'"
+
       - name: Run tests with pytest
         env:
           POSTGRES_DB: postgres
@@ -194,4 +206,4 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
         run: |
-          uv run pytest --cov-fail-under=80
+          uv run --no-sync pytest --cov-fail-under=80
