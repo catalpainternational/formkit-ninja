@@ -11,13 +11,11 @@ dependencies = [
     # >=1.6 because `ninja.Status`, which every endpoint here returns, was added
     # in 1.6; on 1.4 and 1.5 importing formkit_ninja.api raises ImportError.
     "django-ninja>=1.6,<2",
-    # 4.2 and 5.2, the two LTS lines; 5.0 and 5.1 install but are untested and out
-    # of support. <6 because 6.0 removes `CheckConstraint(check=...)` (models and
-    # migrations 0049, 0055, 0057) and 6.1 removes `JSONBAgg(ordering=...)`
-    # (form_submission/querysets.py). Their replacements, `condition=` and
-    # `order_by=`, do not exist on 4.2, so lifting the cap to 6 means dropping 4.2
-    # in the same release.
-    "Django>=4.2,<6",
+    # 5.2 LTS through 6.1, each tested in CI. The floor is 5.2 because the code
+    # uses `CheckConstraint(condition=...)` (5.1+) and `JSONBAgg(order_by=...)`
+    # (5.2+), the spellings Django 6 requires. The cap moves when a new release
+    # has been tested.
+    "Django>=5.2,<6.2",
     # >=2.11 because `ConfigDict(validate_by_name=True)` is only honoured from
     # 2.11. Earlier 2.x drops the unknown key with no warning at all, so population
     # by field name silently stops working instead of failing loudly.

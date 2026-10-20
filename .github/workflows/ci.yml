@@ -128,12 +128,14 @@ jobs:
     name: Test Suite (pytest, Django ${{ matrix.django }})
     runs-on: ubuntu-latest
 
-    # Both LTS lines the Django pin allows. uv.lock resolves 5.2; the 4.2 leg
-    # installs 4.2 over it and runs without re-syncing.
+    # Every release the Django pin allows. uv.lock resolves 5.2; the other legs
+    # install their Django over it and run without re-syncing. Any Django
+    # deprecation warning fails the suite (tests/conftest.py), so the 6.1 leg is
+    # also the early warning for the next release.
     strategy:
       fail-fast: false
       matrix:
-        django: ["4.2", "5.2"]
+        django: ["5.2", "6.0", "6.1"]
 
     services:
       postgres:

@@ -588,7 +588,7 @@ class Flag(models.Model):
             # the delete cascade. A stranded ``assigned_at`` is harmless
             # residue; an assignment with no age is the state worth rejecting.
             models.CheckConstraint(
-                check=models.Q(assigned_to__isnull=True) | models.Q(assigned_at__isnull=False),
+                condition=models.Q(assigned_to__isnull=True) | models.Q(assigned_at__isnull=False),
                 name="flag_assigned_to_has_assigned_at",
             ),
             # A flag has to be about something: a stored submission, a
@@ -596,7 +596,7 @@ class Flag(models.Model):
             # request. Both halves of the key test are needed: a CHECK passes
             # when it evaluates to NULL, and ``NULL > ''`` is NULL.
             models.CheckConstraint(
-                check=models.Q(separated_submission__isnull=False) | models.Q(request_key__isnull=False, request_key__gt=""),
+                condition=models.Q(separated_submission__isnull=False) | models.Q(request_key__isnull=False, request_key__gt=""),
                 name="flag_has_submission_or_request",
                 violation_error_message="A flag needs a separated submission, a request key, or both.",
             ),
