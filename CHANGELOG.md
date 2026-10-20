@@ -7,21 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [6.2.0] - 2026-10-20
+## [7.0.0] - 2026-10-20
 
-Django 5.2 is supported (catalpainternational/partisipa-import#1731). The package used to accept
-only Django 4, whose last long-term release stopped receiving security fixes in April 2026; it now
-accepts the two long-term releases, 4.2 and 5.2, and the test suite passes on both. Nothing about
-forms, submissions or the API changes, and there are no migrations. Django 6 is still refused.
+Django 5.2 and 6 are supported, and Django 4 no longer is (catalpainternational/partisipa-import#1731).
+Django 4's last long-term release stopped receiving security fixes in April 2026. The package now
+accepts Django 5.2, 6.0 and 6.1, and the test suite passes on all three. Major only because a
+project still on Django 4 has to upgrade Django to take this release. Nothing about forms,
+submissions or the API changes, and there are no new migrations.
 
 ### Changed
 
-- **Django 5.2 is allowed (`Django>=4.2,<6`, was `Django==4.*`).** 4.0 and 4.1, which the old pin
-  also allowed, are no longer accepted; both have been unsupported since 2023. 5.0 and 5.1 also
-  install, but are out of support and not tested. On 5.2 you will see deprecation warnings about
-  `CheckConstraint(check=...)` and `JSONBAgg(ordering=...)`. They are expected: the replacements
-  do not exist on 4.2, so they change in the release that drops 4.2, which is also the one that
-  can allow Django 6.
+- **Breaking: Django 5.2 or later is required (`Django>=5.2,<6.2`, was `Django==4.*`).** 5.2 is
+  the long-term release to move to; 6.0 and 6.1 are tested too. 6.2 is refused until it has been
+  tested.
+- **No Django deprecation warnings.** Check constraints now use `condition=` and the flag lists
+  use `order_by=`, including in migrations 0049, 0055 and 0057. The migrations' meaning is
+  unchanged and nothing re-runs. On Django 6.1 the old `ordering=` was quietly ignored, so
+  without this change unresolved flags would have come back oldest-first.
+- **The admin's guarded "delete selected" works with Django 6.1's new admin actions.** A consumer
+  that subclasses the schema edit policy admin mixins and overrides `get_actions()` itself
+  should accept an `action_location` argument and pass it on when it is given.
 
 ## [6.1.2] - 2026-09-23
 
