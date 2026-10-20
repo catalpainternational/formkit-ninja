@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.2.0] - 2026-10-20
+
+Django 5.2 is supported (catalpainternational/partisipa-import#1731). The package used to accept
+only Django 4, whose last long-term release stopped receiving security fixes in April 2026; it now
+accepts the two long-term releases, 4.2 and 5.2, and the test suite passes on both. Nothing about
+forms, submissions or the API changes, and there are no migrations. Django 6 is still refused.
+
+### Changed
+
+- **Django 5.2 is allowed (`Django>=4.2,<6`, was `Django==4.*`).** 4.0 and 4.1, which the old pin
+  also allowed, are no longer accepted; both have been unsupported since 2023. 5.0 and 5.1 also
+  install, but are out of support and not tested. On 5.2 you will see deprecation warnings about
+  `CheckConstraint(check=...)` and `JSONBAgg(ordering=...)`. They are expected: the replacements
+  do not exist on 4.2, so they change in the release that drops 4.2, which is also the one that
+  can allow Django 6.
+
 ## [6.1.2] - 2026-09-23
 
 A fix: deleting a field from a form now reaches devices that already have the form (#69).
