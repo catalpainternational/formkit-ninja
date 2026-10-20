@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import logging
 import operator
 from functools import reduce
@@ -502,11 +503,17 @@ class SchemaEditPolicyDeleteMixin:
                 return HttpResponseRedirect(change_url)
         return super().delete_view(request, object_id, extra_context)  # type: ignore[misc]
 
-    def get_actions(self, request):
+    def get_actions(self, request, action_location=None):
         """With a policy configured, "delete selected" deletes nothing if the policy refuses any of them."""
-        actions = super().get_actions(request)  # type: ignore[misc]
+        # Django 6.1 passes `action_location` and stores each action as an `Action`;
+        # 5.2 and 6.0 take no `action_location` and store a (func, name, description) tuple.
+        if action_location is None:
+            actions = super().get_actions(request)  # type: ignore[misc]
+        else:
+            actions = super().get_actions(request, action_location=action_location)  # type: ignore[misc]
         if get_schema_edit_policy() is not None and "delete_selected" in actions:
-            delete_selected, name, description = actions["delete_selected"]
+            action = actions["delete_selected"]
+            delete_selected = action.func if hasattr(action, "func") else action[0]
 
             def delete_selected_if_allowed(modeladmin, request, queryset):
                 refusal = modeladmin._delete_refusal(request, queryset)
@@ -516,7 +523,10 @@ class SchemaEditPolicyDeleteMixin:
                     return None
                 return delete_selected(modeladmin, request, queryset)
 
-            actions["delete_selected"] = (delete_selected_if_allowed, name, description)
+            if hasattr(action, "func"):
+                actions["delete_selected"] = dataclasses.replace(action, func=delete_selected_if_allowed)
+            else:
+                actions["delete_selected"] = (delete_selected_if_allowed, action[1], action[2])
         return actions
 
 

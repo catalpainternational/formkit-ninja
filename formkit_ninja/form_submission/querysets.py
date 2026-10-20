@@ -133,7 +133,7 @@ class SubmissionQuerySet(models.QuerySet):
                         severity="severity",
                         params="params",
                     ),
-                    ordering="-created",
+                    order_by="-created",
                 )
             )
             .values("flags")[:1]
@@ -269,7 +269,7 @@ class SeparatedSubmissionQuerySet(models.QuerySet):
                         severity="severity",
                         params="params",
                     ),
-                    ordering="-created",
+                    order_by="-created",
                 )
             )
             .values("flags")[:1]

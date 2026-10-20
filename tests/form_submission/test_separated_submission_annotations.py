@@ -222,7 +222,8 @@ class TestATieStillHasALatest:
         # Scoped to the correlated subquery rather than the whole statement: a future
         # `Meta.ordering` of `["-created"]` on this model would otherwise satisfy these
         # assertions with the tiebreak gone.
-        subquery = sql[sql.index("SELECT U0.") : sql.index("LIMIT 1")]
+        # Anchored on the table name, because Django 6.1 quotes the alias ("U0") and 5.2 does not.
+        subquery = sql[sql.index('FROM "formkit_ninja_separatedsubmissionimport"') : sql.index("LIMIT 1")]
         assert '"created" DESC' in subquery, sql
         assert '"id" DESC' in subquery, sql
 
