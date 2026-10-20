@@ -17,6 +17,19 @@ from formkit_ninja.form_submission import import_monitoring  # noqa: F401, E402
 from formkit_ninja.form_submission.models import SeparatedSubmission, Submission  # noqa: E402
 
 
+def pytest_configure(config):
+    """Fail on any Django deprecation warning, so the code stays ready for the next Django.
+
+    The class names change every release (RemovedInDjango60Warning on 5.2,
+    RemovedInDjango2028Warning on 6.1), so they are read from whichever Django is installed.
+    """
+    import django.utils.deprecation
+
+    for name in dir(django.utils.deprecation):
+        if name.startswith("RemovedIn") and name.endswith("Warning"):
+            config.addinivalue_line("filterwarnings", f"error::django.utils.deprecation.{name}")
+
+
 def _split_on_post_save(sender, instance, **kwargs):
     SeparatedSubmission.objects.from_submission(instance)
 
