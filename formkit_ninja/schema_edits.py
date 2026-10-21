@@ -25,7 +25,9 @@ migration; allowing a harmful one silently reinterprets stored answers.
 Presentational, because none of them changes which value is stored or how it is read:
 
 * ``label``, ``help``, ``placeholder``, ``title``, ``icon``, ``description`` -- the words and
-  pictures around a field.
+  pictures around a field -- and ``text_content``, the words of a text node. On any other node
+  ``node_edit_snapshot`` reports words as ``words_in_place_of_node``, a meaning change, because
+  the node is then served as those words alone.
 * ``addLabel`` / ``add_label``, ``upControl`` / ``up_control``, ``downControl`` /
   ``down_control`` -- a repeater's buttons. The camelCase spelling is the node JSON and
   ``FormKitNodeIn``; the snake_case one is the model column.
@@ -45,13 +47,17 @@ answer nobody typed); ``_minDateSource``, ``_maxDateSource`` and ``disabledDays`
 ``readonly``; the code-generation columns (``django_field_*``, ``pydantic_field_type``,
 ``extra_imports``, ``validators``, ``list_filter``), because they decide how an answer is
 stored; ``code_scheme``, because it says which identifiers an answer speaks; and
-``text_content``, ``is_active`` and ``protected``.
+``is_active`` and ``protected``.
 
 Structure
 ---------
 
-Creating a node and deleting one are always meaning changes: a field that appears or
-disappears changes what a submission can contain. Moving a node among its siblings is
+Creating a node and deleting one are meaning changes: a field that appears or disappears changes
+what a submission can contain. The API makes one exception, for a node that holds no answers
+(``holds_answers``): an element (``$el``) or a text node with no input anywhere underneath it is
+a heading, a note or a box, so ``create_or_update_element`` and ``delete_node`` ask the policy
+about adding, rewording, restyling or removing one as a presentational edit. The admin still
+treats every create and delete as a meaning change. Moving a node among its siblings is
 presentational (``classify_link_edit`` with only ``order`` changed). Moving a node to another
 parent is a meaning change, because the answer's path in the submission moves with it.
 
@@ -88,6 +94,7 @@ PRESENTATIONAL_KEYS: frozenset[str] = frozenset(
         "title",
         "icon",
         "description",
+        "text_content",
         "addLabel",
         "add_label",
         "upControl",
@@ -204,10 +211,39 @@ def node_edit_snapshot(node: FormKitSchemaNode) -> dict[str, Any]:
     for column in _SNAPSHOT_COLUMNS:
         snapshot.setdefault(column, getattr(node, column))
     snapshot["option_group"] = node.option_group_id
+    # Only a text node's words are presentational. Any other node given words is served as those
+    # words alone, in place of everything it was (``FormKitSchemaNode.get_node``).
+    if node.node_type != "text" and "text_content" in snapshot:
+        snapshot["words_in_place_of_node"] = snapshot.pop("text_content")
     # The API writes "formkit" and the importer "$formkit"; both mean a FormKit input.
     if snapshot.get("node_type") == "formkit":
         snapshot["node_type"] = "$formkit"
     return snapshot
+
+
+# Node types that hold no answer of their own; any other type is treated as one that does.
+NO_ANSWER_NODE_TYPES: frozenset[str] = frozenset({"$el", "text"})
+
+
+def holds_answers(node: FormKitSchemaNode) -> bool:
+    """
+    Whether this node, or any active node under it, can hold an answer. Only elements and text
+    hold none; every other node type does, including ones this module does not know, so an
+    unknown component is protected like an input.
+    """
+    from formkit_ninja.models import FormKitSchemaNode
+
+    seen: set[Any] = set()
+    pending = [node]
+    while pending:
+        current = pending.pop()
+        if current.pk in seen:
+            continue
+        seen.add(current.pk)
+        if current.node_type not in NO_ANSWER_NODE_TYPES:
+            return True
+        pending.extend(FormKitSchemaNode.objects.filter(nodechildren__parent=current, is_active=True))
+    return False
 
 
 def link_edit_snapshot(parent_id: Any, child_id: Any, order: int | None) -> dict[str, Any]:

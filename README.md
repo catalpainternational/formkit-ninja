@@ -145,6 +145,30 @@ Creates a new node or updates an existing one.
 - If the node is inactive (deleted), returns `400 Bad Request`
 - Parent-child relationships are automatically created/updated when `parent_id` is provided
 
+#### Create or Update Element
+
+**POST** `/api/formkit/create_or_update_element`
+
+Creates or updates a heading, paragraph, span or box, and the words in it.
+
+**Request Body:**
+- `uuid` (optional): UUID of the element to update. If omitted, a new element is created.
+- `parent_id` (optional): UUID of a group, repeater or another element
+- `$el` (optional): `"p"`, `"h1"`, `"h2"`, `"span"` or `"div"`. Omitted, a new element is a `p`
+  and an existing one keeps its tag.
+- `text` (optional): the element's words, stored as its one text child. `""` clears them.
+- `class` (optional): its CSS classes (`attrs.class`). `""` clears them.
+
+**Response:** `200 OK` with `NodeReturnType`; `400 Bad Request` for a missing or unsuitable
+parent, a missing or deleted element, a move to another parent, or an element that holds more
+than its words (change that one in the admin); `403 Forbidden` for missing permission or a
+refusal from the schema edit policy, or a protected element.
+
+An element holds no answers, so with a schema edit policy configured, adding, rewording,
+restyling or deleting one is a presentational edit, allowed on a form that already holds answers.
+Deleting an element that has an input anywhere under it, or changing its tag, is still a meaning
+change.
+
 #### Delete Node
 
 **DELETE** `/api/formkit/delete/{node_id}`

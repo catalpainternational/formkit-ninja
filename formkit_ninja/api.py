@@ -4,7 +4,7 @@ import logging
 import re
 from functools import cached_property
 from http import HTTPStatus
-from typing import Any, Sequence, cast
+from typing import Any, Literal, Sequence, cast
 from uuid import UUID, uuid4
 
 from django.contrib.auth import get_user
@@ -22,6 +22,7 @@ from formkit_ninja.notifications import get_default_notifier
 from formkit_ninja.schema_edits import (
     EditClass,
     get_schema_edit_policy,
+    holds_answers,
     meaning_keys,
     node_edit_snapshot,
     refusal_message,
@@ -345,10 +346,12 @@ def delete_node(request, node_id: UUID):
     try:
         with transaction.atomic():
             node: models.FormKitSchemaNode = get_object_or_404(models.FormKitSchemaNode.objects, id=node_id)
-            if get_schema_edit_policy() is not None and not schema_edit_allowed(node.get_root(), node, "meaning", request):
-                error_response = FormKitErrors()
-                error_response.errors.append(refusal_message("meaning", deleted=True))
-                return Status(HTTPStatus.FORBIDDEN, error_response)
+            if get_schema_edit_policy() is not None:
+                edit_class: EditClass = "meaning" if holds_answers(node) else "presentational"
+                if not schema_edit_allowed(node.get_root(), node, edit_class, request):
+                    error_response = FormKitErrors()
+                    error_response.errors.append(refusal_message(edit_class, deleted=edit_class == "meaning"))
+                    return Status(HTTPStatus.FORBIDDEN, error_response)
             node.delete()
             # node.refresh_from_db()
             objects: models.NodeQS = cast(models.NodeQS, models.FormKitSchemaNode.objects)
@@ -723,6 +726,144 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
         return Status(HTTPStatus.INTERNAL_SERVER_ERROR, error_response)
 
     return node_queryset_response(models.FormKitSchemaNode.objects.filter(pk__in=[child.pk]))[0]
+
+
+ElementTag = Literal["p", "h1", "h2", "span", "div"]
+
+
+class FormKitElementIn(Schema):
+    """
+    An element -- a heading, a paragraph, a span or a box -- and the words in it. The words are
+    stored as the element's one text child, as imported schemas store them. Omitting ``$el``,
+    ``text`` or ``class`` leaves it as it is (a new element is a ``p``); ``""`` clears the words
+    or the class.
+    """
+
+    el: ElementTag | None = Field(default=None, alias="$el")
+    text: str | None = None
+    class_name: str | None = Field(default=None, alias="class")
+
+    # Used for creates: a group, a repeater or another element
+    parent_id: UUID | None = None
+    # Used for updates
+    uuid: UUID | None = None
+
+    model_config = ConfigDict(validate_by_name=True)
+
+
+class ElementRefused(Exception):
+    """The element cannot be saved as asked; the message says why, and nothing is written."""
+
+
+def create_or_update_element(payload: FormKitElementIn, request: HttpRequest | None = None) -> models.FormKitSchemaNode:
+    """
+    Create or update an element and its words.
+
+    An element holds no answers, so with a schema edit policy configured this is a
+    presentational edit: a form that already holds answers can still gain, reword or restyle a
+    heading. Changing the tag of an element with an input under it is a meaning change, as a
+    ``$el`` change is everywhere else (``schema_edits``), so a box around questions is never
+    reshaped as a presentational edit.
+
+    Raises:
+        ElementRefused: the parent or element is not one this can save, or the element holds
+            more than its words (change that one in the admin).
+        SchemaEditRefused: the policy refused the edit.
+    """
+    parent = None
+    if payload.parent_id is not None:
+        parent = models.FormKitSchemaNode.objects.filter(pk=payload.parent_id, is_active=True).first()
+        if parent is None:
+            raise ElementRefused("The parent node given does not exist")
+        if parent.node_type != "$el" and (parent.node or {}).get("$formkit") not in {"group", "repeater"}:
+            raise ElementRefused("The parent node given is not a group, a repeater or an element")
+
+    if payload.uuid is None:
+        element = models.FormKitSchemaNode(node_type="$el", node={})
+        words: list[models.FormKitSchemaNode] = []
+    else:
+        found = models.FormKitSchemaNode.objects.filter(pk=payload.uuid).first()
+        if found is None or found.node_type != "$el":
+            raise ElementRefused("Element with the provided UUID does not exist")
+        if not found.is_active:
+            raise ElementRefused("This node has already been deleted and cannot be edited")
+        if parent is not None and not models.NodeChildren.objects.filter(parent=parent, child=found).exists():
+            raise ElementRefused("An element cannot be moved to another parent here")
+        element = found
+        words = list(models.FormKitSchemaNode.objects.filter(nodechildren__parent=element, is_active=True))
+        if payload.text is not None and (len(words) > 1 or any(w.node_type != "text" for w in words)):
+            raise ElementRefused("This element holds more than its words; change it in the admin")
+
+    # A stored element without a tag is served as a span (``get_node``); a new one is a paragraph
+    served_tag = (element.node or {}).get("$el") or "span"
+    tag = payload.el or ("p" if element._state.adding else served_tag)
+    if get_schema_edit_policy() is not None:
+        retagged = not element._state.adding and tag != served_tag
+        edit_class: EditClass = "meaning" if retagged and holds_answers(element) else "presentational"
+        root = parent.get_root() if parent is not None else element.get_root()
+        if not schema_edit_allowed(root, None if element._state.adding else element, edit_class, request):
+            raise SchemaEditRefused(refusal_message(edit_class, ["$el"] if edit_class == "meaning" else ()))
+
+    node = {**(element.node or {}), "$el": tag}
+    if payload.class_name is not None:
+        attrs = {k: v for k, v in (node.get("attrs") or {}).items() if k != "class"}
+        if payload.class_name:
+            attrs["class"] = payload.class_name
+        node["attrs"] = attrs
+        if not attrs:
+            node.pop("attrs")
+    element.node = node
+
+    with transaction.atomic():
+        element.save()
+        if parent is not None:
+            models.NodeChildren.objects.get_or_create(parent=parent, child=element, defaults={"order": None})
+        if payload.text is not None:
+            if words:
+                text = words[0]
+                text.text_content = payload.text
+                text.label = payload.text[:1024]
+                text.save()
+            elif payload.text:
+                text = models.FormKitSchemaNode.objects.create(node_type="text", label=payload.text[:1024], text_content=payload.text)
+                models.NodeChildren.objects.create(parent=element, child=text)
+    return element
+
+
+@router.post(
+    "create_or_update_element",
+    response={
+        HTTPStatus.OK: NodeReturnType,
+        HTTPStatus.BAD_REQUEST: FormKitErrors,
+        HTTPStatus.FORBIDDEN: FormKitErrors,
+    },
+    exclude_none=True,
+    by_alias=True,
+    auth=formkit_auth,
+)
+def create_or_update_element_node(request, response: HttpResponse, payload: FormKitElementIn):
+    """
+    Create or update an element (a heading, a paragraph, a span or a box) and its words. See
+    ``create_or_update_element``.
+    """
+    error_response = FormKitErrors()
+    if not request.user.has_perm("formkit_ninja.change_formkitschemanode"):
+        error_response.errors.append("You do not have permission to create or update FormKit schema nodes.")
+        return Status(HTTPStatus.FORBIDDEN, error_response)
+    try:
+        element = create_or_update_element(payload, request=request)
+    except ElementRefused as refused:
+        error_response.errors.append(str(refused))
+        return Status(HTTPStatus.BAD_REQUEST, error_response)
+    except SchemaEditRefused as refused:
+        error_response.errors.append(str(refused))
+        return Status(HTTPStatus.FORBIDDEN, error_response)
+    except Exception as E:
+        if is_protect_violation(E):
+            error_response.errors.append("This node is protected and cannot be edited.")
+            return Status(HTTPStatus.FORBIDDEN, error_response)
+        raise
+    return node_queryset_response(models.FormKitSchemaNode.objects.filter(pk__in=[element.pk]))[0]
 
 
 @router.post(
