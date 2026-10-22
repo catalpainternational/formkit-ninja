@@ -42,6 +42,8 @@ def test_the_allowlist_is_exactly_this_and_widening_it_is_a_decision():
             "title",
             "icon",
             "description",
+            # A text node's words: it holds no answer (#editor-elements, decided 2026-10-21)
+            "text_content",
             "addLabel",
             "add_label",
             "upControl",

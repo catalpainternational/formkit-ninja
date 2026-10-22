@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Headings, notes and boxes can be added through the API** (`create_or_update_element`): an
+  element (`p`, `h1`, `h2`, `span`, `div`) with its words and CSS class, under a group, a repeater
+  or another element. Regenerate any committed OpenAPI file.
+
+### Changed
+
+- **Through the API, a form that already holds answers can gain, reword, restyle or lose a
+  heading or note.** An element holds no answers, so the schema edit policy is asked about these
+  as presentational edits. Two stay meaning changes: deleting an element with an input anywhere
+  under it, and changing the tag of one. A text node's words (`text_content`) join the
+  presentational keys, in the admin too; words given to any other node are still a meaning change.
+  A consumer whose policy allows presentational edits on such forms will start allowing these. The
+  admin still treats every create and delete as a meaning change.
+
 ## [6.1.2] - 2026-09-23
 
 A fix: deleting a field from a form now reaches devices that already have the form (#69).
