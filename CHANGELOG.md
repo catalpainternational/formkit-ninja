@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.2.0] - 2026-10-22
+
+A feature: headings, notes and boxes can be added, changed and removed through the API, and a form
+that already holds answers can still gain, reword, restyle or lose them. No migrations. Regenerate
+any committed OpenAPI file. Still Django 4; the move to Django 5.2 comes in 7.0.0.
+
 ### Added
 
 - **Headings, notes and boxes can be added through the API** (`create_or_update_element`): an
