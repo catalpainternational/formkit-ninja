@@ -29,6 +29,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name="schemaversion",
-            constraint=models.CheckConstraint(check=models.Q(("version__gte", 2)), name="schemaversion_minted_from_2"),
+            constraint=models.CheckConstraint(condition=models.Q(("version__gte", 2)), name="schemaversion_minted_from_2"),
         ),
     ]

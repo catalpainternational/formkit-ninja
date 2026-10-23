@@ -1180,7 +1180,7 @@ class SchemaVersion(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["form_type", "version"], name="schemaversion_one_row_per_version"),
             # Version 1 is implicit — "never minted" — so no row may claim it.
-            models.CheckConstraint(check=Q(version__gte=2), name="schemaversion_minted_from_2"),
+            models.CheckConstraint(condition=Q(version__gte=2), name="schemaversion_minted_from_2"),
         ]
 
     def __str__(self) -> str:
