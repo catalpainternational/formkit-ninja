@@ -51,7 +51,8 @@ def test_create_repeater_with_child(admin_page: Page, live_server: live_server_h
     # Wait for the inline to be visible
     children_inline.wait_for(state="visible", timeout=5000)
 
-    add_link = children_inline.get_by_role("link", name="Add another Node children")
+    # Django 5 gives this anchor role="button" and 4.2 leaves it a link; .add-row wraps it on both.
+    add_link = children_inline.locator(".add-row a", has_text="Add another Node children")
     add_link.click()
 
     # Wait a moment for the new row to be added via JavaScript

@@ -59,7 +59,8 @@ def test_home_page(admin_page: Page):
     admin_page.get_by_role("link", name="Add form kit schema").click()
     admin_page.get_by_label("Label:").fill("Test Schema")
     admin_page.get_by_role("button", name="Save and continue editing").click()
-    admin_page.get_by_role("link", name="Add another Form components").click()
+    # Django 5 gives this anchor role="button" and 4.2 leaves it a link; .add-row wraps it on both.
+    admin_page.locator(".add-row a", has_text="Add another Form components").click()
     admin_page.get_by_role("button", name="Save", exact=True).click()
     admin_page.get_by_role("link", name="Form componentss").click()
     admin_page.get_by_role("link", name="Add form components").click()
