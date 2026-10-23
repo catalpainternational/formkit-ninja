@@ -125,8 +125,17 @@ jobs:
           uv run mypy formkit_ninja tests/test_wire.py
 
   test:
-    name: Test Suite (pytest)
+    name: Test Suite (pytest, Django ${{ matrix.django }})
     runs-on: ubuntu-latest
+
+    # Every release the Django pin allows. uv.lock resolves 5.2; the other legs
+    # install their Django over it and run without re-syncing. Any Django
+    # deprecation warning fails the suite (tests/conftest.py), so the 6.1 leg is
+    # also the early warning for the next release.
+    strategy:
+      fail-fast: false
+      matrix:
+        django: ["5.2", "6.0", "6.1"]
 
     services:
       postgres:
@@ -163,7 +172,7 @@ jobs:
           path: |
             ~/.cache/uv
             .venv
-          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          key: ${{ runner.os }}-uv-django${{ matrix.django }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-
 
@@ -186,6 +195,11 @@ jobs:
         run: |
           uv run playwright install --with-deps chromium
 
+      - name: Install Django ${{ matrix.django }}
+        run: |
+          uv pip install "django~=${{ matrix.django }}.0"
+          uv run --no-sync python -c "import django; print('Django version:', django.get_version()); assert django.get_version().startswith('${{ matrix.django }}.'), 'wrong Django installed'"
+
       - name: Run tests with pytest
         env:
           POSTGRES_DB: postgres
@@ -194,4 +208,4 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
         run: |
-          uv run pytest --cov-fail-under=80
+          uv run --no-sync pytest --cov-fail-under=80
