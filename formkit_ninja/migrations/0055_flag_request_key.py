@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="flag",
             constraint=models.CheckConstraint(
-                check=models.Q(("separated_submission__isnull", False), models.Q(("request_key__gt", ""), ("request_key__isnull", False)), _connector="OR"),
+                condition=models.Q(("separated_submission__isnull", False), models.Q(("request_key__gt", ""), ("request_key__isnull", False)), _connector="OR"),
                 name="flag_has_submission_or_request",
                 violation_error_message="A flag needs a separated submission, a request key, or both.",
             ),
