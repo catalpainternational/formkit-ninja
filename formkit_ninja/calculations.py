@@ -1,8 +1,9 @@
 """A field's calculated total, named as data and compiled to FormKit's ``onChange`` (issue #124).
 
 A node's ``calculation`` names the client-side formula that recomputes other fields when this
-one changes. It is stored as data, so a renderer other than FormKit can see which fields feed a
-total; :func:`to_on_change` emits the exact ``onChange`` string the live forms use today, so
+one changes. It is stored as data, so a renderer other than FormKit knows the field carries a
+calculation and which named formula to run — not what that formula computes, which still lives in
+the client; :func:`to_on_change` emits the exact ``onChange`` string the live forms use today, so
 existing clients see no change, and :func:`parse_on_change` reads that string back for the backfill.
 
 The vocabulary is deliberately only what live forms use: a ``formula`` is the name of a helper
