@@ -9,9 +9,11 @@ import json
 from pathlib import Path
 
 import pytest
+from django.test import Client, override_settings
+from django.urls import reverse
 from pydantic import ValidationError
 
-from formkit_ninja import models, text_keys
+from formkit_ninja import models, schema_edits, text_keys
 
 SCHEMAS = Path(models.__file__).parent / "schemas"
 # Two calls joined in one label cannot be one key; it stays literal in the node JSON.
@@ -170,3 +172,82 @@ def test_backfill_parses_live_gettext_without_touching_node_json():
     backfill.unset_text_keys(apps, None)
     keyed.refresh_from_db()
     assert keyed.text_keys is None
+
+
+# Through the edit policy: text_keys emits into node keys the classifier already lists, so
+# no classifier change was needed. These pin that, because it is the part that is easy to break.
+
+POLICY = "tests.test_schema_edit_policy.presentational_only"
+
+
+def _snapshot_with(node_json: dict, **columns) -> dict:
+    node = models.FormKitSchemaNode(node_type="$formkit", node={"$formkit": "text", "name": "age", **node_json}, **columns)
+    node.sync_promoted_props()
+    return schema_edits.node_edit_snapshot(node)
+
+
+def test_changing_a_label_key_is_presentational():
+    before = _snapshot_with({}, text_keys={"label": {"key": "Age"}})
+    after = _snapshot_with({}, text_keys={"label": {"key": "Your age"}})
+    assert schema_edits.classify_node_edit(before, after) == "presentational"
+
+
+def test_changing_a_message_key_is_meaning():
+    before = _snapshot_with({}, text_keys={"messages": {"required": {"key": "Required"}}})
+    after = _snapshot_with({}, text_keys={"messages": {"required": {"key": "Please answer"}}})
+    assert schema_edits.classify_node_edit(before, after) == "meaning"
+    assert schema_edits.meaning_keys(before, after) == ["validation-messages"]
+
+
+@pytest.fixture
+def keyed_form(db):
+    group = models.FormKitSchemaNode.objects.create(node_type="$formkit", label="Form", node={"$formkit": "group", "name": "form"})
+    age = models.FormKitSchemaNode.objects.create(
+        node_type="$formkit",
+        label="Age",
+        node={"$formkit": "text", "name": "age"},
+        text_keys={"label": {"key": "Age"}, "messages": {"required": {"key": "Required"}}},
+    )
+    models.NodeChildren.objects.create(parent=group, child=age, order=1)
+    return age
+
+
+def _post(client: Client, node, **changes):
+    payload = {"uuid": str(node.pk), "$formkit": "text", **changes}
+    return client.post(reverse("api-1.0.0:create_or_update_node"), data=payload, content_type="application/json")
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_a_label_key_edit_through_the_api_is_allowed(admin_client: Client, keyed_form):
+    response = _post(admin_client, keyed_form, text_keys={"label": {"key": "Your age"}, "messages": {"required": {"key": "Required"}}})
+    assert response.status_code == 200, response.json()
+    keyed_form.refresh_from_db()
+    assert keyed_form.text_keys["label"] == {"key": "Your age"}
+
+
+@override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+def test_a_message_key_edit_through_the_api_is_refused(admin_client: Client, keyed_form):
+    response = _post(admin_client, keyed_form, text_keys={"label": {"key": "Age"}, "messages": {"required": {"key": "Please answer"}}})
+    assert response.status_code == 403, response.json()
+    assert "validation-messages" in response.json()["errors"][0]
+    keyed_form.refresh_from_db()
+    assert keyed_form.text_keys["messages"] == {"required": {"key": "Required"}}
+
+
+@pytest.mark.django_db
+def test_api_payload_text_keys_lands_in_the_column_not_additional_props(admin_client: Client):
+    group = models.FormKitSchemaNode.objects.create(node_type="$formkit", label="Form", node={"$formkit": "group", "name": "form"})
+    payload = {"parent_id": str(group.pk), "$formkit": "text", "text_keys": {"label": {"key": "Village"}}}
+    response = admin_client.post(reverse("api-1.0.0:create_or_update_node"), data=payload, content_type="application/json")
+    assert response.status_code == 200, response.json()
+    node = models.NodeChildren.objects.get(parent=group).child
+    assert node.text_keys == {"label": {"key": "Village"}}
+    assert "text_keys" not in (node.additional_props or {})
+    assert "text_keys" not in node.node
+    assert node.label == "Village"
+    assert node.get_node_values()["label"] == '$gettext("Village")'
+
+    cleared = admin_client.post(reverse("api-1.0.0:create_or_update_node"), data={"uuid": str(node.pk), "$formkit": "text", "text_keys": None}, content_type="application/json")
+    assert cleared.status_code == 200, cleared.json()
+    node.refresh_from_db()
+    assert node.text_keys is None

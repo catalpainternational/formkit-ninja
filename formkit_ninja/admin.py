@@ -22,6 +22,7 @@ from formkit_ninja import (
     conditions,
     formkit_schema,
     models,
+    text_keys,
 )
 from formkit_ninja.form_submission.models import (
     Flag,
@@ -74,6 +75,7 @@ COMMON_NODE_FIELDS = (
     "is_active",
     "protected",
     "visible_when",
+    "text_keys",
 )
 CODE_GEN_FIELDS = (
     "django_field_type",
@@ -248,6 +250,16 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
             return None
         try:
             conditions.validate_visible_when(value)
+        except ValueError as e:  # pydantic.ValidationError is a ValueError
+            raise forms.ValidationError(str(e)) from e
+        return value
+
+    def clean_text_keys(self) -> Any:
+        value = self.cleaned_data.get("text_keys")
+        if value is None:
+            return None
+        try:
+            text_keys.validate_text_keys(value)
         except ValueError as e:  # pydantic.ValidationError is a ValueError
             raise forms.ValidationError(str(e)) from e
         return value

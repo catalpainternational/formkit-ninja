@@ -50,6 +50,10 @@ answer nobody typed); ``_minDateSource``, ``_maxDateSource`` and ``disabledDays`
 stored; ``code_scheme``, because it says which identifiers an answer speaks; and
 ``is_active`` and ``protected``.
 
+The ``text_keys`` column needs no entry of its own: it emits into ``label``, ``placeholder``, ``help`` and
+``validation-messages`` in the snapshot (which is built from ``get_node_values``), so changing a label key is
+presentational and changing a message key is a meaning change.
+
 Structure
 ---------
 
