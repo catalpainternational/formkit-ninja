@@ -9,13 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A field's visibility can now be stored as data instead of code** (#124). A node takes
-  `visible_when`: a list of `{"field", "operator", "value"}` conditions (`answered`,
-  `equals`, `not_equals`, all of which must hold). On output it compiles to the same
-  FormKit `if` expression consumers receive today, so nothing changes for a device; a
-  literal `if` in the node JSON still wins. This is the first step of the renderer-neutral
-  schema work: conditions stored this way can be evaluated by form renderers other than
-  FormKit. New migration 0059 (adds a nullable column; no data change).
+- **Stored forms can describe their behaviour as data, not FormKit code (#124).** The rules and the shape of each field are in [docs/structured_schema.md](docs/structured_schema.md). Five concerns become structured fields on a node: visibility, option sources, translation keys, datepicker limits and calculated totals. Each compiles to the FormKit output it always did, so existing forms and devices see no change, and a form renderer other than FormKit can read the same stored data. Migrations 0059 to 0067 add the columns, and the backfills copy each form's existing FormKit code into them without changing any node's JSON.
+- **A field can be shown only while conditions hold (#124).** `visible_when` is a list of `answered`, `equals` and `not_equals` conditions, all of which must hold. `source_not_empty` shows a field only while an option list has choices, such as a cascade level. It can be set through the API and the admin, and changing it on a form that holds answers is a meaning change. A literal `if` in the node JSON still wins.
+- **A field's options can come from a named source (#124).** `option_source` names a shared set, the district cascade or a named function, and compiles to the same `options` string as before. A node takes an `option_source` or an `option_group`, not both. The option rows still come from the consumer's own feed.
+- **Labels, placeholders, help and validation messages can be translation keys (#124).** `text_keys` compiles to the `$gettext` and `$pgettext` calls the forms already use. Changing a label, placeholder or help key is a presentational edit; changing a message key is a meaning change. It can be set through the API and the admin.
+- **A datepicker can be limited by other date fields (#124).** `date_constraints` names the fields that bound its earliest and latest dates, and compiles to the props the forms already use. A prop the node sets itself still wins.
+- **A field's calculated total is stored as data (#124).** `calculation` names the client formula that recomputes totals when the field changes, and compiles to the same `onChange` as before. Changing it is a meaning change.
+
+### Fixed
+
+- **Option labels come out in the reader's language.** An option's label used to be whichever translation was stored first. It now follows the language of the request, counting a regional code such as en-us as en, and falls back to English, then to any stored label.
+- **The node history triggers match the model on a fresh install.** Each of the new columns was added in its own package, and each regenerated the triggers for itself alone. Migration 0065 regenerates them once over every column.
 
 ## [7.0.0] - 2026-10-24
 
