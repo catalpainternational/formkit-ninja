@@ -17,7 +17,7 @@ from django.utils.cache import add_never_cache_headers
 from ninja import Field, ModelSchema, Router, Schema, Status
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from formkit_ninja import formkit_schema, models
+from formkit_ninja import conditions, formkit_schema, models
 from formkit_ninja.notifications import get_default_notifier
 from formkit_ninja.schema_edits import (
     EditClass,
@@ -399,6 +399,9 @@ class FormKitNodeIn(Schema):
 
     # Conditional logic
     if_condition: str | None = Field(default=None, alias="if")
+    # Structured visibility rule (issue #124). Stored in its own column, never in the node
+    # JSON; omit to leave it as it is, send null to clear it.
+    visible_when: list[conditions.Condition] | None = Field(default=None, min_length=1)
 
     # Validation
     validationRules: str | None = None
@@ -541,7 +544,7 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
     values = payload.model_dump(
         by_alias=True,
         exclude_none=True,
-        exclude={"parent_id", "uuid"} | {"parent", "child", "preferred_name", "parent_names"},
+        exclude={"parent_id", "uuid", "visible_when"} | {"parent", "child", "preferred_name", "parent_names"},
     )
     # Ensure the name is unique and suitable
     # Do not replace existing names though
@@ -589,6 +592,8 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
                     child.additional_props[key] = value
 
     child.label = payload.label
+    if "visible_when" in payload.model_fields_set:
+        child.visible_when = None if payload.visible_when is None else [c.model_dump(exclude_none=True) for c in payload.visible_when]
 
     if isinstance(payload.additional_props, dict):
         if label := payload.additional_props.get("label"):

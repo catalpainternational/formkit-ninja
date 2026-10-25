@@ -19,6 +19,7 @@ from django.utils import timezone
 
 # Import admin modules to register them
 from formkit_ninja import (
+    conditions,
     formkit_schema,
     models,
 )
@@ -72,6 +73,7 @@ COMMON_NODE_FIELDS = (
     "sections_schema",
     "is_active",
     "protected",
+    "visible_when",
 )
 CODE_GEN_FIELDS = (
     "django_field_type",
@@ -239,6 +241,16 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         if instance := kwargs.get("instance"):
             self._populate_form_fields(instance)
+
+    def clean_visible_when(self) -> Any:
+        value = self.cleaned_data.get("visible_when")
+        if value is None:
+            return None
+        try:
+            conditions.validate_visible_when(value)
+        except ValueError as e:  # pydantic.ValidationError is a ValueError
+            raise forms.ValidationError(str(e)) from e
+        return value
 
     def save(self, commit: bool = True) -> models.FormKitSchemaNode:
         instance = super().save(commit=False)
