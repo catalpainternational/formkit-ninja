@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from formkit_ninja import conditions, formkit_schema, models
 from formkit_ninja import text_keys as text_keys_module
+from formkit_ninja.date_constraints import DateConstraints
 from formkit_ninja.notifications import get_default_notifier
 from formkit_ninja.schema_edits import (
     EditClass,
@@ -406,6 +407,9 @@ class FormKitNodeIn(Schema):
     # Translation keys for the node's words (issue #124). Stored in their own column, never in the
     # node JSON; omit to leave them as they are, send null to clear them.
     text_keys: text_keys_module.NodeTextKeys | None = None
+    # Structured date limits (issue #124). Stored in its own column, never in the node JSON;
+    # omit to leave it as it is, send null to clear it.
+    date_constraints: DateConstraints | None = None
 
     # Validation
     validationRules: str | None = None
@@ -548,7 +552,7 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
     values = payload.model_dump(
         by_alias=True,
         exclude_none=True,
-        exclude={"parent_id", "uuid", "visible_when", "text_keys"} | {"parent", "child", "preferred_name", "parent_names"},
+        exclude={"parent_id", "uuid", "visible_when", "text_keys", "date_constraints"} | {"parent", "child", "preferred_name", "parent_names"},
     )
     # Ensure the name is unique and suitable
     # Do not replace existing names though
@@ -602,6 +606,8 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
         child.text_keys = None if payload.text_keys is None else payload.text_keys.model_dump(exclude_none=True)
     if "visible_when" in payload.model_fields_set:
         child.visible_when = None if payload.visible_when is None else [c.model_dump(exclude_none=True) for c in payload.visible_when]
+    if "date_constraints" in payload.model_fields_set:
+        child.date_constraints = None if payload.date_constraints is None else payload.date_constraints.model_dump(exclude_none=True)
 
     if isinstance(payload.additional_props, dict):
         if label := payload.additional_props.get("label"):

@@ -44,7 +44,8 @@ Meaning, and deliberately not listed: the ``$formkit`` / ``$el`` type and ``node
 ``option_group``; ``validation``, ``validationRules`` and the validation messages; ``min``,
 ``max``, ``step``, ``maxLength``; ``if`` and the other conditions, including the structured ``visible_when`` column (diffed
 directly, so it is a meaning change even on a node whose JSON carries a literal ``if``); ``value`` (a default is an
-answer nobody typed); ``_minDateSource``, ``_maxDateSource`` and ``disabledDays``;
+answer nobody typed); ``_minDateSource``, ``_maxDateSource`` and ``disabledDays``, and the structured
+``date_constraints`` column that compiles to them (diffed directly, like ``visible_when``);
 ``readonly``; the code-generation columns (``django_field_*``, ``pydantic_field_type``,
 ``extra_imports``, ``validators``, ``list_filter``), because they decide how an answer is
 stored; ``code_scheme``, because it says which identifiers an answer speaks; and
@@ -136,7 +137,7 @@ NESTED_PRESENTATIONAL_KEYS: Mapping[str, frozenset[str]] = {
 LINK_PRESENTATIONAL_KEYS: frozenset[str] = frozenset({"order"})
 
 # Model columns that are not part of the rendered node but can change what it means.
-_SNAPSHOT_COLUMNS = ("label", "description", "node_type", "text_content", "is_active", "protected", "visible_when")
+_SNAPSHOT_COLUMNS = ("label", "description", "node_type", "text_content", "is_active", "protected", "visible_when", "date_constraints")
 
 
 def _normalise(value: Any) -> Any:

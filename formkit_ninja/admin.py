@@ -24,6 +24,7 @@ from formkit_ninja import (
     models,
     text_keys,
 )
+from formkit_ninja.date_constraints import validate_date_constraints
 from formkit_ninja.form_submission.models import (
     Flag,
     SeparatedSubmission,
@@ -76,6 +77,7 @@ COMMON_NODE_FIELDS = (
     "protected",
     "visible_when",
     "text_keys",
+    "date_constraints",
 )
 CODE_GEN_FIELDS = (
     "django_field_type",
@@ -260,6 +262,16 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
             return None
         try:
             text_keys.validate_text_keys(value)
+        except ValueError as e:  # pydantic.ValidationError is a ValueError
+            raise forms.ValidationError(str(e)) from e
+        return value
+
+    def clean_date_constraints(self) -> Any:
+        value = self.cleaned_data.get("date_constraints")
+        if value is None:
+            return None
+        try:
+            validate_date_constraints(value)
         except ValueError as e:  # pydantic.ValidationError is a ValueError
             raise forms.ValidationError(str(e)) from e
         return value

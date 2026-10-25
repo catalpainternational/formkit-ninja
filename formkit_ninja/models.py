@@ -24,6 +24,7 @@ from formkit_ninja import text_keys as text_keys_module
 
 # Re export "form_submission" models
 from formkit_ninja.code_generation_config import CodeGenerationConfig  # noqa: F401
+from formkit_ninja.date_constraints import to_props, validate_date_constraints
 from formkit_ninja.form_submission.models import (
     SeparatedSubmission,  # noqa: F401
     Submission,  # noqa: F401
@@ -602,6 +603,16 @@ class FormKitSchemaNode(UuidIdModel):
         ),
     )
 
+    date_constraints = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Limit a datepicker to the dates between two other date fields: "
+            '{"min_field", "max_field"}, each the name of a field or null. Compiled to the FormKit '
+            '"_minDateSource", "_maxDateSource" and "disabledDays" props on output; a literal prop in the node JSON wins.'
+        ),
+    )
+
     @property
     def formkit(self):
         return self.node.get("$formkit") if isinstance(self.node, dict) else None
@@ -631,6 +642,8 @@ class FormKitSchemaNode(UuidIdModel):
             conditions.validate_visible_when(self.visible_when)
         if self.text_keys is not None:
             text_keys_module.validate_text_keys(self.text_keys)
+        if self.date_constraints is not None:
+            validate_date_constraints(self.date_constraints)
 
         self.sync_promoted_props()
 
@@ -876,6 +889,9 @@ class FormKitSchemaNode(UuidIdModel):
                     values[prop] = text_keys_module.to_gettext_call(key)
             if keys.messages and "validation-messages" not in values:
                 values["validation-messages"] = {rule: text_keys_module.to_gettext_call(k) for rule, k in keys.messages.items()}
+        if self.date_constraints:
+            for key, prop in to_props(validate_date_constraints(self.date_constraints)).items():
+                values.setdefault(key, prop)
 
         if self.node_type == "$el" and not values.get("$el"):
             values["$el"] = "span"
