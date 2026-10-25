@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.1.1] - 2026-10-26
+
+### Fixed
+
+- **Saving a submission is much cheaper (#136).** Splitting a submission into its per-field
+  rows used to read each derived row back one query at a time — Partisipa measured the split
+  at 59% of an import's time, mostly those repeated reads. The rows are now read in one query
+  and parents resolved from rows already in hand. The same rows are written and the same
+  signals fire, so consumers change nothing.
+
 ## [7.1.0] - 2026-10-25
 
 ### Added
