@@ -11,9 +11,17 @@ import pgtrigger.compiler
 import pgtrigger.migrations
 from django.db import migrations, models
 
-# Updating a "protected" node is blocked by the protect_node_deletes_and_updates
-# trigger; bypass it (and history noise) for this one-off backfill.
-_IGNORE = ("formkit_ninja.FormKitSchemaNode:protect_node_deletes_and_updates",)
+# A backfill is invisible to clients (the literal node JSON still wins on output),
+# so it must not look like an edit: bypass the update-protection trigger (a
+# protected node would otherwise abort the migration), the track_change bump (a
+# bump would make every device re-download an unchanged node) and the history
+# event trigger, for this one-off write.
+_IGNORE = (
+    "formkit_ninja.FormKitSchemaNode:protect_node_deletes_and_updates",
+    "formkit_ninja.FormKitSchemaNode:protect_node_updates",
+    "formkit_ninja.FormKitSchemaNode:version_on_update",
+    "formkit_ninja.FormKitSchemaNode:update_update",
+)
 
 
 # The field-name shape conditions.FIELD_NAME accepted when this migration was written.
