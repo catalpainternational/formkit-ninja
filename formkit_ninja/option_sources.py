@@ -15,7 +15,10 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
-from formkit_ninja.conditions import FIELD_NAME
+# A field name or set name refers to something in the form or the data. Restricting
+# it to an identifier keeps the compiled expression an expression: a name like
+# "x).value && $evil(" must never reach to_options_expression.
+FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # A getter is a dotted path such as "getoptions.tf1321.outputs"; anything else
 # in the name would let a stored value end up as code in the expression.

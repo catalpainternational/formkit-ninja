@@ -22,8 +22,8 @@ from formkit_ninja import (
     conditions,
     formkit_schema,
     models,
-    text_keys,
     option_sources,
+    text_keys,
 )
 from formkit_ninja.date_constraints import validate_date_constraints
 from formkit_ninja.form_submission.models import (
@@ -287,6 +287,7 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
         except ValueError as e:  # pydantic.ValidationError is a ValueError
             raise forms.ValidationError(str(e)) from e
         return value
+
     def clean(self) -> dict[str, Any]:
         cleaned_data = super().clean()
         if cleaned_data.get("option_source") is not None and cleaned_data.get("option_group") is not None:

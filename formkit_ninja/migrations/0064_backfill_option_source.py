@@ -32,7 +32,7 @@ def unset_option_source(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('formkit_ninja', '0063_formkitschemanode_option_source'),
+        ("formkit_ninja", "0063_formkitschemanode_option_source"),
     ]
 
     operations = [

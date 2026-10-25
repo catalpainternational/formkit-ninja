@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('formkit_ninja', '0062_date_constraints'),
+        ("formkit_ninja", "0062_date_constraints"),
     ]
 
     operations = [

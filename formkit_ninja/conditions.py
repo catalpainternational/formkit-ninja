@@ -8,15 +8,11 @@ string FormKit consumes today, so existing clients see no change.
 
 from __future__ import annotations
 
-import re
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
-# A condition's field names another input in the same form. Restricting it to
-# an identifier keeps the compiled expression an expression: a name like
-# "x).value && $evil(" must never reach to_if_expression.
-FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+from formkit_ninja.option_sources import FIELD_NAME, OptionSource, to_non_empty_expression
 
 
 class Condition(BaseModel):
@@ -37,10 +33,21 @@ class Condition(BaseModel):
         return self
 
 
-_conditions_adapter = TypeAdapter(list[Condition])
+class SourceNotEmpty(BaseModel):
+    """Holds while an option source has at least one option, e.g. a cascade level with choices."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    operator: Literal["source_not_empty"]
+    source: OptionSource
 
 
-def validate_visible_when(data: object) -> list[Condition]:
+AnyCondition = Annotated[Condition | SourceNotEmpty, Field(discriminator="operator")]
+
+_conditions_adapter: TypeAdapter[list[Condition | SourceNotEmpty]] = TypeAdapter(list[AnyCondition])
+
+
+def validate_visible_when(data: object) -> list[Condition | SourceNotEmpty]:
     """Validate a ``visible_when`` JSON value; raises pydantic.ValidationError."""
     conditions = _conditions_adapter.validate_python(data)
     if not conditions:
@@ -57,15 +64,20 @@ def _literal(value: str | int | float | bool) -> str:
     return f"'{escaped}'"
 
 
-def to_if_expression(conditions: list[Condition]) -> str:
+def to_if_expression(conditions: list[Condition | SourceNotEmpty]) -> str:
     """The FormKit ``if`` string for these conditions, AND-joined.
 
     ``answered`` compiles to the truthiness test ``$get(field).value``;
     ``equals`` / ``not_equals`` compile to ``===`` / ``!==`` against the
     value — the same spellings the live Partisipa forms use today.
+    ``source_not_empty`` compiles to the option source's expression with
+    ``.length>0``.
     """
     parts = []
     for c in conditions:
+        if isinstance(c, SourceNotEmpty):
+            parts.append(to_non_empty_expression(c.source))
+            continue
         ref = f"$get({c.field}).value"
         if c.operator == "answered":
             parts.append(ref)

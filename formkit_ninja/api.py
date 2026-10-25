@@ -403,7 +403,7 @@ class FormKitNodeIn(Schema):
     if_condition: str | None = Field(default=None, alias="if")
     # Structured visibility rule (issue #124). Stored in its own column, never in the node
     # JSON; omit to leave it as it is, send null to clear it.
-    visible_when: list[conditions.Condition] | None = Field(default=None, min_length=1)
+    visible_when: list[conditions.AnyCondition] | None = Field(default=None, min_length=1)
     # Translation keys for the node's words (issue #124). Stored in their own column, never in the
     # node JSON; omit to leave them as they are, send null to clear them.
     text_keys: text_keys_module.NodeTextKeys | None = None

@@ -25,6 +25,7 @@ from tests.helpers.admin_pages import page_data
 POLICY = "tests.test_schema_edit_policy.presentational_only"
 URL = "api-1.0.0:create_or_update_node"
 YESNO = {"kind": "ida", "set": "yesno"}
+SUBSECTOR = {"kind": "ida", "set": "subsector", "filter": {"param": "sector_id", "source": {"field": "project_sector"}}}
 SCHEMAS = Path(__file__).parent.parent / "formkit_ninja" / "schemas"
 
 # Live strings that are not an options source we can express. Each is left as a
@@ -153,6 +154,27 @@ class TestOnTheNode:
 
     def test_without_an_option_source_no_options_are_added(self):
         assert "options" not in make_node().get_node_values()
+
+    def test_source_not_empty_condition_emits_on_the_node(self):
+        node = make_node(
+            visible_when=[
+                {"field": "project_sector", "operator": "answered"},
+                {"operator": "source_not_empty", "source": SUBSECTOR},
+            ]
+        )
+        assert node.get_node_values()["if"] == '$get(project_sector).value && $ida(subsector, "sector_id="+$get(project_sector).value).length>0'
+
+    def test_a_bad_source_in_a_condition_does_not_save(self):
+        with pytest.raises((ValidationError, ValueError)):
+            make_node(visible_when=[{"operator": "source_not_empty", "source": {"kind": "ida", "set": "x), $evil("}}])
+
+    def test_the_condition_survives_the_api(self, admin_client: Client, group):
+        condition = {"operator": "source_not_empty", "source": SUBSECTOR}
+        response = _post(admin_client, parent_id=str(group.pk), label="Answer", name="answer", visible_when=[condition])
+        assert response.status_code == HTTPStatus.OK, response.content
+        node = models.FormKitSchemaNode.objects.get(node__name="answer")
+        assert node.visible_when[0]["operator"] == "source_not_empty"
+        assert node.visible_when[0]["source"]["set"] == "subsector"
 
     def test_option_group_and_option_source_together_do_not_save(self):
         group = models.OptionGroup.objects.create(group="g")
