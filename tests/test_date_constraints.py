@@ -232,7 +232,7 @@ class TestBackfill:
             node={"$formkit": "datepicker", "name": "date_finish", "_minDateSource": "date_start", "disabledDays": "$setDisabledDays"},
         )
         before = node.node
-        backfill = importlib.import_module("formkit_ninja.migrations.0060_date_constraints")
+        backfill = importlib.import_module("formkit_ninja.migrations.0062_date_constraints")
         backfill.set_date_constraints(apps, None)
         node.refresh_from_db()
         assert node.date_constraints == {"min_field": "date_start"}
@@ -241,7 +241,7 @@ class TestBackfill:
 
     def test_the_backfill_skips_a_node_with_no_date_props(self):
         node = models.FormKitSchemaNode.objects.create(node_type="$formkit", node={"$formkit": "text", "name": "town"})
-        backfill = importlib.import_module("formkit_ninja.migrations.0060_date_constraints")
+        backfill = importlib.import_module("formkit_ninja.migrations.0062_date_constraints")
         backfill.set_date_constraints(apps, None)
         node.refresh_from_db()
         assert node.date_constraints is None
