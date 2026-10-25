@@ -47,7 +47,8 @@ meaning change even on a node whose JSON carries a literal ``options``); ``valid
 directly, so it is a meaning change even on a node whose JSON carries a literal ``if``); ``value`` (a default is an
 answer nobody typed); ``_minDateSource``, ``_maxDateSource`` and ``disabledDays``, and the structured
 ``date_constraints`` column that compiles to them (diffed directly, like ``visible_when``);
-``readonly``; the code-generation columns (``django_field_*``, ``pydantic_field_type``,
+``onChange`` and the structured ``calculation`` column that compiles to it (diffed directly, like
+``visible_when``): a computed total changes stored answers; ``readonly``; the code-generation columns (``django_field_*``, ``pydantic_field_type``,
 ``extra_imports``, ``validators``, ``list_filter``), because they decide how an answer is
 stored; ``code_scheme``, because it says which identifiers an answer speaks; and
 ``is_active`` and ``protected``.
@@ -138,7 +139,7 @@ NESTED_PRESENTATIONAL_KEYS: Mapping[str, frozenset[str]] = {
 LINK_PRESENTATIONAL_KEYS: frozenset[str] = frozenset({"order"})
 
 # Model columns that are not part of the rendered node but can change what it means.
-_SNAPSHOT_COLUMNS = ("label", "description", "node_type", "text_content", "is_active", "protected", "visible_when", "date_constraints", "option_source")
+_SNAPSHOT_COLUMNS = ("label", "description", "node_type", "text_content", "is_active", "protected", "visible_when", "date_constraints", "option_source", "calculation")
 
 
 def _normalise(value: Any) -> Any:

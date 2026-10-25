@@ -19,7 +19,7 @@ from django.db.models.functions import Greatest
 from django.utils import timezone, translation
 from rich.console import Console
 
-from formkit_ninja import conditions, formkit_schema, option_sources, triggers
+from formkit_ninja import calculations, conditions, formkit_schema, option_sources, triggers
 from formkit_ninja import text_keys as text_keys_module
 
 # Re export "form_submission" models
@@ -627,6 +627,16 @@ class FormKitSchemaNode(UuidIdModel):
         ),
     )
 
+    calculation = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "The client-side formula that recomputes other fields when this one changes, as data: "
+            '{"formula": "<name>"}. Compiled to the FormKit "onChange" string "$formula.<name>" on output; '
+            'a literal "onChange" in the node JSON wins.'
+        ),
+    )
+
     option_source = models.JSONField(
         null=True,
         blank=True,
@@ -669,6 +679,9 @@ class FormKitSchemaNode(UuidIdModel):
             text_keys_module.validate_text_keys(self.text_keys)
         if self.date_constraints is not None:
             validate_date_constraints(self.date_constraints)
+
+        if self.calculation is not None:
+            calculations.validate_calculation(self.calculation)
 
         if self.option_source is not None:
             option_sources.validate_option_source(self.option_source)
@@ -924,6 +937,9 @@ class FormKitSchemaNode(UuidIdModel):
         if self.date_constraints:
             for key, prop in to_props(validate_date_constraints(self.date_constraints)).items():
                 values.setdefault(key, prop)
+
+        if self.calculation and "onChange" not in values:
+            values["onChange"] = calculations.to_on_change(calculations.validate_calculation(self.calculation))
 
         if self.node_type == "$el" and not values.get("$el"):
             values["$el"] = "span"
