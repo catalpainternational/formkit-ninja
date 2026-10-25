@@ -17,7 +17,7 @@ from django.utils.cache import add_never_cache_headers
 from ninja import Field, ModelSchema, Router, Schema, Status
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from formkit_ninja import conditions, formkit_schema, models, option_sources
+from formkit_ninja import calculations, conditions, formkit_schema, models, option_sources
 from formkit_ninja import text_keys as text_keys_module
 from formkit_ninja.date_constraints import DateConstraints
 from formkit_ninja.notifications import get_default_notifier
@@ -413,6 +413,7 @@ class FormKitNodeIn(Schema):
     # Structured option source (issue #124). Same contract as visible_when: its own column,
     # omit to leave it as it is, send null to clear it.
     option_source: option_sources.OptionSource | None = None
+    calculation: calculations.Calculation | None = None
 
     # Validation
     validationRules: str | None = None
@@ -555,7 +556,7 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
     values = payload.model_dump(
         by_alias=True,
         exclude_none=True,
-        exclude={"parent_id", "uuid", "visible_when", "text_keys", "date_constraints", "option_source"} | {"parent", "child", "preferred_name", "parent_names"},
+        exclude={"parent_id", "uuid", "visible_when", "text_keys", "date_constraints", "option_source", "calculation"} | {"parent", "child", "preferred_name", "parent_names"},
     )
     # Ensure the name is unique and suitable
     # Do not replace existing names though
@@ -612,6 +613,8 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
     if "date_constraints" in payload.model_fields_set:
         child.date_constraints = None if payload.date_constraints is None else payload.date_constraints.model_dump(exclude_none=True)
 
+    if "calculation" in payload.model_fields_set:
+        child.calculation = None if payload.calculation is None else payload.calculation.model_dump(exclude_none=True)
     if "option_source" in payload.model_fields_set:
         child.option_source = None if payload.option_source is None else payload.option_source.model_dump(exclude_none=True)
 

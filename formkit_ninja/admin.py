@@ -19,6 +19,7 @@ from django.utils import timezone
 
 # Import admin modules to register them
 from formkit_ninja import (
+    calculations,
     conditions,
     formkit_schema,
     models,
@@ -80,6 +81,7 @@ COMMON_NODE_FIELDS = (
     "text_keys",
     "date_constraints",
     "option_source",
+    "calculation",
 )
 CODE_GEN_FIELDS = (
     "django_field_type",
@@ -274,6 +276,16 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
             return None
         try:
             option_sources.validate_option_source(value)
+        except ValueError as e:  # pydantic.ValidationError is a ValueError
+            raise forms.ValidationError(str(e)) from e
+        return value
+
+    def clean_calculation(self) -> Any:
+        value = self.cleaned_data.get("calculation")
+        if value is None:
+            return None
+        try:
+            calculations.validate_calculation(value)
         except ValueError as e:  # pydantic.ValidationError is a ValueError
             raise forms.ValidationError(str(e)) from e
         return value
