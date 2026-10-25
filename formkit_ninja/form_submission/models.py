@@ -5,7 +5,7 @@ import logging
 import uuid
 import warnings
 from contextlib import contextmanager
-from typing import cast
+from typing import Any, cast
 
 import pghistory
 import pgtrigger
@@ -159,7 +159,7 @@ def _normalize_json(value) -> str:
 class _SeparatedSubmissionManagerBase(models.Manager):
     """Base manager with custom creation methods for SeparatedSubmission."""
 
-    def _apply_defaults(self, pk, defaults: dict, *, force: bool) -> tuple[SeparatedSubmission, bool, bool]:
+    def _apply_defaults(self, pk: uuid.UUID | str, defaults: dict[str, Any], *, force: bool, rows: dict[str, "SeparatedSubmission"] | None = None) -> tuple["SeparatedSubmission", bool, bool]:
         """
         Change-aware upsert of one ``SeparatedSubmission`` row.
 
@@ -168,12 +168,19 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         stored row (or when ``force`` is set), so an unchanged row fires no
         ``post_save`` and no downstream projection cascade.
 
+        ``rows`` is the one-read-per-save map ``from_submission`` builds: when
+        given, it is authoritative and no per-row query runs (the split used to
+        read every row back one query at a time — Partisipa measured it at 59%
+        of an import's time).
+
         Returns ``(instance, created, changed)`` where ``changed`` reflects the
         real content diff, independent of ``force``.
         """
-        try:
-            obj = SeparatedSubmission.objects.get(pk=pk)
-        except SeparatedSubmission.DoesNotExist:
+        if rows is not None:
+            obj = rows.get(str(pk))
+        else:
+            obj = SeparatedSubmission.objects.filter(pk=pk).first()
+        if obj is None:
             return SeparatedSubmission.objects.create(pk=pk, **defaults), True, True
 
         changed = False
@@ -223,6 +230,11 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         emissions = emit_submission(sub)
         root = emissions[0]
 
+        # Every row this document can hold, read back in one query instead of one
+        # query per row. Rows written below are added as they are made, so a child
+        # resolves its parent from this map without touching the database again.
+        rows: dict[str, SeparatedSubmission] = {str(obj.pk): obj for obj in SeparatedSubmission.objects.filter(pk__in=[sub.pk, *(e.row_id for e in emissions[1:])])}
+
         main, main_created, main_changed = self._apply_defaults(
             sub.pk,
             dict(
@@ -234,7 +246,9 @@ class _SeparatedSubmissionManagerBase(models.Manager):
                 form_type=sub.form_type,
             ),
             force=force,
+            rows=rows,
         )
+        rows[str(main.pk)] = main
 
         # Positions for the repeater rows, worked out once for the whole document.
         # Only the rows that actually moved get a new key; everything else is handed
@@ -251,10 +265,11 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         written_pks: set = {main.pk}
 
         for emission in emissions[1:]:
-            res = self.apply_emission(emission, main, rank=ranks.get(emission.row_id), force=force)
+            res = self.apply_emission(emission, main, rank=ranks.get(emission.row_id), force=force, rows=rows)
             if res:
                 results.append(res)
                 written_pks.add(res[0].pk)
+                rows[str(res[0].pk)] = res[0]
 
         results.append((main, main_created, main_changed))  # type: ignore[arg-type]
 
@@ -296,7 +311,9 @@ class _SeparatedSubmissionManagerBase(models.Manager):
             planned.update(plan_ranks(now, stored))
         return planned
 
-    def apply_emission(self, emission: Emission, main: SeparatedSubmission, *, rank: str | None = None, force: bool = False) -> tuple[SeparatedSubmission, bool, bool] | None:
+    def apply_emission(
+        self, emission: Emission, main: SeparatedSubmission, *, rank: str | None = None, force: bool = False, rows: dict[str, "SeparatedSubmission"] | None = None
+    ) -> tuple["SeparatedSubmission", bool, bool] | None:
         """Upsert the derived row one :class:`~formkit_ninja.form_submission.emit.Emission` describes.
 
         The projection half of the decomposition: ``emit_submission`` says what
@@ -319,9 +336,14 @@ class _SeparatedSubmissionManagerBase(models.Manager):
         # and the fact is reported, which is what the splitter has always done.
         parent_obj = main
         if emission.parent_id and emission.parent_id != str(main.pk):
-            try:
-                parent_obj = SeparatedSubmission.objects.get(pk=emission.parent_id)
-            except SeparatedSubmission.DoesNotExist:
+            # Emissions come parent-before-child, so a live parent is already in
+            # ``rows``; the query is only for a parent outside this document.
+            found = rows.get(str(emission.parent_id)) if rows is not None else None
+            if found is None:
+                found = SeparatedSubmission.objects.filter(pk=emission.parent_id).first()
+            if found is not None:
+                parent_obj = found
+            else:
                 warnings.warn(f"Parent {emission.parent_id} not found for {emission.repeater_key}")
 
         return self._apply_defaults(
@@ -337,6 +359,7 @@ class _SeparatedSubmissionManagerBase(models.Manager):
                 repeater_rank=rank,
             ),
             force=force,
+            rows=rows,
         )
 
 
