@@ -34,6 +34,11 @@ backfilled node emits what it always did. The consequence is that editing a back
 field does not change what a device receives until the literals are removed. Removing them is a
 later, deliberate migration.
 
+`visible_when` is the exception: it has no backfill. There is no parser for the stored `if`
+expressions (live forms spell them in several ways, such as `!== '----'` sentinel chains), so
+every existing condition stays a literal `if` until it is restated as data, by hand or by a
+later migration with a parser that has been checked against the live spellings.
+
 **Validation runs on save and over the API.** Each field has one validator in its module.
 `FormKitSchemaNode.save()` runs it, and the API's request models use the same types, so a bad value
 is refused the same way whether it arrives from the admin, the API or code that saves a node.

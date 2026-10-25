@@ -310,7 +310,7 @@ class NodeChildrenManager(models.Manager):
             # includes the parent node's own version, so a second test against
             # that version can never match a row the first one missed.
             values = values.filter(latest_change__gt=latest_change)
-        return values.values_list("parent", "latest_change", "children", named=True)
+        return values.order_by("latest_change").values_list("parent", "latest_change", "children", named=True)
 
     def latest_change(self, parent_id=None):
         """
@@ -415,7 +415,8 @@ class NodeChildrenChange(models.Model):
 
 class NodeQS(models.QuerySet):
     def from_change(self, track_change: int = -1):
-        return self.filter(track_change__gt=track_change)
+        # Ordered so a client (or a diff) always sees changes in the order they happened.
+        return self.filter(track_change__gt=track_change).order_by("track_change")
 
     def to_response(self, ignore_errors: bool = True, options: bool = True) -> Iterable[tuple[uuid.UUID, int | None, formkit_schema.Node | str | None, bool]]:
         """
