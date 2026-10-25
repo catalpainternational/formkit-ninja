@@ -45,6 +45,8 @@ INSTALLED_APPS = [
 
 See the [Quick Start Guide](docs/quick_start.md) for a complete walkthrough.
 
+For how a form's visibility, option lists, translations, date limits and calculated totals are stored as data, see the [Structured Schema](docs/structured_schema.md) guide.
+
 ## Code Generation
 
 ⭐ **NEW in v0.8.1** - Database-driven code generation! Configure type mappings and field overrides through Django admin without writing Python code.
