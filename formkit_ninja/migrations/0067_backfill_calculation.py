@@ -6,9 +6,17 @@ from django.db import migrations
 
 from formkit_ninja.calculations import parse_on_change
 
-# Updating a "protected" node is blocked by the protect_node_deletes_and_updates
-# trigger; bypass it for this one-off backfill.
-_IGNORE = ("formkit_ninja.FormKitSchemaNode:protect_node_deletes_and_updates",)
+# A backfill is invisible to clients (the literal node JSON still wins on output),
+# so it must not look like an edit: bypass the update-protection trigger (a
+# protected node would otherwise abort the migration), the track_change bump (a
+# bump would make every device re-download an unchanged node) and the history
+# event trigger, for this one-off write.
+_IGNORE = (
+    "formkit_ninja.FormKitSchemaNode:protect_node_deletes_and_updates",
+    "formkit_ninja.FormKitSchemaNode:protect_node_updates",
+    "formkit_ninja.FormKitSchemaNode:version_on_update",
+    "formkit_ninja.FormKitSchemaNode:update_update",
+)
 
 
 def set_calculation(apps, schema_editor):
