@@ -20,6 +20,7 @@ from django.utils import timezone
 from rich.console import Console
 
 from formkit_ninja import conditions, formkit_schema, triggers
+from formkit_ninja import text_keys as text_keys_module
 
 # Re export "form_submission" models
 from formkit_ninja.code_generation_config import CodeGenerationConfig  # noqa: F401
@@ -590,6 +591,16 @@ class FormKitSchemaNode(UuidIdModel):
             '"if" expression on output; a literal "if" in the node JSON wins.'
         ),
     )
+    text_keys = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Translation keys for this node's words, as data: "
+            '{"label": {"key", "context"?}, "placeholder", "help", "messages": {"<rule>": {...}}}. '
+            "Compiled to $gettext / $pgettext strings on output and resolved by the client's catalogs; "
+            "a literal value already in the node JSON wins per prop."
+        ),
+    )
 
     @property
     def formkit(self):
@@ -618,6 +629,8 @@ class FormKitSchemaNode(UuidIdModel):
 
         if self.visible_when is not None:
             conditions.validate_visible_when(self.visible_when)
+        if self.text_keys is not None:
+            text_keys_module.validate_text_keys(self.text_keys)
 
         self.sync_promoted_props()
 
@@ -855,6 +868,14 @@ class FormKitSchemaNode(UuidIdModel):
 
         if self.visible_when and "if" not in values:
             values["if"] = conditions.to_if_expression(conditions.validate_visible_when(self.visible_when))
+
+        if self.text_keys:
+            keys = text_keys_module.validate_text_keys(self.text_keys)
+            for prop in ("label", "placeholder", "help"):
+                if (key := getattr(keys, prop)) is not None and prop not in values:
+                    values[prop] = text_keys_module.to_gettext_call(key)
+            if keys.messages and "validation-messages" not in values:
+                values["validation-messages"] = {rule: text_keys_module.to_gettext_call(k) for rule, k in keys.messages.items()}
 
         if self.node_type == "$el" and not values.get("$el"):
             values["$el"] = "span"
