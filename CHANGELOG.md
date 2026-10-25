@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A field's visibility can now be stored as data instead of code** (#124). A node takes
+  `visible_when`: a list of `{"field", "operator", "value"}` conditions (`answered`,
+  `equals`, `not_equals`, all of which must hold). On output it compiles to the same
+  FormKit `if` expression consumers receive today, so nothing changes for a device; a
+  literal `if` in the node JSON still wins. This is the first step of the renderer-neutral
+  schema work: conditions stored this way can be evaluated by form renderers other than
+  FormKit. New migration 0059 (adds a nullable column; no data change).
+
 ## [7.0.0] - 2026-10-24
 
 Django 5.2 and 6 are supported, and Django 4 no longer is (catalpainternational/partisipa-import#1731).

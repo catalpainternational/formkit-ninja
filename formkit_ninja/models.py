@@ -19,7 +19,7 @@ from django.db.models.functions import Greatest
 from django.utils import timezone
 from rich.console import Console
 
-from formkit_ninja import formkit_schema, triggers
+from formkit_ninja import conditions, formkit_schema, triggers
 
 # Re export "form_submission" models
 from formkit_ninja.code_generation_config import CodeGenerationConfig  # noqa: F401
@@ -580,6 +580,17 @@ class FormKitSchemaNode(UuidIdModel):
     text_content = models.TextField(null=True, blank=True, help_text="Content for a text element, for children of an $el type component")
     track_change = models.BigIntegerField(null=True, blank=True)
 
+    visible_when = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Show this node only while every condition holds: a list of "
+            '{"field", "operator", "value"} objects, where operator is '
+            '"answered", "equals" or "not_equals". Compiled to the FormKit '
+            '"if" expression on output; a literal "if" in the node JSON wins.'
+        ),
+    )
+
     @property
     def formkit(self):
         return self.node.get("$formkit") if isinstance(self.node, dict) else None
@@ -604,6 +615,9 @@ class FormKitSchemaNode(UuidIdModel):
         if isinstance(self.node, dict) and self.node_type in ("$formkit", "$el"):
             if key := self.node.get("name"):
                 check_valid_django_id(key)
+
+        if self.visible_when is not None:
+            conditions.validate_visible_when(self.visible_when)
 
         self.sync_promoted_props()
 
@@ -838,6 +852,9 @@ class FormKitSchemaNode(UuidIdModel):
         values.pop("additional_props", None)
         if self.additional_props and len(self.additional_props) > 0:
             values = merge_additional_props_under(values, self.additional_props)
+
+        if self.visible_when and "if" not in values:
+            values["if"] = conditions.to_if_expression(conditions.validate_visible_when(self.visible_when))
 
         if self.node_type == "$el" and not values.get("$el"):
             values["$el"] = "span"
