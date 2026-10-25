@@ -5,14 +5,26 @@ compiles to the same FormKit ``options`` string the live forms use today. The
 cases mirror the live schemas in ``formkit_ninja/schemas``.
 """
 
+import importlib
 import json
+from http import HTTPStatus
 from pathlib import Path
 
 import pytest
+from django.apps import apps
+from django.contrib.admin.utils import quote
+from django.test import Client, override_settings
+from django.urls import reverse
+from django.utils import translation
 from pydantic import ValidationError
 
+from formkit_ninja import models
 from formkit_ninja.option_sources import parse_options_string, to_non_empty_expression, to_options_expression, validate_option_source
+from tests.helpers.admin_pages import page_data
 
+POLICY = "tests.test_schema_edit_policy.presentational_only"
+URL = "api-1.0.0:create_or_update_node"
+YESNO = {"kind": "ida", "set": "yesno"}
 SCHEMAS = Path(__file__).parent.parent / "formkit_ninja" / "schemas"
 
 # Live strings that are not an options source we can express. Each is left as a
@@ -123,3 +135,185 @@ def test_every_live_options_string_parses_or_is_declared_opaque(text):
 
 def test_the_opaque_list_has_no_stale_entries():
     assert OPAQUE <= set(live_options_strings())
+
+
+def make_node(**kwargs) -> models.FormKitSchemaNode:
+    node = kwargs.pop("node", {"$formkit": "select", "name": "answer"})
+    return models.FormKitSchemaNode.objects.create(node_type="$formkit", node=node, **kwargs)
+
+
+@pytest.mark.django_db
+class TestOnTheNode:
+    def test_the_node_emits_the_compiled_options(self):
+        assert make_node(option_source=YESNO).get_node_values()["options"] == "$ida(yesno)"
+
+    def test_a_literal_options_in_the_node_wins(self):
+        node = make_node(node={"$formkit": "select", "name": "answer", "options": "$ida(gender)"}, option_source=YESNO)
+        assert node.get_node_values()["options"] == "$ida(gender)"
+
+    def test_without_an_option_source_no_options_are_added(self):
+        assert "options" not in make_node().get_node_values()
+
+    def test_option_group_and_option_source_together_do_not_save(self):
+        group = models.OptionGroup.objects.create(group="g")
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            make_node(option_group=group, option_source=YESNO)
+        assert not models.FormKitSchemaNode.objects.filter(node__name="answer").exists()
+
+    def test_a_bad_source_does_not_save(self):
+        with pytest.raises((ValidationError, ValueError)):
+            make_node(option_source={"kind": "ida", "set": "x), $evil("})
+        assert not models.FormKitSchemaNode.objects.filter(node__name="answer").exists()
+
+
+@pytest.fixture
+def labelled_node(db):
+    group = models.OptionGroup.objects.create(group="status")
+    option = models.Option.objects.create(group=group, value="1", object_id=1)
+    return make_node(option_group=group), option
+
+
+@pytest.mark.django_db
+class TestOptionLabelLanguage:
+    def test_option_group_rows_come_out_in_the_active_language(self, labelled_node):
+        node, option = labelled_node
+        models.OptionLabel.objects.create(option=option, label="Yes", lang="en")
+        models.OptionLabel.objects.create(option=option, label="Sin", lang="tet")
+        with translation.override("tet"):
+            assert node.get_node_values()["options"] == [{"value": "1", "label": "Sin"}]
+        with translation.override("en-us"):
+            assert node.get_node_values()["options"] == [{"value": "1", "label": "Yes"}]
+
+    def test_missing_translation_falls_back_to_english(self, labelled_node):
+        node, option = labelled_node
+        models.OptionLabel.objects.create(option=option, label="Sin", lang="pt")
+        models.OptionLabel.objects.create(option=option, label="Yes", lang="en")
+        with translation.override("tet"):
+            assert node.get_node_values()["options"] == [{"value": "1", "label": "Yes"}]
+
+    def test_with_no_english_the_first_label_is_used(self, labelled_node):
+        node, option = labelled_node
+        models.OptionLabel.objects.create(option=option, label="Sim", lang="pt")
+        with translation.override("tet"):
+            assert node.get_node_values()["options"] == [{"value": "1", "label": "Sim"}]
+
+
+@pytest.fixture
+def group(db):
+    return models.FormKitSchemaNode.objects.create(node_type="$formkit", label="Form", node={"$formkit": "group", "name": "form"})
+
+
+def _post(client: Client, **payload):
+    return client.post(reverse(URL), data=payload, content_type="application/json")
+
+
+def _sourced_child(group) -> models.FormKitSchemaNode:
+    node = make_node(label="Answer", option_source=YESNO)
+    models.NodeChildren.objects.create(parent=group, child=node, order=1)
+    return node
+
+
+@pytest.mark.django_db
+class TestThroughTheApi:
+    def test_api_payload_option_source_lands_in_the_column_not_additional_props(self, admin_client: Client, group):
+        response = _post(admin_client, parent_id=str(group.pk), label="Answer", name="answer", option_source=YESNO)
+        assert response.status_code == HTTPStatus.OK, response.content
+        node = models.FormKitSchemaNode.objects.get(node__name="answer")
+        assert node.option_source == YESNO
+        assert "option_source" not in node.node
+        assert not node.additional_props or "option_source" not in node.additional_props
+
+    def test_api_update_can_clear_option_source_with_null(self, admin_client: Client, group):
+        node = _sourced_child(group)
+        response = _post(admin_client, uuid=str(node.pk), **{"$formkit": "select"}, option_source=None)
+        assert response.status_code == HTTPStatus.OK, response.content
+        node.refresh_from_db()
+        assert node.option_source is None
+
+    def test_api_update_without_option_source_leaves_it(self, admin_client: Client, group):
+        node = _sourced_child(group)
+        response = _post(admin_client, uuid=str(node.pk), **{"$formkit": "select"}, label="Renamed")
+        assert response.status_code == HTTPStatus.OK, response.content
+        node.refresh_from_db()
+        assert node.option_source == YESNO
+
+    @pytest.mark.parametrize("bad", [{"kind": "csv"}, {"kind": "ida", "set": "x), $evil("}, "yesno", {"kind": "ida", "set": "a", "extra": 1}])
+    def test_api_rejects_a_bad_option_source_with_a_client_error(self, admin_client: Client, group, bad):
+        response = _post(admin_client, parent_id=str(group.pk), label="Answer", option_source=bad)
+        assert HTTPStatus.BAD_REQUEST <= response.status_code < HTTPStatus.INTERNAL_SERVER_ERROR
+        assert not models.FormKitSchemaNode.objects.filter(label="Answer").exists()
+
+    @override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+    def test_changing_option_source_is_a_meaning_edit(self, admin_client: Client, group):
+        node = _sourced_child(group)
+        response = _post(admin_client, uuid=str(node.pk), **{"$formkit": "select"}, option_source={"kind": "ida", "set": "gender"})
+        assert response.status_code == HTTPStatus.FORBIDDEN, response.content
+        assert "option_source" in response.json()["errors"][0]
+        node.refresh_from_db()
+        assert node.option_source == YESNO
+
+    @override_settings(FORMKIT_NINJA_SCHEMA_EDIT_POLICY=POLICY)
+    def test_resending_the_same_option_source_is_allowed(self, admin_client: Client, group):
+        node = _sourced_child(group)
+        response = _post(admin_client, uuid=str(node.pk), **{"$formkit": "select"}, label="Answer", option_source=YESNO)
+        assert response.status_code == HTTPStatus.OK, response.content
+
+
+@pytest.mark.django_db
+class TestInTheAdmin:
+    @staticmethod
+    def _url(node) -> str:
+        return reverse("admin:formkit_ninja_formkitschemanode_change", args=[quote(node.pk)])
+
+    def _post(self, client: Client, node, **changes):
+        data, _ = page_data(client.get(self._url(node)))
+        data.update(changes)
+        return client.post(self._url(node), data)
+
+    def test_a_bad_option_source_is_a_form_error(self, admin_client: Client, group):
+        node = _sourced_child(group)
+        response = self._post(admin_client, node, option_source='{"kind": "csv"}')
+        assert response.status_code == HTTPStatus.OK
+        assert "option_source" in response.context["adminform"].form.errors
+
+    def test_a_good_option_source_is_saved_to_the_column(self, admin_client: Client, group):
+        node = _sourced_child(group)
+        response = self._post(admin_client, node, option_source='{"kind": "ida", "set": "gender"}')
+        assert response.status_code == HTTPStatus.FOUND, response.context and response.context["adminform"].form.errors
+        node.refresh_from_db()
+        assert node.option_source == {"kind": "ida", "set": "gender"}
+
+    def test_option_group_and_option_source_together_are_a_form_error(self, admin_client: Client, group):
+        node = _sourced_child(group)
+        option_group = models.OptionGroup.objects.create(group="g")
+        response = self._post(admin_client, node, option_group=option_group.pk)
+        assert response.status_code == HTTPStatus.OK
+        assert "option_source" in response.context["adminform"].form.errors
+
+
+@pytest.mark.django_db
+def test_backfill_parses_live_strings_without_touching_node_json():
+    migration = importlib.import_module("formkit_ninja.migrations.0064_backfill_option_source")
+    ida = make_node(node={"$formkit": "select", "name": "a", "options": '$ida(subsector, "sector_id="+$get("project_sector").value)'})
+    opaque = make_node(node={"$formkit": "select", "name": "b", "options": "$ida(x, y))"})
+    plain = make_node(node={"$formkit": "text", "name": "c"})
+    group = models.OptionGroup.objects.create(group="g")
+    grouped = make_node(node={"$formkit": "select", "name": "d", "options": "$ida(yesno)"}, option_group=group)
+    before = {n.pk: n.node for n in (ida, opaque, plain, grouped)}
+
+    migration.set_option_source(apps, None)
+
+    for n in (ida, opaque, plain, grouped):
+        n.refresh_from_db()
+        assert n.node == before[n.pk]
+    assert ida.option_source == {
+        "kind": "ida",
+        "set": "subsector",
+        "filter": {"param": "sector_id", "source": {"field": "project_sector", "per_index": False}},
+    }
+    assert (opaque.option_source, plain.option_source, grouped.option_source) == (None, None, None)
+    assert ida.get_node_values()["options"] == '$ida(subsector, "sector_id="+$get("project_sector").value)'
+
+    migration.unset_option_source(apps, None)
+    ida.refresh_from_db()
+    assert ida.option_source is None
