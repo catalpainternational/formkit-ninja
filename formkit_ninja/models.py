@@ -16,10 +16,10 @@ from django.db import models, transaction
 from django.db.models import F, OuterRef, Q, Subquery
 from django.db.models.aggregates import Max
 from django.db.models.functions import Greatest
-from django.utils import timezone
+from django.utils import timezone, translation
 from rich.console import Console
 
-from formkit_ninja import conditions, formkit_schema, triggers
+from formkit_ninja import conditions, formkit_schema, option_sources, triggers
 from formkit_ninja import text_keys as text_keys_module
 
 # Re export "form_submission" models
@@ -216,6 +216,20 @@ class OptionLabel(models.Model):
     def __str__(self) -> str:
         # Use only local fields to avoid N+1 when listing (e.g. in admin).
         return f"{self.label} ({self.lang})" if self.label else f"option={self.option_id} lang={self.lang}"
+
+
+def pick_label(labels: Iterable[OptionLabel], lang: str | None) -> str:
+    """
+    The label in the active language ("en-us" counts as "en"), else the English one,
+    else whichever comes first; empty when there are none.
+    """
+    labels = list(labels)
+    wanted = (lang or "").split("-")[0].lower()
+    for candidate in (wanted, "en"):
+        for label in labels:
+            if label.lang == candidate:
+                return label.label
+    return labels[0].label if labels else ""
 
 
 class FormComponents(UuidIdModel):
@@ -613,6 +627,17 @@ class FormKitSchemaNode(UuidIdModel):
         ),
     )
 
+    option_source = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Where this node's options come from at render time, as data: an "
+            '{"kind": "ida" | "locations" | "named", ...} object. Compiled to the '
+            'FormKit "options" expression on output; a literal "options" in the node '
+            "JSON wins. Mutually exclusive with option_group."
+        ),
+    )
+
     @property
     def formkit(self):
         return self.node.get("$formkit") if isinstance(self.node, dict) else None
@@ -644,6 +669,11 @@ class FormKitSchemaNode(UuidIdModel):
             text_keys_module.validate_text_keys(self.text_keys)
         if self.date_constraints is not None:
             validate_date_constraints(self.date_constraints)
+
+        if self.option_source is not None:
+            option_sources.validate_option_source(self.option_source)
+            if self.option_group_id is not None:
+                raise ValueError("option_source and option_group are mutually exclusive")
 
         self.sync_promoted_props()
 
@@ -791,12 +821,12 @@ class FormKitSchemaNode(UuidIdModel):
         if not self.option_group:
             return None
         options = self.option_group.option_set.all().prefetch_related("optionlabel_set")
-        # options: Iterable[Option] = self.option_set.all().prefetch_related("optionlabel_set")
         # TODO: This is horribly slow
+        lang = translation.get_language()
         return [
             {
                 "value": option.value,
-                "label": f"{label_obj.label if (label_obj := option.optionlabel_set.first()) else ''}",
+                "label": pick_label(option.optionlabel_set.all(), lang),
             }
             for option in options
         ]
@@ -817,6 +847,8 @@ class FormKitSchemaNode(UuidIdModel):
         # may come from an m2m
         if options and self.node_options:
             values["options"] = self.node_options
+        elif options and self.option_source is not None:
+            values["options"] = option_sources.to_options_expression(option_sources.validate_option_source(self.option_source))
         if recursive:
             children = [c.get_node_values() for c in self.children.order_by("nodechildren__order")]
             if children:

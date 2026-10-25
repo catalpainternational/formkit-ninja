@@ -22,6 +22,7 @@ from formkit_ninja import (
     conditions,
     formkit_schema,
     models,
+    option_sources,
     text_keys,
 )
 from formkit_ninja.date_constraints import validate_date_constraints
@@ -78,6 +79,7 @@ COMMON_NODE_FIELDS = (
     "visible_when",
     "text_keys",
     "date_constraints",
+    "option_source",
 )
 CODE_GEN_FIELDS = (
     "django_field_type",
@@ -266,6 +268,16 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
             raise forms.ValidationError(str(e)) from e
         return value
 
+    def clean_option_source(self) -> Any:
+        value = self.cleaned_data.get("option_source")
+        if value is None:
+            return None
+        try:
+            option_sources.validate_option_source(value)
+        except ValueError as e:  # pydantic.ValidationError is a ValueError
+            raise forms.ValidationError(str(e)) from e
+        return value
+
     def clean_date_constraints(self) -> Any:
         value = self.cleaned_data.get("date_constraints")
         if value is None:
@@ -275,6 +287,12 @@ class FormKitBaseForm(JSONMappingMixin, forms.ModelForm):
         except ValueError as e:  # pydantic.ValidationError is a ValueError
             raise forms.ValidationError(str(e)) from e
         return value
+
+    def clean(self) -> dict[str, Any]:
+        cleaned_data = super().clean()
+        if cleaned_data.get("option_source") is not None and cleaned_data.get("option_group") is not None:
+            self.add_error("option_source", "An option source and an option group cannot both be set.")
+        return cleaned_data
 
     def save(self, commit: bool = True) -> models.FormKitSchemaNode:
         instance = super().save(commit=False)
