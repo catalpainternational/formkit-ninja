@@ -513,7 +513,7 @@ class SchemaEditRefused(Exception):
     """The configured schema edit policy refused this edit; the message says why."""
 
 
-def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict | None = None, request: HttpRequest | None = None):
+def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict[str, Any] | None = None, request: HttpRequest | None = None) -> tuple[models.FormKitSchemaNode | None, list[str] | None]:
     """
     Create or update a child node from API payload.
 
@@ -651,7 +651,7 @@ def create_or_update_child_node(payload: FormKitNodeIn, raw_payload_dict: dict |
     return child, []
 
 
-def make_name_valid_id(in_: str):
+def make_name_valid_id(in_: str) -> str:
     """
     Take a string. Replace any python-invalid characters with '_'
     """
@@ -661,7 +661,7 @@ def make_name_valid_id(in_: str):
     return subbed.lower()
 
 
-def disambiguate_name(name_in: str, used_names: Sequence[str]):
+def disambiguate_name(name_in: str, used_names: Sequence[str]) -> str:
     suffix = 1
     if name_in not in used_names:
         return name_in
@@ -683,7 +683,7 @@ def disambiguate_name(name_in: str, used_names: Sequence[str]):
     by_alias=True,
     auth=formkit_auth,
 )
-def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeIn):
+def create_or_update_node(request: HttpRequest, response: HttpResponse, payload: FormKitNodeIn) -> Status[FormKitErrors] | NodeStringType | NodeInactiveType | NodeReturnType:
     """
     Creates or updates a node in the FormKitSchemaNode model.
 
@@ -753,6 +753,7 @@ def create_or_update_node(request, response: HttpResponse, payload: FormKitNodeI
     if error_response.errors or error_response.field_errors:
         return Status(HTTPStatus.INTERNAL_SERVER_ERROR, error_response)
 
+    assert child is not None
     return node_queryset_response(models.FormKitSchemaNode.objects.filter(pk__in=[child.pk]))[0]
 
 

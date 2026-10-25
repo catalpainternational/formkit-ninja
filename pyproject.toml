@@ -88,6 +88,17 @@ plugins = [
     'mypy_django_plugin.main'
     ]
 
+[[tool.mypy.overrides]]
+module = [
+    "formkit_ninja.conditions",
+    "formkit_ninja.option_sources",
+    "formkit_ninja.text_keys",
+    "formkit_ninja.date_constraints",
+    "formkit_ninja.calculations",
+    "formkit_ninja.schema_edits",
+]
+disallow_untyped_defs = true
+
 # `fractional-indexing` ships no py.typed marker. The seam in
 # `formkit_ninja/fracrank.py` is where its types stop mattering: everything past
 # that module is annotated `str | None`.
