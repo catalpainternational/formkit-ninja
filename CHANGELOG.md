@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.2.0] - 2026-11-16
+
 ### Added
 
 - **Saving a submission records what changed.** Every save and delete now records an event — created, edited, status changed, switched off or on, deleted — in the same transaction as the write. An edit carries only the answers that changed, so a status change no longer copies every answer, and replaying a submission's events gives back the submission as each save left it, exactly, as long as every write to it went through saving or deleting (see below). A save made again from inside the same submission's save, by a receiver, is recorded once with the outer one. Events go to the new append-only `SubmissionEventRecord` table (migration 0068) unless `FORMKIT_NINJA_SUBMISSION_EVENT_SINK` names a class to send them elsewhere, such as an application's own event log. Each event carries the form's version at the time it was recorded. The existing history is unchanged for now; see `docs/submission_architecture.md` § "Recording what changed".
