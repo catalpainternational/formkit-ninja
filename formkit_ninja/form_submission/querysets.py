@@ -10,11 +10,13 @@ Requires PostgreSQL: uses JSONBAgg and JSONObject (django.contrib.postgres).
 
 from __future__ import annotations
 
+import uuid
 from typing import TypeVar
 
 from django.contrib.postgres.aggregates import JSONBAgg
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Case, Exists, OuterRef, Subquery, Value, When
+from django.db.models.deletion import Collector
 from django.db.models.functions import JSONObject
 
 _QS = TypeVar("_QS", bound=models.QuerySet)
@@ -79,6 +81,53 @@ class SubmissionQuerySet(models.QuerySet):
         Submission.objects.with_unresolved_flags()
         Submission.objects.with_import_failure().with_unresolved_flags()
     """
+
+    def delete(self):
+        """Delete the rows and record one ``submission:delete`` per row, in the same transaction.
+
+        Django's ``QuerySet.delete()`` never calls ``Submission.delete()``, and the admin's "delete
+        selected" uses it, so without this a bulk delete would record nothing.
+        The rows are read and locked first, then deleted, then each delete goes to the sink with the
+        current context, so it says who deleted them only where the application has set an actor;
+        all of them share one ``correlation`` unless the context already sets one.
+        A row whose own ``save()`` or ``delete()`` is recording it right now (this is a receiver of
+        that write) is left to that write to record. ``update()``, ``bulk_create`` and
+        ``bulk_update`` are not recorded (see ``Submission.save``).
+        """
+        from formkit_ninja.form_submission.events import SubmissionState, context, current_context
+        from formkit_ninja.form_submission.models import _writes_in_progress
+        from formkit_ninja.form_submission.sinks import record_events
+
+        # Django's own refusals, kept because the rows below are deleted through a new queryset.
+        self._not_support_combined_queries("delete")
+        if self.query.is_sliced:
+            raise TypeError("Cannot use 'limit' or 'offset' with delete().")
+        if self.query.distinct_fields:
+            raise TypeError("Cannot call delete() after .distinct(*fields).")
+        if self._fields is not None:
+            raise TypeError("Cannot call delete() after .values() or .values_list()")
+
+        writing = self._chain()
+        writing._for_write = True
+        using = writing.db
+        in_progress = _writes_in_progress.get()
+        with transaction.atomic(using=using), context(correlation=current_context().get("correlation") or str(uuid.uuid4())):
+            rows = self.model._base_manager.using(using)
+            stored = list(rows.select_for_update().filter(pk__in=self.values("pk")).order_by("pk"))
+            # Delete exactly the rows locked and recorded. Filtering ``self`` again would see
+            # whatever another connection committed since, and delete a row with no event or
+            # record a delete for a row that stays.
+            collector = Collector(using=using, origin=self)
+            collector.collect(rows.filter(pk__in=[row.pk for row in stored]))
+            result = collector.delete()
+            self._result_cache = None
+            for row in stored:
+                if str(row.pk) not in in_progress:
+                    record_events(SubmissionState.of(row), None)
+        return result
+
+    delete.alters_data = True  # type: ignore[attr-defined]
+    delete.queryset_only = True  # type: ignore[attr-defined]
 
     def with_import_failure(self: _QS) -> _QS:
         """

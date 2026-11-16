@@ -32,6 +32,7 @@ from formkit_ninja.form_submission.models import (
     SeparatedSubmission,
     SeparatedSubmissionImport,
     Submission,
+    SubmissionEventRecord,
     SubmissionFile,
 )
 from formkit_ninja.schema_edits import (
@@ -1304,6 +1305,25 @@ class SeparatedSubmissionEventAdmin(pghistory.admin.EventModelAdmin):
     """
 
     pass
+
+
+@admin.register(SubmissionEventRecord)
+class SubmissionEventRecordAdmin(admin.ModelAdmin):
+    """The events the default sink stored. Read-only: the table refuses changes anyway."""
+
+    list_display = ("recorded_at", "type", "form_type", "submission")
+    list_filter = ("type", "form_type")
+    search_fields = ("submission", "event_id")
+    readonly_fields = ("event_id", "type", "submission", "form_type", "occurred_at", "recorded_at", "event")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class SeparatedSubmissionForm(forms.ModelForm):

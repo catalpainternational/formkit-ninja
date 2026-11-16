@@ -5,14 +5,15 @@ import logging
 import uuid
 import warnings
 from contextlib import contextmanager
-from typing import Any, cast
+from contextvars import ContextVar
+from typing import Any, Callable, Mapping, cast
 
 import pghistory
 import pgtrigger
 from django.apps import apps
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db import models, transaction
+from django.db import models, router, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -61,8 +62,23 @@ class SubmissionField(models.JSONField):
                     warnings.warn(f"{E} (received {validated[repeater_key]})")
         except LookupError as E:
             warnings.warn(f"{E}")
+        # After the uuids exist, so a normalisation inside a repeater can name its row.
+        from formkit_ninja.form_submission.normalise import normalise
+
+        result = normalise(getattr(model_instance, "form_type", ""), validated)
+        validated = result.fields
+        # Handed to the recording save of this submission, if one is running; a write that skips
+        # save() (bulk_create, bulk_update) has nothing to record them in.
+        pending = _writes_in_progress.get().get(str(model_instance.pk))
+        if pending is not None:
+            pending.extend(result.normalisations)
         setattr(model_instance, self.attname, validated)
         return validated
+
+
+#: The submissions (by key) whose ``save()`` or ``delete()`` is recording right now in this thread or
+#: task, each with the normalisations its writes have made so far. See ``Submission._record_write``.
+_writes_in_progress: ContextVar[Mapping[str, list]] = ContextVar("formkit_ninja_submission_writes_in_progress", default={})
 
 
 # Deletes are tracked explicitly. django-pghistory 3.x defaults to
@@ -132,8 +148,68 @@ class Submission(models.Model):
         Nothing is derived until something calls it — see "Wiring the split" in
         docs/submission_architecture.md. Removed in 2.5.4 / 3.0.0; CHANGELOG.md
         has the rationale.
+
+        It does record what changed: the stored row is read (and locked) first, and the
+        events between it and this save go to the configured sink in the same transaction
+        (``form_submission.sinks``). Writes that skip this method record nothing:
+        ``QuerySet.update()``, ``bulk_create``, ``bulk_update``, the owner being set to null when
+        their user is deleted (the foreign key's ``SET_NULL``), and raw SQL. After one of them the
+        events no longer fold to the row, and nothing raises to say so; call
+        ``form_submission.sinks.record_reset`` for each submission it touched. This method cannot
+        notice the gap itself, because it never reads the history. ``QuerySet.delete()`` is
+        recorded, by ``SubmissionQuerySet.delete``.
+
+        The row is read back after the write, rather than taken from this instance, because the
+        database decides the stored value: Postgres turns ``1e16`` into an integer and has no
+        negative zero. An event built from the instance would replay to a different answer than
+        the one stored.
         """
-        super().save(*args, **kwargs)
+        using = kwargs["using"] = kwargs.get("using") or router.db_for_write(type(self), instance=self)
+        if self.pk is None:
+            # Django would give it the default inside the write; give it now so the key is known.
+            self.pk = type(self)._meta.pk.get_default()
+        self._record_write(using, lambda: super(Submission, self).save(*args, **kwargs))
+
+    def delete(self, *args, **kwargs):
+        """Delete the submission and record ``submission:delete`` in the same transaction."""
+        using = kwargs["using"] = kwargs.get("using") or router.db_for_write(type(self), instance=self)
+        return self._record_write(using, lambda: super(Submission, self).delete(*args, **kwargs))
+
+    def _record_write(self, using: str, write: Callable[[], Any]) -> Any:
+        """Run ``write`` and record the events between the stored row before it and after it.
+
+        A write of this submission made while another is recording it, typically a ``post_save``
+        or ``post_delete`` receiver saving or deleting the same submission, records nothing itself.
+        It runs inside the outer write's transaction, so recording it there would put its events
+        before the outer write's, which ``fold`` cannot replay. The outermost write reads the row
+        back after everything inside it has run and records prior-to-final once, with the
+        normalisations of every save in between. A write of a different submission records as usual.
+        """
+        from formkit_ninja.form_submission.events import SubmissionState
+        from formkit_ninja.form_submission.sinks import record_events
+
+        key, pk = str(self.pk), self.pk
+        in_progress = _writes_in_progress.get()
+        if key in in_progress:
+            return write()
+        normalisations: list = []
+        with transaction.atomic(using=using):
+            # Cleared inside the block: Django runs ``on_commit`` callbacks as the block commits, and a
+            # save of this submission from one of them must record as a write of its own.
+            token = _writes_in_progress.set({**in_progress, key: normalisations})
+            try:
+                rows = type(self).objects.using(using)
+                stored = rows.select_for_update().filter(pk=pk).first()
+                result = write()
+                after = rows.filter(pk=pk).first()
+                record_events(
+                    SubmissionState.of(stored) if stored is not None else None,
+                    SubmissionState.of(after) if after is not None else None,
+                    normalisations=normalisations,
+                )
+                return result
+            finally:
+                _writes_in_progress.reset(token)
 
     def __str__(self) -> str:
         # Use only local fields to avoid N+1 (e.g. admin list).
@@ -477,6 +553,41 @@ class SubmissionFile(models.Model):
 
     def __str__(self) -> str:
         return f"File for submission {self.submission}" if self.pk else "SubmissionFile (unsaved)"
+
+
+class SubmissionEventRecord(models.Model):
+    """One submission event, stored by the default sink (``form_submission.sinks.TableSink``).
+
+    Append-only: a database trigger refuses updates and deletes. ``submission`` is a plain UUID,
+    not a foreign key, so a deleted submission's history stays.
+    """
+
+    event_id = models.UUIDField(unique=True)
+    type = models.CharField(max_length=32)
+    submission = models.UUIDField(db_index=True)
+    form_type = models.CharField(max_length=128)
+    occurred_at = models.DateTimeField()
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    #: The whole event, exactly as ``form_submission.events`` built it.
+    event = models.JSONField(encoder=DjangoJSONEncoder)
+
+    class Meta:
+        ordering = ["id"]
+        triggers = [pgtrigger.Protect(name="append_only", operation=pgtrigger.Update | pgtrigger.Delete)]
+
+    @classmethod
+    def from_event(cls, event) -> "SubmissionEventRecord":
+        return cls(
+            event_id=event["event_id"],
+            type=event["type"],
+            submission=event["submission"],
+            form_type=event["form_type"],
+            occurred_at=event["occurred_at"],
+            event=event,
+        )
+
+    def __str__(self) -> str:
+        return f"{self.type} {self.submission}"
 
 
 class SeparatedSubmissionImport(models.Model):
