@@ -237,6 +237,8 @@ Then run tests:
 uv run pytest
 ```
 
+For the whole suite, `just test-full` does all of this for you: it starts a throwaway Postgres 16 on a free port, runs the suite, and removes the container whether the run passes or fails. On a shared workstation it waits its turn behind any other full run (`~/sessions/full-test-run.lock`).
+
 ### Playwright
 
 Some tests require playwright. Install it with:
