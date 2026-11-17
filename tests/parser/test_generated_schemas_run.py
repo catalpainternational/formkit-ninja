@@ -11,9 +11,11 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import Any
 
 import pytest
 
+from formkit_ninja.formkit_schema import FormKitSchema
 from formkit_ninja.parser.formatter import CodeFormatter
 from formkit_ninja.parser.generator import CodeGenerator
 from formkit_ninja.parser.generator_config import GeneratorConfig
@@ -114,3 +116,59 @@ def test_output_schemas_read_saved_rows(generated: Path) -> None:
     assert visit.place.village == "Aileu"
     assert visit.people[0].visits[0].date == date(2026, 10, 1)
     assert visit.people[0].ordinality == 0
+
+
+def generate(tmp_path: Path, form: list[dict] | FormKitSchema, node_path_class: type[NodePath] = NodePath, **config: Any) -> Path:
+    config = GeneratorConfig(app_name="visits", output_dir=tmp_path, node_path_class=node_path_class, **config)
+    CodeGenerator(config=config, template_loader=DefaultTemplateLoader(), formatter=CodeFormatter()).generate(form)
+    return tmp_path
+
+
+class DistrictIsAForeignKey(NodePath):
+    """As in Partisipa, where an answer naming a district is stored as a link to the district."""
+
+    def to_django_type(self) -> str:
+        if self.fieldname == "district":
+            return "ForeignKey"
+        return super().to_django_type()
+
+
+def test_a_linked_answer_is_read_from_its_own_key(tmp_path: Path) -> None:
+    form = [{"$formkit": "group", "name": "visit", "children": [{"$formkit": "number", "name": "district"}]}]
+    out = generate(tmp_path, form, DistrictIsAForeignKey)
+
+    schemas_in = load(out / "schemas_in" / "visit.py")
+    schemas = load(out / "schemas" / "visit.py")
+
+    assert schemas_in.VisitSchema.model_validate({"district": 7}).district == 7
+    # The output side reads the saved row, where Django names the column district_id.
+    assert schemas.VisitSchema.model_validate(SimpleNamespace(district_id=7)).district_id == 7
+    # The admin preview of the input model agrees with the generated file.
+    assert "    district: int | None = None" in DistrictIsAForeignKey.from_obj(form[0]).pydantic_model_code
+
+
+class RepeaterRowsKnowTheirSubmission(NodePath):
+    """As in Partisipa, where each repeater row carries the id of the submission it was split into."""
+
+    @property
+    def pydantic_input_code(self) -> str:
+        if self.fieldname == "uuid" and (self / "..").is_repeater:
+            return 'uuid: UUID = Field(alias="submission")'
+        return super().pydantic_input_code
+
+
+def test_a_project_can_write_its_own_line_for_one_field(tmp_path: Path) -> None:
+    form = [
+        {
+            "$formkit": "group",
+            "name": "visit",
+            "children": [{"$formkit": "repeater", "name": "people", "children": [{"$formkit": "uuid", "name": "uuid"}, {"$formkit": "text", "name": "who"}]}],
+        }
+    ]
+    people = load(generate(tmp_path, form, RepeaterRowsKnowTheirSubmission) / "schemas_in" / "visit.py").VisitPeopleSchema
+
+    row = people.model_validate({"submission": "6f1c1d1e-0000-4000-8000-000000000001", "who": "Ana"})
+
+    assert str(row.uuid) == "6f1c1d1e-0000-4000-8000-000000000001"
+    with pytest.raises(ValueError):
+        people.model_validate({"who": "Ana"})
