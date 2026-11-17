@@ -37,6 +37,15 @@ change.
 Useful, and consumed today, but the shape may change in a minor release. Depend on it with an
 exact-minor pin if you do.
 
+- `form_submission.events` — `SubmissionEvent`, `SubmissionState`, `submission_events`, `fold`,
+  `fold_versions`, `diff_fields`, `apply_changes`, `reset_event`, `context`, `current_context`, `json_safe`, `EVENT_TYPES`,
+  `EVENT_FORMAT`, `READABLE_EVENT_FORMATS`, `STATE_UNKNOWN` and the
+  seven `SUBMISSION_*` type names; `form_submission.sinks` — `SubmissionEventSink` (a sink's
+  `append(events, *, prior)`, where `prior` is the submission before the write or `None`), `TableSink`,
+  `NullSink`, `get_sink`, `record_events`, `record_reset`, the `FORMKIT_NINJA_SUBMISSION_EVENT_SINK` setting; and the
+  `SubmissionEventRecord` model; `form_submission.normalise` — `Normalisation`, `Normalised`,
+  `normalise`, `get_normaliser`, the `FORMKIT_NINJA_SUBMISSION_NORMALISER` setting. Provisional until
+  a consumer has used them, like `schema_emit`.
 - `form_submission.ordering` — `plan_ranks`, `document_position`, `document_order_key`.
 - `form_submission.ranking` — `harvest_ranks`, `apply_ranks`. `apply_ranks` is deliberately
   not wired up yet; it ships ahead of the migration that starts writing `$rank`.

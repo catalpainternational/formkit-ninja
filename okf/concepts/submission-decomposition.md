@@ -26,7 +26,9 @@ there is one decomposition rather than two that could drift.
   `stream_path`, `reorder_stream_path`, and the `SUBMISSION_PREFIX` / `REORDER_PREFIX`
   constants. Tier 1.
 * `Submission` — the canonical document (`fields`, `form_type`, `status`), tracked by
-  pghistory.
+  pghistory. Its saves and deletes also record events (`form_submission.events`, delivered by
+  `form_submission.sinks`); an edit carries only what changed, and `fold` rebuilds any version.
+  Tier 2.
 * `SeparatedSubmission` — one derived row; `SeparatedSubmission.objects.from_submission()`
   writes them. Populating the consumer's own typed models from these rows is the consumer's
   job, done in its signal receivers. The library's own hydration method was removed in the

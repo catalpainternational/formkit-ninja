@@ -28,6 +28,7 @@ from formkit_ninja.date_constraints import to_props, validate_date_constraints
 from formkit_ninja.form_submission.models import (
     SeparatedSubmission,  # noqa: F401
     Submission,  # noqa: F401
+    SubmissionEventRecord,  # noqa: F401
     SubmissionField,  # noqa: F401
     SubmissionFile,  # noqa: F401
 )

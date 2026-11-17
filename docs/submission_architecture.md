@@ -204,6 +204,85 @@ you are rebuilding, and leave it off in the receiver that reacts to a live edit.
 
 ---
 
+## Recording what changed
+
+`Submission.save()`, `Submission.delete()` and `Submission.objects.filter(...).delete()` record what
+changed as events, in the same transaction as the write: `submission:create` (every answer),
+`submission:edit` (only the answers that changed; for a repeater whose rows all carry a `uuid`, only
+the rows added, removed, moved or edited), `submission:status`, `submission:remove` /
+`submission:restore` (`is_active`), and `submission:delete`. `form_submission.events.fold` replays
+them back into the submission exactly, so the submission as each save left it can be rebuilt from
+them, as long as every write to it was recorded (below).
+
+A save made from inside another save of the same submission, such as a `post_save` receiver that
+changes an answer and calls `instance.save()`, records nothing itself: the outer save reads the row
+back after its receivers have run and records the change from before it to the final row once, with
+the normalisations of both saves. A receiver that deletes the submission it was called for is
+handled the same way, so the outer save records the delete. A receiver that saves or deletes a
+different submission records it as usual.
+
+Every event carries `event_format`, the version of the event's own shape (`EVENT_FORMAT`, now 1),
+which is separate from `schema_version`, the form's version. `fold` reads every format this library
+has shipped (`READABLE_EVENT_FORMATS`) and refuses an event in any other, or with none, naming the
+format and the event id. The state `fold` returns carries `schema_version`, from the last event that
+has one; it is not a column of the row, so `==` leaves it out and `fold(events) == SubmissionState.of(row)`
+holds whatever version the events were recorded against. `fold_versions(events)` returns one `(event, state)` pair per event,
+for a history reader: it walks every event, including the ones before a `submission:reset`, and
+its last state is `fold(events)`. Before a reset, an event that cannot be applied (an edit recorded
+after a bulk load, say) and every event after it up to the reset are paired with `STATE_UNKNOWN`,
+which a reader can tell apart from `None`, the state after a delete. It accepts exactly the
+histories `fold` accepts.
+
+They go to the class named in `FORMKIT_NINJA_SUBMISSION_EVENT_SINK`, or by default to the
+append-only `SubmissionEventRecord` table (a trigger refuses `UPDATE` and `DELETE`; trimming or erasing history runs inside `pgtrigger.ignore("formkit_ninja.SubmissionEventRecord:append_only")`). **On upgrade, leaving the setting unset means every save
+that changes a submission writes to that table**, alongside the existing history; set it to
+`"formkit_ninja.form_submission.sinks.NullSink"` to record nothing. A sink class has one method,
+`append(events, *, prior)`: `events` are one write's events in order, and `prior` is the
+`SubmissionState` of the stored row before that write (`None` for a create; for `record_reset`, the
+row it resets from). A sink that keeps one stream per submission and is switched on after
+submissions already exist can append `reset_event(prior)` before the first events it sees for one,
+so that stream folds to the row whether it was started by the save or by a backfill. Wrap a request in `form_submission.events.context(actor=...,
+reason=..., via=...)` to say who and why.
+
+### Writes that record nothing
+
+`save()` and `delete()` on an instance, and `delete()` on a `Submission` queryset (which the admin's
+"delete selected" uses), record events. A queryset delete records one `submission:delete` per row,
+with the current context, all sharing one `correlation`. These writes record nothing:
+
+| Write | What the history then gets wrong |
+|---|---|
+| `bulk_create` | there is no create, so the first recorded event is an edit and `fold` refuses it |
+| `QuerySet.update()`, `bulk_update` | the change is missing; `fold` returns the state without it and no error, unless a later edit names repeater rows the fold never saw, when it raises |
+| deleting a user (the owner foreign key is `SET_NULL`) | the fold still shows the old owner |
+| raw SQL | anything it changed |
+
+So an error from `fold` is not how an unrecorded write shows. Find one by comparing
+`fold(events)` with `SubmissionState.of(row)` for the submission; where they differ, call
+`form_submission.sinks.record_reset(submission)`. After a bulk write you know about, call it for
+each submission the write touched. It records `submission:reset`, the whole stored state, and `fold` takes the last reset as
+its starting point, so the fold matches the row again. The same event starts a backfilled history
+that begins part-way through a submission's life. `save()` cannot notice the gap itself: it never
+reads the history back, and reading it on every save would cost more than the write. A deletion
+cannot be repaired this way, since there is no row left to record; delete through
+`Submission.delete()` or a queryset's `delete()`, never raw SQL, when the history matters.
+
+Each event carries `schema_version`, the form's version when that event was recorded, including a
+status change or an edit that carries one answer. The answers an event does not carry were recorded
+by whichever earlier event carried them, under that event's version. Values are recorded as the
+database stored them.
+
+When Django saves an instance whose row is gone (it tries an update, finds no row, and inserts),
+the answers' `pre_save` runs twice and so does the normaliser; the create lists the normalisations
+of both runs, each once.
+
+To store answers in one form — say, an option's value as a number rather than text — name a
+normaliser in `FORMKIT_NINJA_SUBMISSION_NORMALISER`: a function `(form_type, fields) -> Normalised`
+from `form_submission.normalise`. It runs on every save that writes the answers, before the write;
+the stored answers and the events hold what it returns, and the create or edit lists each answer it
+changed with the rule that changed it (`normalised`). A replay reads the recorded result and never
+runs the normaliser again, so the normaliser may consult the application's own tables.
+
 ## See also
 
 - [What is public](public-api.md) — which of these names you may rely on, and at what tier.
