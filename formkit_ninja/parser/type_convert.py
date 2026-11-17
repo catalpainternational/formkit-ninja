@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 import warnings
 from keyword import iskeyword
 from typing import Generator, Iterable, Literal, cast
@@ -764,7 +765,7 @@ class NodePath:
             "administrative_post: int | None = None",
             "suco: int | None = None",
             "aldeia: int | None = None",
-            "date: date | None = None",
+            "date: date_ | None = None",
             "month: int | None = None",
             "year: int | None = None",
             "project_name: int | None = None",
@@ -941,6 +942,10 @@ class NodePath:
         if self.django_type == "OneToOneField" or self.django_type == "ForeignKey":
             if not self.is_group and not self.is_repeater:
                 name = f"{name}_id"
+
+        # A field called "date" hides the date type from every annotation in its
+        # class, so the generated schemas import it as "date_" and use that name.
+        type_hint = re.sub(r"\bdate\b", "date_", type_hint)
 
         # FormKit schemas often use 'T | None = None' as a default pattern for optional fields
         code = f"{name}: {type_hint} | None = None"

@@ -1,0 +1,116 @@
+"""
+The generated schema modules must import and validate data under Pydantic 2.
+
+These tests load the generated modules the way a consumer would and push a
+submission through them.
+"""
+
+import importlib.util
+import sys
+from datetime import date
+from decimal import Decimal
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
+
+import pytest
+
+from formkit_ninja.parser.formatter import CodeFormatter
+from formkit_ninja.parser.generator import CodeGenerator
+from formkit_ninja.parser.generator_config import GeneratorConfig
+from formkit_ninja.parser.template_loader import DefaultTemplateLoader
+from formkit_ninja.parser.type_convert import NodePath
+
+FORM = [
+    {
+        "$formkit": "group",
+        "name": "visit",
+        "children": [
+            # A field named after the type it holds: Partisipa forms have these.
+            {"$formkit": "datepicker", "name": "date"},
+            {"$formkit": "datepicker", "name": "follow_up"},
+            {"$formkit": "text", "name": "name"},
+            {"$formkit": "number", "name": "count"},
+            {"$formkit": "currency", "name": "amount"},
+            {"$formkit": "uuid", "name": "ref"},
+            {"$formkit": "checkbox", "name": "ok"},
+            {"$formkit": "group", "name": "place", "children": [{"$formkit": "text", "name": "village"}]},
+            {
+                "$formkit": "repeater",
+                "name": "people",
+                "children": [
+                    {"$formkit": "text", "name": "who"},
+                    {"$formkit": "repeater", "name": "visits", "children": [{"$formkit": "datepicker", "name": "date"}]},
+                ],
+            },
+        ],
+    }
+]
+
+
+def load(path: Path) -> ModuleType:
+    name = f"generated_{path.parent.name}_{path.stem}"
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        del sys.modules[name]
+    return module
+
+
+@pytest.fixture(scope="module")
+def generated(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    out = tmp_path_factory.mktemp("generated")
+    config = GeneratorConfig(app_name="visits", output_dir=out, node_path_class=NodePath)
+    CodeGenerator(config=config, template_loader=DefaultTemplateLoader(), formatter=CodeFormatter()).generate(FORM)
+    return out
+
+
+def test_input_schemas_validate_a_submission(generated: Path) -> None:
+    schemas_in = load(generated / "schemas_in" / "visit.py")
+
+    visit = schemas_in.VisitSchema.model_validate(
+        {
+            "date": "2026-11-17",
+            "follow_up": "2026-12-01",
+            "count": "3",
+            "amount": "12.50",
+            "ref": "6f1c1d1e-0000-4000-8000-000000000001",
+            "place": {"village": "Aileu"},
+            "people": [{"who": "Ana", "visits": [{"date": "2026-10-01"}]}],
+        }
+    )
+
+    assert visit.date == date(2026, 11, 17)
+    assert visit.follow_up == date(2026, 12, 1)
+    assert visit.count == 3
+    assert visit.amount == Decimal("12.50")
+    assert visit.place.village == "Aileu"
+    assert visit.people[0].visits[0].date == date(2026, 10, 1)
+    assert visit.model_dump(mode="json")["date"] == "2026-11-17"
+
+
+def test_output_schemas_read_saved_rows(generated: Path) -> None:
+    """The output schemas read attributes, as django-ninja does from a model instance."""
+    schemas = load(generated / "schemas" / "visit.py")
+
+    row = SimpleNamespace(
+        date=date(2026, 11, 17),
+        follow_up=None,
+        name="Ana",
+        count=3,
+        amount=Decimal("12.50"),
+        ref=None,
+        ok=True,
+        place=SimpleNamespace(village="Aileu"),
+        people=[SimpleNamespace(who="Ana", ordinality=0, visits=[SimpleNamespace(date=date(2026, 10, 1), ordinality=0)])],
+    )
+
+    visit = schemas.VisitSchema.model_validate(row)
+
+    assert visit.date == date(2026, 11, 17)
+    assert visit.place.village == "Aileu"
+    assert visit.people[0].visits[0].date == date(2026, 10, 1)
+    assert visit.people[0].ordinality == 0
