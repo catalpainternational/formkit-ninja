@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/catalpainternational/formkit-ninja/docs/schemas/submission-changes-1.json",
+  "title": "Submission changes, event format 1",
+  "description": "What changed between two answer documents of one submission: the `changes` of a submission:edit event, and what a form app sends when it saves an edit. See docs/submission_changes.md for the rules this schema cannot express.",
+  "$ref": "#/$defs/changes",
+  "$defs": {
+    "changes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "set": {
+          "description": "Answers that are new or different, each with its whole new value.",
+          "type": "object",
+          "minProperties": 1
+        },
+        "unset": {
+          "description": "Keys of answers that were removed.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "rows": {
+          "description": "Row-by-row changes to repeaters whose rows all carry a uuid, keyed by the repeater's key.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/row_changes" }
+        }
+      }
+    },
+    "row_changes": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "order": {
+          "description": "Every row's uuid, in their new order. Present when a row was added, removed or moved; a row left out is removed.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/row_uuid" },
+          "uniqueItems": true
+        },
+        "added": {
+          "description": "New rows, whole, keyed by their uuid.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/row_uuid" },
+          "additionalProperties": { "type": "object" }
+        },
+        "changed": {
+          "description": "Changes to existing rows, keyed by their uuid. Each is the same shape as the whole, so a repeater inside a row is changed row by row too.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/row_uuid" },
+          "additionalProperties": { "$ref": "#/$defs/changes", "minProperties": 1 }
+        }
+      }
+    },
+    "row_uuid": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
