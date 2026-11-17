@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.2.1] - 2026-11-17
+
+### Fixed
+
+- **Generated input schemas read every answer a form collects.** The code generator's input schemas, which a project uses to check incoming submissions, missed answers in four ways, all now fixed. A form with a field called `date` produced files that would not load. An answer stored as a link, such as a district, was looked for under `district_id` instead of its own name. Fields, groups and repeaters inside a layout element (`$el`) were left out, and the element leaked into class names, so a repeater could point at a parent model that did not exist. And a validator a project added could not load, because its import was never written. Projects that override a single field's input line can now do so with `pydantic_input_code`.
+
+### Note for upgraders
+
+- **Regenerating can change generated code.** A form with inputs inside layout elements gains those fields, and its class names lose the layout element's part. The generated models change to match, so regenerated models may need a migration. The generated input schemas now write the date type as `date_`.
+
 ## [7.2.0] - 2026-11-16
 
 ### Added
