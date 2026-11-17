@@ -11,6 +11,16 @@ from typing import Literal, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+{# Imports the validators below need: the generator's custom_imports, then each field's own. #}
+{% set imports = namespace(lines=custom_imports | list) %}
+{% for nodepath in nodepaths %}
+{% for attrib in nodepath.formkits_not_repeaters %}
+{% set imports.lines = imports.lines + attrib.get_extra_imports() %}
+{% endfor %}
+{% endfor %}
+{% for line in imports.lines | unique %}
+{{ line }}
+{% endfor %}
 
 {% for nodepath in nodepaths %}
 {% with this = nodepath %}

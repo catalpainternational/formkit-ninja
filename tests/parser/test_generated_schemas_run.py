@@ -181,6 +181,32 @@ def test_answers_inside_layout_elements_are_kept(tmp_path: Path, as_schema_objec
     assert 'parent = models.ForeignKey("Visit"' in models
 
 
+class CapitalisedNames(NodePath):
+    """A node path that adds its own validator, which needs its own import."""
+
+    def get_validators(self) -> list[str]:
+        if self.fieldname == "name":
+            return ['_capitalise_name = field_validator("name", mode="before")(capwords)']
+        if self.fieldname == "count":
+            return ['_negate_count = field_validator("count")(neg)']
+        return super().get_validators()
+
+    def get_extra_imports(self) -> list[str]:
+        if self.fieldname == "name":
+            return ["from string import capwords"]
+        return super().get_extra_imports()
+
+
+def test_validators_get_the_imports_they_need(tmp_path: Path) -> None:
+    form = [{"$formkit": "group", "name": "visit", "children": [{"$formkit": "text", "name": "name"}, {"$formkit": "number", "name": "count"}]}]
+    out = generate(tmp_path, form, CapitalisedNames, custom_imports=["from operator import neg"])
+
+    visit = load(out / "schemas_in" / "visit.py").VisitSchema.model_validate({"name": "ana maria", "count": 3})
+
+    assert visit.name == "Ana Maria"
+    assert visit.count == -3
+
+
 class RepeaterRowsKnowTheirSubmission(NodePath):
     """As in Partisipa, where each repeater row carries the id of the submission it was split into."""
 
