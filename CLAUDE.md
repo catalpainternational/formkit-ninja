@@ -25,9 +25,11 @@ Gotchas we've hit:
 - **Use `uv run ruff …`, not a system/venv `ruff`.** A different ruff version
   reformats differently and produces a huge noisy diff. `uv run` uses the
   version pinned in `uv.lock` — the same one CI uses.
-- **Don't commit incidental `uv.lock` churn.** `uv run` may re-resolve and touch
-  unrelated entries. Run `git checkout uv.lock` before committing unless you
-  intended a dependency change.
+- **Don't commit incidental `uv.lock` churn.** Plain `uv run` may re-resolve and
+  touch unrelated entries. Use `uv run --frozen …` (or export `UV_FROZEN=1`) and
+  the lock never changes; it then changes only when you run `uv lock` on purpose.
+  If you did use plain `uv run`, run `git checkout uv.lock` before committing
+  unless you intended a dependency change.
 - **Tests need Postgres** on `$POSTGRES_PORT` (default `5434`). Quick throwaway:
   `podman run -d --rm -p 5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:16-alpine`.
 - **Lint *before* you test, or ignore `tests/parser/fixtures/generated*/`.**
