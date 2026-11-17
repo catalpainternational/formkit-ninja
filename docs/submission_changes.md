@@ -146,7 +146,63 @@ start refusing a stale `base` without changing the format.
 The app's side (working out the change, giving new rows a uuid, the endpoint) belongs to the
 consumer.
 
-## 3. Open questions
+## 3. Typed submissions
+
+A form's Pydantic model (generated, or kept by hand) can carry the format as two methods, so
+code that works with a submission never handles the plain format directly:
+
+```python
+class Tf611(Submission):          # Submission: a small base class from this library
+    project_status: IdaOption = None
+    comments: str | None = None
+    outputs: list[Output] = []
+
+current = old.with_changes(d1).with_changes(d2)
+change = current.changes_since(old)
+assert old.with_changes(change) == current
+```
+
+- `with_changes(changes)` turns the model into its stored answers, applies the change with
+  `apply_changes`, and validates the result back into the model.
+- `changes_since(old)` runs `diff_fields` on the two models' stored answers.
+- `+` and `-` are shorthand for the two methods, for tests and documentation:
+  `old + d1 + d2 == current`, `current - old == change`. The methods are the documented
+  interface, because they read plainly in a stack trace. `+` takes a model on the left only.
+
+Because `with_changes` validates, it also tidies: the model is the normaliser. That gives the
+two streams directly. The changes the app sent are the original stream. The changes between
+each validated state and the one before it are the normalised stream. A change that names an
+answer the model does not have, or gives a value it cannot accept, is refused before anything
+is stored.
+
+A prototype of the base class (a scratch script against 7.2.0, not committed) showed:
+
+| Check | Result |
+|---|---|
+| `old + d1 + d2 == current`, with `d1` setting an option as text `"3"` and `d2` adding a row with `"unit": "7"` | holds; `current` stores `3` and `7` |
+| `current - old` | `{"set": {"project_status": 3}, "unset": ["comments"], "rows": {"outputs": {"order": […], "added": {…}}}}`, the tidied values |
+| `old + (current - old) == current` | holds |
+| applying `d1` twice | the same as applying it once |
+| a change setting an answer the model does not have (model set to forbid extra answers) | refused by validation |
+
+Rules the base class must follow, two of which the prototype broke:
+
+1. **The model's stored answers must equal what saving stores, exactly**, or every save shows
+   changes nobody made. The prototype wrote an empty repeater as `[]`, which saving drops, and a
+   decimal as text (`"120"`) where the stored answer may be the number `120`. Turning a model
+   into stored answers needs one function, sharing its rules with saving and tested against it.
+2. **Tidying must give the same result when run twice.** `old + d1 + d2` tidies after each
+   change. Two changes merged first and applied once are tidied only at the end. The two agree
+   only if tidying is repeatable, which matters once edits are saved offline (open question 3).
+3. **Merging two changes (`d1 + d2`, without the submission) is not part of the first
+   version.** It can be defined (a later removal overrides an earlier set, a change to a row the
+   first change added folds into that added row, the later order wins), and is worth adding
+   only when offline edits need it.
+
+The plain format stays what the app sends and what the history stores. The typed methods are
+how Python code on the server reads and makes changes.
+
+## 4. Open questions
 
 1. **Row position.** Rows carry `$rank`, their position. Should the app send it for an added or
    moved row, or leave the server to assign it as it does for a whole-document save? (Inferred
