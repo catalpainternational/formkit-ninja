@@ -40,7 +40,8 @@ exact-minor pin if you do.
 - `form_submission.events` — `SubmissionEvent`, `SubmissionState`, `submission_events`, `fold`,
   `fold_versions`, `diff_fields`, `apply_changes`, `reset_event`, `context`, `current_context`, `json_safe`, `EVENT_TYPES`,
   `EVENT_FORMAT`, `READABLE_EVENT_FORMATS`, `STATE_UNKNOWN` and the
-  seven `SUBMISSION_*` type names; `form_submission.sinks` — `SubmissionEventSink`, `TableSink`,
+  seven `SUBMISSION_*` type names; `form_submission.sinks` — `SubmissionEventSink` (a sink's
+  `append(events, *, prior)`, where `prior` is the submission before the write or `None`), `TableSink`,
   `NullSink`, `get_sink`, `record_events`, `record_reset`, the `FORMKIT_NINJA_SUBMISSION_EVENT_SINK` setting; and the
   `SubmissionEventRecord` model; `form_submission.normalise` — `Normalisation`, `Normalised`,
   `normalise`, `get_normaliser`, the `FORMKIT_NINJA_SUBMISSION_NORMALISER` setting. Provisional until

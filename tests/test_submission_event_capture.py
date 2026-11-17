@@ -20,6 +20,7 @@ from formkit_ninja.form_submission.events import (
     SubmissionState,
     context,
     fold,
+    reset_event,
 )
 from formkit_ninja.form_submission.models import Submission, SubmissionEventRecord
 from formkit_ninja.form_submission.sinks import record_reset
@@ -30,13 +31,36 @@ COLLECTED: list = []
 
 
 class CollectingSink:
-    def append(self, events):
+    def append(self, events, *, prior):
         COLLECTED.extend(events)
 
 
 class FailingSink:
-    def append(self, events):
+    def append(self, events, *, prior):
         raise RuntimeError("the log is down")
+
+
+#: One ``(prior, events)`` pair per ``append`` call.
+APPENDS: list = []
+
+
+class PriorSink:
+    def append(self, events, *, prior):
+        APPENDS.append((prior, list(events)))
+
+
+#: One stream per submission, as an application's own log keeps them.
+STREAMS: dict = {}
+
+
+class StreamPerSubmissionSink:
+    """Starts a submission's stream with ``reset_event(prior)`` when the stream does not exist yet."""
+
+    def append(self, events, *, prior):
+        stream = STREAMS.setdefault(events[0]["submission"], [])
+        if not stream and prior is not None:
+            stream.append(reset_event(prior))
+        stream.extend(events)
 
 
 def exactly(state) -> str:
@@ -604,3 +628,70 @@ def test_after_an_unrecorded_write_the_fold_disagrees_with_the_row_silently_unti
     assert (sub.fields, sub.status) == ({"a": 2, "b": 5}, Submission.Status.VERIFIED)
     record_reset(sub)
     assert exactly(fold(_events(sub))) == exactly(SubmissionState.of(sub))
+
+
+def _appends_while(write) -> list:
+    APPENDS.clear()
+    with override_settings(FORMKIT_NINJA_SUBMISSION_EVENT_SINK=f"{__name__}.PriorSink"):
+        write()
+    return list(APPENDS)
+
+
+def test_the_sink_is_told_the_submission_as_it_was_before_each_save_and_delete(admin_user):
+    """A create has no prior; an edit, a status change and a delete each get the stored row before them.
+
+    Mutation (2026-11-17): ``record_events`` passing ``prior=None`` always; and passing ``current`` as ``prior`` went red.
+    """
+    [(prior, _)] = _appends_while(lambda: _create(admin_user, {"a": 1}))
+    assert prior is None
+
+    sub = Submission.objects.get(form_type="SF_1_1", user=admin_user)
+    for change in (lambda s: s.fields.update(a=2), lambda s: setattr(s, "status", Submission.Status.VERIFIED)):
+        sub.refresh_from_db()
+        before = SubmissionState.of(sub)
+        change(sub)
+        [(prior, _)] = _appends_while(sub.save)
+        assert exactly(prior) == exactly(before)
+
+    sub.refresh_from_db()
+    before = SubmissionState.of(sub)
+    [(prior, [event])] = _appends_while(sub.delete)
+    assert event["type"] == SUBMISSION_DELETE and exactly(prior) == exactly(before)
+
+
+def test_a_queryset_delete_tells_the_sink_each_rows_own_prior(admin_user):
+    """Mutation (2026-11-17): ``SubmissionQuerySet.delete`` passing the first row's state as every row's prior went red."""
+    one, two = _create(admin_user, {"a": 1}), _create(admin_user, {"b": 2})
+    befores = {str(s.pk): exactly(SubmissionState.of(s)) for s in (one, two)}
+    appends = _appends_while(lambda: Submission.objects.filter(pk__in=[one.pk, two.pk]).delete())
+    assert len(appends) == 2
+    assert {event["submission"]: exactly(prior) for prior, [event] in appends} == befores
+
+
+def test_record_reset_tells_the_sink_the_stored_row(admin_user):
+    """Mutation (2026-11-17): ``record_reset`` passing ``prior=None`` went red."""
+    sub = _create(admin_user)
+    Submission.objects.filter(pk=sub.pk).update(fields={"a": 9})
+    sub.refresh_from_db()
+    [(prior, [event])] = _appends_while(lambda: record_reset(sub))
+    assert event["type"] == SUBMISSION_RESET and exactly(prior) == exactly(SubmissionState.of(sub))
+
+
+def test_a_sink_switched_on_after_the_create_can_start_the_stream_from_prior(admin_user):
+    """The first event a stream sees for an existing submission is its state before the save, so the stream folds to the row.
+
+    Mutation (2026-11-17): ``record_events`` passing ``prior=None`` always; and passing ``current`` as ``prior`` went red.
+    """
+    r1, r2 = str(uuid.uuid4()), str(uuid.uuid4())
+    sub = _create(admin_user, {"a": 1, "rep": [{"uuid": r1, "v": 1}, {"uuid": r2, "v": 2}]})
+    sub.refresh_from_db()
+    before = SubmissionState.of(sub)
+    STREAMS.clear()
+    with override_settings(FORMKIT_NINJA_SUBMISSION_EVENT_SINK=f"{__name__}.StreamPerSubmissionSink"):
+        sub.fields["rep"] = [{"uuid": r1, "v": 5}]
+        sub.status = Submission.Status.VERIFIED
+        sub.save()
+    sub.refresh_from_db()
+    stream = STREAMS[str(sub.pk)]
+    assert stream[0]["type"] == SUBMISSION_RESET and exactly(fold(stream[:1])) == exactly(before)
+    assert exactly(fold(stream)) == exactly(SubmissionState.of(sub))

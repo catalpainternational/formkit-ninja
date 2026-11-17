@@ -236,7 +236,12 @@ histories `fold` accepts.
 They go to the class named in `FORMKIT_NINJA_SUBMISSION_EVENT_SINK`, or by default to the
 append-only `SubmissionEventRecord` table (a trigger refuses `UPDATE` and `DELETE`; trimming or erasing history runs inside `pgtrigger.ignore("formkit_ninja.SubmissionEventRecord:append_only")`). **On upgrade, leaving the setting unset means every save
 that changes a submission writes to that table**, alongside the existing history; set it to
-`"formkit_ninja.form_submission.sinks.NullSink"` to record nothing. Wrap a request in `form_submission.events.context(actor=...,
+`"formkit_ninja.form_submission.sinks.NullSink"` to record nothing. A sink class has one method,
+`append(events, *, prior)`: `events` are one write's events in order, and `prior` is the
+`SubmissionState` of the stored row before that write (`None` for a create; for `record_reset`, the
+row it resets from). A sink that keeps one stream per submission and is switched on after
+submissions already exist can append `reset_event(prior)` before the first events it sees for one,
+so that stream folds to the row whether it was started by the save or by a backfill. Wrap a request in `form_submission.events.context(actor=...,
 reason=..., via=...)` to say who and why.
 
 ### Writes that record nothing
