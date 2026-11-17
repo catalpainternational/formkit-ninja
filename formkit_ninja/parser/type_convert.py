@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 import warnings
 from keyword import iskeyword
 from typing import Generator, Iterable, Literal, cast
@@ -202,17 +203,10 @@ class NodePath:
 
     @property
     def formkits(self) -> Iterable["NodePath"]:
-        """
-        Iterate over FormKit nodes, recursing through layout elements ($el)
-        to find nested inputs.
-        """
+        """FormKit nodes among the children, including those inside layout elements ($el)."""
         for n in self.children:
-            child_path = self / n
             if hasattr(n, "formkit"):
-                yield child_path
-            elif child_path.is_el:
-                # Recurse into $el layout nodes to find nested FormKit inputs
-                yield from child_path.formkits
+                yield self / n
 
     @property
     def formkits_not_repeaters(self) -> Iterable["NodePath"]:
@@ -260,7 +254,19 @@ class NodePath:
 
     @property
     def children(self):
-        return getattr(self.node, "children", []) or []
+        """
+        This node's children, with layout elements ($el) replaced by what they
+        contain: a div around some inputs does not change the shape of the data.
+        """
+        return list(self._children_through_layout(self.node))
+
+    @classmethod
+    def _children_through_layout(cls, node) -> Iterable:
+        for child in getattr(node, "children", None) or []:
+            if isinstance(child, FormKitSchemaDOMNode):
+                yield from cls._children_through_layout(child)
+            else:
+                yield child
 
     def filter_children(self, type_) -> Iterable["NodePath"]:
         for n in self.children:
@@ -764,7 +770,7 @@ class NodePath:
             "administrative_post: int | None = None",
             "suco: int | None = None",
             "aldeia: int | None = None",
-            "date: date | None = None",
+            "date: date_ | None = None",
             "month: int | None = None",
             "year: int | None = None",
             "project_name: int | None = None",
@@ -932,23 +938,36 @@ class NodePath:
     @property
     def pydantic_code(self) -> str:
         """
-        Generate the Pydantic field code line for schemas.
+        The field line for the output schemas, which read a saved row.
+        A linked answer is stored by Django as "<name>_id", so it is read from there.
         """
         name = self.pydantic_attrib_name
-        type_hint = self.to_pydantic_type()  # Call the method to get the type
+        if self.django_type in ("OneToOneField", "ForeignKey") and not self.is_group and not self.is_repeater:
+            name = f"{name}_id"
+        return self._pydantic_field_line(name)
 
-        # Suffix _id for ForeignKeys in output schemas (Django Ninja convention)
-        if self.django_type == "OneToOneField" or self.django_type == "ForeignKey":
-            if not self.is_group and not self.is_repeater:
-                name = f"{name}_id"
+    @property
+    def pydantic_input_code(self) -> str:
+        """
+        The field line for the input schemas, which read a submission's answers.
+        Answers are keyed by the field's own name, linked or not.
+
+        Override this in a NodePath subclass to give one field a different line,
+        for example an alias or a required value.
+        """
+        return self._pydantic_field_line(self.pydantic_attrib_name)
+
+    def _pydantic_field_line(self, name: str) -> str:
+        # A field called "date" hides the date type from every annotation in its
+        # class, so the generated schemas import it as "date_" and use that name.
+        type_hint = re.sub(r"\bdate\b", "date_", self.to_pydantic_type())
 
         # FormKit schemas often use 'T | None = None' as a default pattern for optional fields
         code = f"{name}: {type_hint} | None = None"
 
         # Pydantic code can be a class attribute, let's wrap it in a class to validate
-        validation_code = f"class Model:\n    {code}"
         try:
-            ast.parse(validation_code)
+            ast.parse(f"class Model:\n    {code}")
         except SyntaxError as e:
             msg = f"Generated Pydantic code for node '{self.get_node_path_string()}' has syntax errors: {e.msg}\nCode: {code}"
             raise SyntaxError(msg) from e
@@ -1062,7 +1081,7 @@ class NodePath:
 
         if not (self.is_group or self.is_repeater):
             # For simple fields, just return the field definition
-            return self.pydantic_code
+            return self.pydantic_input_code
 
         lines = []
         lines.append(f"class {self.classname_schema}(BaseModel):")
@@ -1074,7 +1093,7 @@ class NodePath:
 
         # Add fields from flat descendants (merges nested groups)
         for child_path in self.flat_pydantic_fields:
-            lines.append(f"    {child_path.pydantic_code}")
+            lines.append(f"    {child_path.pydantic_input_code}")
             has_content = True
 
         # Add extra attributes (metadata for root model)

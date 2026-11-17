@@ -19,7 +19,7 @@ def test_admin_code_preview():
 
     # Test Pydantic preview
     pydantic_html = admin.pydantic_code_preview(config)
-    assert ": date | None = None" in pydantic_html
+    assert ": date_ | None = None" in pydantic_html
 
 
 @pytest.mark.django_db
