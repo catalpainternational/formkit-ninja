@@ -52,6 +52,14 @@ class SchemaWalker:
             temp_path = self.config.node_path_class.from_obj(node_dict)
             node = temp_path.node
 
+            if temp_path.is_el:
+                # A layout element is not part of the data: walk its contents as
+                # if they were the parent's own children.
+                for child_dict in node_dict.get("children", []) or []:
+                    if not isinstance(child_dict, str):
+                        traverse_node(child_dict, parent_path)
+                return
+
             if parent_path is not None:
                 node_path = parent_path / node
             else:

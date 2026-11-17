@@ -147,6 +147,40 @@ def test_a_linked_answer_is_read_from_its_own_key(tmp_path: Path) -> None:
     assert "    district: int | None = None" in DistrictIsAForeignKey.from_obj(form[0]).pydantic_model_code
 
 
+LAYOUT_FORM = [
+    {
+        "$formkit": "group",
+        "name": "visit",
+        "children": [
+            {"$formkit": "text", "name": "name"},
+            {
+                "$el": "div",
+                "children": [
+                    {"$formkit": "currency", "name": "amount"},
+                    {"$formkit": "group", "name": "place", "children": [{"$el": "div", "children": [{"$formkit": "text", "name": "village"}]}]},
+                    {"$formkit": "repeater", "name": "people", "children": [{"$el": "div", "children": [{"$formkit": "text", "name": "who"}]}]},
+                ],
+            },
+        ],
+    }
+]
+
+
+@pytest.mark.parametrize("as_schema_object", [False, True], ids=["dicts", "schema object"])
+def test_answers_inside_layout_elements_are_kept(tmp_path: Path, as_schema_object: bool) -> None:
+    out = generate(tmp_path, FormKitSchema.parse_obj(LAYOUT_FORM) if as_schema_object else LAYOUT_FORM)
+    schemas_in = load(out / "schemas_in" / "visit.py")
+
+    visit = schemas_in.VisitSchema.model_validate({"name": "Ana", "amount": "1.50", "place": {"village": "Aileu"}, "people": [{"who": "Rui"}]})
+
+    assert visit.amount == Decimal("1.50")
+    assert visit.place.village == "Aileu"
+    assert visit.people[0].who == "Rui"
+    models = (out / "models" / "visit.py").read_text()
+    assert "class VisitPeople(models.Model)" in models
+    assert 'parent = models.ForeignKey("Visit"' in models
+
+
 class RepeaterRowsKnowTheirSubmission(NodePath):
     """As in Partisipa, where each repeater row carries the id of the submission it was split into."""
 

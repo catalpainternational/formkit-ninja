@@ -203,17 +203,10 @@ class NodePath:
 
     @property
     def formkits(self) -> Iterable["NodePath"]:
-        """
-        Iterate over FormKit nodes, recursing through layout elements ($el)
-        to find nested inputs.
-        """
+        """FormKit nodes among the children, including those inside layout elements ($el)."""
         for n in self.children:
-            child_path = self / n
             if hasattr(n, "formkit"):
-                yield child_path
-            elif child_path.is_el:
-                # Recurse into $el layout nodes to find nested FormKit inputs
-                yield from child_path.formkits
+                yield self / n
 
     @property
     def formkits_not_repeaters(self) -> Iterable["NodePath"]:
@@ -261,7 +254,19 @@ class NodePath:
 
     @property
     def children(self):
-        return getattr(self.node, "children", []) or []
+        """
+        This node's children, with layout elements ($el) replaced by what they
+        contain: a div around some inputs does not change the shape of the data.
+        """
+        return list(self._children_through_layout(self.node))
+
+    @classmethod
+    def _children_through_layout(cls, node) -> Iterable:
+        for child in getattr(node, "children", None) or []:
+            if isinstance(child, FormKitSchemaDOMNode):
+                yield from cls._children_through_layout(child)
+            else:
+                yield child
 
     def filter_children(self, type_) -> Iterable["NodePath"]:
         for n in self.children:
