@@ -43,7 +43,8 @@ exact-minor pin if you do.
   seven `SUBMISSION_*` type names; `form_submission.sinks` — `SubmissionEventSink` (a sink's
   `append(events, *, prior)`, where `prior` is the submission before the write or `None`), `TableSink`,
   `NullSink`, `get_sink`, `record_events`, `record_reset`, the `FORMKIT_NINJA_SUBMISSION_EVENT_SINK` setting; and the
-  `SubmissionEventRecord` model; `form_submission.normalise` — `Normalisation`, `Normalised`,
+  `SubmissionEventRecord` model; `Submission.write_state`, which stores the fold of an application's own
+  events and records nothing; `form_submission.normalise` — `Normalisation`, `Normalised`,
   `normalise`, `get_normaliser`, the `FORMKIT_NINJA_SUBMISSION_NORMALISER` setting. Provisional until
   a consumer has used them, like `schema_emit`.
 - `form_submission.ordering` — `plan_ranks`, `document_position`, `document_order_key`.
