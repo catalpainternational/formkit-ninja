@@ -283,6 +283,48 @@ the stored answers and the events hold what it returns, and the create or edit l
 changed with the rule that changed it (`normalised`). A replay reads the recorded result and never
 runs the normaliser again, so the normaliser may consult the application's own tables.
 
+## Keeping the answers as sent
+
+The change events hold answers as they were stored: after empty answers are dropped, repeater rows
+are given a `uuid`, and the normaliser has run. To keep what a person actually sent as well, build
+a raw copy with `form_submission.sent.sent_event(key, form_type, fields)` before saving, store it
+yourself, and save under its correlation:
+
+```python
+from formkit_ninja.form_submission.events import context
+from formkit_ninja.form_submission.sent import sent_event
+
+sent = sent_event(submission.pk, submission.form_type, request_json, received_at=received)
+record_sent(sent)  # your own store: one stream per submission, say
+with context(correlation=sent["context"]["correlation"]):
+    submission.save()
+```
+
+The library stores nothing raw. `sent_event` returns a `submission:sent` event, and nothing in the
+library builds a submission from it. Its keys:
+
+- `event_id`, `type`, `event_format`, `submission`, `form_type`, `schema_version` and `context`,
+  as on a change event. `event_format` is `SENT_EVENT_FORMAT`, counted separately from the change
+  events' `EVENT_FORMAT`.
+- `received_at`, in UTC.
+- `fields`, with the same values as given: empty answers kept, text left as text, rows without a
+  `uuid` left without one. Key order is not kept, as JSON does not promise it.
+- `sha256`, the hex SHA-256 of
+  `json.dumps(fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)`
+  in UTF-8, so key order does not change it, row order does, and `1` and `1.0` differ.
+
+When one repeater row is sent on its own, pass `repeater="<table name>"` and the row as `fields`;
+the event then carries `repeater`.
+
+Pass the request's own JSON. A value that is not plain JSON, such as a `Decimal`, a date, `NaN`, a
+tuple or a key that is not text, raises an error rather than being converted, since converting it
+would stop the copy being what was sent. `schema_version` is read with one query when it is not
+given. `context=` replaces the current `context()` block rather than adding to it; as in
+`context()`, a key given as `None` counts as not given. A `correlation` is made when neither has
+one.
+
+A raw copy is not a change event: keep it out of the sink and out of anything you fold.
+
 ## See also
 
 - [What is public](public-api.md) — which of these names you may rely on, and at what tier.

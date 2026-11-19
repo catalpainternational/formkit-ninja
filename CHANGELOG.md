@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A raw copy of the answers as they were sent.** `form_submission.sent.sent_event(...)` builds a `submission:sent` event holding a form's answers with the values exactly as received, with a hash and the save's correlation. An application keeps it in its own store to show what a person typed. The library stores nothing raw.
+
 ## [7.2.1] - 2026-11-17
 
 ### Fixed
