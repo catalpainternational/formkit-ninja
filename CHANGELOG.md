@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A repeater row with no answers no longer changes on every save.** A row left with nothing in it, or only blank answers, was kept, given a new id each time the submission was saved, and recorded as an edit and split again as a new empty row. Saving now drops such a row, and drops the repeater too if no rows are left. A submission already holding one loses it at its next save, which records one edit; it is stable after that.
+
 ## [7.2.1] - 2026-11-17
 
 ### Fixed
