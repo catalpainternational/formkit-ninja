@@ -283,6 +283,17 @@ the stored answers and the events hold what it returns, and the create or edit l
 changed with the rule that changed it (`normalised`). A replay reads the recorded result and never
 runs the normaliser again, so the normaliser may consult the application's own tables.
 
+Give the rules a version by setting it on the function, `normalise_answers.rules_version =
+"2026-11-19.1"`, and change it whenever any rule's behaviour changes. It is text, compared only for
+equality; `normalise.rules_version()` reads it and raises `TypeError` for anything that is not
+text. Each create and edit then carries `rules_version`, so a stored answer can be traced to the
+rules that made it. It is left out when the rules have no version, and never put on a
+`submission:reset`, which copies a stored state whose rules are not known. `fold` ignores it, so
+the event format does not change. An application that builds its own events and stores them with
+`Submission.write_state` passes `rules_version=normalise.rules_version()` to `submission_events`
+itself. A rule that reads the application's tables can change what it
+does without its version moving; the `normalised` entries still show what each save did.
+
 ## Keeping the answers as sent
 
 The change events hold answers as they were stored: after empty answers are dropped, repeater rows
@@ -312,6 +323,7 @@ library builds a submission from it. Its keys:
 - `sha256`, the hex SHA-256 of
   `json.dumps(fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)`
   in UTF-8, so key order does not change it, row order does, and `1` and `1.0` differ.
+- `rules_version`, the version of the normaliser's rules in force (above), when they have one.
 
 When one repeater row is sent on its own, pass `repeater="<table name>"` and the row as `fields`;
 the event then carries `repeater`.

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Each save says which version of the cleaning rules was in force.** Set `rules_version` on the normaliser function and every create and edit records it, as does the raw copy, so a stored answer can be traced to the rules that made it. Without one, nothing changes.
 - **A raw copy of the answers as they were sent.** `form_submission.sent.sent_event(...)` builds a `submission:sent` event holding a form's answers with the values exactly as received, with a hash and the save's correlation. An application keeps it in its own store to show what a person typed. The library stores nothing raw.
 
 ### Fixed

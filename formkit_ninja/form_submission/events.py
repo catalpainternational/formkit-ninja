@@ -119,6 +119,10 @@ class SubmissionEvent(SubmissionEventRequired, total=False):
     #: (:mod:`formkit_ninja.form_submission.normalise`): ``[{path, rule, before, after}]``.
     #: Informational: the values in ``fields`` / ``changes`` are already the stored ones.
     normalised: list[dict[str, Any]]
+    #: The version of the normaliser's rules when a create or edit was recorded
+    #: (:func:`~formkit_ninja.form_submission.normalise.rules_version`). Absent when the rules have no
+    #: version, and never on a reset, whose state was stored under rules that are not known.
+    rules_version: str
 
 
 def json_safe(value: Any) -> Any:
@@ -365,6 +369,7 @@ def submission_events(
     context: Mapping[str, Any] | None = None,
     schema_version: int | None = None,
     normalisations: Iterable[Any] = (),
+    rules_version: str | None = None,
 ) -> list[SubmissionEvent]:
     """The events that turn ``prior`` into ``current``; ``None`` on either side means "does not exist".
 
@@ -374,6 +379,7 @@ def submission_events(
     stamped on every event; leave it out only for events reconstructed from before versions existed.
     ``normalisations`` (:class:`~formkit_ninja.form_submission.normalise.Normalisation`) are listed on
     the create or edit, keeping only those for answers that event carries, each once.
+    ``rules_version``, when given, is stamped on the create or edit only.
     """
     events = _events_between(prior, current, occurred_at=occurred_at, context=context)
     if schema_version is not None:
@@ -389,6 +395,8 @@ def submission_events(
                 carried.append(entry)
         if carried:
             content["normalised"] = json_safe(carried)
+        if rules_version is not None:
+            content["rules_version"] = rules_version
     return events
 
 

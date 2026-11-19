@@ -45,7 +45,8 @@ exact-minor pin if you do.
   `NullSink`, `get_sink`, `record_events`, `record_reset`, the `FORMKIT_NINJA_SUBMISSION_EVENT_SINK` setting; and the
   `SubmissionEventRecord` model; `Submission.write_state`, which stores the fold of an application's own
   events and records nothing; `form_submission.normalise` — `Normalisation`, `Normalised`,
-  `normalise`, `get_normaliser`, the `FORMKIT_NINJA_SUBMISSION_NORMALISER` setting. Provisional until
+  `normalise`, `get_normaliser`, `rules_version`, the `FORMKIT_NINJA_SUBMISSION_NORMALISER` setting;
+  `form_submission.sent` — `sent_event`, `SUBMISSION_SENT`, `SENT_EVENT_FORMAT`. Provisional until
   a consumer has used them, like `schema_emit`.
 - `form_submission.ordering` — `plan_ranks`, `document_position`, `document_order_key`.
 - `form_submission.ranking` — `harvest_ranks`, `apply_ranks`. `apply_ranks` is deliberately

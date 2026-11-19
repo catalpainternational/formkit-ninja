@@ -18,7 +18,7 @@ from typing import Any, Callable
 from django.conf import settings
 from django.utils.module_loading import import_string
 
-__all__ = ["NORMALISER_SETTING", "Normalisation", "Normalised", "get_normaliser", "normalise"]
+__all__ = ["NORMALISER_SETTING", "Normalisation", "Normalised", "get_normaliser", "normalise", "rules_version"]
 
 NORMALISER_SETTING = "FORMKIT_NINJA_SUBMISSION_NORMALISER"
 
@@ -59,6 +59,19 @@ def _normaliser_for(path: str | None) -> Normaliser | None:
 def get_normaliser() -> Normaliser | None:
     """The configured normaliser, or ``None`` when the setting is unset."""
     return _normaliser_for(getattr(settings, NORMALISER_SETTING, None))
+
+
+def rules_version() -> str | None:
+    """The version of the configured normaliser's rules, or ``None`` when it has none.
+
+    Set it as an attribute on the function: ``normalise_answers.rules_version = "2026-11-19.1"``, and
+    change it whenever any rule's behaviour changes. It is text compared only for equality, so a
+    value that is not text raises ``TypeError`` rather than letting ``3`` and ``"3"`` differ.
+    """
+    version = getattr(get_normaliser(), "rules_version", None)
+    if version is not None and not isinstance(version, str):
+        raise TypeError(f"the normaliser's rules_version must be text, got {type(version).__name__} {version!r}")
+    return version
 
 
 def normalise(form_type: str, fields: dict[str, Any]) -> Normalised:
