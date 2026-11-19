@@ -6,7 +6,8 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Callable, Mapping, cast
+from dataclasses import fields as dataclass_fields
+from typing import TYPE_CHECKING, Any, Callable, Mapping, cast
 
 import pghistory
 import pgtrigger
@@ -26,6 +27,9 @@ from formkit_ninja.form_submission.utils import (
     pre_validation,
     sibling_groups,
 )
+
+if TYPE_CHECKING:
+    from formkit_ninja.form_submission.events import SubmissionState
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +78,11 @@ class SubmissionField(models.JSONField):
             pending.extend(result.normalisations)
         setattr(model_instance, self.attname, validated)
         return validated
+
+
+def _compared(state: SubmissionState) -> dict[str, Any]:
+    """The parts of ``state`` that ``==`` compares (everything but ``schema_version``)."""
+    return {f.name: getattr(state, f.name) for f in dataclass_fields(state) if f.compare}
 
 
 #: The submissions (by key) whose ``save()`` or ``delete()`` is recording right now in this thread or
@@ -169,6 +178,54 @@ class Submission(models.Model):
             # Django would give it the default inside the write; give it now so the key is known.
             self.pk = type(self)._meta.pk.get_default()
         self._record_write(using, lambda: super(Submission, self).save(*args, **kwargs))
+
+    @classmethod
+    def write_state(cls, state: SubmissionState, *, using: str | None = None) -> Submission:
+        """Store ``state`` as the submission and record no event; returns the stored submission.
+
+        For an application that appends a submission's events to its own log first and derives the
+        submission from them: ``state`` is the ``fold`` of those events. The write goes through
+        ``save()``, so empty answers are dropped, repeater rows get their ``uuid``, the normaliser runs
+        and ``post_save`` receivers (such as the consumer's split) fire as usual; only the recording
+        is skipped, since the events are already in the log. A later ordinary ``save()`` records from
+        the stored row as usual, so the application's events followed by the recorded ones, in order,
+        still fold to the row.
+
+        The row is read back after the write and compared with ``state`` as JSON, so 1, 1.0 and
+        ``True`` are different answers. If they differ (an empty answer was dropped, a row had no
+        ``uuid``, the normaliser changed an answer or its type, the key was not in its canonical
+        form), the write is rolled back and ``ValueError`` is raised: the stored submission would no
+        longer be the fold of the log. Fold events of stored answers, not answers as the form sent
+        them. ``ValueError`` is raised too when this submission is already being recorded by a
+        ``save()`` or ``delete()`` further up the stack, which would otherwise record this write as
+        its own change. ``schema_version`` is not stored, and a deleted submission (a fold of
+        ``None``) is not written here.
+        """
+        from formkit_ninja.form_submission.events import SubmissionState, _same
+
+        using = using or router.db_for_write(cls)
+        in_progress = _writes_in_progress.get()
+        if state.key in in_progress:
+            raise ValueError(f"submission {state.key} is being recorded by a save or delete further up the stack; write its state after that finishes")
+        with transaction.atomic(using=using):
+            # Marked as already recording, so save() writes without recording.
+            token = _writes_in_progress.set({**in_progress, state.key: []})
+            try:
+                rows = cls.objects.using(using)
+                sub = rows.select_for_update().filter(pk=state.key).first() or cls(pk=state.key)
+                sub.form_type = state.form_type
+                sub.fields = state.fields
+                sub.status = state.status
+                sub.is_active = state.is_active
+                sub.user_id = state.owner
+                sub.save(using=using)
+            finally:
+                _writes_in_progress.reset(token)
+            written = rows.get(pk=state.key)
+            stored = SubmissionState.of(written)
+            if not _same(_compared(stored), _compared(state)):
+                raise ValueError(f"submission {state.key}: saving stored {stored!r}, which is not the state it was given ({state!r})")
+        return written
 
     def delete(self, *args, **kwargs):
         """Delete the submission and record ``submission:delete`` in the same transaction."""
