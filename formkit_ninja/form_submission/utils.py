@@ -123,6 +123,11 @@ def pre_validation(obj: dict):
     """
     Prior to saving, recursively drop any keys
     which are empty strings, and remove any empty 'dict' values.
+
+    A row in a list left with no answers (nothing but its ``uuid`` and ``$rank``, or only blank
+    answers) is dropped from the list, and a list left with no items is dropped, as one whose
+    rows held nothing at all already was. Kept as ``{}``, the row would be given a new uuid on
+    every save, so each save would record an edit and split it again under a new id.
     """
     if not isinstance(obj, dict):
         warnings.warn("pre_validation expected a dict")
@@ -140,7 +145,11 @@ def pre_validation(obj: dict):
                     _obj[k] = pre_validation(v)
         elif isinstance(v, list):
             # Preserve "arrays" like checkbox, multiselect
-            _obj[k] = [_i if isinstance(_i, (str, int)) else pre_validation(_i) for _i in v]
+            items = [_i if isinstance(_i, (str, int)) else pre_validation(_i) for _i in v]
+            rows = [_i for _i in items if not (isinstance(_i, dict) and _skip_value(_i))]
+            if not rows:
+                continue
+            _obj[k] = rows
         else:
             _obj[k] = v
     return _obj
