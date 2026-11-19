@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A raw copy of the answers as they were sent.** `form_submission.sent.sent_event(...)` builds a `submission:sent` event holding a form's answers with the values exactly as received, with a hash and the save's correlation. An application keeps it in its own store to show what a person typed. The library stores nothing raw.
+
 ### Fixed
 
 - **A repeater row with no answers no longer changes on every save.** A row left with nothing in it, or only blank answers, was kept, given a new id each time the submission was saved, and recorded as an edit and split again as a new empty row. Saving now drops such a row, and drops the repeater too if no rows are left. A submission already holding one loses it at its next save, which records one edit; it is stable after that.
