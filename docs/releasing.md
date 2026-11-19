@@ -1,6 +1,6 @@
 # Releasing
 
-Releases are automated by [`.github/workflows/release.yml`](../.github/workflows/release.yml).
+Releases are automated by [`.github/workflows/release.yml`](https://github.com/catalpainternational/formkit-ninja/blob/main/.github/workflows/release.yml).
 Pushing a version tag builds the package, publishes it to PyPI, and creates a
 GitHub Release.
 

@@ -440,8 +440,8 @@ uv run python manage.py generate_code --app-name your_app --output-dir ./your_ap
 
 - Read the [Code Generation Guide](code_generation.md) for advanced customization
 - Learn about [Database-Driven Code Generation](database_code_generation.md)
-- Explore the [API Documentation](../README.md#api)
-- Check out [Form Submission Handling](form_submission.md)
+- Explore the [API Documentation](https://github.com/catalpainternational/formkit-ninja/blob/main/README.md#api)
+- Check out [Submission architecture](submission_architecture.md)
 
 ## Summary
 
