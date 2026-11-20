@@ -29,7 +29,7 @@ from formkit_ninja.form_submission.utils import (
 )
 
 if TYPE_CHECKING:
-    from formkit_ninja.form_submission.events import SubmissionState
+    from formkit_ninja.form_submission.events import SubmissionEvent, SubmissionState
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +119,10 @@ class Submission(models.Model):
     is_active = models.BooleanField(default=True)
 
     objects = SubmissionQuerySet.as_manager()
+
+    #: The events the ``save()`` or ``delete()`` last called on this instance recorded, in order; an empty
+    #: list when it changed nothing. Not set until one of them runs. See ``_record_write``.
+    recorded_events: list[SubmissionEvent]
 
     class Meta:
         triggers = [
@@ -241,6 +245,10 @@ class Submission(models.Model):
         before the outer write's, which ``fold`` cannot replay. The outermost write reads the row
         back after everything inside it has run and records prior-to-final once, with the
         normalisations of every save in between. A write of a different submission records as usual.
+
+        The events recorded are kept on this instance as ``recorded_events``, so an application can
+        tell straight after ``save()`` that nothing changed (an empty list). A write that records
+        nothing itself, as above, leaves the attribute as it was; one that raises leaves it unset.
         """
         from formkit_ninja.form_submission.events import SubmissionState
         from formkit_ninja.form_submission.sinks import record_events
@@ -250,6 +258,8 @@ class Submission(models.Model):
         if key in in_progress:
             return write()
         normalisations: list = []
+        # So a write that raises leaves no list from an earlier one.
+        self.__dict__.pop("recorded_events", None)
         with transaction.atomic(using=using):
             # Cleared inside the block: Django runs ``on_commit`` callbacks as the block commits, and a
             # save of this submission from one of them must record as a write of its own.
@@ -259,14 +269,16 @@ class Submission(models.Model):
                 stored = rows.select_for_update().filter(pk=pk).first()
                 result = write()
                 after = rows.filter(pk=pk).first()
-                record_events(
+                events = record_events(
                     SubmissionState.of(stored) if stored is not None else None,
                     SubmissionState.of(after) if after is not None else None,
                     normalisations=normalisations,
                 )
-                return result
             finally:
                 _writes_in_progress.reset(token)
+        # After the block, so a save of this instance from an ``on_commit`` callback cannot replace it.
+        self.recorded_events = events
+        return result
 
     def __str__(self) -> str:
         # Use only local fields to avoid N+1 (e.g. admin list).

@@ -221,6 +221,16 @@ the normalisations of both saves. A receiver that deletes the submission it was 
 handled the same way, so the outer save records the delete. A receiver that saves or deletes a
 different submission records it as usual.
 
+After a `save()` or `delete()`, the instance's `recorded_events` lists the events that write
+recorded, in order, and is an empty list when it changed nothing, so an application can tell straight
+after the call that a save was a no-op. It is not set on an instance that has not been saved or
+deleted, and a save made inside another save of the same submission (above) leaves it as it was:
+the outer instance's list holds the change. A save that raises leaves it unset, and a save of the
+same instance from an `on_commit` callback does not replace the caller's list. It lists the events
+whatever the sink does with them, so with `NullSink` it is still the change the save made; and if a
+transaction around the save is rolled back afterwards, the list still names events that were not
+kept. A queryset `delete()` sets it on nothing, since it has no instances.
+
 Every event carries `event_format`, the version of the event's own shape (`EVENT_FORMAT`, now 1),
 which is separate from `schema_version`, the form's version. `fold` reads every format this library
 has shipped (`READABLE_EVENT_FORMATS`) and refuses an event in any other, or with none, naming the
@@ -309,6 +319,8 @@ sent = sent_event(submission.pk, submission.form_type, request_json, received_at
 record_sent(sent)  # your own store: one stream per submission, say
 with context(correlation=sent["context"]["correlation"]):
     submission.save()
+if not submission.recorded_events:
+    record_sent_unchanged(sent)  # your own note that this sending changed nothing
 ```
 
 The library stores nothing raw. `sent_event` returns a `submission:sent` event, and nothing in the
