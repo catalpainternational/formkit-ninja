@@ -304,6 +304,21 @@ the event format does not change. An application that builds its own events and 
 itself. A rule that reads the application's tables can change what it
 does without its version moving; the `normalised` entries still show what each save did.
 
+A `pre_save` receiver of the application's own that rewrites an answer (one that needs the
+submission's status or another table, which a normaliser cannot see) can say so: it calls
+`instance.label_edit(path, label)` for each answer it changed, with `path` written as for a
+normalisation, and the create or edit lists `{path, label}` under `labelled`. A `path` that ends at a
+row's uuid labels that row, and the repeater's key alone labels the whole table, for rows removed or
+reordered. A label is listed only when the value at its path differs between the stored row before
+and after the save, so an answer labelled but left as it was lists nothing, and answers the person
+changed elsewhere in the same save stay unlabelled. A label matches the answer, not who set it: label
+only when your own write changed the value, or an answer the person set to the same value is labelled
+too. A row the person adds in the same save has no `uuid` yet when `pre_save` receivers run, so it
+cannot be named, and an answer the receiver removes in the same save that first sent it was never
+stored, so its label is left out: the raw copy of what was sent (below) is the record of it. A label from a save made inside another save of the same submission is listed on
+the outer save's event, once. Called before `save()`, or outside a recorded save (`loaddata`,
+`write_state`), the label is dropped. It is a note, like `normalised`: `fold` ignores it.
+
 ## Keeping the answers as sent
 
 The change events hold answers as they were stored: after empty answers are dropped, repeater rows

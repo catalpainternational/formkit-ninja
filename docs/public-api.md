@@ -45,7 +45,8 @@ exact-minor pin if you do.
   `NullSink`, `get_sink`, `record_events`, `record_reset`, the `FORMKIT_NINJA_SUBMISSION_EVENT_SINK` setting; and the
   `SubmissionEventRecord` model; `Submission.write_state`, which stores the fold of an application's own
   events and records nothing; `Submission.recorded_events`, the events the save or delete last called on an
-  instance recorded; `form_submission.normalise` — `Normalisation`, `Normalised`,
+  instance recorded; `Submission.label_edit` and `form_submission.events.LabelledEdit`, a receiver's label on an
+  answer it rewrote; `form_submission.normalise` — `Normalisation`, `Normalised`,
   `normalise`, `get_normaliser`, `rules_version`, the `FORMKIT_NINJA_SUBMISSION_NORMALISER` setting;
   `form_submission.sent` — `sent_event`, `SUBMISSION_SENT`, `SENT_EVENT_FORMAT`. Provisional until
   a consumer has used them, like `schema_emit`.

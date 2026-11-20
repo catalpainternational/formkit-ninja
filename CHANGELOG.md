@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Each save says which version of the cleaning rules was in force.** Set `rules_version` on the normaliser function and every create and edit records it, as does the raw copy, so a stored answer can be traced to the rules that made it. Without one, nothing changes.
 - **A raw copy of the answers as they were sent.** `form_submission.sent.sent_event(...)` builds a `submission:sent` event holding a form's answers with the values exactly as received, with a hash and the save's correlation. An application keeps it in its own store to show what a person typed. The library stores nothing raw.
 - **An application can tell when a save changed nothing.** After a submission is saved or deleted, it lists the events it recorded (`submission.recorded_events`); the list is empty when nothing changed, so an application can note an unchanged sending in its own log.
+- **A change an application's own code made during a save can be labelled.** Code that rewrites an answer while a submission is saved calls `instance.label_edit(path, label)`, and the change is recorded with that label, so it no longer reads as an edit the person made. The person's own edits in the same save stay unlabelled.
 
 ### Fixed
 

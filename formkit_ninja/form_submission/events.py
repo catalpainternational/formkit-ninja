@@ -41,6 +41,7 @@ __all__ = [
     "SUBMISSION_RESTORE",
     "SUBMISSION_STATUS",
     "STATE_UNKNOWN",
+    "LabelledEdit",
     "SubmissionEvent",
     "SubmissionState",
     "apply_changes",
@@ -123,6 +124,10 @@ class SubmissionEvent(SubmissionEventRequired, total=False):
     #: (:func:`~formkit_ninja.form_submission.normalise.rules_version`). Absent when the rules have no
     #: version, and never on a reset, whose state was stored under rules that are not known.
     rules_version: str
+    #: The answers this event changed that an application's receiver rewrote during the save, each with
+    #: the label the receiver gave it (:meth:`~formkit_ninja.form_submission.models.Submission.label_edit`):
+    #: ``[{path, label}]``. Informational, like ``normalised``.
+    labelled: list[dict[str, Any]]
 
 
 def json_safe(value: Any) -> Any:
@@ -370,6 +375,7 @@ def submission_events(
     schema_version: int | None = None,
     normalisations: Iterable[Any] = (),
     rules_version: str | None = None,
+    labels: Iterable[LabelledEdit] = (),
 ) -> list[SubmissionEvent]:
     """The events that turn ``prior`` into ``current``; ``None`` on either side means "does not exist".
 
@@ -378,7 +384,9 @@ def submission_events(
     a new one. ``context`` defaults to :func:`current_context`. ``schema_version``, when given, is
     stamped on every event; leave it out only for events reconstructed from before versions existed.
     ``normalisations`` (:class:`~formkit_ninja.form_submission.normalise.Normalisation`) are listed on
-    the create or edit, keeping only those for answers that event carries, each once.
+    the create or edit, keeping only those for answers that event carries, each once; ``labels``
+    (:class:`LabelledEdit`) are listed there under ``labelled``, keeping only those whose answer, row
+    or whole table differs between ``prior`` and ``current``, each once.
     ``rules_version``, when given, is stamped on the create or edit only.
     """
     events = _events_between(prior, current, occurred_at=occurred_at, context=context)
@@ -387,17 +395,70 @@ def submission_events(
             event["schema_version"] = schema_version
     content = next((e for e in events if e["type"] in (SUBMISSION_CREATE, SUBMISSION_EDIT)), None)
     if content is not None:
-        carried: list[dict[str, Any]] = []
-        for n in normalisations:
-            entry = n.as_json()
-            # Listed once: a save repeated inside the first (from its post_save) normalises the same answer again.
-            if (content["type"] == SUBMISSION_CREATE or _carries(content["changes"], tuple(n.path))) and entry not in carried:
-                carried.append(entry)
-        if carried:
-            content["normalised"] = json_safe(carried)
+        normalised = _carried(content, normalisations)
+        if normalised:
+            content["normalised"] = json_safe(normalised)
+        labelled = _labelled(prior, current, labels)
+        if labelled:
+            content["labelled"] = json_safe(labelled)
         if rules_version is not None:
             content["rules_version"] = rules_version
     return events
+
+
+@dataclass(frozen=True)
+class LabelledEdit:
+    """One answer an application's receiver rewrote during a save, and the label it gave the change."""
+
+    path: tuple[str, ...]
+    label: str
+
+    def as_json(self) -> dict[str, Any]:
+        return {"path": list(self.path), "label": self.label}
+
+
+_ABSENT = object()
+
+
+def _value_at(fields: Mapping[str, Any], path: tuple[str, ...]) -> Any:
+    """The value at ``path`` (keys, and a row's uuid for each repeater step), or ``_ABSENT``."""
+    value: Any = fields
+    for step in path:
+        if isinstance(value, Mapping):
+            value = value.get(step, _ABSENT)
+        elif isinstance(value, list):
+            value = next((row for row in value if isinstance(row, Mapping) and row.get(UUID_KEY) == step), _ABSENT)
+        else:
+            return _ABSENT
+        if value is _ABSENT:
+            return _ABSENT
+    return value
+
+
+def _labelled(prior: SubmissionState | None, current: SubmissionState | None, labels: Iterable[LabelledEdit]) -> list[dict[str, Any]]:
+    """``labels`` as JSON, keeping those whose answer, row or table differs before and after, each once."""
+    kept: list[dict[str, Any]] = []
+    for label in labels:
+        entry = label.as_json()
+        if entry in kept:
+            continue
+        before = _value_at(prior.fields, label.path) if prior is not None else _ABSENT
+        after = _value_at(current.fields, label.path) if current is not None else _ABSENT
+        if before is _ABSENT and after is _ABSENT or before is not _ABSENT and after is not _ABSENT and _same(before, after):
+            continue
+        kept.append(entry)
+    return kept
+
+
+def _carried(content: SubmissionEvent, entries: Iterable[Any]) -> list[dict[str, Any]]:
+    """``entries`` as JSON, keeping those for answers ``content`` carries, each once."""
+    carried: list[dict[str, Any]] = []
+    for n in entries:
+        entry = n.as_json()
+        # Listed once: a save repeated inside the first (from its post_save) normalises the same answer again.
+        if (content["type"] == SUBMISSION_CREATE or _carries(content["changes"], tuple(n.path))) and entry not in carried:
+            carried.append(entry)
+    return carried
 
 
 def _carries(changes: Mapping[str, Any], path: tuple[str, ...]) -> bool:

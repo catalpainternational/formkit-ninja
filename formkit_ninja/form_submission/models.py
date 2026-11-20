@@ -86,7 +86,8 @@ def _compared(state: SubmissionState) -> dict[str, Any]:
 
 
 #: The submissions (by key) whose ``save()`` or ``delete()`` is recording right now in this thread or
-#: task, each with the normalisations its writes have made so far. See ``Submission._record_write``.
+#: task, each with the normalisations its writes have made and the labels its receivers have given so far.
+#: See ``Submission._record_write``.
 _writes_in_progress: ContextVar[Mapping[str, list]] = ContextVar("formkit_ninja_submission_writes_in_progress", default={})
 
 
@@ -231,6 +232,39 @@ class Submission(models.Model):
                 raise ValueError(f"submission {state.key}: saving stored {stored!r}, which is not the state it was given ({state!r})")
         return written
 
+    def label_edit(self, path: tuple[str, ...], label: str) -> None:
+        """Record that a receiver rewrote the answer at ``path`` during this save, and why (``label``).
+
+        For an application's ``pre_save`` receiver that changes an answer: the create or edit event
+        the save records lists ``{path, label}`` under ``labelled``, so the change does not read as
+        the person's own. ``path`` is written as for a normalisation (the answer's key, prefixed by
+        ``(repeater key, row uuid)`` for each repeater it sits in). Only labels whose value
+        differs between the stored row before and after the save are listed, so labelling an answer
+        that ends up unchanged lists nothing; ``path`` may also end at a row's uuid, or be just the
+        repeater's key, to label a whole row or table (rows removed or reordered). Call it from a
+        receiver while the save runs: called before ``save()``, or outside a recorded save (``loaddata``,
+        ``write_state``), it is dropped. Label only when your own write changed the value: a label
+        matches the answer, not who set it, so labelling an answer the person also set in the same save
+        labels theirs. A row the person adds in the same save has no ``uuid`` yet when ``pre_save``
+        receivers run, so it cannot be named.
+        """
+        from formkit_ninja.form_submission.events import LabelledEdit
+
+        if not isinstance(label, str):
+            raise TypeError(f"a label_edit label must be text, got {label!r}")
+        if not label:
+            raise ValueError("a label_edit label must not be empty")
+        if isinstance(path, str):
+            raise TypeError(f"a label_edit path is a tuple of keys, got the text {path!r}")
+        parts = tuple(path)
+        if not all(isinstance(part, str) for part in parts):
+            raise TypeError(f"a label_edit path must hold only text, got {parts!r}")
+        if not parts:
+            raise ValueError("a label_edit path must not be empty")
+        pending = _writes_in_progress.get().get(str(self.pk))
+        if pending is not None:
+            pending.append(LabelledEdit(parts, label))
+
     def delete(self, *args, **kwargs):
         """Delete the submission and record ``submission:delete`` in the same transaction."""
         using = kwargs["using"] = kwargs.get("using") or router.db_for_write(type(self), instance=self)
@@ -244,26 +278,26 @@ class Submission(models.Model):
         It runs inside the outer write's transaction, so recording it there would put its events
         before the outer write's, which ``fold`` cannot replay. The outermost write reads the row
         back after everything inside it has run and records prior-to-final once, with the
-        normalisations of every save in between. A write of a different submission records as usual.
+        normalisations and labels of every save in between. A write of a different submission records as usual.
 
         The events recorded are kept on this instance as ``recorded_events``, so an application can
         tell straight after ``save()`` that nothing changed (an empty list). A write that records
         nothing itself, as above, leaves the attribute as it was; one that raises leaves it unset.
         """
-        from formkit_ninja.form_submission.events import SubmissionState
+        from formkit_ninja.form_submission.events import LabelledEdit, SubmissionState
         from formkit_ninja.form_submission.sinks import record_events
 
         key, pk = str(self.pk), self.pk
         in_progress = _writes_in_progress.get()
         if key in in_progress:
             return write()
-        normalisations: list = []
+        notes: list = []  # normalisations and labels, in the order they were made
         # So a write that raises leaves no list from an earlier one.
         self.__dict__.pop("recorded_events", None)
         with transaction.atomic(using=using):
             # Cleared inside the block: Django runs ``on_commit`` callbacks as the block commits, and a
             # save of this submission from one of them must record as a write of its own.
-            token = _writes_in_progress.set({**in_progress, key: normalisations})
+            token = _writes_in_progress.set({**in_progress, key: notes})
             try:
                 rows = type(self).objects.using(using)
                 stored = rows.select_for_update().filter(pk=pk).first()
@@ -272,7 +306,8 @@ class Submission(models.Model):
                 events = record_events(
                     SubmissionState.of(stored) if stored is not None else None,
                     SubmissionState.of(after) if after is not None else None,
-                    normalisations=normalisations,
+                    normalisations=[n for n in notes if not isinstance(n, LabelledEdit)],
+                    labels=[n for n in notes if isinstance(n, LabelledEdit)],
                 )
             finally:
                 _writes_in_progress.reset(token)

@@ -62,13 +62,13 @@ def get_sink() -> SubmissionEventSink:
     return _sink_for(getattr(settings, EVENT_SINK_SETTING, None))
 
 
-def record_events(prior: SubmissionState | None, current: SubmissionState | None, *, normalisations: Sequence[Any] = ()) -> list[SubmissionEvent]:
+def record_events(prior: SubmissionState | None, current: SubmissionState | None, *, normalisations: Sequence[Any] = (), labels: Sequence[Any] = ()) -> list[SubmissionEvent]:
     """Work out the events between ``prior`` and ``current``, stamp the form's current version on
     each, and append them with ``prior``; returns them. A save that changed nothing runs no query here."""
     from formkit_ninja.form_submission.normalise import rules_version
     from formkit_ninja.schema_version import current_schema_version
 
-    events = submission_events(prior, current, normalisations=normalisations, rules_version=rules_version())
+    events = submission_events(prior, current, normalisations=normalisations, labels=labels, rules_version=rules_version())
     if events:
         version = current_schema_version(events[0]["form_type"])
         for event in events:
