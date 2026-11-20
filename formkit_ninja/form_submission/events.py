@@ -23,7 +23,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Iterable, Iterator, Mapping, TypedDict
+from typing import Any, Final, Iterable, Iterator, Literal, Mapping, TypedDict, Union
 
 from django.core.serializers.json import DjangoJSONEncoder
 
@@ -41,7 +41,17 @@ __all__ = [
     "SUBMISSION_RESTORE",
     "SUBMISSION_STATUS",
     "STATE_UNKNOWN",
+    "Changes",
+    "CreateEvent",
+    "DeleteEvent",
+    "EVENT_SHAPES",
+    "EditEvent",
     "LabelledEdit",
+    "RemoveEvent",
+    "ResetEvent",
+    "RestoreEvent",
+    "RowChanges",
+    "StatusEvent",
     "SubmissionEvent",
     "SubmissionState",
     "apply_changes",
@@ -64,20 +74,41 @@ EVENT_FORMAT = 1
 #: new number here when :data:`EVENT_FORMAT` is raised; never remove one.
 READABLE_EVENT_FORMATS = (1,)
 
-SUBMISSION_CREATE = "submission:create"
-SUBMISSION_EDIT = "submission:edit"
-SUBMISSION_STATUS = "submission:status"
-SUBMISSION_REMOVE = "submission:remove"
-SUBMISSION_RESTORE = "submission:restore"
-SUBMISSION_DELETE = "submission:delete"
-SUBMISSION_RESET = "submission:reset"
+SUBMISSION_CREATE: Final = "submission:create"
+SUBMISSION_EDIT: Final = "submission:edit"
+SUBMISSION_STATUS: Final = "submission:status"
+SUBMISSION_REMOVE: Final = "submission:remove"
+SUBMISSION_RESTORE: Final = "submission:restore"
+SUBMISSION_DELETE: Final = "submission:delete"
+SUBMISSION_RESET: Final = "submission:reset"
 
 EVENT_TYPES = (SUBMISSION_CREATE, SUBMISSION_EDIT, SUBMISSION_STATUS, SUBMISSION_REMOVE, SUBMISSION_RESTORE, SUBMISSION_DELETE, SUBMISSION_RESET)
 
 
-class SubmissionEventRequired(TypedDict):
+class Changes(TypedDict, total=False):
+    """What an edit changed (see :func:`diff_fields`); each part is present only when non-empty."""
+
+    #: ``{key: new value}`` for answers that are new or different.
+    set: dict[str, Any]
+    #: Keys that were removed.
+    unset: list[str]
+    #: ``{repeater key: row changes}`` for a repeater whose rows all carry a unique ``uuid``.
+    rows: dict[str, RowChanges]
+
+
+class RowChanges(TypedDict, total=False):
+    """The changes to one repeater's rows."""
+
+    #: Every row uuid after the edit, when membership or order changed.
+    order: list[str]
+    #: ``{uuid: whole row}`` for each row added.
+    added: dict[str, dict[str, Any]]
+    #: ``{uuid: changes}`` for each row kept and changed, the same shape, so nested repeaters recurse.
+    changed: dict[str, Changes]
+
+
+class _EventCommon(TypedDict):
     event_id: str
-    type: str
     submission: str
     form_type: str
     #: ISO 8601, UTC.
@@ -91,31 +122,26 @@ class SubmissionEventRequired(TypedDict):
     context: dict[str, Any]
 
 
-class SubmissionEvent(SubmissionEventRequired, total=False):
-    """One event. Which optional keys appear depends on ``type``:
-
-    * ``submission:create`` — ``fields``, ``status``, ``is_active``, ``owner``
-    * ``submission:edit`` — ``changes`` (see :func:`diff_fields`), plus ``owner`` or ``form_type`` if
-      either changed
-    * ``submission:status`` — ``previous_status``, ``status``
-    * ``submission:remove`` / ``submission:restore`` — nothing more
-    * ``submission:delete`` — nothing more; the last state is the fold of the events before it
-    * ``submission:reset`` — ``fields``, ``status``, ``is_active``, ``owner``: the whole stored state,
-      which :func:`fold` takes as a new starting point wherever it appears (see :func:`reset_event`)
-    """
-
-    fields: dict[str, Any]
-    status: int
-    previous_status: int
-    is_active: bool
-    owner: int | None
-    changes: dict[str, Any]
+class _EventStamped(_EventCommon, total=False):
     #: The form's version when the event was recorded (:mod:`formkit_ninja.schema_version`). It is
     #: stamped on every event, including a status change or an edit that carries one answer; the
     #: answers an event does not carry were recorded under whichever earlier event carried them, and
     #: keep that event's version. Absent means "recorded before versions existed", as on
     #: :class:`~formkit_ninja.form_submission.wire.ContentEvent`.
     schema_version: int
+
+
+class _CreateEventRequired(_EventStamped):
+    type: Literal["submission:create"]
+    fields: dict[str, Any]
+    status: int
+    is_active: bool
+    owner: int | None
+
+
+class CreateEvent(_CreateEventRequired, total=False):
+    """``submission:create``: every answer, the status, whether it is active, and the owner."""
+
     #: The answers this event changed that the normaliser put in their stored form
     #: (:mod:`formkit_ninja.form_submission.normalise`): ``[{path, rule, before, after}]``.
     #: Informational: the values in ``fields`` / ``changes`` are already the stored ones.
@@ -128,6 +154,78 @@ class SubmissionEvent(SubmissionEventRequired, total=False):
     #: the label the receiver gave it (:meth:`~formkit_ninja.form_submission.models.Submission.label_edit`):
     #: ``[{path, label}]``. Informational, like ``normalised``.
     labelled: list[dict[str, Any]]
+
+
+class _EditEventRequired(_EventStamped):
+    type: Literal["submission:edit"]
+    changes: Changes
+
+
+class EditEvent(_EditEventRequired, total=False):
+    """``submission:edit``: the answers that changed (``changes``), plus ``owner`` if it changed.
+
+    A change of form type shows in ``form_type``, which every event carries.
+    """
+
+    owner: int | None
+    #: As on :class:`CreateEvent`, for the answers this edit changed.
+    normalised: list[dict[str, Any]]
+    #: As on :class:`CreateEvent`.
+    rules_version: str
+    #: As on :class:`CreateEvent`, for the answers this edit changed.
+    labelled: list[dict[str, Any]]
+
+
+class StatusEvent(_EventStamped):
+    """``submission:status``: the status before and after."""
+
+    type: Literal["submission:status"]
+    previous_status: int
+    status: int
+
+
+class RemoveEvent(_EventStamped):
+    """``submission:remove``: the submission was made inactive. Nothing more."""
+
+    type: Literal["submission:remove"]
+
+
+class RestoreEvent(_EventStamped):
+    """``submission:restore``: the submission was made active again. Nothing more."""
+
+    type: Literal["submission:restore"]
+
+
+class DeleteEvent(_EventStamped):
+    """``submission:delete``: nothing more; the last state is the fold of the events before it."""
+
+    type: Literal["submission:delete"]
+
+
+class ResetEvent(_EventStamped):
+    """``submission:reset``: the whole stored state, which :func:`fold` takes as a new starting point
+    wherever it appears (see :func:`reset_event`)."""
+
+    type: Literal["submission:reset"]
+    fields: dict[str, Any]
+    status: int
+    is_active: bool
+    owner: int | None
+
+
+#: One event, of any type. Narrow it on ``event["type"]`` to reach the keys that type has.
+SubmissionEvent = Union[CreateEvent, EditEvent, StatusEvent, RemoveEvent, RestoreEvent, DeleteEvent, ResetEvent]
+
+#: The shape of each event type, by ``type``.
+EVENT_SHAPES: Mapping[str, type] = {
+    SUBMISSION_CREATE: CreateEvent,
+    SUBMISSION_EDIT: EditEvent,
+    SUBMISSION_STATUS: StatusEvent,
+    SUBMISSION_REMOVE: RemoveEvent,
+    SUBMISSION_RESTORE: RestoreEvent,
+    SUBMISSION_DELETE: DeleteEvent,
+    SUBMISSION_RESET: ResetEvent,
+}
 
 
 def json_safe(value: Any) -> Any:
@@ -163,7 +261,7 @@ class SubmissionState:
     schema_version: int | None = field(default=None, compare=False)
 
     @classmethod
-    def of(cls, sub) -> "SubmissionState":
+    def of(cls, sub: Any) -> "SubmissionState":
         """The state of a ``Submission`` instance, saved or not."""
         return cls(
             key=str(sub.pk),
@@ -239,10 +337,10 @@ def _row_uuids(value: Any) -> list[str] | None:
     uuids = [row.get(UUID_KEY) for row in value]
     if not all(isinstance(u, str) and u for u in uuids) or len(set(uuids)) != len(uuids):
         return None
-    return uuids  # type: ignore[return-value]
+    return uuids
 
 
-def diff_fields(prior: Mapping[str, Any], current: Mapping[str, Any]) -> dict[str, Any]:
+def diff_fields(prior: Mapping[str, Any], current: Mapping[str, Any]) -> Changes:
     """What changed between two answer documents, or ``{}`` if nothing did.
 
     The result has up to three parts, each present only when non-empty:
@@ -257,9 +355,9 @@ def diff_fields(prior: Mapping[str, Any], current: Mapping[str, Any]) -> dict[st
 
     Both documents must already be JSON-safe.
     """
-    changes: dict[str, Any] = {}
+    changes: Changes = {}
     set_: dict[str, Any] = {}
-    rows: dict[str, Any] = {}
+    rows: dict[str, RowChanges] = {}
     for key, new in current.items():
         if key not in prior:
             set_[key] = deepcopy(new)
@@ -272,7 +370,7 @@ def diff_fields(prior: Mapping[str, Any], current: Mapping[str, Any]) -> dict[st
             set_[key] = deepcopy(new)
             continue
         old_by_uuid = dict(zip(old_uuids, old))
-        entry: dict[str, Any] = {}
+        entry: RowChanges = {}
         if new_uuids != old_uuids:
             entry["order"] = new_uuids
         added = {u: deepcopy(row) for u, row in zip(new_uuids, new) if u not in old_by_uuid}
@@ -359,8 +457,22 @@ def reset_event(
     the history back, so the application records it, usually through
     :func:`formkit_ninja.form_submission.sinks.record_reset`.
     """
-    [event] = _events_between(None, state, occurred_at=occurred_at, context=context)
-    event["type"] = SUBMISSION_RESET
+    [create] = _events_between(None, state, occurred_at=occurred_at, context=context)
+    if create["type"] != SUBMISSION_CREATE:  # pragma: no cover - _events_between(None, state) is a create
+        raise AssertionError(create["type"])
+    event = ResetEvent(
+        event_id=create["event_id"],
+        type=SUBMISSION_RESET,
+        submission=create["submission"],
+        form_type=create["form_type"],
+        occurred_at=create["occurred_at"],
+        event_format=create["event_format"],
+        context=create["context"],
+        fields=create["fields"],
+        status=create["status"],
+        is_active=create["is_active"],
+        owner=create["owner"],
+    )
     if schema_version is not None:
         event["schema_version"] = schema_version
     return event
@@ -393,7 +505,11 @@ def submission_events(
     if schema_version is not None:
         for event in events:
             event["schema_version"] = schema_version
-    content = next((e for e in events if e["type"] in (SUBMISSION_CREATE, SUBMISSION_EDIT)), None)
+    content: CreateEvent | EditEvent | None = None
+    for event in events:
+        if event["type"] == SUBMISSION_CREATE or event["type"] == SUBMISSION_EDIT:
+            content = event
+            break
     if content is not None:
         normalised = _carried(content, normalisations)
         if normalised:
@@ -450,7 +566,7 @@ def _labelled(prior: SubmissionState | None, current: SubmissionState | None, la
     return kept
 
 
-def _carried(content: SubmissionEvent, entries: Iterable[Any]) -> list[dict[str, Any]]:
+def _carried(content: CreateEvent | EditEvent, entries: Iterable[Any]) -> list[dict[str, Any]]:
     """``entries`` as JSON, keeping those for answers ``content`` carries, each once."""
     carried: list[dict[str, Any]] = []
     for n in entries:

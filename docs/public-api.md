@@ -37,7 +37,10 @@ change.
 Useful, and consumed today, but the shape may change in a minor release. Depend on it with an
 exact-minor pin if you do.
 
-- `form_submission.events` — `SubmissionEvent`, `SubmissionState`, `submission_events`, `fold`,
+- `form_submission.events` — `SubmissionEvent` (the union of one shape per event type: `CreateEvent`,
+  `EditEvent`, `StatusEvent`, `RemoveEvent`, `RestoreEvent`, `DeleteEvent`, `ResetEvent`, told apart by
+  `type` with an `==` test, with `EVENT_SHAPES` mapping each type to its shape), `Changes` and `RowChanges` (what an edit
+  changed), `SubmissionState`, `submission_events`, `fold`,
   `fold_versions`, `diff_fields`, `apply_changes`, `reset_event`, `context`, `current_context`, `json_safe`, `EVENT_TYPES`,
   `EVENT_FORMAT`, `READABLE_EVENT_FORMATS`, `STATE_UNKNOWN` and the
   seven `SUBMISSION_*` type names; `form_submission.sinks` — `SubmissionEventSink` (a sink's

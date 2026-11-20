@@ -122,7 +122,7 @@ jobs:
 
       - name: Type check with mypy
         run: |
-          uv run mypy formkit_ninja tests/test_wire.py
+          uv run mypy formkit_ninja tests/test_wire.py tests/test_event_shapes.py
 
   test:
     name: Test Suite (pytest, Django ${{ matrix.django }})
