@@ -254,6 +254,24 @@ submissions already exist can append `reset_event(prior)` before the first event
 so that stream folds to the row whether it was started by the save or by a backfill. Wrap a request in `form_submission.events.context(actor=...,
 reason=..., via=...)` to say who and why.
 
+The events hold only new values; the old ones are worked out when the history is read, so every
+stored history, from any release, reads this way. `answer_history(events)` gives one
+`{"event", "state", "answers"}` per event, where `answers` lists each answer that event changed as
+`{"what", "path", "from", "to"}` (`what` is `"answer"`, a whole `"row"` added or removed, or a new
+`"order"` of the rows kept), and is `None` where the version before or after is `STATE_UNKNOWN`.
+`answer_changes(before, after)` gives the same list for any two answer documents.
+
+To go back to an earlier version, `submission.roll_back_to(events, event_id)` saves the submission's
+answers as they were just after that event. The stored row is read and only its answers change, so
+its status, owner and whether it is active stay as they are stored now, even if the instance is out
+of date. It is an ordinary save under `context(rolled_back_to=event_id)`, so the change
+back, if the answers differ, is recorded as a new edit and the versions in between stay in the history. The normaliser and
+the application's receivers run again; if the stored answers then differ from that version's, the
+save is rolled back and `ValueError` raised. A version whose state is `STATE_UNKNOWN`,
+one in which the submission was deleted (delete it instead), an event not in `events`, events of
+another submission, a submission deleted since, and one whose form type has changed since that
+version are refused the same way.
+
 ### Writes that record nothing
 
 `save()` and `delete()` on an instance, and `delete()` on a `Submission` queryset (which the admin's

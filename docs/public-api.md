@@ -41,7 +41,7 @@ exact-minor pin if you do.
   `EditEvent`, `StatusEvent`, `RemoveEvent`, `RestoreEvent`, `DeleteEvent`, `ResetEvent`, told apart by
   `type` with an `==` test, with `EVENT_SHAPES` mapping each type to its shape), `Changes` and `RowChanges` (what an edit
   changed), `SubmissionState`, `submission_events`, `fold`,
-  `fold_versions`, `diff_fields`, `apply_changes`, `reset_event`, `context`, `current_context`, `json_safe`, `EVENT_TYPES`,
+  `fold_versions`, `answer_history`, `answer_changes`, `diff_fields`, `apply_changes`, `reset_event`, `context`, `current_context`, `json_safe`, `EVENT_TYPES`,
   `EVENT_FORMAT`, `READABLE_EVENT_FORMATS`, `STATE_UNKNOWN` and the
   seven `SUBMISSION_*` type names; `form_submission.sinks` — `SubmissionEventSink` (a sink's
   `append(events, *, prior)`, where `prior` is the submission before the write or `None`), `TableSink`,
@@ -49,7 +49,7 @@ exact-minor pin if you do.
   `SubmissionEventRecord` model; `Submission.write_state`, which stores the fold of an application's own
   events and records nothing; `Submission.recorded_events`, the events the save or delete last called on an
   instance recorded; `Submission.label_edit` and `form_submission.events.LabelledEdit`, a receiver's label on an
-  answer it rewrote; `form_submission.normalise` — `Normalisation`, `Normalised`,
+  answer it rewrote; `Submission.roll_back_to`, which saves an earlier version's answers as a new edit; `form_submission.normalise` — `Normalisation`, `Normalised`,
   `normalise`, `get_normaliser`, `rules_version`, the `FORMKIT_NINJA_SUBMISSION_NORMALISER` setting;
   `form_submission.sent` — `sent_event`, `SUBMISSION_SENT`, `SENT_EVENT_FORMAT`. Provisional until
   a consumer has used them, like `schema_emit`.

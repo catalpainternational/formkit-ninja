@@ -54,6 +54,8 @@ __all__ = [
     "StatusEvent",
     "SubmissionEvent",
     "SubmissionState",
+    "answer_changes",
+    "answer_history",
     "apply_changes",
     "context",
     "current_context",
@@ -424,6 +426,53 @@ def apply_changes(document: Mapping[str, Any], changes: Mapping[str, Any]) -> di
     return result
 
 
+def answer_changes(prior: Mapping[str, Any], current: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Each answer that differs between two answer documents, with its old and new value.
+
+    The readable counterpart of :func:`diff_fields`, which records only new values. Each entry is
+    ``{"what", "path", "from", "to"}``; ``path`` is the answer's key, prefixed by the repeater key and
+    row uuid for each repeater it sits in, as for a normalisation. ``what`` is:
+
+    * ``"answer"`` — one answer; ``from`` or ``to`` is ``None`` when it was added or cleared (saving
+      drops empty answers, so a stored ``None`` is rare: only a normaliser or a write that skips
+      ``save()`` puts one there). A group of answers, a list of plain values, and a table whose rows
+      do not all carry a ``uuid`` before and after, change whole.
+    * ``"row"`` — a whole row added (``from`` is ``None``) or removed (``to`` is ``None``);
+      ``path`` ends at the row's uuid. Changes inside a kept row are listed answer by answer.
+    * ``"order"`` — the rows that were kept are in a different order; ``from`` and ``to`` are every
+      row uuid before and after. Adding or removing rows alone is not a new order.
+
+    Both documents must already be JSON-safe.
+    """
+    return _answer_changes(prior, current, [])
+
+
+def _answer_changes(prior: Mapping[str, Any], current: Mapping[str, Any], prefix: list[str]) -> list[dict[str, Any]]:
+    changes: list[dict[str, Any]] = []
+    for key, new in current.items():
+        path = [*prefix, key]
+        if key not in prior:
+            changes.append({"what": "answer", "path": path, "from": None, "to": deepcopy(new)})
+            continue
+        old = prior[key]
+        if _same(old, new):
+            continue
+        old_uuids, new_uuids = _row_uuids(old), _row_uuids(new)
+        if old_uuids is None or new_uuids is None:
+            changes.append({"what": "answer", "path": path, "from": deepcopy(old), "to": deepcopy(new)})
+            continue
+        old_by_uuid, new_by_uuid = dict(zip(old_uuids, old)), dict(zip(new_uuids, new))
+        if [u for u in old_uuids if u in new_by_uuid] != [u for u in new_uuids if u in old_by_uuid]:
+            changes.append({"what": "order", "path": path, "from": old_uuids, "to": new_uuids})
+        changes += [{"what": "row", "path": [*path, u], "from": deepcopy(old_by_uuid[u]), "to": None} for u in old_uuids if u not in new_by_uuid]
+        changes += [{"what": "row", "path": [*path, u], "from": None, "to": deepcopy(new_by_uuid[u])} for u in new_uuids if u not in old_by_uuid]
+        for u in new_uuids:
+            if u in old_by_uuid:
+                changes += _answer_changes(old_by_uuid[u], new_by_uuid[u], [*path, u])
+    changes += [{"what": "answer", "path": [*prefix, key], "from": deepcopy(old), "to": None} for key, old in prior.items() if key not in current]
+    return changes
+
+
 # -- events ------------------------------------------------------------------------------------
 
 
@@ -714,6 +763,27 @@ def fold_versions(events: Iterable[Mapping[str, Any]]) -> list[tuple[Mapping[str
                 state = STATE_UNKNOWN
         versions.append((event, state))
     return versions
+
+
+def answer_history(events: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Each event of one submission with the state after it and the answers it changed, from and to.
+
+    ``[{"event", "state", "answers"}]``, one entry per event in order: ``state`` is the version
+    :func:`fold_versions` gives, and ``answers`` is :func:`answer_changes` between the version before
+    and this one (a create starts from no answers; a delete clears every answer). The old values are
+    worked out here, from the stored events, so a history recorded by any earlier release reads the
+    same way. ``answers`` is ``None`` where either version is :data:`STATE_UNKNOWN`. It accepts, and
+    refuses, exactly the histories :func:`fold_versions` does.
+    """
+    history: list[dict[str, Any]] = []
+    before: SubmissionState | None | _Unknown = None
+    for event, state in fold_versions(events):
+        answers = None
+        if not isinstance(before, _Unknown) and not isinstance(state, _Unknown):
+            answers = answer_changes(before.fields if before is not None else {}, state.fields if state is not None else {})
+        history.append({"event": event, "state": state, "answers": answers})
+        before = state
+    return history
 
 
 def _apply(state: SubmissionState | None, event: Mapping[str, Any]) -> SubmissionState | None:

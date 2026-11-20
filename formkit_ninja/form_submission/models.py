@@ -6,8 +6,9 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
+from copy import deepcopy
 from dataclasses import fields as dataclass_fields
-from typing import TYPE_CHECKING, Any, Callable, Mapping, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, cast
 
 import pghistory
 import pgtrigger
@@ -264,6 +265,57 @@ class Submission(models.Model):
         pending = _writes_in_progress.get().get(str(self.pk))
         if pending is not None:
             pending.append(LabelledEdit(parts, label))
+
+    def roll_back_to(self, events: Iterable[Mapping[str, Any]], event_id: str) -> None:
+        """Save this submission with its answers as they were just after ``event_id``, recorded as a new edit if they differ.
+
+        Only the answers go back: the stored row is read (and locked) and only its answers are changed,
+        so its status, owner and whether it is active stay as they are stored now, even if this
+        instance is out of date or holds unsaved changes; undoing an answer does not undo a
+        verification or bring back a removed submission. Afterwards this instance is read again from
+        the row.
+        ``events`` is this submission's history, oldest first (from the configured sink's store, or
+        the application's own). The version after ``event_id`` is worked out with ``fold_versions``
+        and its answers saved through ``save()``, under ``context(rolled_back_to=event_id)``, so the
+        change back is recorded as an edit like any other and the versions in between stay in the
+        history. Because it is a save, the normaliser and the application's receivers run again; if
+        the stored answers then differ from that version's (a rule changed since, say), the save is
+        rolled back and ``ValueError`` raised (a sink that does not write in the same transaction has
+        already been given the events by then). So is one for an event not in ``events``, events of
+        another submission, a version whose state is not known (``STATE_UNKNOWN``), a version in
+        which the submission was deleted (that is a ``delete()``), a submission whose row has been
+        deleted since, and one whose form type has changed since that version, as its old answers
+        belong to the other form. After a refusal this instance is left as it was.
+        """
+        from formkit_ninja.form_submission.events import SubmissionState, _same, _Unknown, context, fold_versions
+
+        events = list(events)
+        if any(str(event.get("submission")) != str(self.pk) for event in events):
+            raise ValueError(f"cannot roll submission {self.pk} back with events of another submission")
+        versions = [state for event, state in fold_versions(events) if event.get("event_id") == event_id]
+        if not versions:
+            raise ValueError(f"event {event_id} is not in the history of submission {self.pk}")
+        target = versions[0]
+        if isinstance(target, _Unknown):
+            raise ValueError(f"submission {self.pk} after event {event_id} is not known (an earlier write skipped save()), so it cannot be rolled back to")
+        if target is None:
+            raise ValueError(f"submission {self.pk} was deleted after event {event_id}; delete it rather than roll back to it")
+        using = router.db_for_write(type(self), instance=self)
+        rows = type(self).objects.using(using)
+        with transaction.atomic(using=using):
+            # The stored row, not this instance: only the answers go back, whatever this instance holds.
+            row = rows.select_for_update().filter(pk=self.pk).first()
+            if row is None:
+                raise ValueError(f"submission {self.pk} no longer exists (it was deleted), so it is not rolled back")
+            if row.form_type != target.form_type:
+                raise ValueError(f"submission {self.pk} has the form type {row.form_type!r} now, not {target.form_type!r} as after event {event_id}, so that version's answers are not rolled back to")
+            row.fields = deepcopy(target.fields)
+            with context(rolled_back_to=event_id):
+                row.save(using=using)
+            stored = SubmissionState.of(rows.get(pk=self.pk))
+            if not _same(stored.fields, target.fields):
+                raise ValueError(f"submission {self.pk}: saving stored the answers {stored.fields!r}, which are not the version after event {event_id} ({target.fields!r})")
+        self.refresh_from_db(using=using)
 
     def delete(self, *args, **kwargs):
         """Delete the submission and record ``submission:delete`` in the same transaction."""
