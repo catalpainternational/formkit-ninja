@@ -195,6 +195,24 @@ class TestRollBack:
         assert stored.fields == first["fields"]
         assert events[3]["context"]["rolled_back_to"] == first["event_id"]
 
+    def test_the_instance_lists_the_events_the_rollback_recorded(self) -> None:
+        sub = Submission.objects.create(form_type="meeting", fields={"venue": "hall"})
+        sub.fields = {"venue": "school"}
+        sub.save()
+        first = self._stored(sub)[0]
+        sub.roll_back_to(self._stored(sub), first["event_id"])
+        assert [e["type"] for e in sub.recorded_events] == ["submission:edit"]
+        assert sub.recorded_events[0]["context"]["rolled_back_to"] == first["event_id"]
+        assert sub.recorded_events == self._stored(sub)[-1:]
+
+    def test_rolling_back_to_what_is_stored_already_leaves_recorded_events_empty(self) -> None:
+        sub = Submission.objects.create(form_type="meeting", fields={"venue": "hall"})
+        sub.fields = {"venue": "school"}
+        sub.save()
+        assert sub.recorded_events
+        sub.roll_back_to(self._stored(sub), self._stored(sub)[-1]["event_id"])
+        assert sub.recorded_events == []
+
     def test_rolling_back_keeps_the_status_owner_and_whether_it_is_active(self, django_user_model) -> None:
         # Only the answers go back: a verified, reassigned, removed submission stays so.
         first_owner = django_user_model.objects.create(username="first-owner")

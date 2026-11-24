@@ -285,7 +285,7 @@ class Submission(models.Model):
         another submission, a version whose state is not known (``STATE_UNKNOWN``), a version in
         which the submission was deleted (that is a ``delete()``), a submission whose row has been
         deleted since, and one whose form type has changed since that version, as its old answers
-        belong to the other form. After a refusal this instance is left as it was.
+        belong to the other form. Afterwards ``recorded_events`` on this instance lists what the rollback recorded (empty if the answers were already those). After a refusal this instance is left as it was.
         """
         from formkit_ninja.form_submission.events import SubmissionState, _same, _Unknown, context, fold_versions
 
@@ -316,6 +316,8 @@ class Submission(models.Model):
             if not _same(stored.fields, target.fields):
                 raise ValueError(f"submission {self.pk}: saving stored the answers {stored.fields!r}, which are not the version after event {event_id} ({target.fields!r})")
         self.refresh_from_db(using=using)
+        # The save ran on ``row``, so this instance gets its list (empty when nothing changed).
+        self.recorded_events = row.recorded_events
 
     def delete(self, *args, **kwargs):
         """Delete the submission and record ``submission:delete`` in the same transaction."""
