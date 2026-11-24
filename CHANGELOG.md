@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.3.0] - DRAFT, not released
+
 ### Added
 
 - **Each save says which version of the cleaning rules was in force.** Set `rules_version` on the normaliser function and every create and edit records it, as does the raw copy, so a stored answer can be traced to the rules that made it. Without one, nothing changes.
@@ -19,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **A repeater row with no answers no longer changes on every save.** A row left with nothing in it, or only blank answers, was kept, given a new id each time the submission was saved, and recorded as an edit and split again as a new empty row. Saving now drops such a row, and drops the repeater too if no rows are left. A submission already holding one loses it at its next save, which records one edit; it is stable after that.
+
+### Note for upgraders
+
+- **Typed code may need a small change.** A type checker now sees each kind of change as its own type, so code that reads `event["changes"]` must first check `event["type"] == SUBMISSION_EDIT`, code that wrote `dict[str, Any]` for what `diff_fields` returns now needs `Changes` or `Mapping[str, Any]`, and `SubmissionEvent` can no longer be called or subclassed. Nothing stored changes: existing events read back as before, and no migration is needed.
+- **Everything new is optional.** An application that sets no `rules_version`, labels nothing and never rolls back sees the same events as 7.2.1, apart from reading `recorded_events` after a save if it wants to.
 
 ## [7.2.1] - 2026-11-17
 
