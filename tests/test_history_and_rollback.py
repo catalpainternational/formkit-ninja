@@ -9,7 +9,7 @@ recorded as a new edit; the versions in between stay in the stream. All data her
 from __future__ import annotations
 
 import pytest
-from django.db.models.signals import pre_save
+from django.db.models.signals import post_save, pre_save
 
 from formkit_ninja.form_submission.events import (
     STATE_UNKNOWN,
@@ -204,6 +204,26 @@ class TestRollBack:
         assert [e["type"] for e in sub.recorded_events] == ["submission:edit"]
         assert sub.recorded_events[0]["context"]["rolled_back_to"] == first["event_id"]
         assert sub.recorded_events == self._stored(sub)[-1:]
+
+    def test_a_rollback_from_inside_a_save_of_the_same_submission_works(self) -> None:
+        # The save inside records nothing of its own (the outer save records everything), so there is no list to copy.
+        sub = Submission.objects.create(form_type="meeting", fields={"venue": "hall"})
+        sub.fields = {"venue": "school"}
+        sub.save()
+        history = self._stored(sub)
+        first = history[0]
+
+        def rolls_back(sender, instance, created, **kwargs):
+            if instance.fields.get("venue") == "library":
+                instance.roll_back_to(history, first["event_id"])
+
+        sub.fields = {"venue": "library"}
+        post_save.connect(rolls_back, sender=Submission, dispatch_uid="test-rollback-nested")
+        try:
+            sub.save()
+        finally:
+            post_save.disconnect(sender=Submission, dispatch_uid="test-rollback-nested")
+        assert Submission.objects.get(pk=sub.pk).fields == {"venue": "hall"}
 
     def test_rolling_back_to_what_is_stored_already_leaves_recorded_events_empty(self) -> None:
         sub = Submission.objects.create(form_type="meeting", fields={"venue": "hall"})

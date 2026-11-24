@@ -318,8 +318,10 @@ class Submission(models.Model):
             if not _same(stored.fields, target.fields):
                 raise ValueError(f"submission {self.pk}: saving stored the answers {stored.fields!r}, which are not the version after event {event_id} ({target.fields!r})")
         self.refresh_from_db(using=using)
-        # The save ran on ``row``, so this instance gets its list (empty when nothing changed).
-        self.recorded_events = row.recorded_events
+        # The save ran on ``row``, so this instance gets its list (empty when nothing changed). Inside a save
+        # of this submission there is none: the outer save records everything, and this instance is left as it was.
+        if "recorded_events" in row.__dict__:
+            self.recorded_events = row.recorded_events
 
     def delete(self, *args, **kwargs):
         """Delete the submission and record ``submission:delete`` in the same transaction."""

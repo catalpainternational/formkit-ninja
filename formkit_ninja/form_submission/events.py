@@ -609,7 +609,7 @@ def _labelled(prior: SubmissionState | None, current: SubmissionState | None, la
             continue
         before = _value_at(prior.fields, label.path) if prior is not None else _ABSENT
         after = _value_at(current.fields, label.path) if current is not None else _ABSENT
-        if before is _ABSENT and after is _ABSENT or before is not _ABSENT and after is not _ABSENT and _same(before, after):
+        if (before is _ABSENT and after is _ABSENT) or (before is not _ABSENT and after is not _ABSENT and _same(before, after)):
             continue
         kept.append(entry)
     return kept
