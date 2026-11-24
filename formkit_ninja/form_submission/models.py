@@ -285,7 +285,9 @@ class Submission(models.Model):
         another submission, a version whose state is not known (``STATE_UNKNOWN``), a version in
         which the submission was deleted (that is a ``delete()``), a submission whose row has been
         deleted since, and one whose form type has changed since that version, as its old answers
-        belong to the other form. Afterwards ``recorded_events`` on this instance lists what the rollback recorded (empty if the answers were already those). After a refusal this instance is left as it was.
+        belong to the other form. Afterwards
+        ``recorded_events`` on this instance lists what the rollback recorded (empty if the answers were already those).
+        After a refusal this instance is left as it was.
         """
         from formkit_ninja.form_submission.events import SubmissionState, _same, _Unknown, context, fold_versions
 
