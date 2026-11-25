@@ -272,6 +272,10 @@ one in which the submission was deleted (delete it instead), an event not in `ev
 another submission, a submission deleted since, and one whose form type has changed since that
 version are refused the same way.
 
+One case does not carry the marker: a rollback called from a receiver while the same submission is
+being saved. Its own save records nothing, because the outer save records the whole change, and by
+then `rolled_back_to` is no longer in the context. The change is stored as one plain edit.
+
 ### Writes that record nothing
 
 `save()` and `delete()` on an instance, and `delete()` on a `Submission` queryset (which the admin's

@@ -288,6 +288,9 @@ class Submission(models.Model):
         belong to the other form. Afterwards
         ``recorded_events`` on this instance lists what the rollback recorded (empty if the answers were already those).
         After a refusal this instance is left as it was.
+        Called from a receiver during a save of the same submission, the rollback's save records nothing of its own:
+        the outer save records the whole change as one plain edit, without ``rolled_back_to``, and ``recorded_events``
+        on this instance is left as it was.
         """
         from formkit_ninja.form_submission.events import SubmissionState, _same, _Unknown, context, fold_versions
 

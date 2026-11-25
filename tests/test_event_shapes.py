@@ -17,6 +17,7 @@ from formkit_ninja.form_submission.events import (
     SUBMISSION_STATUS,
     Changes,
     EditEvent,
+    LabelledEdit,
     RowChanges,
     StatusEvent,
     SubmissionEvent,
@@ -43,8 +44,10 @@ def _every_kind_of_event() -> list[SubmissionEvent]:
     s5 = _state(s2.fields, status=2, owner=8, form_type="meeting-v2")
     s6 = _state(s2.fields, status=2, owner=8, form_type="meeting-v3")
     converted = Normalisation(path=("notes",), rule="text-trimmed", before=" x", after="x")
-    events = submission_events(None, s1, schema_version=3, normalisations=[Normalisation(path=("venue",), rule="r", before="Hall", after="hall")])
-    events += submission_events(s1, s2, schema_version=3, normalisations=[converted])
+    events = submission_events(
+        None, s1, schema_version=3, normalisations=[Normalisation(path=("venue",), rule="r", before="Hall", after="hall")], rules_version="r1", labels=[LabelledEdit(("venue",), "venue-named")]
+    )
+    events += submission_events(s1, s2, schema_version=3, normalisations=[converted], rules_version="r1", labels=[LabelledEdit(("notes",), "notes-added")])
     events += submission_events(s2, s3) + submission_events(s3, s4)
     events += submission_events(s4, s5) + submission_events(s5, s6)  # owner only, then form type only
     events += [reset_event(s6, schema_version=4)]
@@ -71,6 +74,8 @@ def test_every_event_type_has_a_shape() -> None:
 def test_every_event_the_library_builds_fits_the_shape_for_its_type() -> None:
     events = _every_kind_of_event()
     assert {e["type"] for e in events} == set(EVENT_TYPES)
+    # The create and the edit carry every optional key a save can add, so the shapes are checked against them too.
+    assert [e["type"] for e in events if "labelled" in e and "rules_version" in e] == ["submission:create", SUBMISSION_EDIT]
     for event in events:
         required, allowed = _keys(EVENT_SHAPES[event["type"]])
         assert required <= set(event) <= allowed, event["type"]

@@ -224,6 +224,11 @@ class TestRollBack:
         finally:
             post_save.disconnect(sender=Submission, dispatch_uid="test-rollback-nested")
         assert Submission.objects.get(pk=sub.pk).fields == {"venue": "hall"}
+        # A known limit (documented on roll_back_to): the outer save records one plain edit, with no rollback marker.
+        after = self._stored(sub)[len(history) :]
+        assert [e["type"] for e in after] == ["submission:edit"]
+        assert "rolled_back_to" not in after[0].get("context", {})
+        assert sub.recorded_events == after
 
     def test_rolling_back_to_what_is_stored_already_leaves_recorded_events_empty(self) -> None:
         sub = Submission.objects.create(form_type="meeting", fields={"venue": "hall"})
