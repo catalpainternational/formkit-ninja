@@ -28,6 +28,8 @@ theme:
 
 nav:
   - Home: index.md
+  - What's new in 7.3: whats_new.md
+  - Changelog: changelog.md
   - Architecture:
       - Submission Pipeline: submission_architecture.md
       - Code Generation: code_generation.md
