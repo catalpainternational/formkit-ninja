@@ -37,15 +37,21 @@ change.
 Useful, and consumed today, but the shape may change in a minor release. Depend on it with an
 exact-minor pin if you do.
 
-- `form_submission.events` — `SubmissionEvent`, `SubmissionState`, `submission_events`, `fold`,
-  `fold_versions`, `diff_fields`, `apply_changes`, `reset_event`, `context`, `current_context`, `json_safe`, `EVENT_TYPES`,
+- `form_submission.events` — `SubmissionEvent` (the union of one shape per event type: `CreateEvent`,
+  `EditEvent`, `StatusEvent`, `RemoveEvent`, `RestoreEvent`, `DeleteEvent`, `ResetEvent`, told apart by
+  `type` with an `==` test, with `EVENT_SHAPES` mapping each type to its shape), `Changes` and `RowChanges` (what an edit
+  changed), `SubmissionState`, `submission_events`, `fold`,
+  `fold_versions`, `answer_history`, `answer_changes`, `diff_fields`, `apply_changes`, `reset_event`, `context`, `current_context`, `json_safe`, `EVENT_TYPES`,
   `EVENT_FORMAT`, `READABLE_EVENT_FORMATS`, `STATE_UNKNOWN` and the
   seven `SUBMISSION_*` type names; `form_submission.sinks` — `SubmissionEventSink` (a sink's
   `append(events, *, prior)`, where `prior` is the submission before the write or `None`), `TableSink`,
   `NullSink`, `get_sink`, `record_events`, `record_reset`, the `FORMKIT_NINJA_SUBMISSION_EVENT_SINK` setting; and the
   `SubmissionEventRecord` model; `Submission.write_state`, which stores the fold of an application's own
-  events and records nothing; `form_submission.normalise` — `Normalisation`, `Normalised`,
-  `normalise`, `get_normaliser`, the `FORMKIT_NINJA_SUBMISSION_NORMALISER` setting. Provisional until
+  events and records nothing; `Submission.recorded_events`, the events the save or delete last called on an
+  instance recorded; `Submission.label_edit` and `form_submission.events.LabelledEdit`, a receiver's label on an
+  answer it rewrote; `Submission.roll_back_to`, which saves an earlier version's answers as a new edit; `form_submission.normalise` — `Normalisation`, `Normalised`,
+  `normalise`, `get_normaliser`, `rules_version`, the `FORMKIT_NINJA_SUBMISSION_NORMALISER` setting;
+  `form_submission.sent` — `sent_event`, `SUBMISSION_SENT`, `SENT_EVENT_FORMAT`. Provisional until
   a consumer has used them, like `schema_emit`.
 - `form_submission.ordering` — `plan_ranks`, `document_position`, `document_order_key`.
 - `form_submission.ranking` — `harvest_ranks`, `apply_ranks`. `apply_ranks` is deliberately

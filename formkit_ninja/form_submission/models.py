@@ -6,8 +6,9 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
+from copy import deepcopy
 from dataclasses import fields as dataclass_fields
-from typing import TYPE_CHECKING, Any, Callable, Mapping, cast
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, cast
 
 import pghistory
 import pgtrigger
@@ -29,7 +30,7 @@ from formkit_ninja.form_submission.utils import (
 )
 
 if TYPE_CHECKING:
-    from formkit_ninja.form_submission.events import SubmissionState
+    from formkit_ninja.form_submission.events import SubmissionEvent, SubmissionState
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,8 @@ def _compared(state: SubmissionState) -> dict[str, Any]:
 
 
 #: The submissions (by key) whose ``save()`` or ``delete()`` is recording right now in this thread or
-#: task, each with the normalisations its writes have made so far. See ``Submission._record_write``.
+#: task, each with the normalisations its writes have made and the labels its receivers have given so far.
+#: See ``Submission._record_write``.
 _writes_in_progress: ContextVar[Mapping[str, list]] = ContextVar("formkit_ninja_submission_writes_in_progress", default={})
 
 
@@ -119,6 +121,10 @@ class Submission(models.Model):
     is_active = models.BooleanField(default=True)
 
     objects = SubmissionQuerySet.as_manager()
+
+    #: The events the ``save()`` or ``delete()`` last called on this instance recorded, in order; an empty
+    #: list when it changed nothing. Not set until one of them runs. See ``_record_write``.
+    recorded_events: list[SubmissionEvent]
 
     class Meta:
         triggers = [
@@ -227,6 +233,99 @@ class Submission(models.Model):
                 raise ValueError(f"submission {state.key}: saving stored {stored!r}, which is not the state it was given ({state!r})")
         return written
 
+    def label_edit(self, path: tuple[str, ...], label: str) -> None:
+        """Record that a receiver rewrote the answer at ``path`` during this save, and why (``label``).
+
+        For an application's ``pre_save`` receiver that changes an answer: the create or edit event
+        the save records lists ``{path, label}`` under ``labelled``, so the change does not read as
+        the person's own. ``path`` is written as for a normalisation (the answer's key, prefixed by
+        ``(repeater key, row uuid)`` for each repeater it sits in). Only labels whose value
+        differs between the stored row before and after the save are listed, so labelling an answer
+        that ends up unchanged lists nothing; ``path`` may also end at a row's uuid, or be just the
+        repeater's key, to label a whole row or table (rows removed or reordered). Call it from a
+        receiver while the save runs: called before ``save()``, or outside a recorded save (``loaddata``,
+        ``write_state``), it is dropped. Label only when your own write changed the value: a label
+        matches the answer, not who set it, so labelling an answer the person also set in the same save
+        labels theirs. A row the person adds in the same save has no ``uuid`` yet when ``pre_save``
+        receivers run, so it cannot be named.
+        """
+        from formkit_ninja.form_submission.events import LabelledEdit
+
+        if not isinstance(label, str):
+            raise TypeError(f"a label_edit label must be text, got {label!r}")
+        if not label:
+            raise ValueError("a label_edit label must not be empty")
+        if isinstance(path, str):
+            raise TypeError(f"a label_edit path is a tuple of keys, got the text {path!r}")
+        parts = tuple(path)
+        if not all(isinstance(part, str) for part in parts):
+            raise TypeError(f"a label_edit path must hold only text, got {parts!r}")
+        if not parts:
+            raise ValueError("a label_edit path must not be empty")
+        pending = _writes_in_progress.get().get(str(self.pk))
+        if pending is not None:
+            pending.append(LabelledEdit(parts, label))
+
+    def roll_back_to(self, events: Iterable[Mapping[str, Any]], event_id: str) -> None:
+        """Save this submission with its answers as they were just after ``event_id``, recorded as a new edit if they differ.
+
+        Only the answers go back: the stored row is read (and locked) and only its answers are changed,
+        so its status, owner and whether it is active stay as they are stored now, even if this
+        instance is out of date or holds unsaved changes; undoing an answer does not undo a
+        verification or bring back a removed submission. Afterwards this instance is read again from
+        the row.
+        ``events`` is this submission's history, oldest first (from the configured sink's store, or
+        the application's own). The version after ``event_id`` is worked out with ``fold_versions``
+        and its answers saved through ``save()``, under ``context(rolled_back_to=event_id)``, so the
+        change back is recorded as an edit like any other and the versions in between stay in the
+        history. Because it is a save, the normaliser and the application's receivers run again; if
+        the stored answers then differ from that version's (a rule changed since, say), the save is
+        rolled back and ``ValueError`` raised (a sink that does not write in the same transaction has
+        already been given the events by then). So is one for an event not in ``events``, events of
+        another submission, a version whose state is not known (``STATE_UNKNOWN``), a version in
+        which the submission was deleted (that is a ``delete()``), a submission whose row has been
+        deleted since, and one whose form type has changed since that version, as its old answers
+        belong to the other form. Afterwards
+        ``recorded_events`` on this instance lists what the rollback recorded (empty if the answers were already those).
+        After a refusal this instance is left as it was.
+        Called from a receiver during a save of the same submission, the rollback's save records nothing of its own:
+        the outer save records the whole change as one plain edit, without ``rolled_back_to``, and ``recorded_events``
+        on this instance is left as it was.
+        """
+        from formkit_ninja.form_submission.events import SubmissionState, _same, _Unknown, context, fold_versions
+
+        events = list(events)
+        if any(str(event.get("submission")) != str(self.pk) for event in events):
+            raise ValueError(f"cannot roll submission {self.pk} back with events of another submission")
+        versions = [state for event, state in fold_versions(events) if event.get("event_id") == event_id]
+        if not versions:
+            raise ValueError(f"event {event_id} is not in the history of submission {self.pk}")
+        target = versions[0]
+        if isinstance(target, _Unknown):
+            raise ValueError(f"submission {self.pk} after event {event_id} is not known (an earlier write skipped save()), so it cannot be rolled back to")
+        if target is None:
+            raise ValueError(f"submission {self.pk} was deleted after event {event_id}; delete it rather than roll back to it")
+        using = router.db_for_write(type(self), instance=self)
+        rows = type(self).objects.using(using)
+        with transaction.atomic(using=using):
+            # The stored row, not this instance: only the answers go back, whatever this instance holds.
+            row = rows.select_for_update().filter(pk=self.pk).first()
+            if row is None:
+                raise ValueError(f"submission {self.pk} no longer exists (it was deleted), so it is not rolled back")
+            if row.form_type != target.form_type:
+                raise ValueError(f"submission {self.pk} has the form type {row.form_type!r} now, not {target.form_type!r} as after event {event_id}, so that version's answers are not rolled back to")
+            row.fields = deepcopy(target.fields)
+            with context(rolled_back_to=event_id):
+                row.save(using=using)
+            stored = SubmissionState.of(rows.get(pk=self.pk))
+            if not _same(stored.fields, target.fields):
+                raise ValueError(f"submission {self.pk}: saving stored the answers {stored.fields!r}, which are not the version after event {event_id} ({target.fields!r})")
+        self.refresh_from_db(using=using)
+        # The save ran on ``row``, so this instance gets its list (empty when nothing changed). Inside a save
+        # of this submission there is none: the outer save records everything, and this instance is left as it was.
+        if "recorded_events" in row.__dict__:
+            self.recorded_events = row.recorded_events
+
     def delete(self, *args, **kwargs):
         """Delete the submission and record ``submission:delete`` in the same transaction."""
         using = kwargs["using"] = kwargs.get("using") or router.db_for_write(type(self), instance=self)
@@ -240,33 +339,42 @@ class Submission(models.Model):
         It runs inside the outer write's transaction, so recording it there would put its events
         before the outer write's, which ``fold`` cannot replay. The outermost write reads the row
         back after everything inside it has run and records prior-to-final once, with the
-        normalisations of every save in between. A write of a different submission records as usual.
+        normalisations and labels of every save in between. A write of a different submission records as usual.
+
+        The events recorded are kept on this instance as ``recorded_events``, so an application can
+        tell straight after ``save()`` that nothing changed (an empty list). A write that records
+        nothing itself, as above, leaves the attribute as it was; one that raises leaves it unset.
         """
-        from formkit_ninja.form_submission.events import SubmissionState
+        from formkit_ninja.form_submission.events import LabelledEdit, SubmissionState
         from formkit_ninja.form_submission.sinks import record_events
 
         key, pk = str(self.pk), self.pk
         in_progress = _writes_in_progress.get()
         if key in in_progress:
             return write()
-        normalisations: list = []
+        notes: list = []  # normalisations and labels, in the order they were made
+        # So a write that raises leaves no list from an earlier one.
+        self.__dict__.pop("recorded_events", None)
         with transaction.atomic(using=using):
             # Cleared inside the block: Django runs ``on_commit`` callbacks as the block commits, and a
             # save of this submission from one of them must record as a write of its own.
-            token = _writes_in_progress.set({**in_progress, key: normalisations})
+            token = _writes_in_progress.set({**in_progress, key: notes})
             try:
                 rows = type(self).objects.using(using)
                 stored = rows.select_for_update().filter(pk=pk).first()
                 result = write()
                 after = rows.filter(pk=pk).first()
-                record_events(
+                events = record_events(
                     SubmissionState.of(stored) if stored is not None else None,
                     SubmissionState.of(after) if after is not None else None,
-                    normalisations=normalisations,
+                    normalisations=[n for n in notes if not isinstance(n, LabelledEdit)],
+                    labels=[n for n in notes if isinstance(n, LabelledEdit)],
                 )
-                return result
             finally:
                 _writes_in_progress.reset(token)
+        # After the block, so a save of this instance from an ``on_commit`` callback cannot replace it.
+        self.recorded_events = events
+        return result
 
     def __str__(self) -> str:
         # Use only local fields to avoid N+1 (e.g. admin list).

@@ -1,6 +1,6 @@
 [project]
 name = "formkit-ninja"
-version = "7.2.1"
+version = "7.3.0"
 description = "A Django-Ninja backend to specify FormKit schemas"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
@@ -98,6 +98,24 @@ module = [
     "formkit_ninja.schema_edits",
 ]
 disallow_untyped_defs = true
+
+# The change events are a public contract: each event type has its own shape (Vikunja #2178).
+[[tool.mypy.overrides]]
+module = ["formkit_ninja.form_submission.events", "tests.test_event_shapes"]
+# ``--strict`` cannot be set per module, so these are the parts of it that can (``warn_redundant_casts``,
+# ``warn_unused_configs`` and ``strict_bytes`` are global only).
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+no_implicit_reexport = true
+strict_equality = true
+disallow_subclassing_any = true
+extra_checks = true
 
 # `fractional-indexing` ships no py.typed marker. The seam in
 # `formkit_ninja/fracrank.py` is where its types stop mattering: everything past

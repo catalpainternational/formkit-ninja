@@ -221,6 +221,16 @@ the normalisations of both saves. A receiver that deletes the submission it was 
 handled the same way, so the outer save records the delete. A receiver that saves or deletes a
 different submission records it as usual.
 
+After a `save()` or `delete()`, the instance's `recorded_events` lists the events that write
+recorded, in order, and is an empty list when it changed nothing, so an application can tell straight
+after the call that a save was a no-op. It is not set on an instance that has not been saved or
+deleted, and a save made inside another save of the same submission (above) leaves it as it was:
+the outer instance's list holds the change. A save that raises leaves it unset, and a save of the
+same instance from an `on_commit` callback does not replace the caller's list. It lists the events
+whatever the sink does with them, so with `NullSink` it is still the change the save made; and if a
+transaction around the save is rolled back afterwards, the list still names events that were not
+kept. A queryset `delete()` sets it on nothing, since it has no instances.
+
 Every event carries `event_format`, the version of the event's own shape (`EVENT_FORMAT`, now 1),
 which is separate from `schema_version`, the form's version. `fold` reads every format this library
 has shipped (`READABLE_EVENT_FORMATS`) and refuses an event in any other, or with none, naming the
@@ -243,6 +253,28 @@ row it resets from). A sink that keeps one stream per submission and is switched
 submissions already exist can append `reset_event(prior)` before the first events it sees for one,
 so that stream folds to the row whether it was started by the save or by a backfill. Wrap a request in `form_submission.events.context(actor=...,
 reason=..., via=...)` to say who and why.
+
+The events hold only new values; the old ones are worked out when the history is read, so every
+stored history, from any release, reads this way. `answer_history(events)` gives one
+`{"event", "state", "answers"}` per event, where `answers` lists each answer that event changed as
+`{"what", "path", "from", "to"}` (`what` is `"answer"`, a whole `"row"` added or removed, or a new
+`"order"` of the rows kept), and is `None` where the version before or after is `STATE_UNKNOWN`.
+`answer_changes(before, after)` gives the same list for any two answer documents.
+
+To go back to an earlier version, `submission.roll_back_to(events, event_id)` saves the submission's
+answers as they were just after that event. The stored row is read and only its answers change, so
+its status, owner and whether it is active stay as they are stored now, even if the instance is out
+of date. It is an ordinary save under `context(rolled_back_to=event_id)`, so the change
+back, if the answers differ, is recorded as a new edit and the versions in between stay in the history. The normaliser and
+the application's receivers run again; if the stored answers then differ from that version's, the
+save is rolled back and `ValueError` raised. A version whose state is `STATE_UNKNOWN`,
+one in which the submission was deleted (delete it instead), an event not in `events`, events of
+another submission, a submission deleted since, and one whose form type has changed since that
+version are refused the same way.
+
+One case does not carry the marker: a rollback called from a receiver while the same submission is
+being saved. Its own save records nothing, because the outer save records the whole change, and by
+then `rolled_back_to` is no longer in the context. The change is stored as one plain edit.
 
 ### Writes that record nothing
 
@@ -283,6 +315,32 @@ the stored answers and the events hold what it returns, and the create or edit l
 changed with the rule that changed it (`normalised`). A replay reads the recorded result and never
 runs the normaliser again, so the normaliser may consult the application's own tables.
 
+Give the rules a version by setting it on the function, `normalise_answers.rules_version =
+"2026-11-19.1"`, and change it whenever any rule's behaviour changes. It is text, compared only for
+equality; `normalise.rules_version()` reads it and raises `TypeError` for anything that is not
+text. Each create and edit then carries `rules_version`, so a stored answer can be traced to the
+rules that made it. It is left out when the rules have no version, and never put on a
+`submission:reset`, which copies a stored state whose rules are not known. `fold` ignores it, so
+the event format does not change. An application that builds its own events and stores them with
+`Submission.write_state` passes `rules_version=normalise.rules_version()` to `submission_events`
+itself. A rule that reads the application's tables can change what it
+does without its version moving; the `normalised` entries still show what each save did.
+
+A `pre_save` receiver of the application's own that rewrites an answer (one that needs the
+submission's status or another table, which a normaliser cannot see) can say so: it calls
+`instance.label_edit(path, label)` for each answer it changed, with `path` written as for a
+normalisation, and the create or edit lists `{path, label}` under `labelled`. A `path` that ends at a
+row's uuid labels that row, and the repeater's key alone labels the whole table, for rows removed or
+reordered. A label is listed only when the value at its path differs between the stored row before
+and after the save, so an answer labelled but left as it was lists nothing, and answers the person
+changed elsewhere in the same save stay unlabelled. A label matches the answer, not who set it: label
+only when your own write changed the value, or an answer the person set to the same value is labelled
+too. A row the person adds in the same save has no `uuid` yet when `pre_save` receivers run, so it
+cannot be named, and an answer the receiver removes in the same save that first sent it was never
+stored, so its label is left out: the raw copy of what was sent (below) is the record of it. A label from a save made inside another save of the same submission is listed on
+the outer save's event, once. Called before `save()`, or outside a recorded save (`loaddata`,
+`write_state`), the label is dropped. It is a note, like `normalised`: `fold` ignores it.
+
 ## Keeping the answers as sent
 
 The change events hold answers as they were stored: after empty answers are dropped, repeater rows
@@ -298,6 +356,8 @@ sent = sent_event(submission.pk, submission.form_type, request_json, received_at
 record_sent(sent)  # your own store: one stream per submission, say
 with context(correlation=sent["context"]["correlation"]):
     submission.save()
+if not submission.recorded_events:
+    record_sent_unchanged(sent)  # your own note that this sending changed nothing
 ```
 
 The library stores nothing raw. `sent_event` returns a `submission:sent` event, and nothing in the
@@ -312,6 +372,7 @@ library builds a submission from it. Its keys:
 - `sha256`, the hex SHA-256 of
   `json.dumps(fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)`
   in UTF-8, so key order does not change it, row order does, and `1` and `1.0` differ.
+- `rules_version`, the version of the normaliser's rules in force (above), when they have one.
 
 When one repeater row is sent on its own, pass `repeater="<table name>"` and the row as `fields`;
 the event then carries `repeater`.

@@ -7,13 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.3.0] - 2026-11-25
+
 ### Added
 
+- **Each save says which version of the cleaning rules was in force.** Set `rules_version` on the normaliser function and every create and edit records it, as does the raw copy, so a stored answer can be traced to the rules that made it. Without one, nothing changes.
 - **A raw copy of the answers as they were sent.** `form_submission.sent.sent_event(...)` builds a `submission:sent` event holding a form's answers with the values exactly as received, with a hash and the save's correlation. An application keeps it in its own store to show what a person typed. The library stores nothing raw.
+- **An application can tell when a save changed nothing.** After a submission is saved or deleted, it lists the events it recorded (`submission.recorded_events`); the list is empty when nothing changed, so an application can note an unchanged sending in its own log.
+- **A change an application's own code made during a save can be labelled.** Code that rewrites an answer while a submission is saved calls `instance.label_edit(path, label)`, and the change is recorded with that label, so it no longer reads as an edit the person made. The person's own edits in the same save stay unlabelled.
+- **Each kind of change has its own type.** A type checker now knows which keys each kind of change carries (an edit has its changes, a status move has the status before and after), so code that reads the wrong key is caught before it runs. `SubmissionEvent` is a union of one shape per event type, told apart by `type`, and an edit's changes have their own type, `Changes` (also what `diff_fields` returns). The events themselves are unchanged. Typed code that reads a key only some events have, such as `event["changes"]`, now has to check `event["type"] == SUBMISSION_EDIT` first (an `==` test; `in (...)` does not narrow), code that annotated what `diff_fields` returns as `dict[str, Any]` now needs `Changes` or `Mapping[str, Any]`, and `SubmissionEvent` can no longer be called or subclassed, being a union.
+- **Readable history and rolling back.** A submission's history can now be read as each answer's old and new value (`answer_history`), worked out from the changes already stored, and a submission's answers can be put back as they were at an earlier version (`submission.roll_back_to`). Going back is recorded as a new change (when the answers differ), so the versions in between are kept, and the status and owner stay as they are.
 
 ### Fixed
 
 - **A repeater row with no answers no longer changes on every save.** A row left with nothing in it, or only blank answers, was kept, given a new id each time the submission was saved, and recorded as an edit and split again as a new empty row. Saving now drops such a row, and drops the repeater too if no rows are left. A submission already holding one loses it at its next save, which records one edit; it is stable after that.
+
+### Note for upgraders
+
+- **Typed code may need a small change.** A type checker now sees each kind of change as its own type, so code that reads `event["changes"]` must first check `event["type"] == SUBMISSION_EDIT`, code that wrote `dict[str, Any]` for what `diff_fields` returns now needs `Changes` or `Mapping[str, Any]`, and `SubmissionEvent` can no longer be called or subclassed. Nothing stored changes: existing events read back as before, and no migration is needed.
+- **Everything new is optional.** An application that sets no `rules_version`, labels nothing and never rolls back sees the same events as 7.2.1, apart from reading `recorded_events` after a save if it wants to.
 
 ## [7.2.1] - 2026-11-17
 

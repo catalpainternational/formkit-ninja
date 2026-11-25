@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from formkit_ninja.form_submission.events import _json_context, current_context
+from formkit_ninja.form_submission.normalise import rules_version
 
 __all__ = ["SENT_EVENT_FORMAT", "SUBMISSION_SENT", "sent_event"]
 
@@ -82,6 +83,9 @@ def sent_event(
     ``sha256`` is the hex SHA-256 of ``fields`` written as
     ``json.dumps(fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)``
     in UTF-8, so key order does not change it, row order does, and ``1`` and ``1.0`` differ.
+
+    ``rules_version`` is the configured normaliser's
+    :func:`~formkit_ninja.form_submission.normalise.rules_version`, left out when there is none.
     """
     copy, digest = _as_sent(fields)
     if schema_version is None:
@@ -105,4 +109,7 @@ def sent_event(
     }
     if repeater is not None:
         event["repeater"] = repeater
+    version = rules_version()
+    if version is not None:
+        event["rules_version"] = version
     return event
